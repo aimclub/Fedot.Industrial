@@ -1,0 +1,326 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from benchmark.benchmark_TSF import BenchmarkTSF
+from benchmark.v2.api import compare_forecasting_models_on_series, run_forecasting_benchmark_suite
+from benchmark.v2.core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, RunStatus, TaskType
+from benchmark.v2.forecasting import build_dataset_adapter
+
+
+def _toy_records() -> list[dict]:
+    base = np.linspace(1.0, 24.0, num=24)
+    return [
+        {
+            'series_id': 'toy_1',
+            'values': (base + 0.5 * np.sin(np.arange(24))).tolist(),
+            'horizon': 4,
+            'frequency': 'monthly',
+            'seasonal_period': 4,
+            'dataset_name': 'toy_dataset',
+        },
+        {
+            'series_id': 'toy_2',
+            'values': (base * 1.2 + np.cos(np.arange(24))).tolist(),
+            'horizon': 4,
+            'frequency': 'monthly',
+            'seasonal_period': 4,
+            'dataset_name': 'toy_dataset',
+        },
+    ]
+
+
+def test_m4_adapter_parses_frame_and_samples() -> None:
+    rows = []
+    for series_id in ('M4_monthly_1', 'M4_monthly_2'):
+        for step in range(20):
+            rows.append(
+                {
+                    'unique_id': series_id,
+                    'ds': step,
+                    'y': float(step),
+                    'horizon': 4,
+                    'frequency': 'Monthly',
+                    'seasonal_period': 12,
+                }
+            )
+    frame = pd.DataFrame(rows)
+    spec = DatasetSpec(
+        benchmark='m4',
+        dataset_name='toy_m4',
+        subset='monthly',
+        sample_size=1,
+        random_seed=3,
+        adapter_options={'loader': lambda _: frame},
+    )
+
+    adapter = build_dataset_adapter(spec)
+    records = adapter.load_series(spec)
+
+    assert len(records) == 1
+    assert records[0].forecast_horizon == 4
+    assert records[0].seasonal_period == 12
+    assert len(records[0].train_values) == 16
+    assert len(records[0].test_values) == 4
+
+
+def test_m4_adapter_reads_local_repo_files() -> None:
+    spec = DatasetSpec(
+        benchmark='m4',
+        dataset_name='m4_daily_local',
+        subset='daily',
+        sample_size=2,
+        random_seed=1,
+        adapter_options={'use_local_files': True},
+    )
+
+    adapter = build_dataset_adapter(spec)
+    records = adapter.load_series(spec)
+
+    assert len(records) == 2
+    assert all(record.forecast_horizon == 14 for record in records)
+    assert all(record.metadata['split_provenance'] == 'local_m4_train_test_csv' for record in records)
+
+
+def test_monash_adapter_reads_local_repo_files() -> None:
+    spec = DatasetSpec(
+        benchmark='monash',
+        dataset_name='Bitcoin',
+        subset='daily',
+        sample_size=2,
+        random_seed=2,
+        adapter_options={'use_local_files': True},
+    )
+
+    adapter = build_dataset_adapter(spec)
+    records = adapter.load_series(spec)
+
+    assert len(records) == 2
+    assert all(record.forecast_horizon == 30 for record in records)
+    assert all(record.metadata['split_provenance'] == 'local_monash_csv' for record in records)
+    assert all(record.metadata['source_file'] == 'MonashBitcoin_30.csv' for record in records)
+
+
+def test_m4_adapter_reads_local_repo_files_from_foreign_cwd(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    spec = DatasetSpec(
+        benchmark='m4',
+        dataset_name='m4_daily_local',
+        subset='daily',
+        sample_size=1,
+        random_seed=3,
+        adapter_options={'use_local_files': True},
+    )
+
+    adapter = build_dataset_adapter(spec)
+    records = adapter.load_series(spec)
+
+    assert len(records) == 1
+    assert records[0].metadata['split_provenance'] == 'local_m4_train_test_csv'
+
+
+def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> None:
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+            ModelSpec(adapter_name='mssa', display_name='mSSA', params={'window_size': 6, 'rank': 2}),
+            ModelSpec(
+                adapter_name='okhs',
+                display_name='OKHS Direct',
+                params={
+                    'method': 'direct',
+                    'window_size': 8,
+                    'n_modes': 2,
+                    'q': 0.9,
+                },
+            ),
+            ModelSpec(adapter_name='autogluon', display_name='AutoGluon', optional=True),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='toy_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert result.aggregate_report.primary_metric == 'mae'
+    assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert any(
+        record.model_name == 'OKHS Direct' and record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert any(record.model_name == 'mSSA' and record.status is RunStatus.SUCCESS for record in result.run_records)
+    okhs_record = next(record for record in result.run_records if record.model_name == 'OKHS Direct')
+    assert okhs_record.metadata['method'] == 'direct'
+    assert 'regime_diagnostics' in okhs_record.metadata
+    assert any(record.horizon_index is None for record in result.metric_records)
+    assert any(record.horizon_index is not None for record in result.metric_records)
+    assert result.artifact_manifest
+    assert any(Path(record.path).exists() for record in result.artifact_manifest)
+    assert any(Path(record.path).name == 'errors.jsonl' for record in result.artifact_manifest)
+    errors_path = next(
+        Path(record.path) for record in result.artifact_manifest if Path(record.path).name == 'errors.jsonl')
+    error_lines = [line for line in errors_path.read_text(encoding='utf-8').splitlines() if line.strip()]
+    assert error_lines
+    assert any('AutoGluon' in line for line in error_lines)
+
+    comparison = compare_forecasting_models_on_series(
+        result,
+        series_id='toy_1',
+        output_dir=tmp_path / 'manual_comparison',
+    )
+    assert comparison.model_names
+    assert comparison.artifact_manifest
+    artifact_names = {Path(record.path).name for record in comparison.artifact_manifest}
+    assert 'toy_1_history_forecast_overlay.png' in artifact_names
+    assert 'toy_1_boundary_zoom.png' in artifact_names
+    assert 'toy_1_forecast_delta.png' in artifact_names
+    assert 'toy_1_okhs_diagnostics.json' in artifact_names
+    publication_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'toy_dataset_metric_distribution_mae.png' in publication_names
+    assert 'toy_dataset_model_ranking_mae.png' in publication_names
+
+
+def test_forecasting_publication_pack_falls_back_without_tabulate(tmp_path: Path, monkeypatch) -> None:
+    original_to_markdown = pd.DataFrame.to_markdown
+
+    def broken_to_markdown(self, *args, **kwargs):
+        del self, args, kwargs
+        raise ImportError("Missing optional dependency 'tabulate'.")
+
+    monkeypatch.setattr(pd.DataFrame, 'to_markdown', broken_to_markdown)
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='toy_suite_no_tabulate', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert result.artifact_manifest
+    summary_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'summary.md'
+    )
+    summary_text = summary_path.read_text(encoding='utf-8')
+    assert '# Forecasting Benchmark Summary' in summary_text
+    assert '| benchmark' in summary_text or '| model_name' in summary_text
+
+    monkeypatch.setattr(pd.DataFrame, 'to_markdown', original_to_markdown)
+
+
+def test_forecasting_suite_runs_on_local_m4_subset(tmp_path: Path) -> None:
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='m4',
+                dataset_name='m4_daily_local',
+                subset='daily',
+                sample_size=1,
+                random_seed=7,
+                adapter_options={'use_local_files': True},
+            ),
+        ),
+        models=(
+            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='real_local_m4', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert any(record.metric_name == 'mae' and record.horizon_index is None for record in result.metric_records)
+    assert any(record.metric_name == 'mae' and record.horizon_index is not None for record in result.metric_records)
+
+
+def test_forecasting_suite_runs_on_local_monash_subset(tmp_path: Path) -> None:
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='monash',
+                dataset_name='Bitcoin',
+                subset='daily',
+                sample_size=1,
+                random_seed=11,
+                adapter_options={'use_local_files': True},
+            ),
+        ),
+        models=(
+            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='naive_mean', display_name='NaiveMean'),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='real_local_monash', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert any(record.metric_name == 'smape' for record in result.metric_records)
+    assert any(record.metric_name == 'owa' for record in result.metric_records)
+
+
+def test_legacy_benchmark_tsf_can_delegate_to_v2(tmp_path: Path) -> None:
+    benchmark = BenchmarkTSF(
+        experiment_setup={
+            'use_benchmark_v2': True,
+            'output_dir': str(tmp_path),
+            'dataset_specs': [
+                {
+                    'benchmark': 'in_memory',
+                    'dataset_name': 'toy_dataset',
+                    'subset': 'monthly',
+                    'adapter_options': {
+                        'records': _toy_records(),
+                        'forecast_horizon': 4,
+                        'seasonal_period': 4,
+                    },
+                }
+            ],
+            'model_specs': [
+                {'adapter_name': 'naive_last_value', 'display_name': 'NaiveLastValue'},
+            ],
+        },
+        custom_datasets=[],
+    )
+
+    result = benchmark.run()
+
+    assert result.config.task_type is TaskType.FORECASTING
+    assert any(record.model_name == 'NaiveLastValue' for record in result.run_records)

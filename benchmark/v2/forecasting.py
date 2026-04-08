@@ -9,8 +9,11 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 import torch
-from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, normalize_okhs_method
+
+from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
+from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
+from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
 
 try:  # pragma: no cover - optional heavyweight dependency tree in test envs
@@ -649,7 +652,7 @@ class OKHSModel(ForecastingModelAdapter):
         metadata = {
             **model.get_optimization_info(),
             'selected_q': float(getattr(model, 'resolved_q_', self.q)),
-            'method': str(method),
+            'method': canonical_method_name(method),
             'window_size': window_size,
             'last_train_value': float(train[-1]),
             'first_prediction_value': float(forecast[0]) if len(forecast) else None,
@@ -660,6 +663,35 @@ class OKHSModel(ForecastingModelAdapter):
         if metadata['first_actual_value'] is not None:
             metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
         return forecast, metadata
+
+
+@dataclass
+class MSSAModel(ForecastingModelAdapter):
+    window_size: int | None = None
+    rank: int | None = None
+    explained_variance: float = 0.95
+    lag_order: int | None = None
+    coupled: bool = False
+    name: str = 'mSSA'
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'mssa')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        train = np.asarray(series_record.train_values, dtype=float)
+        model = MSSAForecaster(
+            forecast_horizon=series_record.forecast_horizon,
+            window_size=self.window_size,
+            rank=self.rank,
+            explained_variance=self.explained_variance,
+            lag_order=self.lag_order,
+            coupled=self.coupled,
+        )
+        model.fit(train)
+        forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
+        return forecast[:series_record.forecast_horizon], model.get_diagnostics()
 
 
 @dataclass
@@ -697,6 +729,8 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     params = dict(spec.params)
     if adapter_name == 'okhs':
         return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
+    if adapter_name == 'mssa':
+        return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
     if adapter_name == 'naive_last_value':
         return NaiveLastValueModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'naive_mean':
@@ -907,6 +941,8 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                 for series_record in dataset_series:
                     progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
                     try:
+                        regime_diagnostics = analyze_regime_diagnostics(
+                            np.asarray(series_record.train_values, dtype=float))
                         prediction, metadata = model.forecast(series_record)
                         actual = np.asarray(series_record.test_values, dtype=float)
                         forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
@@ -990,7 +1026,10 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 status=RunStatus.SUCCESS,
                                 tags=model.tags,
                                 metrics_summary=metrics_summary,
-                                metadata=metadata,
+                                metadata={
+                                    **metadata,
+                                    'regime_diagnostics': regime_diagnostics.to_dict(),
+                                },
                             )
                         )
                         progress.advance(RunStatus.SUCCESS.value)

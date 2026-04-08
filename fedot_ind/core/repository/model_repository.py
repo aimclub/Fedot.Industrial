@@ -60,6 +60,8 @@ from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
+from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
@@ -183,6 +185,8 @@ class AtomizedModel(Enum):
         'eigen_forecaster': EigenAR,
         'topo_forecaster': TopologicalAR,
         'lagged_forecaster': LaggedAR,
+        'ssa_forecaster': SSAForecasterImplementation,
+        'mssa_forecaster': MSSAForecasterImplementation,
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,

@@ -5,6 +5,11 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from fedot_ind.core.operation.transformation.data.trajectory_embedding import (
+    build_hankel,
+    truncate_rank,
+)
+
 
 class OKHSMethod(str, Enum):
     DMD = "dmd"
@@ -321,12 +326,10 @@ def analyze_okhs_window_size(
 
 def _dense_okhs_trajectory_matrix(time_series: Sequence[Any], window_size: int) -> np.ndarray:
     try:
-        from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-
         dense_matrix = np.asarray(
-            HankelMatrix(time_series=time_series, window_size=window_size).trajectory_matrix,
+            build_hankel(time_series=time_series, window_size=window_size).matrix,
             dtype=float,
-        ).T
+        )
     except Exception:  # pragma: no cover - fallback for lightweight envs without optional deps
         series = np.asarray(time_series, dtype=float).reshape(-1)
         dense_matrix = np.array(
@@ -556,10 +559,14 @@ def apply_trajectory_rank_regularization(
     applied_rank_floor = int(max(2, min(min_selected_rank, min_dim))) if min_selected_rank is not None else 2
     raw_selected_rank = int(max(2, min(selected_rank, min_dim)))
     selected_rank = int(max(raw_selected_rank, applied_rank_floor))
-    U, S, VT = np.linalg.svd(matrix, full_matrices=False)
-    approximated = (U[:, :selected_rank] * S[:selected_rank]) @ VT[:selected_rank, :]
-    retained = float(np.sum(singular_values[:selected_rank]) / np.sum(singular_values)) \
-        if float(np.sum(singular_values)) > 0 else 1.0
+    truncated = truncate_rank(
+        matrix=matrix,
+        rank=selected_rank,
+        explained_variance=0.95,
+        min_rank=max(1, min_selected_rank or 1),
+    )
+    approximated = truncated.reconstructed_matrix
+    retained = float(truncated.explained_variance_retained)
 
     return approximated, {
         "trajectory_rank_policy": normalized_rank_policy.value,
@@ -570,7 +577,7 @@ def apply_trajectory_rank_regularization(
         "rank_floor_applied": selected_rank > raw_selected_rank,
         "explained_variance_retained": retained,
         "compression_ratio": selected_rank / min_dim if min_dim > 0 else 1.0,
-        "singular_values": singular_values,
+        "singular_values": truncated.singular_values,
     }
 
 
@@ -709,9 +716,14 @@ def build_okhs_trajectory_representation(
     trajectory_matrix_shape_after = tuple(int(value) for value in matrix_after.shape)
 
     if normalized_representation_policy is TrajectoryRepresentationPolicy.PROJECTED and sampled_matrix.size:
-        U, S, VT = np.linalg.svd(sampled_matrix, full_matrices=False)
-        basis = VT[:selected_rank, :].T
-        latent_states = sampled_matrix @ basis
+        truncated = truncate_rank(
+            matrix=sampled_matrix,
+            rank=selected_rank,
+            explained_variance=0.95,
+            min_rank=max(1, selected_rank),
+        )
+        basis = truncated.basis
+        latent_states = truncated.projected_states
         projected_trajectories, latent_window_diagnostics = _build_projected_trajectory_windows(
             latent_states=latent_states,
             preferred_window_size=preprocessing["window_size"],
