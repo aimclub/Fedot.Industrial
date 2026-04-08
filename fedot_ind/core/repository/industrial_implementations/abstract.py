@@ -388,7 +388,7 @@ def predict_operation_industrial(
             predict_data=data,
             output_mode=output_mode)
     try:
-        prediction.predict = prediction.predict.detach().numpy()
+        prediction.predict = prediction.predict.detach().cpu().numpy()
     except Exception:
         _ = 1
     prediction = self.assign_tabular_column_types(prediction, output_mode)

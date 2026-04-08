@@ -1,23 +1,33 @@
 from __future__ import annotations
 
 import numpy as np
+import torch
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
-    FractionalDMD as OKHSFractionalDMD,
-    FractionalLiouvilleOperator,
-    OKHSTransformer,
-)
+# from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
+#     FractionalDMD as OKHSFractionalDMD,
+#     FractionalLiouvilleOperator,
+#     OKHSTransformer,
+# )
+
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_dmd import FractionalDMD as OKHSFractionalDMD
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.gram_transform import OKHSTransformer
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_liouville import FractionalLiouvilleOperator
 
 
 class _DefaultRBFKernel:
     def __init__(self, gamma: float = 1.0):
         self.gamma = gamma
 
+    def _compute_batch_kernel(self, x, y):
+        dist_sq = torch.sum((x - y) ** 2, dim=-1)
+        return torch.exp(-self.gamma * dist_sq)
+
     def _compute_single_kernel(self, x, y):
-        left = np.atleast_1d(np.asarray(x, dtype=float))
-        right = np.atleast_1d(np.asarray(y, dtype=float))
-        diff = left - right
-        return float(np.exp(-self.gamma * np.dot(diff, diff)))
+        x_tensor = torch.as_tensor(x)
+        y_tensor = torch.as_tensor(y)
+        dist_sq = torch.sum((x_tensor - y_tensor) ** 2)
+        
+        return torch.exp(-self.gamma * dist_sq).item()
 
 
 class FractionalDMD:
@@ -41,6 +51,7 @@ class FractionalDMD:
             n_quad_points=20,
             dt=1.0,
             regularization=1e-8,
+            device='cpu',
     ):
         self.q = q
         self.n_modes = n_modes
@@ -52,7 +63,8 @@ class FractionalDMD:
         self.boundary_alignment_policy = boundary_alignment_policy
         self.boundary_alignment_decay = boundary_alignment_decay
         self.prediction_stability_threshold = prediction_stability_threshold
-        self.kernel = kernel or _DefaultRBFKernel()
+        # self.kernel = kernel 
+        self.kernel =  _DefaultRBFKernel()
         self.n_quad_points = n_quad_points
         self.dt = dt
         self.regularization = regularization
@@ -67,6 +79,7 @@ class FractionalDMD:
         self.resolved_n_modes_ = None
         self.last_prediction_diagnostics_ = None
         self.last_fit_diagnostics_ = None
+        self.device = device
 
     @staticmethod
     def _normalize_trajectory(trajectory):
@@ -170,6 +183,7 @@ class FractionalDMD:
             q=self.q,
             n_quad_points=self.n_quad_points,
             dt=self.dt,
+            device=self.device,
         )
         self.okhs.fit(normalized_trajectories)
 
@@ -183,12 +197,17 @@ class FractionalDMD:
             liouville_operator=self.liouville_operator_,
             n_quad_points=self.n_quad_points,
             regularization=self.regularization,
+            device=self.device,
         )
         self.fdmd_.fit(normalized_trajectories)
-
-        self.eigenvalues_ = np.asarray(self.liouville_operator_.eigenvalues_)
-        self.eigenvectors_ = np.asarray(self.liouville_operator_.eigenvectors_)
-        self.modes_ = np.asarray(self.fdmd_.modes_)
+        try:
+            self.eigenvalues_ = np.asarray(self.liouville_operator_.eigenvalues_)
+            self.eigenvectors_ = np.asarray(self.liouville_operator_.eigenvectors_)
+            self.modes_ = np.asarray(self.fdmd_.modes_)
+        except Exception:
+            self.eigenvalues_ = np.asarray(self.liouville_operator_.eigenvalues_.cpu().numpy())
+            self.eigenvectors_ = np.asarray(self.liouville_operator_.eigenvectors_.cpu().numpy())
+            self.modes_ = np.asarray(self.fdmd_.modes_.cpu().numpy())
         self._select_modes()
         self.last_fit_diagnostics_ = self.get_fit_diagnostics_summary()
         return self

@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import torch
 import numpy as np
 
 try:
@@ -20,28 +20,20 @@ except ImportError:  # pragma: no cover - optional runtime dependency for exampl
     caputo = None
     evolve = None
 
-
 class RBFKernel:
     def __init__(self, gamma: float = 1.0):
         self.gamma = gamma
 
-    def _compute_single_kernel(self, x, y):
-        diff = np.asarray(x) - np.asarray(y)
-        dist_sq = float(np.dot(diff.reshape(-1), diff.reshape(-1)))
-        return np.exp(-self.gamma * dist_sq)
-
-
-class MittagLefflerKernel:
-    def __init__(self, gamma: float = 1.0, q: float = 0.5):
-        if not (0 < q <= 1):
-            raise ValueError("q must be in the interval (0, 1].")
-        self.q = q
-        self.gamma = gamma
+    def _compute_batch_kernel(self, x, y):
+        dist_sq = torch.sum((x - y) ** 2, dim=-1)
+        return torch.exp(-self.gamma * dist_sq)
 
     def _compute_single_kernel(self, x, y):
-        distance = np.sum((np.asarray(x) - np.asarray(y)) ** 2)
-        return mittag_leffler(-self.gamma * distance, alpha=self.q, beta=1.0)
-
+        x_tensor = torch.as_tensor(x)
+        y_tensor = torch.as_tensor(y)
+        dist_sq = torch.sum((x_tensor - y_tensor) ** 2)
+        
+        return torch.exp(-self.gamma * dist_sq).item()
 
 def generate_trajectories_pycaputo(
         f,

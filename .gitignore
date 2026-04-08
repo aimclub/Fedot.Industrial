@@ -98,3 +98,5 @@ env.bak/
 venv.bak/
 
 .local/
+
+.vscode/

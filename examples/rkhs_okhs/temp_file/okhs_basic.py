@@ -1,13 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from examples.rkhs_okhs.example_common import RBFKernel, generate_trajectories_pycaputo
+from example_common import RBFKernel, generate_trajectories_pycaputo
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
     FractionalDMD,
     FractionalLiouvilleOperator,
     OKHSTransformer,
 )
-
 
 def run_test(
     q_true=0.8,

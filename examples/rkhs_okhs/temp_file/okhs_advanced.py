@@ -1,11 +1,11 @@
 import numpy as np
+import torch
 
-from examples.rkhs_okhs.example_common import (
-    MittagLefflerKernel,
+from example_common import (
     RBFKernel,
     generate_trajectories_pycaputo,
 )
-from examples.rkhs_okhs.temp_file.okhs_experiment_utils import (
+from okhs_experiment_utils import (
     ExperimentConfig,
     ExperimentResult,
     ensure_valid_config,
@@ -62,6 +62,7 @@ def run_experiment(config: ExperimentConfig, dynamics_func, dynamics_args, kerne
         initial_segment_length=config.initial_segment_length,
         plot_part=config.plot_part,
         should_plot=should_plot,
+        device='cuda' if torch.cuda.is_available() else 'cpu',
     )
 
 
@@ -72,11 +73,11 @@ def run_test(
     test_traj,
     q_true,
     dim,
-        kernel=RBFKernel(gamma=0.5),
+    kernel=RBFKernel(gamma=0.5),
     n_quad_points=100,
     regularization=1e-3,
-        initial_segment_length=10,
-        plot_part=1.0,
+    initial_segment_length=10,
+    plot_part=1.0,
 ):
     """
     Backward-compatible thin wrapper around the refactored experiment utilities.

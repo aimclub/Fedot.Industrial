@@ -20,7 +20,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
     """
 
     def __init__(
-            self,
+            self, 
             q=0.7,
             forecast_horizon=10,
             n_modes=5,
@@ -43,6 +43,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
             boundary_alignment_policy='tapered_offset',
             boundary_alignment_decay=4.0,
             prediction_stability_threshold=0.03,
+            device = 'cpu',
     ):
         self.q = q
         self.forecast_horizon = forecast_horizon
@@ -76,6 +77,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         self._projection_runtime_ = None
         self.dmd_prediction_diagnostics_ = None
         self.method_name_ = canonical_method_name(self.method)
+        self.device = device
 
     def _create_trajectories(self, time_series, window_size):
         trajectories = []
@@ -136,6 +138,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
                 boundary_alignment_policy=self.boundary_alignment_policy,
                 boundary_alignment_decay=self.boundary_alignment_decay,
                 prediction_stability_threshold=self.prediction_stability_threshold,
+                device = self.device,
             )
             self.model.fit(self.trajectories_)
         else:
@@ -244,6 +247,9 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
                 self.dmd_prediction_diagnostics_ = diagnostics
             else:
                 predictions = self.model.predict(last_trajectory, future_times)
+            # Ensure predictions are on CPU before converting to numpy
+            if hasattr(predictions, 'cpu'):
+                predictions = predictions.cpu()
             return np.asarray(predictions, dtype=float).flatten()
 
         if time_series is None:

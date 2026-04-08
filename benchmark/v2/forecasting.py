@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
-
+import torch
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, normalize_okhs_method
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover - lightweight fallback for benchmark-v2
     M4_SEASONALITY = {'D': 1, 'W': 1, 'M': 12, 'Q': 4, 'Y': 1}
     M4_PREFIX = {'D': 'Daily', 'W': 'Weekly', 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
 
-from .core import (
+from benchmark.v2.core import (
     BenchmarkAggregateReport,
     BenchmarkRunRecord,
     BenchmarkSuiteConfig,
@@ -35,7 +35,7 @@ from .core import (
     TaskType,
     new_run_id,
 )
-from .progress import BenchmarkProgressMonitor
+from benchmark.v2.progress import BenchmarkProgressMonitor
 
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -608,6 +608,7 @@ class OKHSModel(ForecastingModelAdapter):
     name: str = 'OKHS'
     tags: tuple[str, ...] = ('okhs', 'forecasting')
     optional: bool = False
+    device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
         return RunStatus.SUCCESS, 'ready'
@@ -636,9 +637,14 @@ class OKHSModel(ForecastingModelAdapter):
             boundary_alignment_policy=self.boundary_alignment_policy,
             boundary_alignment_decay=self.boundary_alignment_decay,
             prediction_stability_threshold=self.prediction_stability_threshold,
+            device=self.device,
         )
         model.fit(train, window_size=window_size)
-        prediction = np.asarray(model.predict(train), dtype=float).reshape(-1)
+        model_prediction = model.predict(train)
+        # Ensure prediction is on CPU before converting to numpy
+        if hasattr(model_prediction, 'cpu'):
+            model_prediction = model_prediction.cpu()
+        prediction = np.asarray(model_prediction, dtype=float).reshape(-1)
         forecast = prediction[:series_record.forecast_horizon]
         metadata = {
             **model.get_optimization_info(),
