@@ -54,8 +54,11 @@ from benchmark.v2 import (
     run_tser_benchmark_from_legacy_config,
     run_tser_benchmark_suite,
     DEFAULT_OKHS_SMOOTHING_SERIES_IDS,
+    OKHSSmoothingAcceptanceCriteria,
+    OKHSSmoothingAcceptanceReport,
     OKHSSmoothingSeriesSummary,
     OKHSSmoothingSummary,
+    evaluate_okhs_smoothing_acceptance,
     summarize_okhs_smoothing_result,
     write_example_manifest,
 )
@@ -116,8 +119,11 @@ __all__ = [
     'run_tser_benchmark_from_legacy_config',
     'run_tser_benchmark_suite',
     'DEFAULT_OKHS_SMOOTHING_SERIES_IDS',
+    'OKHSSmoothingAcceptanceCriteria',
+    'OKHSSmoothingAcceptanceReport',
     'OKHSSmoothingSeriesSummary',
     'OKHSSmoothingSummary',
+    'evaluate_okhs_smoothing_acceptance',
     'summarize_okhs_smoothing_result',
     'write_example_manifest',
 ]

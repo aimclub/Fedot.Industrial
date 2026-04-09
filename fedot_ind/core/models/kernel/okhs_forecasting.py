@@ -123,6 +123,9 @@ def apply_okhs_anti_smoothing(
         'target_amplitude_ratio': float(target_amplitude_ratio),
         'forecast_amplitude_after': diagnostics['forecast_amplitude_before'],
         'forecast_monotone_ratio_after': diagnostics['forecast_monotone_ratio_before'],
+        'envelope_ratio_after': diagnostics['envelope_ratio_before'],
+        'collapse_still_detected_after': bool(diagnostics['collapse_detected']),
+        'collapse_resolved': not bool(diagnostics['collapse_detected']),
         **diagnostics,
     }
     if str(policy).lower() == 'none' or not diagnostics['collapse_detected']:
@@ -166,6 +169,15 @@ def apply_okhs_anti_smoothing(
             'correction_weights_head': weights[: min(len(weights), 8)].tolist(),
         }
     )
+    diagnostics['envelope_ratio_after'] = float(
+        diagnostics['forecast_amplitude_after'] / max(float(diagnostics['train_tail_amplitude']), 1e-8)
+    )
+    diagnostics['collapse_still_detected_after'] = bool(
+        float(diagnostics['train_tail_oscillation_score']) >= float(diagnostics['oscillation_floor'])
+        and float(diagnostics['forecast_monotone_ratio_after']) >= float(diagnostics['monotone_ratio_threshold'])
+        and float(diagnostics['envelope_ratio_after']) <= float(diagnostics['amplitude_ratio_threshold'])
+    )
+    diagnostics['collapse_resolved'] = not bool(diagnostics['collapse_still_detected_after'])
     return corrected, diagnostics
 
 

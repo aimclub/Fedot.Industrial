@@ -775,6 +775,8 @@ def test_apply_okhs_anti_smoothing_increases_amplitude_on_collapsed_forecast():
     assert diagnostics["collapse_detected"] is True
     assert diagnostics["correction_applied"] is True
     assert diagnostics["forecast_amplitude_after"] > diagnostics["forecast_amplitude_before"]
+    assert diagnostics["envelope_ratio_after"] > diagnostics["envelope_ratio_before"]
+    assert diagnostics["collapse_resolved"] is True
     assert not np.allclose(corrected, forecast)
 
 
