@@ -609,6 +609,13 @@ class OKHSModel(ForecastingModelAdapter):
     boundary_alignment_policy: str = "tapered_offset"
     boundary_alignment_decay: float = 4.0
     prediction_stability_threshold: float | None = 0.03
+    anti_smoothing_policy: str = "residual_bridge"
+    anti_smoothing_tail_window: int | None = None
+    anti_smoothing_amplitude_ratio: float = 0.35
+    anti_smoothing_monotone_ratio: float = 0.9
+    anti_smoothing_oscillation_floor: float = 0.25
+    anti_smoothing_decay: float = 2.5
+    anti_smoothing_target_amplitude_ratio: float = 0.8
     name: str = 'OKHS'
     tags: tuple[str, ...] = ('okhs', 'forecasting')
     optional: bool = False
@@ -641,6 +648,13 @@ class OKHSModel(ForecastingModelAdapter):
             boundary_alignment_policy=self.boundary_alignment_policy,
             boundary_alignment_decay=self.boundary_alignment_decay,
             prediction_stability_threshold=self.prediction_stability_threshold,
+            anti_smoothing_policy=self.anti_smoothing_policy,
+            anti_smoothing_tail_window=self.anti_smoothing_tail_window,
+            anti_smoothing_amplitude_ratio=self.anti_smoothing_amplitude_ratio,
+            anti_smoothing_monotone_ratio=self.anti_smoothing_monotone_ratio,
+            anti_smoothing_oscillation_floor=self.anti_smoothing_oscillation_floor,
+            anti_smoothing_decay=self.anti_smoothing_decay,
+            anti_smoothing_target_amplitude_ratio=self.anti_smoothing_target_amplitude_ratio,
             device=self.device,
         )
         model.fit(train, window_size=window_size)

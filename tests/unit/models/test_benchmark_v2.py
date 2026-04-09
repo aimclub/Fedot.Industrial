@@ -256,6 +256,67 @@ def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
     assert 'switch_1_havok_havok_event_overlay.png' in artifact_names
 
 
+def test_forecasting_suite_propagates_okhs_anti_smoothing_diagnostics(tmp_path: Path, monkeypatch) -> None:
+    class FakeOKHSForecaster:
+        def __init__(self, **kwargs):
+            self.forecast_horizon = int(kwargs['forecast_horizon'])
+            self.resolved_q_ = float(kwargs.get('q', 0.7))
+
+        def fit(self, time_series, window_size=20):
+            del time_series, window_size
+            return self
+
+        def predict(self, time_series=None):
+            del time_series
+            return np.linspace(1.0, 0.8, num=self.forecast_horizon)
+
+        def get_optimization_info(self):
+            return {
+                'fdmd_prediction_diagnostics': {
+                    'anti_smoothing_diagnostics': {
+                        'collapse_detected': True,
+                        'correction_applied': True,
+                        'forecast_amplitude_before': 0.01,
+                        'forecast_amplitude_after': 0.15,
+                    }
+                }
+            }
+
+    monkeypatch.setattr('benchmark.v2.forecasting.OKHSForecaster', FakeOKHSForecaster)
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name='okhs',
+                display_name='OKHS DMD',
+                params={'method': 'dmd', 'window_size': 8, 'n_modes': 2, 'q': 0.9},
+            ),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='okhs_diag_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    okhs_record = next(record for record in result.run_records if record.model_name == 'OKHS DMD')
+    anti_smoothing = okhs_record.metadata['fdmd_prediction_diagnostics']['anti_smoothing_diagnostics']
+    assert anti_smoothing['collapse_detected'] is True
+    assert anti_smoothing['correction_applied'] is True
+
+
 def test_forecasting_publication_pack_falls_back_without_tabulate(tmp_path: Path, monkeypatch) -> None:
     original_to_markdown = pd.DataFrame.to_markdown
 

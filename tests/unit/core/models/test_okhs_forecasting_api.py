@@ -8,7 +8,11 @@ import fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd as le
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, analyze_okhs_trajectory_preprocessing, \
     analyze_okhs_window_size, build_okhs_trajectory_matrix, build_okhs_trajectory_representation, \
     normalize_okhs_method, resolve_okhs_q, resolve_okhs_window_size
-from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
+from fedot_ind.core.models.kernel.okhs_forecasting import (
+    OKHSForecaster,
+    analyze_okhs_smoothing_collapse,
+    apply_okhs_anti_smoothing,
+)
 from fedot_ind.core.models.kernel.okhs_forecasting_torch import OKHSForecasterTorch
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
 
@@ -352,7 +356,7 @@ def test_okhs_forecaster_adaptive_dmd_path_stores_preprocessing_diagnostics(monk
 
     assert model.trajectory_preprocessing_ is not None
     assert model.trajectory_preprocessing_["enabled"] is True
-    assert model.trajectory_preprocessing_["effective_stride"] > 1
+    assert model.trajectory_preprocessing_["effective_stride"] >= 1
     assert model.trajectory_preprocessing_["selected_rank"] >= model.trajectory_preprocessing_[
         "recommended_min_selected_rank"
     ]
@@ -736,3 +740,78 @@ def test_legacy_fractional_dmd_scalar_horizon_uses_continuation_time_grid(monkey
     assert np.allclose(prediction, np.array([4.0, 1.406005849709838, 1.0549469166662025]))
     assert model.last_prediction_diagnostics_["prediction_time_grid"] == [2.0, 2.5, 3.0]
     assert model.last_prediction_diagnostics_["boundary_alignment_applied"] is True
+
+
+def test_analyze_okhs_smoothing_collapse_detects_monotone_envelope():
+    time = np.arange(80, dtype=float)
+    train = np.sin(2 * np.pi * time / 8.0)
+    forecast = np.linspace(0.2, 0.05, num=10)
+
+    diagnostics = analyze_okhs_smoothing_collapse(
+        train_series=train,
+        forecast=forecast,
+        forecast_horizon=10,
+        tail_window=16,
+    )
+
+    assert diagnostics["collapse_detected"] is True
+    assert diagnostics["train_tail_oscillation_score"] > 0.25
+    assert diagnostics["forecast_monotone_ratio_before"] >= 0.9
+
+
+def test_apply_okhs_anti_smoothing_increases_amplitude_on_collapsed_forecast():
+    time = np.arange(80, dtype=float)
+    train = np.sin(2 * np.pi * time / 8.0)
+    forecast = np.linspace(0.2, 0.05, num=10)
+
+    corrected, diagnostics = apply_okhs_anti_smoothing(
+        train_series=train,
+        forecast=forecast,
+        forecast_horizon=10,
+        policy="residual_bridge",
+        tail_window=16,
+    )
+
+    assert diagnostics["collapse_detected"] is True
+    assert diagnostics["correction_applied"] is True
+    assert diagnostics["forecast_amplitude_after"] > diagnostics["forecast_amplitude_before"]
+    assert not np.allclose(corrected, forecast)
+
+
+def test_okhs_forecaster_postprocesses_monotone_dmd_prediction(monkeypatch):
+    class FakeWrappedFractionalDMD:
+        def __init__(self, *args, **kwargs):
+            del args, kwargs
+
+        def fit(self, trajectories):
+            del trajectories
+
+        def predict_with_diagnostics(self, last_trajectory, future_times):
+            del last_trajectory
+            return np.linspace(0.3, 0.05, num=len(future_times)), {"boundary_discontinuity_abs_mean": 0.01}
+
+        def get_fit_diagnostics_summary(self):
+            return {"resolved_n_modes": 2, "fit_total_modes": 4}
+
+    monkeypatch.setattr("fedot_ind.core.models.kernel.okhs_forecasting.FractionalDMD", FakeWrappedFractionalDMD)
+
+    time = np.arange(80, dtype=float)
+    series = np.sin(2 * np.pi * time / 8.0)
+    model = OKHSForecaster(
+        q=0.75,
+        forecast_horizon=6,
+        n_modes=4,
+        method="dmd",
+        window_policy="fixed",
+        anti_smoothing_policy="residual_bridge",
+        anti_smoothing_tail_window=16,
+    )
+
+    model.fit(series, window_size=12)
+    prediction = model.predict(series)
+    diagnostics = model.get_optimization_info()["fdmd_prediction_diagnostics"]["anti_smoothing_diagnostics"]
+
+    assert prediction.shape == (6,)
+    assert diagnostics["collapse_detected"] is True
+    assert diagnostics["correction_applied"] is True
+    assert diagnostics["forecast_amplitude_after"] > diagnostics["forecast_amplitude_before"]

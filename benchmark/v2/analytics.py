@@ -298,8 +298,12 @@ def compare_models_on_series(
                     mode_axes[1].bar(np.arange(len(mode_norms)), mode_norms)
                 discontinuity = prediction_diagnostics.get('boundary_discontinuity_abs_mean')
                 resolved_modes = fit_diagnostics.get('resolved_n_modes')
+                anti_smoothing = prediction_diagnostics.get('anti_smoothing_diagnostics', {})
+                collapse_detected = anti_smoothing.get('collapse_detected')
+                envelope_ratio = anti_smoothing.get('envelope_ratio_before')
                 mode_axes[1].set_title(
-                    f'Mode Norms (resolved={resolved_modes}, jump={discontinuity})'
+                    f'Mode Norms (resolved={resolved_modes}, jump={discontinuity}, '
+                    f'collapse={collapse_detected}, env={envelope_ratio})'
                 )
                 mode_axes[1].set_xlabel('Mode Index')
                 mode_axes[1].set_ylabel('Norm')

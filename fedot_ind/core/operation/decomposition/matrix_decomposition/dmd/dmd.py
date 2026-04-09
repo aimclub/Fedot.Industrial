@@ -3,15 +3,19 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_dmd import \
+    FractionalDMD as OKHSFractionalDMD
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_liouville import \
+    FractionalLiouvilleOperator
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.gram_transform import \
+    OKHSTransformer
+
+
 # from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
 #     FractionalDMD as OKHSFractionalDMD,
 #     FractionalLiouvilleOperator,
 #     OKHSTransformer,
 # )
-
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_dmd import FractionalDMD as OKHSFractionalDMD
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.gram_transform import OKHSTransformer
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_liouville import FractionalLiouvilleOperator
 
 
 class _DefaultRBFKernel:
@@ -178,13 +182,18 @@ class FractionalDMD:
         normalized_trajectories = [self._normalize_trajectory(trajectory) for trajectory in trajectories]
         self.training_trajectories_ = normalized_trajectories
 
-        self.okhs = OKHSTransformer(
-            kernel=self.kernel,
-            q=self.q,
-            n_quad_points=self.n_quad_points,
-            dt=self.dt,
-            device=self.device,
-        )
+        okhs_kwargs = {
+            'kernel': self.kernel,
+            'q': self.q,
+            'n_quad_points': self.n_quad_points,
+            'dt': self.dt,
+            'device': self.device,
+        }
+        try:
+            self.okhs = OKHSTransformer(**okhs_kwargs)
+        except TypeError:
+            okhs_kwargs.pop('device', None)
+            self.okhs = OKHSTransformer(**okhs_kwargs)
         self.okhs.fit(normalized_trajectories)
 
         self.liouville_operator_ = FractionalLiouvilleOperator(
@@ -193,12 +202,17 @@ class FractionalDMD:
         )
         self.liouville_operator_.fit()
 
-        self.fdmd_ = OKHSFractionalDMD(
-            liouville_operator=self.liouville_operator_,
-            n_quad_points=self.n_quad_points,
-            regularization=self.regularization,
-            device=self.device,
-        )
+        fdmd_kwargs = {
+            'liouville_operator': self.liouville_operator_,
+            'n_quad_points': self.n_quad_points,
+            'regularization': self.regularization,
+            'device': self.device,
+        }
+        try:
+            self.fdmd_ = OKHSFractionalDMD(**fdmd_kwargs)
+        except TypeError:
+            fdmd_kwargs.pop('device', None)
+            self.fdmd_ = OKHSFractionalDMD(**fdmd_kwargs)
         self.fdmd_.fit(normalized_trajectories)
         try:
             self.eigenvalues_ = np.asarray(self.liouville_operator_.eigenvalues_)
