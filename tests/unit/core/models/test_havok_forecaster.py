@@ -1,0 +1,35 @@
+import numpy as np
+
+from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
+
+
+def _switching_series(length: int = 96) -> np.ndarray:
+    time = np.arange(length, dtype=float)
+    series = np.sin(2.0 * np.pi * time / 12.0)
+    series[28:40] += 2.5
+    series[56:72] -= 1.8
+    series[72:] += np.linspace(0.0, 1.5, num=length - 72)
+    return series
+
+
+def test_havok_forecaster_produces_forecast_and_event_diagnostics():
+    series = _switching_series()
+    model = HAVOKForecaster(
+        forecast_horizon=8,
+        window_size=16,
+        rank=4,
+        forcing_threshold_scale=0.75,
+        forcing_decay=0.9,
+    )
+
+    model.fit(series)
+    forecast = model.predict(series)
+    diagnostics = model.get_diagnostics()
+
+    assert forecast.shape == (8,)
+    assert diagnostics['selected_rank'] >= 2
+    assert diagnostics['state_dimension'] >= 1
+    assert len(diagnostics['forcing_values']) > 0
+    assert 'forecast_forcing_values' in diagnostics
+    assert len(diagnostics['forecast_forcing_mask']) == 8
+    assert isinstance(diagnostics['forcing_active_intervals'], list)

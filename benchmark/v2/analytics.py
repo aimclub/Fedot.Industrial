@@ -38,6 +38,20 @@ def _slugify_model_name(name: str) -> str:
     return ''.join(character.lower() if character.isalnum() else '_' for character in name).strip('_')
 
 
+def _intervals_from_mask(mask: np.ndarray, offset: int = 0) -> list[tuple[int, int]]:
+    intervals: list[tuple[int, int]] = []
+    start = None
+    for index, is_active in enumerate(np.asarray(mask, dtype=bool).reshape(-1)):
+        if is_active and start is None:
+            start = index
+        elif not is_active and start is not None:
+            intervals.append((offset + start, offset + index - 1))
+            start = None
+    if start is not None:
+        intervals.append((offset + start, offset + len(mask) - 1))
+    return intervals
+
+
 def predictions_to_frame(records: tuple[PredictionRecord, ...]) -> pd.DataFrame:
     return pd.DataFrame([to_plain_data(record) for record in records])
 
@@ -296,6 +310,89 @@ def compare_models_on_series(
                     mode_figure.savefig(path, dpi=200, bbox_inches='tight')
                     artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
                 plt.close(mode_figure)
+
+        havok_records = [
+            record for record in result.run_records
+            if record.series_id == series_id and record.status is RunStatus.SUCCESS
+               and 'havok' in record.model_name.lower()
+        ]
+        if havok_records:
+            diagnostics_payload = {
+                record.model_name: record.metadata for record in havok_records
+            }
+            diagnostics_path = target_dir / f'{series_id}_havok_diagnostics.json'
+            write_json(diagnostics_path, diagnostics_payload)
+            artifact_manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
+
+            for record in havok_records:
+                model_slug = _slugify_model_name(record.model_name)
+                forcing_values = np.asarray(record.metadata.get('forcing_values', []), dtype=float)
+                forcing_threshold = float(record.metadata.get('forcing_threshold', 0.0))
+                forcing_mask = np.asarray(record.metadata.get('forcing_mask', []), dtype=bool)
+                forcing_intervals = record.metadata.get('forcing_active_intervals') or [
+                    [int(start), int(stop)] for start, stop in _intervals_from_mask(forcing_mask)
+                ]
+                forecast_forcing_values = np.asarray(record.metadata.get('forecast_forcing_values', []), dtype=float)
+                forecast_forcing_mask = np.asarray(record.metadata.get('forecast_forcing_mask', []), dtype=bool)
+
+                forcing_figure, forcing_axis = plt.subplots(figsize=(11, 4.5))
+                if len(forcing_values):
+                    forcing_axis.plot(
+                        np.arange(len(forcing_values)),
+                        forcing_values,
+                        linewidth=1.8,
+                        color='C0',
+                        label='forcing',
+                    )
+                if forcing_threshold > 0:
+                    forcing_axis.axhline(forcing_threshold, color='C3', linestyle='--', linewidth=1.0)
+                    forcing_axis.axhline(-forcing_threshold, color='C3', linestyle='--', linewidth=1.0)
+                for start, stop in forcing_intervals:
+                    forcing_axis.axvspan(start, stop + 1, color='C3', alpha=0.12)
+                forcing_axis.set_title(f'HAVOK Forcing Timeline: {record.model_name}')
+                forcing_axis.set_xlabel('Latent Step')
+                forcing_axis.set_ylabel('Forcing')
+                forcing_axis.grid(alpha=0.2)
+                if len(forcing_values):
+                    forcing_axis.legend(frameon=False)
+                for extension in ('png', 'svg'):
+                    path = target_dir / f'{series_id}_{model_slug}_havok_forcing_timeline.{extension}'
+                    forcing_figure.savefig(path, dpi=200, bbox_inches='tight')
+                    artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+                plt.close(forcing_figure)
+
+                if record.model_name in pivot.columns:
+                    event_figure, event_axis = plt.subplots(figsize=(12, 6))
+                    if len(train_values):
+                        event_axis.plot(history_index, train_values, label='train', linewidth=2.0, color='0.45')
+                    event_axis.plot(forecast_index, actual_test, label='actual', linewidth=2.5, color='black')
+                    event_axis.plot(
+                        forecast_index,
+                        pivot[record.model_name].to_numpy(),
+                        label=record.model_name,
+                        linewidth=1.8,
+                        color='C0',
+                    )
+                    if len(forecast_forcing_mask):
+                        for step_index, is_active in enumerate(forecast_forcing_mask[:len(forecast_index)]):
+                            if is_active:
+                                event_axis.axvspan(
+                                    forecast_index[step_index] - 0.5,
+                                    forecast_index[step_index] + 0.5,
+                                    color='C3',
+                                    alpha=0.12,
+                                )
+                    event_axis.axvline(len(train_values) - 1, color='red', linestyle='--', linewidth=1.2, alpha=0.8)
+                    event_axis.set_title(f'HAVOK Event Overlay for {series_id}')
+                    event_axis.set_xlabel('Time Index')
+                    event_axis.set_ylabel('Value')
+                    event_axis.legend(frameon=False)
+                    event_axis.grid(alpha=0.2)
+                    for extension in ('png', 'svg'):
+                        path = target_dir / f'{series_id}_{model_slug}_havok_event_overlay.{extension}'
+                        event_figure.savefig(path, dpi=200, bbox_inches='tight')
+                        artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+                    plt.close(event_figure)
 
     return SeriesComparisonResult(
         series_id=series_id,

@@ -12,6 +12,7 @@ import torch
 
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
+from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
@@ -695,6 +696,41 @@ class MSSAModel(ForecastingModelAdapter):
 
 
 @dataclass
+class HAVOKModel(ForecastingModelAdapter):
+    window_size: int | None = None
+    rank: int | None = None
+    forcing_threshold_scale: float = 1.0
+    forcing_decay: float = 0.85
+    name: str = 'HAVOK'
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'havok')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        train = np.asarray(series_record.train_values, dtype=float)
+        model = HAVOKForecaster(
+            forecast_horizon=series_record.forecast_horizon,
+            window_size=self.window_size,
+            rank=self.rank,
+            forcing_threshold_scale=self.forcing_threshold_scale,
+            forcing_decay=self.forcing_decay,
+        )
+        model.fit(train)
+        forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
+        metadata = model.get_diagnostics()
+        metadata.update(
+            {
+                'last_train_value': float(train[-1]),
+                'first_prediction_value': float(forecast[0]) if len(forecast) else None,
+                'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
+            }
+        )
+        return forecast[:series_record.forecast_horizon], metadata
+
+
+@dataclass
 class OptionalExternalModel(ForecastingModelAdapter):
     dependency_name: str
     name: str
@@ -731,6 +767,8 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
         return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
     if adapter_name == 'mssa':
         return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
+    if adapter_name == 'havok':
+        return HAVOKModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'havok'), **params)
     if adapter_name == 'naive_last_value':
         return NaiveLastValueModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'naive_mean':
@@ -843,6 +881,57 @@ def compute_pointwise_metric(
         baseline_mase = np.where(baseline_mase <= 1e-8, 1.0, baseline_mase)
         return 0.5 * ((pointwise_smape / baseline_smape) + (pointwise_mase / baseline_mase))
     raise BenchmarkConfigurationError(f'Unsupported metric: {metric_name}')
+
+
+def _extract_forecast_event_mask(metadata: dict[str, Any], horizon: int) -> np.ndarray | None:
+    raw_mask = metadata.get('forecast_forcing_mask')
+    if raw_mask is None:
+        return None
+    mask = np.asarray(raw_mask, dtype=bool).reshape(-1)
+    if mask.size == 0:
+        return None
+    if mask.size < horizon:
+        mask = np.pad(mask, (0, horizon - mask.size), constant_values=False)
+    return mask[:horizon]
+
+
+def _append_event_interval_metrics(
+        metric_records: list[MetricRecord],
+        *,
+        run_id: str,
+        series_record: ForecastingSeriesRecord,
+        model_name: str,
+        actual: np.ndarray,
+        forecast: np.ndarray,
+        metadata: dict[str, Any],
+) -> dict[str, float]:
+    mask = _extract_forecast_event_mask(metadata, len(actual))
+    if mask is None:
+        return {}
+    pointwise_mae = np.abs(np.asarray(actual, dtype=float).reshape(-1) - np.asarray(forecast, dtype=float).reshape(-1))
+    event_metrics: dict[str, float] = {}
+    for suffix, subset_mask in (('active', mask), ('calm', ~mask)):
+        if not np.any(subset_mask):
+            continue
+        metric_name = f'mae_{suffix}'
+        metric_value = float(np.mean(pointwise_mae[subset_mask]))
+        event_metrics[metric_name] = metric_value
+        metric_records.append(
+            MetricRecord(
+                run_id=run_id,
+                benchmark=series_record.benchmark,
+                dataset_name=series_record.dataset_name,
+                subset=series_record.subset,
+                series_id=series_record.series_id,
+                model_name=model_name,
+                metric_name=metric_name,
+                metric_value=metric_value,
+                status=RunStatus.SUCCESS,
+            )
+        )
+    event_metrics['active_forecast_steps'] = float(int(np.sum(mask)))
+    event_metrics['calm_forecast_steps'] = float(int(np.sum(~mask)))
+    return event_metrics
 
 
 def build_leaderboard(
@@ -999,6 +1088,23 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                     )
                                 )
 
+                        event_metrics = _append_event_interval_metrics(
+                            metric_records,
+                            run_id=run_id,
+                            series_record=series_record,
+                            model_name=model.name,
+                            actual=actual,
+                            forecast=forecast,
+                            metadata=metadata,
+                        )
+                        metrics_summary.update(
+                            {
+                                key: value
+                                for key, value in event_metrics.items()
+                                if key.startswith('mae_')
+                            }
+                        )
+
                         for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
                             prediction_records.append(
                                 PredictionRecord(
@@ -1028,6 +1134,8 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 metrics_summary=metrics_summary,
                                 metadata={
                                     **metadata,
+                                    'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
+                                    'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                 },
                             )

@@ -33,6 +33,24 @@ def _toy_records() -> list[dict]:
     ]
 
 
+def _switching_records() -> list[dict]:
+    time = np.arange(72, dtype=float)
+    series = np.sin(2.0 * np.pi * time / 10.0)
+    series[20:28] += 3.0
+    series[40:52] -= 2.2
+    series[52:] += np.linspace(0.0, 1.8, num=len(series[52:]))
+    return [
+        {
+            'series_id': 'switch_1',
+            'values': series.tolist(),
+            'horizon': 6,
+            'frequency': 'daily',
+            'seasonal_period': 7,
+            'dataset_name': 'switch_dataset',
+        },
+    ]
+
+
 def test_m4_adapter_parses_frame_and_samples() -> None:
     rows = []
     for series_id in ('M4_monthly_1', 'M4_monthly_2'):
@@ -193,6 +211,49 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     publication_names = {Path(record.path).name for record in result.artifact_manifest}
     assert 'toy_dataset_metric_distribution_mae.png' in publication_names
     assert 'toy_dataset_model_ranking_mae.png' in publication_names
+
+
+def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='switch_dataset',
+                subset='daily',
+                adapter_options={
+                    'records': _switching_records(),
+                    'forecast_horizon': 6,
+                    'seasonal_period': 7,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name='havok',
+                display_name='HAVOK',
+                params={'window_size': 14, 'rank': 4, 'forcing_threshold_scale': 0.75},
+            ),
+            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='switch_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    havok_record = next(record for record in result.run_records if record.model_name == 'HAVOK')
+    assert havok_record.status is RunStatus.SUCCESS
+    assert 'forecast_forcing_mask' in havok_record.metadata
+    assert 'regime_diagnostics' in havok_record.metadata
+    assert any(
+        record.model_name == 'HAVOK' and record.metric_name in {'mae_active', 'mae_calm'}
+        for record in result.metric_records
+    )
+    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'switch_1_havok_diagnostics.json' in artifact_names
+    assert 'switch_1_havok_havok_forcing_timeline.png' in artifact_names
+    assert 'switch_1_havok_havok_event_overlay.png' in artifact_names
 
 
 def test_forecasting_publication_pack_falls_back_without_tabulate(tmp_path: Path, monkeypatch) -> None:

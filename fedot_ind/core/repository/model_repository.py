@@ -57,6 +57,7 @@ from fedot_ind.core.models.regression.freq_domain_regressor import FrequencyRegr
 from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldRegressor
 from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
+from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
@@ -187,6 +188,7 @@ class AtomizedModel(Enum):
         'lagged_forecaster': LaggedAR,
         'ssa_forecaster': SSAForecasterImplementation,
         'mssa_forecaster': MSSAForecasterImplementation,
+        'havok_forecaster': HAVOKForecasterImplementation,
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,
