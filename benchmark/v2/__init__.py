@@ -1,3 +1,15 @@
+from .api import (
+    build_forecasting_publication_pack,
+    build_tsc_publication_pack,
+    build_tser_publication_pack,
+    compare_forecasting_models_on_series,
+    run_forecasting_benchmark_from_legacy_config,
+    run_forecasting_benchmark_suite,
+    run_tsc_benchmark_from_legacy_config,
+    run_tsc_benchmark_suite,
+    run_tser_benchmark_from_legacy_config,
+    run_tser_benchmark_suite,
+)
 from .core import (
     ArtifactRecord,
     ArtifactSpec,
@@ -20,25 +32,6 @@ from .core import (
     TaskType,
     ValuePredictionRecord,
 )
-from .api import (
-    build_forecasting_publication_pack,
-    build_tsc_publication_pack,
-    build_tser_publication_pack,
-    compare_forecasting_models_on_series,
-    run_forecasting_benchmark_from_legacy_config,
-    run_forecasting_benchmark_suite,
-    run_tsc_benchmark_from_legacy_config,
-    run_tsc_benchmark_suite,
-    run_tser_benchmark_from_legacy_config,
-    run_tser_benchmark_suite,
-)
-from .presets import (
-    build_local_m4_suite_config,
-    build_local_monash_suite_config,
-    build_local_tser_suite_config,
-    build_local_ucr_suite_config,
-    run_local_benchmark_preset,
-)
 from .manifests import (
     BenchmarkManifestError,
     build_suite_config_from_manifest,
@@ -47,6 +40,20 @@ from .manifests import (
     run_manifest,
     run_manifest_path,
     write_example_manifest,
+)
+from .okhs_quality import (
+    DEFAULT_OKHS_SMOOTHING_SERIES_IDS,
+    OKHSSmoothingSeriesSummary,
+    OKHSSmoothingSummary,
+    summarize_okhs_smoothing_result,
+)
+from .presets import (
+    build_local_m4_suite_config,
+    build_local_monash_suite_config,
+    build_local_okhs_smoothing_suite_config,
+    build_local_tser_suite_config,
+    build_local_ucr_suite_config,
+    run_local_benchmark_preset,
 )
 from .registry import (
     BenchmarkRunBundle,
@@ -91,6 +98,7 @@ __all__ = [
     'build_tser_publication_pack',
     'build_local_m4_suite_config',
     'build_local_monash_suite_config',
+    'build_local_okhs_smoothing_suite_config',
     'build_local_tser_suite_config',
     'build_local_ucr_suite_config',
     'BenchmarkManifestError',
@@ -119,5 +127,9 @@ __all__ = [
     'run_tsc_benchmark_suite',
     'run_tser_benchmark_from_legacy_config',
     'run_tser_benchmark_suite',
+    'DEFAULT_OKHS_SMOOTHING_SERIES_IDS',
+    'OKHSSmoothingSeriesSummary',
+    'OKHSSmoothingSummary',
+    'summarize_okhs_smoothing_result',
     'write_example_manifest',
 ]

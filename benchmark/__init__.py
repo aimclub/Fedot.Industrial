@@ -22,6 +22,7 @@ from benchmark.v2 import (
     build_forecasting_publication_pack,
     build_local_m4_suite_config,
     build_local_monash_suite_config,
+    build_local_okhs_smoothing_suite_config,
     build_local_tser_suite_config,
     build_local_ucr_suite_config,
     BenchmarkManifestError,
@@ -52,6 +53,10 @@ from benchmark.v2 import (
     run_tsc_benchmark_suite,
     run_tser_benchmark_from_legacy_config,
     run_tser_benchmark_suite,
+    DEFAULT_OKHS_SMOOTHING_SERIES_IDS,
+    OKHSSmoothingSeriesSummary,
+    OKHSSmoothingSummary,
+    summarize_okhs_smoothing_result,
     write_example_manifest,
 )
 
@@ -79,6 +84,7 @@ __all__ = [
     'build_forecasting_publication_pack',
     'build_local_m4_suite_config',
     'build_local_monash_suite_config',
+    'build_local_okhs_smoothing_suite_config',
     'build_local_tser_suite_config',
     'build_local_ucr_suite_config',
     'BenchmarkManifestError',
@@ -109,5 +115,9 @@ __all__ = [
     'run_tsc_benchmark_suite',
     'run_tser_benchmark_from_legacy_config',
     'run_tser_benchmark_suite',
+    'DEFAULT_OKHS_SMOOTHING_SERIES_IDS',
+    'OKHSSmoothingSeriesSummary',
+    'OKHSSmoothingSummary',
+    'summarize_okhs_smoothing_result',
     'write_example_manifest',
 ]

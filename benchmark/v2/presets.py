@@ -105,6 +105,48 @@ def build_local_tser_suite_config(
     )
 
 
+def build_local_okhs_smoothing_suite_config(
+        *,
+        subset: str = 'daily',
+        series_ids: tuple[str, ...] = ('D364', 'D377', 'D378'),
+        output_dir: str | Path | None = None,
+        persist_on_run: bool = True,
+        models: tuple[ModelSpec, ...] | None = None,
+        anti_smoothing_policy: str = 'residual_bridge',
+) -> BenchmarkSuiteConfig:
+    return BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='m4',
+                dataset_name=f'm4_{subset.lower()}_okhs_smoothing',
+                subset=subset,
+                series_ids=tuple(series_ids),
+                adapter_options={'use_local_files': True},
+            ),
+        ),
+        models=models or (
+            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+            ModelSpec(adapter_name='linear_trend', display_name='LinearTrend'),
+            ModelSpec(
+                adapter_name='okhs',
+                display_name='OKHS DMD',
+                params={
+                    'method': 'dmd',
+                    'window_size': 8,
+                    'n_modes': 2,
+                    'q': 0.9,
+                    'anti_smoothing_policy': anti_smoothing_policy,
+                },
+            ),
+        ),
+        metrics=('mase', 'smape', 'owa', 'rmse', 'mae'),
+        artifact_spec=_artifact_spec(output_dir, persist_on_run, 'okhs_smoothing'),
+        run_spec=RunSpec(run_name=f'm4_{subset.lower()}_okhs_smoothing', primary_metric='mae'),
+    )
+
+
 def run_local_benchmark_preset(
         preset_name: str,
         *,
@@ -139,6 +181,14 @@ def run_local_benchmark_preset(
             persist_on_run=persist_on_run,
             models=models,
             include_optional_external=include_optional_external,
+        )
+        return run_forecasting_benchmark_suite(config)
+    if normalized == 'okhs_smoothing':
+        config = build_local_okhs_smoothing_suite_config(
+            subset=subset or 'daily',
+            output_dir=output_dir,
+            persist_on_run=persist_on_run,
+            models=models,
         )
         return run_forecasting_benchmark_suite(config)
     if normalized == 'ucr':
