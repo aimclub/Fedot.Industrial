@@ -8,6 +8,7 @@ from fedot_ind.core.models.ts_forecasting.mssa_forecaster import (
     MSSAForecasterImplementation,
 )
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
+from fedot_ind.core.models.ts_forecasting.regime_routing import recommend_forecasting_model
 
 
 def test_mssa_forecaster_predicts_univariate_series():
@@ -64,3 +65,13 @@ def test_regime_diagnostics_detects_periodic_structure():
 
     assert diagnostics['dominant_period'] is not None
     assert diagnostics['regime_hint'] in {'periodic', 'locally_linear'}
+
+
+def test_regime_routing_matches_periodic_diagnostics():
+    time = np.arange(180, dtype=float)
+    series = np.sin(2 * np.pi * time / 24.0)
+
+    decision = recommend_forecasting_model(analyze_regime_diagnostics(series))
+
+    assert decision.primary_adapter in {'mssa', 'ssa_compat'}
+    assert decision.rationale

@@ -48,6 +48,8 @@ from .okhs_quality import (
     OKHSSmoothingSeriesSummary,
     OKHSSmoothingSummary,
     evaluate_okhs_smoothing_acceptance,
+    has_okhs_smoothing_diagnostics,
+    render_okhs_smoothing_acceptance_pack,
     summarize_okhs_smoothing_result,
 )
 from .presets import (
@@ -136,6 +138,8 @@ __all__ = [
     'OKHSSmoothingSeriesSummary',
     'OKHSSmoothingSummary',
     'evaluate_okhs_smoothing_acceptance',
+    'has_okhs_smoothing_diagnostics',
+    'render_okhs_smoothing_acceptance_pack',
     'summarize_okhs_smoothing_result',
     'write_example_manifest',
 ]

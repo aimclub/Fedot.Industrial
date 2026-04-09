@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .analytics import compare_models_on_series, render_publication_pack
+from .classification import render_tsc_publication_pack, run_tsc_suite
 from .core import (
     ArtifactRecord,
     ArtifactSpec,
@@ -19,8 +20,8 @@ from .core import (
     TaskType,
     write_json,
 )
-from .classification import render_tsc_publication_pack, run_tsc_suite
 from .forecasting import run_forecasting_suite
+from .okhs_quality import render_okhs_smoothing_acceptance_pack
 from .regression import render_tser_publication_pack, run_tser_suite
 
 
@@ -81,6 +82,7 @@ def run_forecasting_benchmark_suite(config: BenchmarkSuiteConfig) -> Forecasting
                 output_dir=output_dir,
             )
         )
+        manifest.extend(render_okhs_smoothing_acceptance_pack(result, output_dir / 'aggregate'))
         manifest.extend(_build_issue_artifacts(result, output_dir))
         result = ForecastingBenchmarkResult(
             run_id=result.run_id,

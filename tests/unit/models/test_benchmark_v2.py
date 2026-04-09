@@ -185,6 +185,7 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     okhs_record = next(record for record in result.run_records if record.model_name == 'OKHS Direct')
     assert okhs_record.metadata['method'] == 'direct'
     assert 'regime_diagnostics' in okhs_record.metadata
+    assert 'routing_recommendation' in okhs_record.metadata
     assert any(record.horizon_index is None for record in result.metric_records)
     assert any(record.horizon_index is not None for record in result.metric_records)
     assert result.artifact_manifest
@@ -246,6 +247,7 @@ def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
     assert havok_record.status is RunStatus.SUCCESS
     assert 'forecast_forcing_mask' in havok_record.metadata
     assert 'regime_diagnostics' in havok_record.metadata
+    assert havok_record.metadata['routing_recommendation']['primary_adapter'] == 'havok'
     assert any(
         record.model_name == 'HAVOK' and record.metric_name in {'mae_active', 'mae_calm'}
         for record in result.metric_records

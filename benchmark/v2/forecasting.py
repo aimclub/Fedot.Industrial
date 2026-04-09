@@ -15,6 +15,7 @@ from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
 from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
+from fedot_ind.core.models.ts_forecasting.regime_routing import recommend_forecasting_model
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
 
 try:  # pragma: no cover - optional heavyweight dependency tree in test envs
@@ -1023,6 +1024,9 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                 if availability_status is not RunStatus.SUCCESS:
                     for series_record in dataset_series:
                         progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
+                        regime_diagnostics = analyze_regime_diagnostics(
+                            np.asarray(series_record.train_values, dtype=float))
+                        routing_recommendation = recommend_forecasting_model(regime_diagnostics)
                         run_records.append(
                             BenchmarkRunRecord(
                                 run_id=run_id,
@@ -1034,7 +1038,11 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 status=availability_status,
                                 tags=model.tags,
                                 message=availability_message,
-                                metadata={'optional': model.optional},
+                                metadata={
+                                    'optional': model.optional,
+                                    'regime_diagnostics': regime_diagnostics.to_dict(),
+                                    'routing_recommendation': routing_recommendation.to_dict(),
+                                },
                             )
                         )
                         progress.advance(availability_status.value, availability_message)
@@ -1043,9 +1051,10 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
 
                 for series_record in dataset_series:
                     progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
+                    regime_diagnostics = analyze_regime_diagnostics(
+                        np.asarray(series_record.train_values, dtype=float))
+                    routing_recommendation = recommend_forecasting_model(regime_diagnostics)
                     try:
-                        regime_diagnostics = analyze_regime_diagnostics(
-                            np.asarray(series_record.train_values, dtype=float))
                         prediction, metadata = model.forecast(series_record)
                         actual = np.asarray(series_record.test_values, dtype=float)
                         forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
@@ -1151,6 +1160,7 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                     'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
                                     'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
+                                    'routing_recommendation': routing_recommendation.to_dict(),
                                 },
                             )
                         )
@@ -1167,7 +1177,11 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 status=exc.status,
                                 tags=model.tags,
                                 message=exc.message,
-                                metadata={'optional': model.optional},
+                                metadata={
+                                    'optional': model.optional,
+                                    'regime_diagnostics': regime_diagnostics.to_dict(),
+                                    'routing_recommendation': routing_recommendation.to_dict(),
+                                },
                             )
                         )
                         progress.advance(exc.status.value, exc.message)
@@ -1183,7 +1197,11 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 status=RunStatus.FAILED,
                                 tags=model.tags,
                                 message=str(exc),
-                                metadata={'optional': model.optional},
+                                metadata={
+                                    'optional': model.optional,
+                                    'regime_diagnostics': regime_diagnostics.to_dict(),
+                                    'routing_recommendation': routing_recommendation.to_dict(),
+                                },
                             )
                         )
                         progress.advance(RunStatus.FAILED.value, str(exc))

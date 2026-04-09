@@ -17,7 +17,7 @@ from ...operation.transformation.representation.kernel.kernels import Occupation
 def _resolve_anti_smoothing_tail_window(
         series_length: int,
         forecast_horizon: int,
-        requested_window: int | None,
+        requested_window: int,
 ) -> int:
     if requested_window is not None:
         return int(max(forecast_horizon + 2, min(int(requested_window), series_length)))
@@ -42,11 +42,11 @@ def analyze_okhs_smoothing_collapse(
         forecast: np.ndarray,
         *,
         forecast_horizon: int,
-        tail_window: int | None = None,
+        tail_window: int = None,
         amplitude_ratio_threshold: float = 0.35,
         monotone_ratio_threshold: float = 0.9,
         oscillation_floor: float = 0.25,
-) -> dict[str, float | int | bool]:
+) -> dict:
     train = np.asarray(train_series, dtype=float).reshape(-1)
     predicted = np.asarray(forecast, dtype=float).reshape(-1)
     if train.size == 0 or predicted.size == 0:
@@ -99,13 +99,13 @@ def apply_okhs_anti_smoothing(
         *,
         forecast_horizon: int,
         policy: str = 'residual_bridge',
-        tail_window: int | None = None,
+        tail_window: int = None,
         amplitude_ratio_threshold: float = 0.35,
         monotone_ratio_threshold: float = 0.9,
         oscillation_floor: float = 0.25,
         decay: float = 2.5,
         target_amplitude_ratio: float = 0.8,
-) -> tuple[np.ndarray, dict[str, float | int | bool]]:
+) -> tuple:
     predicted = np.asarray(forecast, dtype=float).reshape(-1)
     diagnostics = analyze_okhs_smoothing_collapse(
         train_series=train_series,

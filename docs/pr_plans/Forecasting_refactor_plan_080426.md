@@ -64,17 +64,17 @@
 
 ## Статус по этапам
 
-| PR / Issue | Название                                    | Статус        | Краткий итог                                                                                                                 |
-|------------|---------------------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------|
-| PR-1       | Forecasting Core Stabilization              | `done`        | `ssa_forecaster` переведен в compatibility-wrapper, baseline path стабилизирован                                             |
-| PR-2       | Shared Trajectory Embedding Backend         | `done`        | Добавлен общий trajectory backend для Hankel/Page/stack/decode/truncate                                                      |
-| PR-3       | mSSA Forecaster v1                          | `done`        | `mSSA` добавлен в forecasting registry и benchmark/v2                                                                        |
-| PR-4       | Regime Diagnostics Layer                    | `done`        | Добавлены typed regime diagnostics и сериализация в benchmark                                                                |
-| PR-5       | HAVOK Forecaster + Event-Aware Artifacts    | `done`        | HAVOK встроен в benchmark/v2, добавлены forcing artifacts и calm/active metrics                                              |
-| PR-6       | OKHS/fDMD Anti-Smoothing Refactor           | `in_progress` | Добавлены anti-smoothing diagnostics и bounded residual-bridge correction, но нет полноценной real-M4 acceptance cohort в CI |
-| PR-7       | Regime-Aware Routing Policy                 | `pending`     | Не начат                                                                                                                     |
-| PR-8       | Deep OKHS Two-Phase Forecasting Bridge      | `pending`     | Не начат                                                                                                                     |
-| PR-9       | Decomposition / Selective-Compute Follow-up | `pending`     | Не начат                                                                                                                     |
+| PR / Issue | Название                                    | Статус        | Краткий итог                                                                                                                                                    |
+|------------|---------------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| PR-1       | Forecasting Core Stabilization              | `done`        | `ssa_forecaster` переведен в compatibility-wrapper, baseline path стабилизирован                                                                                |
+| PR-2       | Shared Trajectory Embedding Backend         | `done`        | Добавлен общий trajectory backend для Hankel/Page/stack/decode/truncate                                                                                         |
+| PR-3       | mSSA Forecaster v1                          | `done`        | `mSSA` добавлен в forecasting registry и benchmark/v2                                                                                                           |
+| PR-4       | Regime Diagnostics Layer                    | `done`        | Добавлены typed regime diagnostics и сериализация в benchmark                                                                                                   |
+| PR-5       | HAVOK Forecaster + Event-Aware Artifacts    | `done`        | HAVOK встроен в benchmark/v2, добавлены forcing artifacts и calm/active metrics                                                                                 |
+| PR-6       | OKHS/fDMD Anti-Smoothing Refactor           | `in_progress` | Добавлены anti-smoothing diagnostics и bounded residual-bridge correction, но нет полноценной real-M4 acceptance cohort в CI                                    |
+| PR-7       | Regime-Aware Routing Policy                 | `in_progress` | Added typed routing decision, deterministic rule-set, fallback path and benchmark metadata integration; orchestration-level adoption is the remaining follow-up |
+| PR-8       | Deep OKHS Two-Phase Forecasting Bridge      | `pending`     | Не начат                                                                                                                                                        |
+| PR-9       | Decomposition / Selective-Compute Follow-up | `pending`     | Не начат                                                                                                                                                        |
 
 ## PR-стек
 
@@ -240,6 +240,21 @@ Lead skills: `fedot-pure-core-shell` + `fedot-invariant-tests-review`
 ### PR-7. Regime-Aware Routing Policy
 
 Lead skills: `fedot-typed-domain-errors` + `fedot-safe-configs`
+
+Status: `in_progress`
+
+Already implemented:
+
+- typed `RegimeRoutingDecision` and `RegimeRoutingPolicy`;
+- deterministic `recommend_forecasting_model(...)`;
+- fallback path for weak / insufficient structure;
+- benchmark metadata integration via `routing_recommendation`;
+- routing determinism tests and benchmark regression checks.
+
+Remaining follow-up:
+
+- connect routing to user-facing orchestration, not only benchmark metadata;
+- define adoption path for automatic model recommendation / selection.
 
 Планируемые изменения:
 

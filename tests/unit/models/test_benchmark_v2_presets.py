@@ -5,6 +5,7 @@ from benchmark.v2 import (
     TaskType,
     build_local_m4_suite_config,
     build_local_monash_suite_config,
+    build_local_okhs_smoothing_suite_config,
     build_local_tser_suite_config,
     build_local_ucr_suite_config,
     run_local_benchmark_preset,
@@ -31,6 +32,15 @@ def test_build_local_task_presets_have_expected_defaults() -> None:
     assert tser_config.task_type is TaskType.TS_REGRESSION
     assert ucr_config.datasets[0].benchmark == 'ucr'
     assert tser_config.datasets[0].benchmark == 'local_tser'
+
+
+def test_build_local_okhs_smoothing_preset_has_expected_defaults() -> None:
+    config = build_local_okhs_smoothing_suite_config(persist_on_run=False)
+
+    assert config.task_type is TaskType.FORECASTING
+    assert config.datasets[0].dataset_name == 'm4_daily_okhs_smoothing'
+    assert config.datasets[0].series_ids == ('D364', 'D377', 'D378')
+    assert any(spec.display_name == 'OKHS DMD' for spec in config.models)
 
 
 def test_run_local_benchmark_preset_smoke_forecasting() -> None:
@@ -66,4 +76,16 @@ def test_run_local_benchmark_preset_smoke_tser() -> None:
     )
 
     assert result.config.task_type is TaskType.TS_REGRESSION
+    assert any(record.status.value == 'success' for record in result.run_records)
+
+
+def test_run_local_benchmark_preset_smoke_okhs_smoothing() -> None:
+    result = run_local_benchmark_preset(
+        'okhs_smoothing',
+        persist_on_run=False,
+        models=(ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),),
+    )
+
+    assert result.config.task_type is TaskType.FORECASTING
+    assert result.config.datasets[0].series_ids == ('D364', 'D377', 'D378')
     assert any(record.status.value == 'success' for record in result.run_records)
