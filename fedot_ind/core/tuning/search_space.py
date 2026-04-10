@@ -111,6 +111,7 @@ industrial_search_space = {
     'lagged_forecaster':
         {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 40, 5)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]},
          },
     'industrial_stat_clf':
         {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['logit', 'xgboost', 'rf',
@@ -622,6 +623,15 @@ default_fedot_operation_params = {
         'window_size': {
             'hyperopt-dist': hp.uniformint,
             'sampling-scope': [5, 500],
+            'type': 'discrete'}},
+    'hankelisation': {
+        'window_size': {
+            'hyperopt-dist': hp.uniformint,
+            'sampling-scope': [5, 500],
+            'type': 'discrete'},
+        'stride': {
+            'hyperopt-dist': hp.uniformint,
+            'sampling-scope': [1, 10],
             'type': 'discrete'}},
     'sparse_lagged': {
         'window_size': {

@@ -402,6 +402,20 @@
 			"tags": [
 				"affects_target",
 				"dimensionality_transforming",
+              "non_lagged",
+              "ts_to_table"
+            ],
+          "input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
+        },
+    "hankelisation": {
+      "meta": "custom_time_series_transformation",
+      "presets": [
+        "fast_train",
+        "ts"
+      ],
+      "tags": [
+        "affects_target",
+        "dimensionality_transforming",
 				"non_lagged",
 				"ts_to_table"
 			],

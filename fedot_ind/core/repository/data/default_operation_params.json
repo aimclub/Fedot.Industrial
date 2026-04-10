@@ -39,7 +39,8 @@
   },
   "lagged_forecaster": {
     "channel_model": "ridge",
-    "window_size": 10
+    "window_size": 10,
+    "stride": 1
   },
   "inception_model": {
     "epochs": 100,
@@ -254,6 +255,10 @@
   },
   "lagged": {
     "window_size": 10
+  },
+  "hankelisation": {
+    "window_size": 10,
+    "stride": 1
   },
   "sparse_lagged": {
     "window_size": 10,

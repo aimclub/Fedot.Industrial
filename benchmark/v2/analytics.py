@@ -70,11 +70,79 @@ def runs_to_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
             'subset': record.subset,
             'series_id': record.series_id,
             'model_name': record.model_name,
+            'adapter_name': record.metadata.get('adapter_name'),
             'status': record.status.value,
             'message': record.message,
         }
         row.update(record.metrics_summary)
         rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _routing_aliases(adapter_name: str | None) -> set[str]:
+    normalized = str(adapter_name or '').lower()
+    aliases = {normalized}
+    if normalized == 'ssa_forecaster':
+        aliases.add('ssa_compat')
+    return aliases
+
+
+def build_regime_diagnostics_frame(
+        result: ForecastingBenchmarkResult,
+        primary_metric: str | None = None,
+) -> pd.DataFrame:
+    metric_name = primary_metric or result.aggregate_report.primary_metric
+    rows: list[dict[str, Any]] = []
+    grouped_records: dict[tuple[str, str, str, str], list[Any]] = {}
+    for record in result.run_records:
+        key = (record.benchmark, record.dataset_name, record.subset, record.series_id)
+        grouped_records.setdefault(key, []).append(record)
+
+    for (benchmark, dataset_name, subset, series_id), series_runs in grouped_records.items():
+        reference = next((record for record in series_runs if record.metadata.get('regime_diagnostics')), None)
+        if reference is None:
+            continue
+        diagnostics = dict(reference.metadata.get('regime_diagnostics', {}))
+        routing = dict(reference.metadata.get('routing_recommendation', {}))
+        successful = [
+            record for record in series_runs
+            if record.status is RunStatus.SUCCESS and metric_name in record.metrics_summary
+        ]
+        successful.sort(key=lambda record: float(record.metrics_summary.get(metric_name, float('inf'))))
+        best_record = successful[0] if successful else None
+        recommended_adapter = str(routing.get('primary_adapter', ''))
+        recommended_candidates = tuple(str(item) for item in routing.get('candidate_adapters', ()))
+        best_adapter = str(best_record.metadata.get('adapter_name', '')) if best_record is not None else ''
+        best_metric = float(best_record.metrics_summary[metric_name]) if best_record is not None else None
+        recommendation_hit = bool(recommended_adapter and recommended_adapter in _routing_aliases(best_adapter))
+        recommendation_available = any(
+            recommended_adapter in _routing_aliases(str(record.metadata.get('adapter_name', '')))
+            for record in series_runs
+        )
+        rows.append(
+            {
+                'benchmark': benchmark,
+                'dataset_name': dataset_name,
+                'subset': subset,
+                'series_id': series_id,
+                'series_length': diagnostics.get('series_length'),
+                'dominant_period': diagnostics.get('dominant_period'),
+                'acf_decay_rate': diagnostics.get('acf_decay_rate'),
+                'spectral_concentration': diagnostics.get('spectral_concentration'),
+                'spectral_flatness': diagnostics.get('spectral_flatness'),
+                'local_linearity_score': diagnostics.get('local_linearity_score'),
+                'switching_score': diagnostics.get('switching_score'),
+                'regime_hint': diagnostics.get('regime_hint'),
+                'recommended_adapter': recommended_adapter,
+                'recommended_candidates': ', '.join(recommended_candidates),
+                'routing_confidence': routing.get('confidence'),
+                'best_model_name': best_record.model_name if best_record is not None else None,
+                'best_adapter_name': best_adapter or None,
+                'best_primary_metric': best_metric,
+                'recommendation_available_in_run': recommendation_available,
+                'recommendation_matches_best_available': recommendation_hit,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -262,6 +330,34 @@ def compare_models_on_series(
                 artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
             plt.close(horizon_figure)
 
+        series_run_records = [record for record in result.run_records if record.series_id == series_id]
+        regime_reference = next(
+            (record for record in series_run_records if record.metadata.get('regime_diagnostics')),
+            None,
+        )
+        if regime_reference is not None:
+            model_summaries = []
+            for record in sorted(series_run_records, key=lambda item: item.model_name):
+                model_summaries.append(
+                    {
+                        'model_name': record.model_name,
+                        'adapter_name': record.metadata.get('adapter_name'),
+                        'status': record.status.value,
+                        'primary_metric': record.metrics_summary.get(result.aggregate_report.primary_metric),
+                    }
+                )
+            regime_payload = {
+                'series_id': series_id,
+                'dataset_name': dataset_name,
+                'primary_metric': result.aggregate_report.primary_metric,
+                'regime_diagnostics': regime_reference.metadata.get('regime_diagnostics', {}),
+                'routing_recommendation': regime_reference.metadata.get('routing_recommendation', {}),
+                'model_outcomes': model_summaries,
+            }
+            diagnostics_path = target_dir / f'{series_id}_regime_diagnostics.json'
+            write_json(diagnostics_path, regime_payload)
+            artifact_manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
+
         okhs_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
@@ -429,6 +525,27 @@ def render_publication_pack(
             ('leaderboard', leaderboard),
     ):
         manifest.extend(_stable_write_table(frame, aggregate_dir / base_name))
+
+    regime_frame = build_regime_diagnostics_frame(result)
+    if not regime_frame.empty:
+        manifest.extend(_stable_write_table(regime_frame, aggregate_dir / 'regime_diagnostics'))
+
+        routing_evaluation = regime_frame[
+            [
+                'benchmark',
+                'dataset_name',
+                'subset',
+                'series_id',
+                'regime_hint',
+                'recommended_adapter',
+                'best_model_name',
+                'best_adapter_name',
+                'best_primary_metric',
+                'recommendation_available_in_run',
+                'recommendation_matches_best_available',
+            ]
+        ].copy()
+        manifest.extend(_stable_write_table(routing_evaluation, aggregate_dir / 'routing_evaluation'))
 
     metadata_path = aggregate_dir / 'run_metadata.json'
     metadata_payload = {

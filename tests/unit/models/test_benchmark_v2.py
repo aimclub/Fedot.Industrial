@@ -8,7 +8,7 @@ import pandas as pd
 from benchmark.benchmark_TSF import BenchmarkTSF
 from benchmark.v2.api import compare_forecasting_models_on_series, run_forecasting_benchmark_suite
 from benchmark.v2.core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, RunStatus, TaskType
-from benchmark.v2.forecasting import build_dataset_adapter
+from benchmark.v2.forecasting import build_dataset_adapter, build_model_adapter
 
 
 def _toy_records() -> list[dict]:
@@ -49,6 +49,18 @@ def _switching_records() -> list[dict]:
             'dataset_name': 'switch_dataset',
         },
     ]
+
+
+def test_build_model_adapter_supports_lagged_and_ssa_forecasters() -> None:
+    lagged_model = build_model_adapter(
+        ModelSpec(adapter_name='lagged_forecaster', display_name='lagged_forecaster')
+    )
+    ssa_model = build_model_adapter(
+        ModelSpec(adapter_name='ssa_forecaster', display_name='ssa_forecaster')
+    )
+
+    assert lagged_model.name == 'lagged_forecaster'
+    assert ssa_model.name == 'ssa_forecaster'
 
 
 def test_m4_adapter_parses_frame_and_samples() -> None:
@@ -208,8 +220,11 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     assert 'toy_1_history_forecast_overlay.png' in artifact_names
     assert 'toy_1_boundary_zoom.png' in artifact_names
     assert 'toy_1_forecast_delta.png' in artifact_names
+    assert 'toy_1_regime_diagnostics.json' in artifact_names
     assert 'toy_1_okhs_diagnostics.json' in artifact_names
     publication_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'regime_diagnostics.csv' in publication_names
+    assert 'routing_evaluation.csv' in publication_names
     assert 'toy_dataset_metric_distribution_mae.png' in publication_names
     assert 'toy_dataset_model_ranking_mae.png' in publication_names
 

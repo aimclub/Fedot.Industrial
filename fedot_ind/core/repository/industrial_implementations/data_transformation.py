@@ -8,6 +8,57 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
+def build_lagged_table_contract(time_series,
+                                window_size: int,
+                                forecast_length: int,
+                                stride: int = 1):
+    lagged_features = HankelMatrix(
+        time_series=time_series,
+        window_size=window_size,
+        strides=stride).trajectory_matrix.T
+    lagged_target = HankelMatrix(
+        time_series=np.ravel(np.asarray(time_series))[window_size:],
+        window_size=forecast_length,
+        strides=stride).trajectory_matrix.T
+    lagged_features = lagged_features[:lagged_target.shape[0], :]
+    return lagged_features, lagged_target
+
+
+def prepare_lagged_table_data(input_data: InputData,
+                              window_size: int,
+                              stride: int = 1,
+                              is_fit_stage: bool = True) -> InputData:
+    prepared_data = copy(input_data)
+    forecast_length = prepared_data.task.task_params.forecast_length
+    lagged_features = HankelMatrix(
+        time_series=prepared_data.features,
+        window_size=window_size,
+        strides=stride).trajectory_matrix.T
+
+    lagged_target = None
+    if is_fit_stage:
+        lagged_features, lagged_target = build_lagged_table_contract(
+            time_series=prepared_data.features,
+            window_size=window_size,
+            forecast_length=forecast_length,
+            stride=stride,
+        )
+    elif prepared_data.target is not None and len(prepared_data.target.shape) < 2:
+        _, lagged_target = build_lagged_table_contract(
+            time_series=prepared_data.features,
+            window_size=window_size,
+            forecast_length=forecast_length,
+            stride=stride,
+        )
+        lagged_features = lagged_features[:lagged_target.shape[0], :]
+
+    prepared_data.features = lagged_features
+    if lagged_target is not None:
+        prepared_data.target = lagged_target
+    prepared_data.data_type = DataTypesEnum.table
+    return prepared_data
+
+
 # Method for lagged transformation
 def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputData:
     """Method for transformation of time series to lagged form for fit stage
@@ -25,13 +76,12 @@ def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputDa
         self._check_and_correct_window_size(train_data.features, forecast_length)
     else:
         self.log.info(("Window size dont change"))
-    lagged_features = HankelMatrix(
+    lagged_features, lagged_target = build_lagged_table_contract(
         time_series=train_data.features,
-        window_size=self.window_size).trajectory_matrix.T
-    lagged_target = HankelMatrix(
-        time_series=train_data.features[self.window_size:],
-        window_size=forecast_length).trajectory_matrix.T
-    lagged_features = lagged_features[:lagged_target.shape[0], :]
+        window_size=self.window_size,
+        forecast_length=forecast_length,
+        stride=1,
+    )
     train_data.target = lagged_target
     output_data = self._convert_to_output(train_data,
                                           lagged_features,
@@ -41,20 +91,16 @@ def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputDa
 
 def transform_lagged_industrial(self, input_data: InputData):
     train_data = copy(input_data)
-    # forecast_length = train_data.task.task_params.forecast_length
-    lagged_features = HankelMatrix(
-        time_series=train_data.features,
-        window_size=self.window_size).trajectory_matrix.T
-    if input_data.target is not None:
-        if len(input_data.target.shape) < 2:
-            lagged_target = HankelMatrix(
-                time_series=train_data.features[self.window_size:],
-                window_size=train_data.task.task_params.forecast_length).trajectory_matrix.T
-            lagged_features = lagged_features[:lagged_target.shape[0], :]
-            train_data.target = lagged_target
+    prepared_data = prepare_lagged_table_data(
+        train_data,
+        window_size=self.window_size,
+        stride=1,
+        is_fit_stage=False,
+    )
     output_data = self._convert_to_output(train_data,
-                                          lagged_features,
+                                          prepared_data.features,
                                           data_type=DataTypesEnum.table)
+    output_data.target = prepared_data.target
     return output_data
 
 

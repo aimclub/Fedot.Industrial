@@ -10,7 +10,8 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
-    ExogDataTransformationImplementation, GaussianFilterImplementation, TsSmoothingImplementation
+    ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
+    TsSmoothingImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
     FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
@@ -68,6 +69,7 @@ from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasis
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
+from fedot_ind.core.operation.transformation.data.hankelisation import HankelisationImplementation
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
@@ -197,7 +199,8 @@ class AtomizedModel(Enum):
     }
 
     FORECASTING_PREPROC = {
-        # 'lagged': LaggedTransformationImplementation,
+        'hankelisation': HankelisationImplementation,
+        'lagged': LaggedTransformationImplementation,
         # 'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,

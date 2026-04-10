@@ -476,6 +476,24 @@ def _safe_import(module_name: str) -> bool:
         return False
 
 
+def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
+    try:
+        from fedot.core.data.data import InputData
+        from fedot.core.repository.dataset_types import DataTypesEnum
+        from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+    except Exception as exc:  # pragma: no cover - depends on full FEDOT runtime
+        raise ModelExecutionError(RunStatus.NOT_AVAILABLE, f'FEDOT forecasting runtime is unavailable: {exc}') from exc
+
+    train = np.asarray(series_record.train_values, dtype=float).reshape(-1, 1)
+    return InputData(
+        idx=np.arange(len(train)),
+        features=train,
+        target=train.reshape(-1),
+        task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=series_record.forecast_horizon)),
+        data_type=DataTypesEnum.ts,
+    )
+
+
 @dataclass
 class NaiveLastValueModel(ForecastingModelAdapter):
     name: str = 'NaiveLastValue'
@@ -711,6 +729,80 @@ class MSSAModel(ForecastingModelAdapter):
 
 
 @dataclass
+class SSACompatModel(ForecastingModelAdapter):
+    window_size: int | None = None
+    rank: int | None = None
+    explained_variance: float = 0.95
+    history_lookback: int = 0
+    name: str = 'ssa_forecaster'
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'ssa')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        if not _safe_import('fedot.core.data.data'):
+            return RunStatus.NOT_AVAILABLE, 'fedot is required for ssa_forecaster compatibility wrapper.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
+
+        input_data = _build_fedot_forecasting_input(series_record)
+        model = SSAForecasterImplementation(
+            {
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'history_lookback': self.history_lookback,
+                'mode': 'one_dimensional',
+            }
+        )
+        model.fit(input_data)
+        output = model.predict(input_data)
+        forecast = np.asarray(output.predict, dtype=float).reshape(-1)
+        metadata: dict[str, Any] = {
+            'compatibility_status': getattr(model, 'compatibility_status_', 'compatibility_wrapper'),
+            'history_lookback': int(self.history_lookback),
+            'mode': 'one_dimensional',
+        }
+        inner_model = getattr(model, 'model_', None)
+        if inner_model is not None and hasattr(inner_model, 'get_diagnostics'):
+            metadata.update(inner_model.get_diagnostics())
+        return forecast[:series_record.forecast_horizon], metadata
+
+
+@dataclass
+class LaggedForecasterModel(ForecastingModelAdapter):
+    window_size: int = 10
+    channel_model: str = 'ridge'
+    name: str = 'lagged_forecaster'
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'lagged')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        if not _safe_import('fedot.core.data.data'):
+            return RunStatus.NOT_AVAILABLE, 'fedot is required for lagged_forecaster.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
+
+        input_data = _build_fedot_forecasting_input(series_record)
+        model = LaggedAR(
+            {
+                'window_size': self.window_size,
+                'channel_model': self.channel_model,
+            }
+        )
+        model.fit(input_data)
+        output = model.predict(input_data)
+        forecast = np.asarray(output.predict, dtype=float).reshape(-1)
+        return forecast[:series_record.forecast_horizon], {
+            'channel_model': self.channel_model,
+            'window_size_percent': int(self.window_size),
+        }
+
+
+@dataclass
 class HAVOKModel(ForecastingModelAdapter):
     window_size: int | None = None
     rank: int | None = None
@@ -780,6 +872,14 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     params = dict(spec.params)
     if adapter_name == 'okhs':
         return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
+    if adapter_name == 'ssa_forecaster':
+        return SSACompatModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'ssa'), **params)
+    if adapter_name == 'lagged_forecaster':
+        return LaggedForecasterModel(
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'forecasting', 'lagged'),
+            **params,
+        )
     if adapter_name == 'mssa':
         return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
     if adapter_name == 'havok':
@@ -1040,6 +1140,7 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 message=availability_message,
                                 metadata={
                                     'optional': model.optional,
+                                    'adapter_name': model_spec.adapter_name,
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
                                 },
@@ -1156,6 +1257,7 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 tags=model.tags,
                                 metrics_summary=metrics_summary,
                                 metadata={
+                                    'adapter_name': model_spec.adapter_name,
                                     **metadata,
                                     'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
                                     'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
@@ -1179,6 +1281,7 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 message=exc.message,
                                 metadata={
                                     'optional': model.optional,
+                                    'adapter_name': model_spec.adapter_name,
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
                                 },
@@ -1199,6 +1302,7 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 message=str(exc),
                                 metadata={
                                     'optional': model.optional,
+                                    'adapter_name': model_spec.adapter_name,
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
                                 },
