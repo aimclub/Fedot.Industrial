@@ -8,15 +8,34 @@ from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
-import torch
+
+try:  # pragma: no cover - optional in lightweight test envs
+    import torch
+except Exception:  # pragma: no cover
+    torch = None
 
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
-from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
 from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
-from fedot_ind.core.models.ts_forecasting.regime_routing import recommend_forecasting_model
-from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
+from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
+
+try:  # pragma: no cover - operator-model path may require torch/scipy-heavy stack
+    from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
+except Exception:  # pragma: no cover
+    OKHSForecaster = None
+try:  # pragma: no cover - DMD runtime may require torch stack
+    from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
+except Exception:  # pragma: no cover
+    DMDForecaster = None
+try:  # pragma: no cover - tensor-native composites require torch
+    from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
+    from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
+except Exception:  # pragma: no cover
+    HybridEnsembleForecaster = None
+    LaggedRidgeForecaster = None
+    LowRankLaggedRidgeForecaster = None
 
 try:  # pragma: no cover - optional heavyweight dependency tree in test envs
     from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, M4_PREFIX, M4_SEASONALITY
@@ -584,7 +603,7 @@ class ClassicalDMDModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
-        if not _safe_import('torch'):
+        if DMDForecaster is None or not _safe_import('torch'):
             return RunStatus.NOT_AVAILABLE, 'torch is required for DMDForecaster.'
         return RunStatus.SUCCESS, 'ready'
 
@@ -641,6 +660,8 @@ class OKHSModel(ForecastingModelAdapter):
     device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
+        if OKHSForecaster is None:
+            return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for OKHS forecasting.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
@@ -773,33 +794,112 @@ class SSACompatModel(ForecastingModelAdapter):
 @dataclass
 class LaggedForecasterModel(ForecastingModelAdapter):
     window_size: int = 10
-    channel_model: str = 'ridge'
+    stride: int = 1
+    alpha: float = 1.0
     name: str = 'lagged_forecaster'
-    tags: tuple[str, ...] = ('baseline', 'forecasting', 'lagged')
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'lagged_linear')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
-        if not _safe_import('fedot.core.data.data'):
-            return RunStatus.NOT_AVAILABLE, 'fedot is required for lagged_forecaster.'
+        if LaggedRidgeForecaster is None:
+            return RunStatus.NOT_AVAILABLE, 'torch is required for lagged_ridge_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
-
-        input_data = _build_fedot_forecasting_input(series_record)
-        model = LaggedAR(
+        model = LaggedRidgeForecaster(
+            forecast_horizon=series_record.forecast_horizon,
+            window_size_percent=self.window_size,
+            stride=self.stride,
+            alpha=self.alpha,
+        )
+        model.fit(np.asarray(series_record.train_values, dtype=float))
+        forecast = np.asarray(model.predict(np.asarray(series_record.train_values, dtype=float)), dtype=float).reshape(
+            -1)
+        metadata = model.get_diagnostics()
+        metadata.update(
             {
-                'window_size': self.window_size,
-                'channel_model': self.channel_model,
+                'window_size_percent': float(self.window_size),
+                'stride': int(self.stride),
+                'alpha': float(self.alpha),
             }
         )
-        model.fit(input_data)
-        output = model.predict(input_data)
-        forecast = np.asarray(output.predict, dtype=float).reshape(-1)
-        return forecast[:series_record.forecast_horizon], {
-            'channel_model': self.channel_model,
-            'window_size_percent': int(self.window_size),
-        }
+        return forecast[:series_record.forecast_horizon], metadata
+
+
+@dataclass
+class LowRankLaggedForecasterModel(ForecastingModelAdapter):
+    window_size: int = 10
+    stride: int = 1
+    alpha: float = 1.0
+    rank: int | None = None
+    explained_variance: float = 0.95
+    decomposition_strategy: str = 'full'
+    rank_truncation_policy: str = 'explained_variance'
+    name: str = 'low_rank_lagged_ridge_forecaster'
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'low_rank_linear')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        if LowRankLaggedRidgeForecaster is None:
+            return RunStatus.NOT_AVAILABLE, 'torch is required for low_rank_lagged_ridge_forecaster runtime.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        model = LowRankLaggedRidgeForecaster(
+            forecast_horizon=series_record.forecast_horizon,
+            window_size_percent=self.window_size,
+            stride=self.stride,
+            alpha=self.alpha,
+            rank=self.rank,
+            explained_variance=self.explained_variance,
+            decomposition_strategy=self.decomposition_strategy,
+            rank_truncation_policy=self.rank_truncation_policy,
+        )
+        train = np.asarray(series_record.train_values, dtype=float)
+        model.fit(train)
+        forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
+        metadata = model.get_diagnostics()
+        metadata.update(
+            {
+                'window_size_percent': float(self.window_size),
+                'stride': int(self.stride),
+                'alpha': float(self.alpha),
+            }
+        )
+        return forecast[:series_record.forecast_horizon], metadata
+
+
+@dataclass
+class HybridEnsembleModel(ForecastingModelAdapter):
+    complex_branch: str = 'okhs'
+    calibration_horizon: int | None = None
+    lagged_params: dict[str, Any] = None
+    low_rank_params: dict[str, Any] = None
+    complex_params: dict[str, Any] = None
+    name: str = 'hybrid_ensemble_forecaster'
+    tags: tuple[str, ...] = ('ensemble', 'forecasting', 'operator_model')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        if HybridEnsembleForecaster is None:
+            return RunStatus.NOT_AVAILABLE, 'torch is required for hybrid_ensemble_forecaster runtime.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        model = HybridEnsembleForecaster(
+            forecast_horizon=series_record.forecast_horizon,
+            complex_branch=self.complex_branch,
+            calibration_horizon=self.calibration_horizon,
+            lagged_params=dict(self.lagged_params or {}),
+            low_rank_params=dict(self.low_rank_params or {}),
+            complex_params=dict(self.complex_params or {}),
+        )
+        train = np.asarray(series_record.train_values, dtype=float)
+        model.fit(train)
+        forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
+        metadata = model.get_diagnostics()
+        metadata.update({'complex_branch': self.complex_branch})
+        return forecast[:series_record.forecast_horizon], metadata
 
 
 @dataclass
@@ -877,7 +977,25 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     if adapter_name == 'lagged_forecaster':
         return LaggedForecasterModel(
             name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'lagged'),
+            tags=spec.tags or ('baseline', 'forecasting', 'lagged_linear'),
+            **params,
+        )
+    if adapter_name == 'lagged_ridge_forecaster':
+        return LaggedForecasterModel(
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'forecasting', 'lagged_linear'),
+            **params,
+        )
+    if adapter_name == 'low_rank_lagged_ridge_forecaster':
+        return LowRankLaggedForecasterModel(
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'forecasting', 'low_rank_linear'),
+            **params,
+        )
+    if adapter_name == 'hybrid_ensemble_forecaster':
+        return HybridEnsembleModel(
+            name=spec.display_name,
+            tags=spec.tags or ('ensemble', 'forecasting', 'operator_model'),
             **params,
         )
     if adapter_name == 'mssa':
@@ -1141,8 +1259,12 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 metadata={
                                     'optional': model.optional,
                                     'adapter_name': model_spec.adapter_name,
+                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
+                                    'routing_recommendation_family': adapter_name_to_family(
+                                        routing_recommendation.primary_adapter
+                                    ),
                                 },
                             )
                         )
@@ -1258,11 +1380,15 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 metrics_summary=metrics_summary,
                                 metadata={
                                     'adapter_name': model_spec.adapter_name,
+                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
                                     **metadata,
                                     'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
                                     'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
+                                    'routing_recommendation_family': adapter_name_to_family(
+                                        routing_recommendation.primary_adapter
+                                    ),
                                 },
                             )
                         )
@@ -1282,8 +1408,12 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 metadata={
                                     'optional': model.optional,
                                     'adapter_name': model_spec.adapter_name,
+                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
+                                    'routing_recommendation_family': adapter_name_to_family(
+                                        routing_recommendation.primary_adapter
+                                    ),
                                 },
                             )
                         )
@@ -1303,8 +1433,12 @@ def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkR
                                 metadata={
                                     'optional': model.optional,
                                     'adapter_name': model_spec.adapter_name,
+                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
                                     'regime_diagnostics': regime_diagnostics.to_dict(),
                                     'routing_recommendation': routing_recommendation.to_dict(),
+                                    'routing_recommendation_family': adapter_name_to_family(
+                                        routing_recommendation.primary_adapter
+                                    ),
                                 },
                             )
                         )

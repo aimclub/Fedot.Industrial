@@ -5,6 +5,7 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
     DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import TaskTypesEnum
 
 from fedot_ind.core.repository.industrial_implementations.data_transformation import prepare_lagged_table_data
 
@@ -51,6 +52,17 @@ class HankelisationImplementation(DataOperationImplementation):
             stride=self.stride,
         )
 
+    @staticmethod
+    def _aligned_idx(input_data: InputData, row_count: int):
+        source_idx = input_data.idx
+        if source_idx is None:
+            return None
+
+        source_idx = source_idx.reshape(-1)
+        if row_count <= source_idx.shape[0]:
+            return source_idx[-row_count:]
+        return source_idx
+
     def _transform_input(self, input_data: InputData, is_fit_stage: bool) -> OutputData:
         resolved_window_size, resolved_stride = self._resolve_params(input_data)
         transformed = prepare_lagged_table_data(
@@ -59,12 +71,26 @@ class HankelisationImplementation(DataOperationImplementation):
             stride=resolved_stride,
             is_fit_stage=is_fit_stage,
         )
+        transformed_features = transformed.features
+        transformed_target = transformed.target
+
+        # In a forecasting pipeline the downstream regression model should see
+        # only the latest lagged state at inference time; otherwise it predicts
+        # a batch of overlapping horizon windows that FEDOT can not compare to a
+        # single holdout horizon during tuning.
+        if not is_fit_stage and input_data.task.task_type is TaskTypesEnum.ts_forecasting:
+            transformed_features = transformed_features[-1:, :]
+            if transformed_target is not None and len(transformed_target.shape) > 1:
+                transformed_target = transformed_target[-1:, :]
+
         output = self._convert_to_output(
             input_data,
-            transformed.features,
+            transformed_features,
             data_type=DataTypesEnum.table,
         )
-        output.target = transformed.target
+        output.features = transformed_features
+        output.target = transformed_target
+        output.idx = self._aligned_idx(input_data, transformed_features.shape[0])
         output.data_type = DataTypesEnum.table
         return output
 

@@ -1,7 +1,7 @@
 import numpy as np
 
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
-from fedot_ind.core.models.ts_forecasting.regime_routing import recommend_forecasting_model
+from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
 
 
 def test_regime_routing_prefers_periodic_models_for_periodic_series():
@@ -43,3 +43,9 @@ def test_regime_routing_falls_back_for_short_history():
 
     assert decision.primary_adapter == 'naive_last_value'
     assert decision.fallback_adapter == 'naive_last_value'
+
+
+def test_adapter_name_to_family_maps_new_composite_models():
+    assert adapter_name_to_family('lagged_ridge_forecaster') == 'lagged_linear'
+    assert adapter_name_to_family('low_rank_lagged_ridge_forecaster') == 'low_rank_linear'
+    assert adapter_name_to_family('hybrid_ensemble_forecaster') == 'operator_model'

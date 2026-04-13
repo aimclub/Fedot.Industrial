@@ -85,6 +85,23 @@
 			],
 			"description": "Preprocessing for converting uni-variate time-series into table form or transform it"
 		},
+      "hankelisation_transformation": {
+        "tasks": "[TaskTypesEnum.ts_forecasting, TaskTypesEnum.regression]",
+        "input_type": "[DataTypesEnum.ts, DataTypesEnum.multi_ts]",
+        "output_type": "[DataTypesEnum.table]",
+        "accepted_node_types": [
+          "any"
+        ],
+        "forbidden_node_types": "[]",
+        "strategies": [
+          "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+          "IndustrialForecastingPreprocessingStrategy"
+        ],
+        "tags": [
+          "time_series"
+        ],
+        "description": "Hankelisation for converting time series into tabular lagged trajectories in forecasting and regression tuning flows"
+      },
 		"text_preprocessing": {
 			"tasks": "[TaskTypesEnum.classification]",
 			"input_type": "[DataTypesEnum.text]",
@@ -408,7 +425,7 @@
           "input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
         },
     "hankelisation": {
-      "meta": "custom_time_series_transformation",
+      "meta": "hankelisation_transformation",
       "presets": [
         "fast_train",
         "ts"

@@ -11,8 +11,37 @@ class RoutingAdapterName(str, Enum):
     SSA_COMPAT = 'ssa_compat'
     HAVOK = 'havok'
     OKHS = 'okhs'
+    LAGGED_RIDGE = 'lagged_ridge_forecaster'
+    LOW_RANK_LAGGED_RIDGE = 'low_rank_lagged_ridge_forecaster'
+    HYBRID_ENSEMBLE = 'hybrid_ensemble_forecaster'
     LINEAR_TREND = 'linear_trend'
     NAIVE_LAST_VALUE = 'naive_last_value'
+
+
+def adapter_name_to_family(adapter_name: str) -> str:
+    normalized = str(adapter_name).lower()
+    if normalized in {
+        RoutingAdapterName.LAGGED_RIDGE.value,
+        'lagged_forecaster',
+        'ridge_forecasting_head',
+    }:
+        return 'lagged_linear'
+    if normalized in {
+        RoutingAdapterName.LOW_RANK_LAGGED_RIDGE.value,
+        RoutingAdapterName.MSSA.value,
+        RoutingAdapterName.SSA_COMPAT.value,
+    }:
+        return 'low_rank_linear'
+    if normalized in {
+        RoutingAdapterName.OKHS.value,
+        RoutingAdapterName.HAVOK.value,
+        RoutingAdapterName.HYBRID_ENSEMBLE.value,
+        'classical_dmd',
+    }:
+        return 'operator_model'
+    if normalized in {'deepar_model', 'nbeats_model', 'tft'}:
+        return 'neural_forecaster'
+    return 'simple_baseline'
 
 
 @dataclass(frozen=True)

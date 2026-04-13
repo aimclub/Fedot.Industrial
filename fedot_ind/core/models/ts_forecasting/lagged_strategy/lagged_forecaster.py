@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Optional
 
@@ -11,6 +12,7 @@ from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
+from fedot.core.repository.operation_types_repository import OperationTypesRepository
 from fedot.core.repository.tasks import TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
@@ -99,9 +101,17 @@ class LaggedAR(ModelImplementation):
         )
 
     def _build_forecasting_tuner(self, model_to_tune, tuning_params, train_data):
-        tuning_data = deepcopy(train_data)
         search_space = self._define_search_space()
-        pipeline_tuner = self._create_tuner(search_space, tuning_params, tuning_data)
+        pipeline_tuner = (
+            TunerBuilder(train_data.task)
+            .with_search_space(search_space)
+            .with_tuner(tuning_params["tuner"])
+            .with_cv_folds(tuning_params.get("cv_folds", None))
+            .with_n_jobs(tuning_params.get("n_jobs", 1))
+            .with_metric(tuning_params["metric"])
+            .with_iterations(tuning_params.get("tuning_iterations", 20))
+            .build(train_data)
+        )
         model_to_tune = pipeline_tuner.tune(model_to_tune)
         model_to_tune.fit(train_data)
         del pipeline_tuner
@@ -137,13 +147,39 @@ class LaggedAR(ModelImplementation):
     def _create_pcd(self, input_data, is_fit_stage: bool = True):
         return self._prepare_regression_core_data(input_data, is_fit_stage)
 
-    def _fit_hankel_pipeline(self, input_data: InputData):
-        model_to_tune = self._define_forecasting_pipeline_model()
-        self.tuned_model = self._build_forecasting_tuner(
-            model_to_tune=model_to_tune,
-            tuning_params=self.tuning_params,
-            train_data=input_data,
+    def _is_industrial_repository_active(self) -> bool:
+        from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+        repository = IndustrialModels()
+        data_repo = OperationTypesRepository.__repository_dict__.get('data_operation', {}).get('file')
+        model_repo = OperationTypesRepository.__repository_dict__.get('model', {}).get('file')
+        return (
+                data_repo == repository.industrial_data_operation_path
+                and model_repo == repository.industrial_model_path
         )
+
+    @contextmanager
+    def _industrial_repository_scope(self):
+        from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+        repository = IndustrialModels()
+        already_active = self._is_industrial_repository_active()
+        if not already_active:
+            repository.setup_repository()
+        try:
+            yield
+        finally:
+            if not already_active:
+                repository.setup_default_repository()
+
+    def _fit_hankel_pipeline(self, input_data: InputData):
+        with self._industrial_repository_scope():
+            model_to_tune = self._define_forecasting_pipeline_model()
+            self.tuned_model = self._build_forecasting_tuner(
+                model_to_tune=model_to_tune,
+                tuning_params=self.tuning_params,
+                train_data=input_data,
+            )
         return self
 
     def fit(self, input_data):
@@ -158,7 +194,8 @@ class LaggedAR(ModelImplementation):
         return self
 
     def _predict_from_hankel_pipeline(self, input_data: InputData) -> OutputData:
-        prediction = self.tuned_model.predict(input_data)
+        with self._industrial_repository_scope():
+            prediction = self.tuned_model.predict(input_data)
         forecast_length = input_data.task.task_params.forecast_length
         prediction.predict = np.ravel(prediction.predict)[-forecast_length:]
         return prediction

@@ -6,7 +6,6 @@ from typing import Optional, Union, Callable
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy
-from fedot.core.utils import is_multi_output_target
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import get_operation_type_from_id, OperationTypesRepository
@@ -18,6 +17,33 @@ from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionCo
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, FORECASTING_PREPROC, \
     INDUSTRIAL_CLF_PREPROC_MODEL, INDUSTRIAL_PREPROC_MODEL
+
+try:  # pragma: no cover - depends on FEDOT version
+    from fedot.core.utils import is_multi_output_target as _fedot_is_multi_output_target
+except ImportError:  # pragma: no cover
+    _fedot_is_multi_output_target = None
+
+
+def is_multi_output_target(data: InputData) -> bool:
+    """Compatibility shim for FEDOT versions without ``fedot.core.utils.is_multi_output_target``."""
+    if _fedot_is_multi_output_target is not None:
+        return _fedot_is_multi_output_target(data)
+
+    target = getattr(data, 'target', None)
+    if target is None:
+        return False
+
+    target_array = np.asarray(target)
+    if target_array.ndim > 1 and target_array.shape[-1] > 1:
+        return True
+
+    if target_array.dtype == object and target_array.size:
+        first_value = target_array.reshape(-1)[0]
+        if isinstance(first_value, (list, tuple, np.ndarray)):
+            nested = np.asarray(first_value)
+            return nested.ndim > 0 and nested.shape[-1] > 1
+
+    return False
 
 
 class MultiDimPreprocessingStrategy(EvaluationStrategy):

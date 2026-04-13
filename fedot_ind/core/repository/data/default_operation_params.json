@@ -42,6 +42,28 @@
     "window_size": 10,
     "stride": 1
   },
+  "lagged_ridge_forecaster": {
+    "window_size": 10,
+    "stride": 1,
+    "alpha": 1.0,
+    "device": "cpu"
+  },
+  "low_rank_lagged_ridge_forecaster": {
+    "window_size": 10,
+    "stride": 1,
+    "alpha": 1.0,
+    "explained_variance": 0.95,
+    "decomposition_strategy": "full",
+    "rank_truncation_policy": "explained_variance",
+    "device": "cpu"
+  },
+  "hybrid_ensemble_forecaster": {
+    "complex_branch": "okhs",
+    "device": "cpu",
+    "lagged_params": {},
+    "low_rank_params": {},
+    "complex_params": {}
+  },
   "inception_model": {
     "epochs": 100,
     "batch_size": 32,

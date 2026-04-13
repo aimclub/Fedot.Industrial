@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from benchmark.benchmark_TSF import BenchmarkTSF
 from benchmark.v2.api import compare_forecasting_models_on_series, run_forecasting_benchmark_suite
@@ -61,6 +62,22 @@ def test_build_model_adapter_supports_lagged_and_ssa_forecasters() -> None:
 
     assert lagged_model.name == 'lagged_forecaster'
     assert ssa_model.name == 'ssa_forecaster'
+
+
+def test_build_model_adapter_supports_new_composite_forecasters() -> None:
+    lagged_ridge_model = build_model_adapter(
+        ModelSpec(adapter_name='lagged_ridge_forecaster', display_name='lagged_ridge_forecaster')
+    )
+    low_rank_model = build_model_adapter(
+        ModelSpec(adapter_name='low_rank_lagged_ridge_forecaster', display_name='low_rank_lagged_ridge_forecaster')
+    )
+    hybrid_model = build_model_adapter(
+        ModelSpec(adapter_name='hybrid_ensemble_forecaster', display_name='hybrid_ensemble_forecaster')
+    )
+
+    assert lagged_ridge_model.name == 'lagged_ridge_forecaster'
+    assert low_rank_model.name == 'low_rank_lagged_ridge_forecaster'
+    assert hybrid_model.name == 'hybrid_ensemble_forecaster'
 
 
 def test_m4_adapter_parses_frame_and_samples() -> None:
@@ -227,6 +244,56 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     assert 'routing_evaluation.csv' in publication_names
     assert 'toy_dataset_metric_distribution_mae.png' in publication_names
     assert 'toy_dataset_model_ranking_mae.png' in publication_names
+
+
+def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> None:
+    pytest.importorskip('torch')
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(adapter_name='lagged_ridge_forecaster', display_name='LaggedRidge'),
+            ModelSpec(
+                adapter_name='low_rank_lagged_ridge_forecaster',
+                display_name='LowRankLaggedRidge',
+                params={'explained_variance': 0.9},
+            ),
+            ModelSpec(
+                adapter_name='hybrid_ensemble_forecaster',
+                display_name='HybridEnsemble',
+                params={'complex_branch': 'havok', 'complex_params': {'window_size': 8, 'rank': 2}},
+            ),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='composite_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert any(
+        record.model_name == 'LaggedRidge' and record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert any(record.model_name == 'LowRankLaggedRidge' and record.status is RunStatus.SUCCESS for record in
+               result.run_records)
+    hybrid_record = next(record for record in result.run_records if record.model_name == 'HybridEnsemble')
+    assert hybrid_record.status is RunStatus.SUCCESS
+    assert hybrid_record.metadata['model_adapter_family'] == 'operator_model'
+    assert hybrid_record.metadata['routing_recommendation_family'] in {
+        'low_rank_linear',
+        'operator_model',
+        'simple_baseline',
+    }
 
 
 def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:

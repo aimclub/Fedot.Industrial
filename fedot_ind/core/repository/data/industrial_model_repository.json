@@ -433,6 +433,42 @@
       "tags": [],
       "input_type": "[DataTypesEnum.ts]"
     },
+    "lagged_ridge_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "linear",
+        "lagged",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "low_rank_lagged_ridge_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "linear",
+        "low_rank",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "hybrid_ensemble_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "ensemble",
+        "operator_model",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
     "adareg": {
       "meta": "sklearn_regr",
       "presets": [

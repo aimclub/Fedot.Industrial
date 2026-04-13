@@ -59,9 +59,13 @@ from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldR
 from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
+from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import \
+    LowRankLaggedRidgeForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
@@ -188,6 +192,9 @@ class AtomizedModel(Enum):
         'eigen_forecaster': EigenAR,
         'topo_forecaster': TopologicalAR,
         'lagged_forecaster': LaggedAR,
+        'lagged_ridge_forecaster': LaggedRidgeForecasterImplementation,
+        'low_rank_lagged_ridge_forecaster': LowRankLaggedRidgeForecasterImplementation,
+        'hybrid_ensemble_forecaster': HybridEnsembleForecasterImplementation,
         'ssa_forecaster': SSAForecasterImplementation,
         'mssa_forecaster': MSSAForecasterImplementation,
         'havok_forecaster': HAVOKForecasterImplementation,
@@ -212,6 +219,9 @@ class AtomizedModel(Enum):
         # 'deepar_model',
         # 'topo_forecaster',
         'lagged_forecaster',
+        'lagged_ridge_forecaster',
+        'low_rank_lagged_ridge_forecaster',
+        'hybrid_ensemble_forecaster',
         'eigen_forecaster'
     ]
 
