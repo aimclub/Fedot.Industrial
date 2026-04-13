@@ -77,8 +77,8 @@
 			],
 			"forbidden_node_types": "[]",
 			"strategies": [
-				"fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
-				"IndustrialForecastingPreprocessingStrategy"
+              "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+              "IndustrialForecastingPreprocessingRuntimeStrategy"
 			],
 			"tags": [
 				"time_series"
@@ -94,8 +94,8 @@
         ],
         "forbidden_node_types": "[]",
         "strategies": [
-          "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
-          "IndustrialForecastingPreprocessingStrategy"
+          "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+          "IndustrialForecastingPreprocessingRuntimeStrategy"
         ],
         "tags": [
           "time_series"
@@ -179,8 +179,8 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
-        "IndustrialPreprocessingStrategy"
+        "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+        "IndustrialForecastingPreprocessingRuntimeStrategy"
       ],
       "tags": [
       ],

@@ -187,10 +187,16 @@ The refactor should ensure:
   - `expert_rank_truncation`
 - tuning search-space entries for named composite models and primitive forecasting stages;
 - an M4 benchmark example for the new composite forecasting stack.
+- dedicated thin forecasting runtime strategies:
+    - `IndustrialForecastingModelRuntimeStrategy`
+    - `IndustrialForecastingPreprocessingRuntimeStrategy`
+- repository forecasting metadata redirected away from legacy multidimensional dispatch and toward forecasting-only
+  runtime entrypoints.
 
 ### Deferred To Later Slices
 
-- full rewrite of `industrial_preprocessing_strategy` and `industrial_model_strategy`;
+- full removal or reduction of the legacy forecasting codepaths still living inside
+  `industrial_preprocessing_strategy` and `industrial_model_strategy`;
 - full decomposition of `okhs_forecasting` into FEDOT pipeline-compatible primitive nodes;
 - full primitive-node registration in industrial JSON repositories;
 - explicit rolling-origin tuning orchestration across all forecasting models;
@@ -223,6 +229,12 @@ The refactor should ensure:
 
 - narrow legacy industrial strategies to thin shells;
 - detach forecasting runtime from old multidimensional compatibility flags.
+
+Current status:
+
+- started;
+- forecasting repository metadata now points to dedicated forecasting runtime strategies;
+- remaining work is to migrate lingering forecasting-specific logic out of the legacy strategy modules entirely.
 
 ### Phase 6. Benchmark And Routing Adoption
 
