@@ -113,6 +113,38 @@ industrial_search_space = {
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 40, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]},
          },
+    'hankelisation':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},
+    'svd_decomposition':
+        {'device': {'hyperopt-dist': hp.choice, 'sampling-scope': [['cpu']]}},
+    'randomized_svd_decomposition':
+        {'n_oversamples': {'hyperopt-dist': hp.choice, 'sampling-scope': [[3, 5, 8, 10]]}},
+    'tensor_decomposition':
+        {'unfolding_strategy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['channels_last', 'flat_table']]}},
+    'explained_variance_truncation':
+        {'explained_variance': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.85, 0.9, 0.95, 0.98]]},
+         'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
+    'statistical_rank_truncation':
+        {'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
+    'expert_rank_truncation':
+        {'rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8, 12]]},
+         'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
+    'lagged_ridge_forecaster':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4]]},
+         'alpha': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.1, 0.5, 1.0, 2.0, 5.0]]}},
+    'low_rank_lagged_ridge_forecaster':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4]]},
+         'alpha': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.1, 0.5, 1.0, 2.0, 5.0]]},
+         'explained_variance': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.85, 0.9, 0.95, 0.98]]},
+         'decomposition_strategy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['full', 'randomized']]},
+         'rank_truncation_policy': {'hyperopt-dist': hp.choice,
+                                    'sampling-scope': [['explained_variance', 'statistical']]}},
+    'hybrid_ensemble_forecaster':
+        {'complex_branch': {'hyperopt-dist': hp.choice, 'sampling-scope': [['okhs', 'havok']]},
+         'calibration_horizon': {'hyperopt-dist': hp.choice, 'sampling-scope': [[None, 4, 6, 8]]}},
     'industrial_stat_clf':
         {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['logit', 'xgboost', 'rf',
                                                                            # 'inception_model','resnet_model'

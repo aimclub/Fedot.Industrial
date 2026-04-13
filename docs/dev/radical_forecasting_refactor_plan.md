@@ -178,6 +178,15 @@ The refactor should ensure:
 - first named composite models;
 - benchmark adapters for named composite models;
 - model family mapping for routing-aware metadata.
+- forecasting decomposition and rank-truncation primitives as separate industrial operations:
+  - `svd_decomposition`
+  - `randomized_svd_decomposition`
+  - `tensor_decomposition`
+  - `explained_variance_truncation`
+  - `statistical_rank_truncation`
+  - `expert_rank_truncation`
+- tuning search-space entries for named composite models and primitive forecasting stages;
+- an M4 benchmark example for the new composite forecasting stack.
 
 ### Deferred To Later Slices
 

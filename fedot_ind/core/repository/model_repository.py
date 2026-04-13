@@ -73,6 +73,14 @@ from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasis
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
+from fedot_ind.core.operation.transformation.data.forecasting_primitives import (
+    ExpertRankTruncationImplementation,
+    ExplainedVarianceRankTruncationImplementation,
+    RandomizedSVDDecompositionImplementation,
+    StatisticalRankTruncationImplementation,
+    SVDDecompositionImplementation,
+    TensorDecompositionImplementation,
+)
 from fedot_ind.core.operation.transformation.data.hankelisation import HankelisationImplementation
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
@@ -207,6 +215,12 @@ class AtomizedModel(Enum):
 
     FORECASTING_PREPROC = {
         'hankelisation': HankelisationImplementation,
+        'svd_decomposition': SVDDecompositionImplementation,
+        'randomized_svd_decomposition': RandomizedSVDDecompositionImplementation,
+        'tensor_decomposition': TensorDecompositionImplementation,
+        'explained_variance_truncation': ExplainedVarianceRankTruncationImplementation,
+        'statistical_rank_truncation': StatisticalRankTruncationImplementation,
+        'expert_rank_truncation': ExpertRankTruncationImplementation,
         'lagged': LaggedTransformationImplementation,
         # 'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,

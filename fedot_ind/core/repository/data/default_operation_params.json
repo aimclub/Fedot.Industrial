@@ -48,6 +48,28 @@
     "alpha": 1.0,
     "device": "cpu"
   },
+  "svd_decomposition": {
+    "device": "cpu"
+  },
+  "randomized_svd_decomposition": {
+    "device": "cpu",
+    "n_oversamples": 5
+  },
+  "tensor_decomposition": {
+    "device": "cpu",
+    "unfolding_strategy": "channels_last"
+  },
+  "explained_variance_truncation": {
+    "explained_variance": 0.95,
+    "min_rank": 2
+  },
+  "statistical_rank_truncation": {
+    "min_rank": 2
+  },
+  "expert_rank_truncation": {
+    "rank": 4,
+    "min_rank": 2
+  },
   "low_rank_lagged_ridge_forecaster": {
     "window_size": 10,
     "stride": 1,

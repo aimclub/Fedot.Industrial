@@ -438,6 +438,84 @@
 			],
 			"input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
 		},
+	  "svd_decomposition": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "decomposition",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "randomized_svd_decomposition": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "decomposition",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "tensor_decomposition": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "decomposition",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "explained_variance_truncation": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "rank_truncation",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "statistical_rank_truncation": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "rank_truncation",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "expert_rank_truncation": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "rank_truncation",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
 		"sparse_lagged": {
 			"meta": "custom_time_series_transformation",
 			"presets": ["fast_train", "ts"],
