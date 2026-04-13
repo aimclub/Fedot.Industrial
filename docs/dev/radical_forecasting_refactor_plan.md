@@ -178,8 +178,16 @@ The refactor should ensure:
 - first named composite models;
 - a new shell-first operator entrypoint:
   - `okhs_fdmd_forecaster`
+- extracted pure helper layer for OKHS orchestration:
+  - fit-plan construction
+  - stage-diagnostics construction
+  - prediction-plan helpers
+  - anti-smoothing postprocess helpers
 - benchmark adapters for named composite models;
 - model family mapping for routing-aware metadata.
+- stage-aware benchmark artifacts for `okhs_fdmd_forecaster`:
+  - per-series `okhs_fdmd_stage_diagnostics.json`
+  - aggregate `okhs_fdmd_stage_diagnostics` tables in the publication pack
 - forecasting decomposition and rank-truncation primitives as separate industrial operations:
   - `svd_decomposition`
   - `randomized_svd_decomposition`
@@ -247,6 +255,12 @@ Current status:
 
 - align benchmark artifacts with primitive vocabulary;
 - compare routing recommendation against winner families on real cohorts.
+
+Current status:
+
+- in progress;
+- `benchmark/v2` now persists stage-aware series and aggregate artifacts for `okhs_fdmd_forecaster`;
+- next useful step is to extend the same primitive-stage artifact contract to additional model families beyond OKHS.
 
 ## Practical Rule For New Development
 

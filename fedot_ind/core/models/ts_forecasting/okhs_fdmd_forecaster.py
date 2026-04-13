@@ -32,85 +32,7 @@ except Exception:  # pragma: no cover
         table = 'table'
 
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
-
-
-def _safe_tuple(value):
-    if value is None:
-        return None
-    if isinstance(value, tuple):
-        return tuple(int(item) for item in value)
-    if isinstance(value, list):
-        return tuple(int(item) for item in value)
-    return value
-
-
-def _build_okhs_fdmd_stage_diagnostics(optimization_info: dict[str, Any]) -> dict[str, Any]:
-    window_diagnostics = dict(optimization_info.get('window_diagnostics') or {})
-    preprocessing = dict(optimization_info.get('trajectory_preprocessing') or {})
-    projection = dict(optimization_info.get('projection_metadata') or {})
-    fit_diagnostics = dict(optimization_info.get('fdmd_fit_diagnostics') or {})
-    prediction_diagnostics = dict(optimization_info.get('fdmd_prediction_diagnostics') or {})
-    anti_smoothing = dict(prediction_diagnostics.get('anti_smoothing_diagnostics') or {})
-
-    trajectory_transform = {
-        'window_policy': optimization_info.get('window_policy'),
-        'resolved_window_size': optimization_info.get('resolved_window_size'),
-        'window_fraction': window_diagnostics.get('window_fraction'),
-        'expected_overlap_ratio': preprocessing.get(
-            'expected_overlap_ratio',
-            window_diagnostics.get('expected_overlap_ratio'),
-        ),
-        'effective_stride': preprocessing.get('effective_stride'),
-        'dense_trajectory_count': preprocessing.get('dense_trajectory_count'),
-        'effective_trajectory_count': preprocessing.get('effective_trajectory_count'),
-        'trajectory_matrix_shape_before': _safe_tuple(preprocessing.get('trajectory_matrix_shape_before')),
-        'trajectory_matrix_shape_after': _safe_tuple(preprocessing.get('trajectory_matrix_shape_after')),
-    }
-
-    decomposition = {
-        'representation_policy': optimization_info.get('trajectory_representation_policy'),
-        'projected_shape': _safe_tuple(projection.get('projected_shape')),
-        'basis_shape': _safe_tuple(projection.get('basis_shape')),
-        'decode_supported': bool(projection.get('decode_supported', False)),
-        'decode_reconstruction_error': projection.get('decode_reconstruction_error'),
-        'latent_window_size': projection.get('latent_window_size'),
-        'latent_stride': projection.get('latent_stride'),
-        'latent_overlap_ratio': projection.get('latent_overlap_ratio'),
-    }
-
-    rank_truncation = {
-        'trajectory_rank_policy': optimization_info.get('trajectory_rank_policy'),
-        'selected_rank': preprocessing.get('selected_rank'),
-        'raw_selected_rank': preprocessing.get('raw_selected_rank'),
-        'requested_rank_floor': preprocessing.get('requested_rank_floor'),
-        'applied_rank_floor': preprocessing.get('applied_rank_floor'),
-        'rank_floor_applied': preprocessing.get('rank_floor_applied'),
-        'explained_variance_retained': preprocessing.get('explained_variance_retained'),
-        'compression_ratio': preprocessing.get('compression_ratio'),
-    }
-
-    forecast_head = {
-        'q': optimization_info.get('q'),
-        'q_policy': optimization_info.get('q_policy'),
-        'mode_selection_policy': optimization_info.get('mode_selection_policy'),
-        'mode_energy_threshold': optimization_info.get('mode_energy_threshold'),
-        'prediction_mode_selection_policy': optimization_info.get('prediction_mode_selection_policy'),
-        'max_prediction_modes': optimization_info.get('max_prediction_modes'),
-        'min_prediction_modes': optimization_info.get('min_prediction_modes'),
-        'boundary_alignment_policy': optimization_info.get('boundary_alignment_policy'),
-        'boundary_alignment_decay': optimization_info.get('boundary_alignment_decay'),
-        'prediction_stability_threshold': optimization_info.get('prediction_stability_threshold'),
-        'fit_diagnostics': fit_diagnostics,
-        'prediction_diagnostics': prediction_diagnostics,
-        'anti_smoothing': anti_smoothing,
-    }
-
-    return {
-        'trajectory_transform': trajectory_transform,
-        'decomposition': decomposition,
-        'rank_truncation': rank_truncation,
-        'forecast_head': forecast_head,
-    }
+from fedot_ind.core.models.kernel.okhs_runtime import build_okhs_stage_diagnostics
 
 
 @dataclass
@@ -179,7 +101,7 @@ class OKHSFDMDForecaster:
     def _refresh_diagnostics(self):
         optimization_info = dict(self.inner_model_.get_optimization_info())
         self.raw_diagnostics_ = optimization_info
-        self.stage_diagnostics_ = _build_okhs_fdmd_stage_diagnostics(optimization_info)
+        self.stage_diagnostics_ = build_okhs_stage_diagnostics(optimization_info)
         self.diagnostics_ = {
             'model_family': 'operator_model',
             'model_name': 'okhs_fdmd_forecaster',

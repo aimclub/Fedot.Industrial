@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -403,6 +404,117 @@ def test_forecasting_suite_propagates_okhs_anti_smoothing_diagnostics(tmp_path: 
     anti_smoothing = okhs_record.metadata['fdmd_prediction_diagnostics']['anti_smoothing_diagnostics']
     assert anti_smoothing['collapse_detected'] is True
     assert anti_smoothing['correction_applied'] is True
+
+
+def test_forecasting_suite_emits_okhs_fdmd_stage_artifacts(tmp_path: Path, monkeypatch) -> None:
+    class FakeOKHSFDMDForecaster:
+        def __init__(self, forecast_horizon, **kwargs):
+            self.forecast_horizon = int(forecast_horizon)
+            self.window_size = int(kwargs.get('window_size', 8))
+            self.q = float(kwargs.get('q', 0.7))
+
+        def fit(self, time_series):
+            self.training_history_ = np.asarray(time_series, dtype=float)
+            return self
+
+        def predict(self, time_series=None, forecast_horizon=None):
+            del time_series
+            horizon = int(forecast_horizon or self.forecast_horizon)
+            return np.linspace(1.0, 1.3, num=horizon)
+
+        def get_diagnostics(self):
+            return {
+                'model_family': 'operator_model',
+                'model_name': 'okhs_fdmd_forecaster',
+                'trajectory_transform': {
+                    'window_policy': 'adaptive_cycle_aware',
+                    'resolved_window_size': self.window_size,
+                    'expected_overlap_ratio': 0.8,
+                    'effective_stride': 2,
+                    'effective_trajectory_count': 10,
+                    'trajectory_matrix_shape_before': (10, self.window_size),
+                    'trajectory_matrix_shape_after': (10, self.window_size),
+                },
+                'decomposition': {
+                    'representation_policy': 'projected',
+                    'projected_shape': (10, 4),
+                    'basis_shape': (self.window_size, 4),
+                    'decode_supported': True,
+                    'decode_reconstruction_error': 0.01,
+                    'latent_window_size': 4,
+                    'latent_stride': 2,
+                },
+                'rank_truncation': {
+                    'trajectory_rank_policy': 'explained_dispersion',
+                    'selected_rank': 4,
+                    'raw_selected_rank': 3,
+                    'explained_variance_retained': 0.96,
+                    'compression_ratio': 0.5,
+                },
+                'forecast_head': {
+                    'q': self.q,
+                    'q_policy': 'fixed',
+                    'mode_selection_policy': 'energy',
+                    'prediction_mode_selection_policy': 'adaptive_tail_energy',
+                    'boundary_alignment_policy': 'tapered_offset',
+                    'prediction_stability_threshold': 0.03,
+                    'fit_diagnostics': {
+                        'resolved_n_modes': 5,
+                    },
+                    'prediction_diagnostics': {
+                        'n_selected_prediction_modes': 3,
+                        'boundary_discontinuity_abs_mean': 0.25,
+                    },
+                    'anti_smoothing': {
+                        'collapse_detected': False,
+                        'correction_applied': False,
+                        'collapse_resolved': True,
+                    },
+                },
+            }
+
+    monkeypatch.setattr('benchmark.v2.forecasting.OKHSFDMDForecaster', FakeOKHSFDMDForecaster)
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name='okhs_fdmd_forecaster',
+                display_name='OKHS FDMD',
+                params={'window_size': 8, 'q': 0.85},
+            ),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='okhs_fdmd_stage_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'toy_1_okhs_fdmd_stage_diagnostics.json' in artifact_names
+    assert 'okhs_fdmd_stage_diagnostics.csv' in artifact_names
+
+    stage_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'toy_1_okhs_fdmd_stage_diagnostics.json'
+    )
+    payload = json.loads(stage_path.read_text(encoding='utf-8'))
+    assert 'OKHS FDMD' in payload
+    assert payload['OKHS FDMD']['trajectory_transform']['resolved_window_size'] == 8
+    assert payload['OKHS FDMD']['decomposition']['representation_policy'] == 'projected'
+    assert payload['OKHS FDMD']['forecast_head']['fit_diagnostics']['resolved_n_modes'] == 5
 
 
 def test_forecasting_publication_pack_falls_back_without_tabulate(tmp_path: Path, monkeypatch) -> None:

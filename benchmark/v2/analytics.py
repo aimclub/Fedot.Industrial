@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -141,6 +142,101 @@ def build_regime_diagnostics_frame(
                 'best_primary_metric': best_metric,
                 'recommendation_available_in_run': recommendation_available,
                 'recommendation_matches_best_available': recommendation_hit,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _extract_okhs_fdmd_stage_payload(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    required_keys = ('trajectory_transform', 'decomposition', 'rank_truncation', 'forecast_head')
+    if not all(key in metadata for key in required_keys):
+        return None
+    return {
+        key: dict(metadata.get(key) or {})
+        for key in required_keys
+    }
+
+
+def _stringify_stage_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, tuple):
+        return json.dumps(list(value), ensure_ascii=False)
+    if isinstance(value, list):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(to_plain_data(value), ensure_ascii=False, sort_keys=True)
+    return str(value)
+
+
+def build_okhs_fdmd_stage_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in result.run_records:
+        if record.status is not RunStatus.SUCCESS:
+            continue
+        stage_payload = _extract_okhs_fdmd_stage_payload(record.metadata)
+        if stage_payload is None:
+            continue
+
+        trajectory = stage_payload['trajectory_transform']
+        decomposition = stage_payload['decomposition']
+        rank_truncation = stage_payload['rank_truncation']
+        forecast_head = stage_payload['forecast_head']
+        fit_diagnostics = dict(forecast_head.get('fit_diagnostics') or {})
+        prediction_diagnostics = dict(forecast_head.get('prediction_diagnostics') or {})
+        anti_smoothing = dict(forecast_head.get('anti_smoothing') or {})
+
+        rows.append(
+            {
+                'benchmark': record.benchmark,
+                'dataset_name': record.dataset_name,
+                'subset': record.subset,
+                'series_id': record.series_id,
+                'model_name': record.model_name,
+                'adapter_name': record.metadata.get('adapter_name'),
+                'model_adapter_family': record.metadata.get('model_adapter_family'),
+                'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                'trajectory_window_policy': trajectory.get('window_policy'),
+                'trajectory_resolved_window_size': trajectory.get('resolved_window_size'),
+                'trajectory_expected_overlap_ratio': trajectory.get('expected_overlap_ratio'),
+                'trajectory_effective_stride': trajectory.get('effective_stride'),
+                'trajectory_effective_count': trajectory.get('effective_trajectory_count'),
+                'trajectory_matrix_shape_before': _stringify_stage_value(
+                    trajectory.get('trajectory_matrix_shape_before')
+                ),
+                'trajectory_matrix_shape_after': _stringify_stage_value(
+                    trajectory.get('trajectory_matrix_shape_after')
+                ),
+                'decomposition_representation_policy': decomposition.get('representation_policy'),
+                'decomposition_projected_shape': _stringify_stage_value(decomposition.get('projected_shape')),
+                'decomposition_basis_shape': _stringify_stage_value(decomposition.get('basis_shape')),
+                'decomposition_decode_supported': decomposition.get('decode_supported'),
+                'decomposition_decode_reconstruction_error': decomposition.get('decode_reconstruction_error'),
+                'decomposition_latent_window_size': decomposition.get('latent_window_size'),
+                'decomposition_latent_stride': decomposition.get('latent_stride'),
+                'rank_policy': rank_truncation.get('trajectory_rank_policy'),
+                'rank_selected_rank': rank_truncation.get('selected_rank'),
+                'rank_raw_selected_rank': rank_truncation.get('raw_selected_rank'),
+                'rank_explained_variance_retained': rank_truncation.get('explained_variance_retained'),
+                'rank_compression_ratio': rank_truncation.get('compression_ratio'),
+                'forecast_q': forecast_head.get('q'),
+                'forecast_q_policy': forecast_head.get('q_policy'),
+                'forecast_mode_selection_policy': forecast_head.get('mode_selection_policy'),
+                'forecast_prediction_mode_selection_policy': forecast_head.get(
+                    'prediction_mode_selection_policy'
+                ),
+                'forecast_boundary_alignment_policy': forecast_head.get('boundary_alignment_policy'),
+                'forecast_prediction_stability_threshold': forecast_head.get('prediction_stability_threshold'),
+                'forecast_resolved_n_modes': fit_diagnostics.get('resolved_n_modes'),
+                'forecast_selected_prediction_modes': prediction_diagnostics.get('n_selected_prediction_modes'),
+                'forecast_boundary_discontinuity_abs_mean': prediction_diagnostics.get(
+                    'boundary_discontinuity_abs_mean'
+                ),
+                'anti_smoothing_collapse_detected': anti_smoothing.get('collapse_detected'),
+                'anti_smoothing_correction_applied': anti_smoothing.get('correction_applied'),
+                'anti_smoothing_collapse_resolved': anti_smoothing.get('collapse_resolved'),
+                'anti_smoothing_envelope_ratio_before': anti_smoothing.get('envelope_ratio_before'),
+                'anti_smoothing_envelope_ratio_after': anti_smoothing.get('envelope_ratio_after'),
             }
         )
     return pd.DataFrame(rows)
@@ -371,6 +467,24 @@ def compare_models_on_series(
             write_json(diagnostics_path, diagnostics_payload)
             artifact_manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
 
+            okhs_fdmd_stage_payload = {}
+            for record in okhs_records:
+                stage_payload = _extract_okhs_fdmd_stage_payload(record.metadata)
+                if stage_payload is None:
+                    continue
+                okhs_fdmd_stage_payload[record.model_name] = {
+                    'adapter_name': record.metadata.get('adapter_name'),
+                    'model_adapter_family': record.metadata.get('model_adapter_family'),
+                    'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                    **stage_payload,
+                }
+            if okhs_fdmd_stage_payload:
+                stage_diagnostics_path = target_dir / f'{series_id}_okhs_fdmd_stage_diagnostics.json'
+                write_json(stage_diagnostics_path, okhs_fdmd_stage_payload)
+                artifact_manifest.append(
+                    ArtifactRecord(kind='structured', path=str(stage_diagnostics_path), format='json')
+                )
+
             for record in okhs_records:
                 fit_diagnostics = record.metadata.get('fdmd_fit_diagnostics', {})
                 if not fit_diagnostics:
@@ -546,6 +660,10 @@ def render_publication_pack(
             ]
         ].copy()
         manifest.extend(_stable_write_table(routing_evaluation, aggregate_dir / 'routing_evaluation'))
+
+    okhs_fdmd_stage_frame = build_okhs_fdmd_stage_frame(result)
+    if not okhs_fdmd_stage_frame.empty:
+        manifest.extend(_stable_write_table(okhs_fdmd_stage_frame, aggregate_dir / 'okhs_fdmd_stage_diagnostics'))
 
     metadata_path = aggregate_dir / 'run_metadata.json'
     metadata_payload = {

@@ -1,0 +1,182 @@
+import numpy as np
+
+from fedot_ind.core.models.kernel.okhs_runtime import (
+    build_dense_okhs_trajectories,
+    build_okhs_fit_plan,
+    decode_okhs_projected_prediction,
+    build_okhs_stage_diagnostics,
+    postprocess_okhs_dmd_forecast,
+    resolve_okhs_prediction_time_grid,
+    run_okhs_dmd_prediction,
+)
+
+
+class CountingQSelector:
+    def __init__(self, value: float):
+        self.value = value
+        self.calls = 0
+
+    def analyze_and_suggest_q(self, trajectories, labels=None, verbose=True):
+        del trajectories, labels, verbose
+        self.calls += 1
+        return self.value
+
+
+def test_build_dense_okhs_trajectories_preserves_legacy_trajectory_count():
+    series = np.arange(12, dtype=float)
+    trajectories = build_dense_okhs_trajectories(series, window_size=4)
+
+    assert len(trajectories) == 8
+    assert np.array_equal(trajectories[0], np.array([0.0, 1.0, 2.0, 3.0]))
+    assert np.array_equal(trajectories[-1], np.array([7.0, 8.0, 9.0, 10.0]))
+
+
+def test_build_okhs_fit_plan_for_direct_mode_returns_dense_trajectories_and_resolved_q():
+    selector = CountingQSelector(0.61)
+    series = np.arange(64, dtype=float)
+
+    fit_plan = build_okhs_fit_plan(
+        time_series=series,
+        window_size=8,
+        method='direct',
+        forecast_horizon=4,
+        q=0.7,
+        q_policy='data_driven',
+        q_selector=selector,
+        window_policy='fixed',
+    )
+
+    assert fit_plan['resolved_window_size'] == 8
+    assert fit_plan['trajectory_preprocessing'] is None
+    assert fit_plan['projection_metadata'] is None
+    assert len(fit_plan['trajectories']) == len(series) - 8
+    assert fit_plan['resolved_q'] == 0.61
+    assert selector.calls == 1
+
+
+def test_build_okhs_fit_plan_for_dmd_mode_returns_projection_metadata():
+    time = np.arange(180, dtype=float)
+    series = np.sin(2 * np.pi * time / 24.0)
+
+    fit_plan = build_okhs_fit_plan(
+        time_series=series,
+        window_size=8,
+        method='dmd',
+        forecast_horizon=12,
+        q=0.7,
+        q_policy='fixed',
+        window_policy='adaptive_cycle_aware',
+        trajectory_representation_policy='projected',
+    )
+
+    assert fit_plan['trajectory_preprocessing'] is not None
+    assert fit_plan['projection_metadata']['decode_supported'] is True
+    assert np.asarray(fit_plan['trajectories']).ndim == 3
+
+
+def test_build_okhs_stage_diagnostics_returns_primitive_vocabulary():
+    optimization_info = {
+        'q': 0.7,
+        'q_policy': 'fixed',
+        'window_policy': 'adaptive_cycle_aware',
+        'resolved_window_size': 18,
+        'trajectory_rank_policy': 'explained_dispersion',
+        'trajectory_representation_policy': 'projected',
+        'window_diagnostics': {'window_fraction': 0.2, 'expected_overlap_ratio': 0.95},
+        'trajectory_preprocessing': {
+            'effective_stride': 2,
+            'dense_trajectory_count': 42,
+            'effective_trajectory_count': 21,
+            'trajectory_matrix_shape_before': (42, 18),
+            'trajectory_matrix_shape_after': (12, 16, 4),
+            'selected_rank': 4,
+            'raw_selected_rank': 3,
+            'requested_rank_floor': 4,
+            'applied_rank_floor': 4,
+            'rank_floor_applied': True,
+            'explained_variance_retained': 0.94,
+            'compression_ratio': 0.33,
+        },
+        'projection_metadata': {
+            'projected_shape': (21, 4),
+            'basis_shape': (18, 4),
+            'decode_supported': True,
+            'decode_reconstruction_error': 0.05,
+            'latent_window_size': 16,
+            'latent_stride': 2,
+            'latent_overlap_ratio': 0.875,
+        },
+        'mode_selection_policy': 'energy',
+        'mode_energy_threshold': 0.95,
+        'prediction_mode_selection_policy': 'adaptive_tail_energy',
+        'max_prediction_modes': None,
+        'min_prediction_modes': 4,
+        'boundary_alignment_policy': 'tapered_offset',
+        'boundary_alignment_decay': 4.0,
+        'prediction_stability_threshold': 0.03,
+        'fdmd_fit_diagnostics': {'resolved_n_modes': 4},
+        'fdmd_prediction_diagnostics': {'n_selected_prediction_modes': 4},
+    }
+
+    stage_diagnostics = build_okhs_stage_diagnostics(optimization_info)
+
+    assert stage_diagnostics['trajectory_transform']['resolved_window_size'] == 18
+    assert stage_diagnostics['decomposition']['decode_supported'] is True
+    assert stage_diagnostics['rank_truncation']['selected_rank'] == 4
+    assert stage_diagnostics['forecast_head']['prediction_diagnostics']['n_selected_prediction_modes'] == 4
+
+
+def test_run_okhs_dmd_prediction_returns_prediction_and_time_grid():
+    class FakeModel:
+        dt = 0.5
+
+        def predict_with_diagnostics(self, initial_trajectory, future_times):
+            del initial_trajectory
+            return np.arange(len(future_times), dtype=float), {'boundary_discontinuity_abs_mean': 0.2}
+
+    prediction, diagnostics = run_okhs_dmd_prediction(
+        model=FakeModel(),
+        initial_trajectory=np.array([1.0, 2.0, 3.0]),
+        forecast_horizon=4,
+    )
+
+    assert prediction.shape == (4,)
+    assert diagnostics['boundary_discontinuity_abs_mean'] == 0.2
+    assert diagnostics['prediction_time_grid'] == resolve_okhs_prediction_time_grid(3, 4, 0.5).tolist()
+
+
+def test_decode_okhs_projected_prediction_returns_forecast_and_decode_metadata():
+    forecast, diagnostics = decode_okhs_projected_prediction(
+        initial_trajectory=np.array([[1.0, 0.0], [2.0, 0.0]]),
+        decoded_initial_trajectory=np.array([[1.0, 0.0], [2.0, 0.0]]),
+        latent_prediction=np.array([[3.0, 0.0], [4.0, 0.0]]),
+        projection_runtime={
+            'basis': np.eye(2),
+            'latent_state_matrix': np.array([[1.0, 0.0], [2.0, 0.0]]),
+        },
+    )
+
+    assert forecast.tolist() == [0.0, 0.0]
+    assert diagnostics['decode_supported'] is True
+    assert diagnostics['basis_shape'] == (2, 2)
+    assert diagnostics['latent_prediction_shape'] == (2, 2)
+
+
+def test_postprocess_okhs_dmd_forecast_merges_anti_smoothing_diagnostics():
+    time = np.arange(80, dtype=float)
+    train = np.sin(2 * np.pi * time / 8.0)
+    forecast = np.linspace(0.2, 0.05, num=10)
+
+    corrected, merged = postprocess_okhs_dmd_forecast(
+        train_series=train,
+        forecast=forecast,
+        forecast_horizon=10,
+        prediction_diagnostics={'boundary_discontinuity_abs_mean': 0.01},
+        anti_smoothing_policy='residual_bridge',
+        anti_smoothing_tail_window=16,
+    )
+
+    assert corrected.shape == (10,)
+    assert merged['boundary_discontinuity_abs_mean'] == 0.01
+    assert merged['anti_smoothing_diagnostics']['collapse_detected'] is True
+    assert merged['anti_smoothing_diagnostics']['correction_applied'] is True
