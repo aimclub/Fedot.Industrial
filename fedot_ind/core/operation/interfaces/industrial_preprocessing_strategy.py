@@ -14,6 +14,9 @@ from pymonad.either import Either
 from pymonad.tools import curry
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionConverter, FedotConverter, NumpyConverter
+from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
+    IndustrialForecastingPreprocessingRuntimeStrategy,
+)
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, FORECASTING_PREPROC, \
     INDUSTRIAL_CLF_PREPROC_MODEL, INDUSTRIAL_PREPROC_MODEL
@@ -395,51 +398,10 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
         return converted
 
 
-class IndustrialForecastingPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+class IndustrialForecastingPreprocessingStrategy(IndustrialForecastingPreprocessingRuntimeStrategy):
+    """Legacy compatibility wrapper over the forecasting preprocessing runtime strategy."""
+
     _operations_by_types = FORECASTING_PREPROC
-
-    def __init__(
-            self,
-            operation_type: str,
-            params: Optional[OperationParameters] = None):
-        params = IndustrialOperationParameters().from_params(operation_type, params) if params \
-            else IndustrialOperationParameters().from_operation_type(operation_type)
-        super().__init__(operation_type, params)
-        self.multi_dim_dispatcher.concat_func = np.vstack
-        self.ensemble_func = np.sum
-
-    def _check_exog_params(self, fit_output):
-        if self.operation_type == 'exog_ts':
-            for output in fit_output:
-                output.supplementary_data.is_main_target = False
-        return fit_output
-
-    def fit(self, train_data: InputData):
-        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
-        fit_output = self.multi_dim_dispatcher.fit(train_data)
-        fit_output = self._check_exog_params(fit_output)
-        return fit_output
-
-    def predict(self, trained_operation,
-                predict_data: InputData,
-                output_mode: str = 'default'):
-        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
-        predict_output = self.multi_dim_dispatcher.predict(
-            trained_operation, converted_predict_data, output_mode=output_mode)
-        predict_output.predict = predict_output.predict.squeeze()
-        return predict_output
-
-    def predict_for_fit(self, trained_operation,
-                        predict_data: InputData,
-                        output_mode: str = 'default') -> OutputData:
-        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
-        predict_output = self.multi_dim_dispatcher.predict_for_fit(
-            trained_operation, converted_predict_data, output_mode='transform_fit_stage')
-        predict_output.predict = predict_output.predict.squeeze()
-        return predict_output
 
 
 class IndustrialClassificationPreprocessingStrategy(

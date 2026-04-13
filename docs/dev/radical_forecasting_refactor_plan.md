@@ -188,10 +188,14 @@ The refactor should ensure:
 - tuning search-space entries for named composite models and primitive forecasting stages;
 - an M4 benchmark example for the new composite forecasting stack.
 - dedicated thin forecasting runtime strategies:
-    - `IndustrialForecastingModelRuntimeStrategy`
-    - `IndustrialForecastingPreprocessingRuntimeStrategy`
+  - `IndustrialForecastingModelRuntimeStrategy`
+  - `IndustrialForecastingPreprocessingRuntimeStrategy`
 - repository forecasting metadata redirected away from legacy multidimensional dispatch and toward forecasting-only
   runtime entrypoints.
+- legacy classes
+  - `IndustrialSkLearnForecastingStrategy`
+  - `IndustrialForecastingPreprocessingStrategy`
+    now act as compatibility wrappers over the new forecasting runtime strategies.
 
 ### Deferred To Later Slices
 

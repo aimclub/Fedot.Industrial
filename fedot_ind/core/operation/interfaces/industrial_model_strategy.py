@@ -1,7 +1,6 @@
 import warnings
 from typing import Optional
 
-import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
@@ -11,6 +10,9 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn import TCN
 from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
+from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
+    IndustrialForecastingModelRuntimeStrategy,
+)
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
     IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
@@ -164,31 +166,10 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
             trained_operation, predict_data, output_mode='labels')
 
 
-class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
-    """ Strategy for applying forecasting algorithms """
+class IndustrialSkLearnForecastingStrategy(IndustrialForecastingModelRuntimeStrategy):
+    """Legacy compatibility wrapper over the forecasting runtime strategy."""
+
     _operations_by_types = FORECASTING_MODELS
-
-    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
-        super().__init__(operation_type, params)
-        self.multi_dim_dispatcher.mode = 'one_dimensional'
-        self.multi_dim_dispatcher.concat_func = np.vstack
-        self.ensemble_func = np.sum
-
-    def fit(self, train_data: InputData):
-        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
-        return self.multi_dim_dispatcher.fit(train_data)
-
-    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode=self.multi_dim_dispatcher.mode)
-        predict_output = self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
-        return predict_output
-
-    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode=self.multi_dim_dispatcher.mode)
-        predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation,
-                                                                   predict_data,
-                                                                   output_mode='labels')
-        return predict_output
 
 
 class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
