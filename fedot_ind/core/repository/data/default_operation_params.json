@@ -86,6 +86,26 @@
     "low_rank_params": {},
     "complex_params": {}
   },
+  "okhs_fdmd_forecaster": {
+    "q": 0.7,
+    "n_modes": 5,
+    "window_size": 20,
+    "q_policy": "fixed",
+    "window_policy": "adaptive_cycle_aware",
+    "trajectory_sampling_policy": "dense",
+    "trajectory_rank_policy": "explained_dispersion",
+    "trajectory_representation_policy": "projected",
+    "latent_trajectory_stride_policy": "adaptive",
+    "mode_selection_policy": "energy",
+    "mode_energy_threshold": 0.95,
+    "prediction_mode_selection_policy": "adaptive_tail_energy",
+    "min_prediction_modes": 4,
+    "boundary_alignment_policy": "tapered_offset",
+    "boundary_alignment_decay": 4.0,
+    "prediction_stability_threshold": 0.03,
+    "anti_smoothing_policy": "residual_bridge",
+    "device": "cpu"
+  },
   "inception_model": {
     "epochs": 100,
     "batch_size": 32,

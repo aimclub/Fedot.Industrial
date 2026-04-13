@@ -11,6 +11,7 @@ class RoutingAdapterName(str, Enum):
     SSA_COMPAT = 'ssa_compat'
     HAVOK = 'havok'
     OKHS = 'okhs'
+    OKHS_FDMD = 'okhs_fdmd_forecaster'
     LAGGED_RIDGE = 'lagged_ridge_forecaster'
     LOW_RANK_LAGGED_RIDGE = 'low_rank_lagged_ridge_forecaster'
     HYBRID_ENSEMBLE = 'hybrid_ensemble_forecaster'
@@ -34,6 +35,7 @@ def adapter_name_to_family(adapter_name: str) -> str:
         return 'low_rank_linear'
     if normalized in {
         RoutingAdapterName.OKHS.value,
+        RoutingAdapterName.OKHS_FDMD.value,
         RoutingAdapterName.HAVOK.value,
         RoutingAdapterName.HYBRID_ENSEMBLE.value,
         'classical_dmd',

@@ -67,6 +67,7 @@ from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import
 from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import \
     LowRankLaggedRidgeForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
@@ -203,6 +204,7 @@ class AtomizedModel(Enum):
         'lagged_ridge_forecaster': LaggedRidgeForecasterImplementation,
         'low_rank_lagged_ridge_forecaster': LowRankLaggedRidgeForecasterImplementation,
         'hybrid_ensemble_forecaster': HybridEnsembleForecasterImplementation,
+        'okhs_fdmd_forecaster': OKHSFDMDForecasterImplementation,
         'ssa_forecaster': SSAForecasterImplementation,
         'mssa_forecaster': MSSAForecasterImplementation,
         'havok_forecaster': HAVOKForecasterImplementation,
@@ -236,6 +238,7 @@ class AtomizedModel(Enum):
         'lagged_ridge_forecaster',
         'low_rank_lagged_ridge_forecaster',
         'hybrid_ensemble_forecaster',
+        'okhs_fdmd_forecaster',
         'eigen_forecaster'
     ]
 

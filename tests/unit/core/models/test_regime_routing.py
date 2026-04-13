@@ -49,3 +49,4 @@ def test_adapter_name_to_family_maps_new_composite_models():
     assert adapter_name_to_family('lagged_ridge_forecaster') == 'lagged_linear'
     assert adapter_name_to_family('low_rank_lagged_ridge_forecaster') == 'low_rank_linear'
     assert adapter_name_to_family('hybrid_ensemble_forecaster') == 'operator_model'
+    assert adapter_name_to_family('okhs_fdmd_forecaster') == 'operator_model'

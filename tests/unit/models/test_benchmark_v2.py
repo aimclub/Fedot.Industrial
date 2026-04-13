@@ -74,10 +74,14 @@ def test_build_model_adapter_supports_new_composite_forecasters() -> None:
     hybrid_model = build_model_adapter(
         ModelSpec(adapter_name='hybrid_ensemble_forecaster', display_name='hybrid_ensemble_forecaster')
     )
+    okhs_fdmd_model = build_model_adapter(
+        ModelSpec(adapter_name='okhs_fdmd_forecaster', display_name='okhs_fdmd_forecaster')
+    )
 
     assert lagged_ridge_model.name == 'lagged_ridge_forecaster'
     assert low_rank_model.name == 'low_rank_lagged_ridge_forecaster'
     assert hybrid_model.name == 'hybrid_ensemble_forecaster'
+    assert okhs_fdmd_model.name == 'okhs_fdmd_forecaster'
 
 
 def test_m4_adapter_parses_frame_and_samples() -> None:

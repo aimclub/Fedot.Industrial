@@ -22,6 +22,7 @@ try:  # pragma: no cover - tensor-native forecasting stack requires torch
         LowRankLaggedRidgeForecaster,
         LowRankLaggedRidgeForecasterImplementation,
     )
+    from .okhs_fdmd_forecaster import OKHSFDMDForecaster, OKHSFDMDForecasterImplementation
 except Exception:  # pragma: no cover - keep regime-level utilities importable in lightweight envs
     pass
 
@@ -52,6 +53,8 @@ for _optional_symbol in (
         'LowRankLaggedRidgeForecasterImplementation',
         'HybridEnsembleForecaster',
         'HybridEnsembleForecasterImplementation',
+        'OKHSFDMDForecaster',
+        'OKHSFDMDForecasterImplementation',
 ):
     if _optional_symbol in globals():
         __all__.append(_optional_symbol)

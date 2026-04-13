@@ -145,6 +145,14 @@ industrial_search_space = {
     'hybrid_ensemble_forecaster':
         {'complex_branch': {'hyperopt-dist': hp.choice, 'sampling-scope': [['okhs', 'havok']]},
          'calibration_horizon': {'hyperopt-dist': hp.choice, 'sampling-scope': [[None, 4, 6, 8]]}},
+    'okhs_fdmd_forecaster':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'n_modes': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},
+         'q': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.55, 0.7, 0.85]]},
+         'trajectory_sampling_policy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['dense', 'adaptive_stride']]},
+         'trajectory_rank_policy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['explained_dispersion', 'none']]},
+         'trajectory_representation_policy': {'hyperopt-dist': hp.choice,
+                                              'sampling-scope': [['projected', 'reconstructed']]}},
     'industrial_stat_clf':
         {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['logit', 'xgboost', 'rf',
                                                                            # 'inception_model','resnet_model'

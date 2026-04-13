@@ -469,6 +469,18 @@
       ],
       "input_type": "[DataTypesEnum.ts]"
     },
+    "okhs_fdmd_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "operator_model",
+        "okhs",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
     "adareg": {
       "meta": "sklearn_regr",
       "presets": [

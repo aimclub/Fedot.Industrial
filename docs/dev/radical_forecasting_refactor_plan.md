@@ -176,6 +176,8 @@ The refactor should ensure:
 - `docs/dev` source-of-truth for the refactor;
 - tensor-native runtime foundation for forecasting primitives;
 - first named composite models;
+- a new shell-first operator entrypoint:
+  - `okhs_fdmd_forecaster`
 - benchmark adapters for named composite models;
 - model family mapping for routing-aware metadata.
 - forecasting decomposition and rank-truncation primitives as separate industrial operations:
@@ -223,6 +225,7 @@ The refactor should ensure:
 
 - migrate lagged and low-rank lagged composites;
 - begin shell-first migration path for operator models.
+- `okhs_fdmd_forecaster` now provides a stage-aware forecasting shell over the existing OKHS/fDMD backend.
 
 ### Phase 4. Composite Models
 

@@ -32,10 +32,12 @@ try:  # pragma: no cover - tensor-native composites require torch
     from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
     from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
     from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecaster
 except Exception:  # pragma: no cover
     HybridEnsembleForecaster = None
     LaggedRidgeForecaster = None
     LowRankLaggedRidgeForecaster = None
+    OKHSFDMDForecaster = None
 
 try:  # pragma: no cover - optional heavyweight dependency tree in test envs
     from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, M4_PREFIX, M4_SEASONALITY
@@ -721,6 +723,95 @@ class OKHSModel(ForecastingModelAdapter):
 
 
 @dataclass
+class OKHSFDMDForecasterModel(ForecastingModelAdapter):
+    q: float = 0.7
+    n_modes: int = 5
+    window_size: int = 20
+    q_policy: str = 'fixed'
+    window_policy: str = 'adaptive_cycle_aware'
+    trajectory_sampling_policy: str = 'dense'
+    trajectory_rank_policy: str = 'explained_dispersion'
+    trajectory_rank_value: int | None = None
+    trajectory_representation_policy: str = 'projected'
+    latent_trajectory_stride_policy: str = 'adaptive'
+    latent_trajectory_stride: int | None = None
+    mode_selection_policy: str = 'energy'
+    mode_energy_threshold: float = 0.95
+    prediction_mode_selection_policy: str = 'adaptive_tail_energy'
+    max_prediction_modes: int | None = None
+    min_prediction_modes: int = 4
+    boundary_alignment_policy: str = 'tapered_offset'
+    boundary_alignment_decay: float = 4.0
+    prediction_stability_threshold: float | None = 0.03
+    anti_smoothing_policy: str = 'residual_bridge'
+    anti_smoothing_tail_window: int | None = None
+    anti_smoothing_amplitude_ratio: float = 0.35
+    anti_smoothing_monotone_ratio: float = 0.9
+    anti_smoothing_oscillation_floor: float = 0.25
+    anti_smoothing_decay: float = 2.5
+    anti_smoothing_target_amplitude_ratio: float = 0.8
+    name: str = 'okhs_fdmd_forecaster'
+    tags: tuple[str, ...] = ('okhs', 'operator_model', 'forecasting')
+    optional: bool = False
+    device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
+
+    def availability(self) -> tuple[RunStatus, str]:
+        if OKHSFDMDForecaster is None:
+            return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for okhs_fdmd_forecaster.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        train = np.asarray(series_record.train_values, dtype=float)
+        model = OKHSFDMDForecaster(
+            forecast_horizon=series_record.forecast_horizon,
+            q=self.q,
+            n_modes=self.n_modes,
+            window_size=min(max(self.window_size, 4), len(train) - 1),
+            q_policy=self.q_policy,
+            window_policy=self.window_policy,
+            trajectory_sampling_policy=self.trajectory_sampling_policy,
+            trajectory_rank_policy=self.trajectory_rank_policy,
+            trajectory_rank_value=self.trajectory_rank_value,
+            trajectory_representation_policy=self.trajectory_representation_policy,
+            latent_trajectory_stride_policy=self.latent_trajectory_stride_policy,
+            latent_trajectory_stride=self.latent_trajectory_stride,
+            mode_selection_policy=self.mode_selection_policy,
+            mode_energy_threshold=self.mode_energy_threshold,
+            prediction_mode_selection_policy=self.prediction_mode_selection_policy,
+            max_prediction_modes=self.max_prediction_modes,
+            min_prediction_modes=self.min_prediction_modes,
+            boundary_alignment_policy=self.boundary_alignment_policy,
+            boundary_alignment_decay=self.boundary_alignment_decay,
+            prediction_stability_threshold=self.prediction_stability_threshold,
+            anti_smoothing_policy=self.anti_smoothing_policy,
+            anti_smoothing_tail_window=self.anti_smoothing_tail_window,
+            anti_smoothing_amplitude_ratio=self.anti_smoothing_amplitude_ratio,
+            anti_smoothing_monotone_ratio=self.anti_smoothing_monotone_ratio,
+            anti_smoothing_oscillation_floor=self.anti_smoothing_oscillation_floor,
+            anti_smoothing_decay=self.anti_smoothing_decay,
+            anti_smoothing_target_amplitude_ratio=self.anti_smoothing_target_amplitude_ratio,
+            device=self.device,
+        )
+        model.fit(train)
+        forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)[:series_record.forecast_horizon]
+        metadata = model.get_diagnostics()
+        metadata.update(
+            {
+                'selected_q': float(self.q),
+                'window_size': int(model.window_size),
+                'last_train_value': float(train[-1]),
+                'first_prediction_value': float(forecast[0]) if len(forecast) else None,
+                'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
+            }
+        )
+        if metadata['first_prediction_value'] is not None:
+            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
+        if metadata['first_actual_value'] is not None:
+            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+        return forecast, metadata
+
+
+@dataclass
 class MSSAModel(ForecastingModelAdapter):
     window_size: int | None = None
     rank: int | None = None
@@ -972,6 +1063,12 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     params = dict(spec.params)
     if adapter_name == 'okhs':
         return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
+    if adapter_name == 'okhs_fdmd_forecaster':
+        return OKHSFDMDForecasterModel(
+            name=spec.display_name,
+            tags=spec.tags or ('okhs', 'forecasting', 'operator_model'),
+            **params,
+        )
     if adapter_name == 'ssa_forecaster':
         return SSACompatModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'ssa'), **params)
     if adapter_name == 'lagged_forecaster':
