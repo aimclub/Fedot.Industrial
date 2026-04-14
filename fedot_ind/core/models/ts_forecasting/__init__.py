@@ -44,10 +44,16 @@ try:  # pragma: no cover - tensor-native forecasting stack requires torch
         LowRankLaggedRidgeForecaster,
         LowRankLaggedRidgeForecasterImplementation,
     )
-    from .neural_forecast_head_bridge import (
+    from .neural_forecast_head import (
         NEURAL_FORECASTING_MODEL_REGISTRY,
-        NeuralForecastHeadBridge,
+        NeuralForecastHead,
+        build_neural_forecasting_input_data,
         build_neural_forecasting_stage_diagnostics,
+        normalize_neural_forecast_prediction,
+        resolve_neural_forecasting_model_cls,
+    )
+    from .neural_forecast_head_bridge import (
+        NeuralForecastHeadBridge,
     )
     from .okhs_fdmd_forecaster import OKHSFDMDForecaster, OKHSFDMDForecasterImplementation
 except Exception:  # pragma: no cover - keep regime-level utilities importable in lightweight envs
@@ -96,9 +102,13 @@ for _optional_symbol in (
         'LowRankLaggedRidgeForecasterImplementation',
         'HybridEnsembleForecaster',
         'HybridEnsembleForecasterImplementation',
+        'NeuralForecastHead',
         'NeuralForecastHeadBridge',
         'NEURAL_FORECASTING_MODEL_REGISTRY',
+        'build_neural_forecasting_input_data',
         'build_neural_forecasting_stage_diagnostics',
+        'normalize_neural_forecast_prediction',
+        'resolve_neural_forecasting_model_cls',
         'OKHSFDMDForecaster',
         'OKHSFDMDForecasterImplementation',
 ):

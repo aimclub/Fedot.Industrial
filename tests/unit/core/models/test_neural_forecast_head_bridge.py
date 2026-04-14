@@ -1,9 +1,12 @@
 import numpy as np
 
-from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import (
+from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
     NEURAL_FORECASTING_MODEL_REGISTRY,
-    NeuralForecastHeadBridge,
+    NeuralForecastHead,
     build_neural_forecasting_stage_diagnostics,
+)
+from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import (
+    NeuralForecastHeadBridge,
 )
 
 
@@ -21,7 +24,7 @@ def test_build_neural_forecasting_stage_diagnostics_returns_stage_vocabulary():
     assert diagnostics['forecast_head']['forecast_horizon'] == 6
 
 
-def test_neural_forecast_head_bridge_wraps_native_model_contract(monkeypatch):
+def test_neural_forecast_head_wraps_native_model_contract(monkeypatch):
     class FakePrediction:
         def __init__(self, values):
             self.predict = np.asarray(values, dtype=float)
@@ -44,16 +47,47 @@ def test_neural_forecast_head_bridge_wraps_native_model_contract(monkeypatch):
 
     monkeypatch.setitem(NEURAL_FORECASTING_MODEL_REGISTRY, 'patch_tst_model', FakeModel)
 
-    bridge = NeuralForecastHeadBridge(
+    head = NeuralForecastHead(
         model_name='patch_tst_model',
         forecast_horizon=4,
         params={'patch_len': 12, 'epochs': 2},
     )
-    bridge.fit(np.arange(48, dtype=float))
-    prediction = bridge.predict(np.arange(48, dtype=float))
-    diagnostics = bridge.get_diagnostics()
+    head.fit(np.arange(48, dtype=float))
+    prediction = head.predict(np.arange(48, dtype=float))
+    diagnostics = head.get_diagnostics()
 
     assert prediction.tolist() == [1.0, 2.0, 3.0, 4.0]
     assert diagnostics['model_family'] == 'neural_forecaster'
     assert diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
     assert diagnostics['last_prediction_diagnostics']['forecast_shape'] == (4,)
+
+
+def test_neural_forecast_head_bridge_remains_compatibility_shell(monkeypatch):
+    class FakePrediction:
+        def __init__(self, values):
+            self.predict = np.asarray(values, dtype=float)
+
+    class FakeModel:
+        def __init__(self, params):
+            self.params = params
+
+        def fit(self, input_data):
+            self.seen_fit_length = len(np.asarray(input_data.features).reshape(-1))
+            return self
+
+        def predict(self, input_data):
+            horizon = int(input_data.task.task_params.forecast_length)
+            return FakePrediction(np.linspace(2.0, 2.0 + horizon - 1, num=horizon))
+
+    monkeypatch.setitem(NEURAL_FORECASTING_MODEL_REGISTRY, 'patch_tst_model', FakeModel)
+
+    bridge = NeuralForecastHeadBridge(
+        model_name='patch_tst_model',
+        forecast_horizon=3,
+        params={'patch_len': 10, 'epochs': 1},
+    )
+    bridge.fit(np.arange(32, dtype=float))
+    prediction = bridge.predict(np.arange(32, dtype=float))
+
+    assert prediction.tolist() == [2.0, 3.0, 4.0]
+    assert isinstance(bridge, NeuralForecastHead)
