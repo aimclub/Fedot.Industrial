@@ -36,7 +36,12 @@ from fedot_ind.core.operation.transformation.data.trajectory_embedding import (
     estimate_window,
     truncate_rank,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
+from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+    build_forecasting_stage_search_spaces,
+    build_forecasting_stage_tuning_plan,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import build_forecasting_stage_tuning_execution
+from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 
 
 def _intervals_from_mask(mask: np.ndarray, offset: int = 0) -> list[tuple[int, int]]:
@@ -257,4 +262,59 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
             },
+        ).to_dict()
+
+    def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        return tuple(
+            stage.to_dict() for stage in build_forecasting_stage_search_spaces(
+                'havok_forecaster',
+                {
+                    'window_size': self.window_size,
+                    'rank': self.rank,
+                    'forcing_threshold_scale': self.forcing_threshold_scale,
+                    'forcing_decay': self.forcing_decay,
+                },
+            )
+        )
+
+    def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        return build_forecasting_stage_tuning_execution(
+            'havok_forecaster',
+            base_params={
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'forcing_threshold_scale': self.forcing_threshold_scale,
+                'forcing_decay': self.forcing_decay,
+            },
+            stage_updates=stage_updates,
+        ).to_dict()
+
+    def run_stage_tuning_on_series(
+            self,
+            time_series: np.ndarray,
+            *,
+            forecast_horizon: int,
+            metric_name: str = 'rmse',
+            split_spec=None,
+            seasonal_period: int = 1,
+            stage_updates: dict[str, object] | None = None,
+            max_values_per_parameter: int = 3,
+            max_stage_candidates: int = 16,
+    ) -> dict[str, object]:
+        return run_forecasting_stage_tuning_on_series(
+            'havok_forecaster',
+            time_series=np.asarray(time_series, dtype=float),
+            forecast_horizon=int(forecast_horizon),
+            base_params={
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'forcing_threshold_scale': self.forcing_threshold_scale,
+                'forcing_decay': self.forcing_decay,
+            },
+            stage_updates=stage_updates,
+            metric_name=metric_name,
+            split_spec=split_spec,
+            seasonal_period=seasonal_period,
+            max_values_per_parameter=max_values_per_parameter,
+            max_stage_candidates=max_stage_candidates,
         ).to_dict()

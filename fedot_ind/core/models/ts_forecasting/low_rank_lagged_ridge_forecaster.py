@@ -44,7 +44,15 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     resolve_window_size,
     truncate_decomposition_rank,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
+from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+    build_forecasting_stage_search_spaces,
+    build_forecasting_stage_tuning_plan,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
+    build_forecasting_stage_tuning_execution,
+    run_sequential_stage_tuning,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 
 
 @dataclass
@@ -197,9 +205,99 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        base_params = {
+            'window_size': self.window_size,
+            'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'stride': self.stride,
+            'alpha': self.alpha,
+            'rank': self.rank,
+            'explained_variance': self.explained_variance,
+            'decomposition_strategy': self.decomposition_strategy,
+            'rank_truncation_policy': self.rank_truncation_policy,
+            'unfolding_strategy': self.unfolding_strategy,
+            'device': self.device,
+        }
         return build_forecasting_stage_tuning_plan(
             'low_rank_lagged_ridge_forecaster',
-            {
+            base_params,
+        ).to_dict()
+
+    def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        base_params = {
+            'window_size': self.window_size,
+            'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'stride': self.stride,
+            'alpha': self.alpha,
+            'rank': self.rank,
+            'explained_variance': self.explained_variance,
+            'decomposition_strategy': self.decomposition_strategy,
+            'rank_truncation_policy': self.rank_truncation_policy,
+            'unfolding_strategy': self.unfolding_strategy,
+            'device': self.device,
+        }
+        return tuple(
+            stage.to_dict() for stage in build_forecasting_stage_search_spaces(
+                'low_rank_lagged_ridge_forecaster',
+                base_params,
+            )
+        )
+
+    def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        base_params = {
+            'window_size': self.window_size,
+            'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'stride': self.stride,
+            'alpha': self.alpha,
+            'rank': self.rank,
+            'explained_variance': self.explained_variance,
+            'decomposition_strategy': self.decomposition_strategy,
+            'rank_truncation_policy': self.rank_truncation_policy,
+            'unfolding_strategy': self.unfolding_strategy,
+            'device': self.device,
+        }
+        return build_forecasting_stage_tuning_execution(
+            'low_rank_lagged_ridge_forecaster',
+            base_params=base_params,
+            stage_updates=stage_updates,
+        ).to_dict()
+
+    def run_stage_tuning(self, objective, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        base_params = {
+            'window_size': self.window_size,
+            'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'stride': self.stride,
+            'alpha': self.alpha,
+            'rank': self.rank,
+            'explained_variance': self.explained_variance,
+            'decomposition_strategy': self.decomposition_strategy,
+            'rank_truncation_policy': self.rank_truncation_policy,
+            'unfolding_strategy': self.unfolding_strategy,
+            'device': self.device,
+        }
+        return run_sequential_stage_tuning(
+            'low_rank_lagged_ridge_forecaster',
+            objective=objective,
+            base_params=base_params,
+            stage_updates=stage_updates,
+        ).to_dict()
+
+    def run_stage_tuning_on_series(
+            self,
+            time_series: np.ndarray,
+            *,
+            forecast_horizon: int,
+            metric_name: str = 'rmse',
+            split_spec=None,
+            seasonal_period: int = 1,
+            stage_updates: dict[str, object] | None = None,
+            max_values_per_parameter: int = 3,
+            max_stage_candidates: int = 16,
+    ) -> dict[str, object]:
+        return run_forecasting_stage_tuning_on_series(
+            'low_rank_lagged_ridge_forecaster',
+            time_series=np.asarray(time_series, dtype=float),
+            forecast_horizon=int(forecast_horizon),
+            base_params={
                 'window_size': self.window_size,
                 'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
                 'stride': self.stride,
@@ -211,4 +309,10 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
                 'unfolding_strategy': self.unfolding_strategy,
                 'device': self.device,
             },
+            stage_updates=stage_updates,
+            metric_name=metric_name,
+            split_spec=split_spec,
+            seasonal_period=seasonal_period,
+            max_values_per_parameter=max_values_per_parameter,
+            max_stage_candidates=max_stage_candidates,
         ).to_dict()

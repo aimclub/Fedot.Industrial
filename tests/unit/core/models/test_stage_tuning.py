@@ -6,7 +6,12 @@ from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster impor
 from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.stage_tuning import (
     ForecastingStageName,
+    build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
+    build_forecasting_stage_tuning_execution,
+    run_sequential_stage_tuning,
 )
 
 
@@ -29,6 +34,16 @@ def test_build_stage_tuning_plan_for_low_rank_forecaster_returns_ordered_groups(
         ForecastingStageName.FORECAST_HEAD.value,
     )
     assert 'alpha' in plan.groups[-1].parameters
+
+
+def test_build_stage_tuning_plan_distinguishes_lagged_wrapper_from_ridge_shell():
+    lagged_plan = build_forecasting_stage_tuning_plan('lagged_forecaster', {'channel_model': 'ridge'})
+    ridge_plan = build_forecasting_stage_tuning_plan('lagged_ridge_forecaster', {'alpha': 1.0})
+
+    assert lagged_plan.canonical_model_name == 'lagged_forecaster'
+    assert ridge_plan.canonical_model_name == 'lagged_ridge_forecaster'
+    assert 'channel_model' in lagged_plan.groups[-1].parameters
+    assert 'alpha' in ridge_plan.groups[-1].parameters
 
 
 def test_build_stage_tuning_plan_for_okhs_forecaster_separates_head_from_representation():
@@ -56,6 +71,20 @@ def test_build_stage_tuning_plan_for_hybrid_ensemble_exposes_branch_and_ensemble
     assert plan.groups[0].metadata['branch_models'][-1] == 'havok'
 
 
+def test_build_stage_search_spaces_filters_search_space_per_stage():
+    spaces = build_forecasting_stage_search_spaces(
+        'low_rank_lagged_ridge_forecaster',
+        {'window_size': 16, 'stride': 1, 'alpha': 1.0},
+    )
+
+    assert spaces[0].stage == ForecastingStageName.TRAJECTORY.value
+    assert set(spaces[0].parameter_space) == {'window_size', 'stride'}
+    assert spaces[1].stage == ForecastingStageName.DECOMPOSITION_RANK.value
+    assert 'decomposition_strategy' in spaces[1].parameter_space
+    assert spaces[2].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert set(spaces[2].parameter_space) == {'alpha'}
+
+
 def test_implementations_publish_stage_tuning_plans():
     lagged_plan = LaggedRidgeForecasterImplementation(params={'window_size': 12, 'stride': 1}).get_stage_tuning_plan()
     low_rank_plan = LowRankLaggedRidgeForecasterImplementation(
@@ -68,3 +97,88 @@ def test_implementations_publish_stage_tuning_plans():
     assert low_rank_plan['canonical_model_name'] == 'low_rank_lagged_ridge_forecaster'
     assert okhs_plan['canonical_model_name'] == 'okhs_fdmd_forecaster'
     assert hybrid_plan['canonical_model_name'] == 'hybrid_ensemble_forecaster'
+
+
+def test_implementations_publish_stage_search_spaces():
+    lagged_spaces = LaggedRidgeForecasterImplementation(
+        params={'window_size': 12, 'stride': 1}).get_stage_search_spaces()
+    low_rank_spaces = LowRankLaggedRidgeForecasterImplementation(
+        params={'window_size': 12, 'stride': 1, 'alpha': 1.0}
+    ).get_stage_search_spaces()
+    okhs_spaces = OKHSFDMDForecasterImplementation(params={'window_size': 16, 'q': 0.7}).get_stage_search_spaces()
+    hybrid_spaces = HybridEnsembleForecasterImplementation(params={'complex_branch': 'havok'}).get_stage_search_spaces()
+
+    assert lagged_spaces[0]['stage'] == ForecastingStageName.TRAJECTORY.value
+    assert low_rank_spaces[1]['stage'] == ForecastingStageName.DECOMPOSITION_RANK.value
+    assert okhs_spaces[-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value
+    assert hybrid_spaces[-1]['stage'] == ForecastingStageName.ENSEMBLE.value
+
+
+def test_build_stage_tuning_execution_applies_only_stage_owned_parameters():
+    execution = build_forecasting_stage_tuning_execution(
+        'low_rank_lagged_ridge_forecaster',
+        base_params={'window_size': 12, 'stride': 1, 'alpha': 1.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 24, 'alpha': 5.0},
+            ForecastingStageName.DECOMPOSITION_RANK.value: {'decomposition_strategy': 'randomized'},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 2.0},
+        },
+    )
+
+    assert execution.final_parameters['window_size'] == 24
+    assert execution.final_parameters['alpha'] == 2.0
+    assert execution.steps[0].ignored_parameters == {'alpha': 5.0}
+    assert execution.steps[1].applied_parameters == {'decomposition_strategy': 'randomized'}
+
+
+def test_implementation_publishes_stage_tuning_execution():
+    implementation = OKHSFDMDForecasterImplementation(params={'window_size': 16, 'q': 0.7, 'n_modes': 4})
+    execution = implementation.get_stage_tuning_execution(
+        {
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 20},
+            ForecastingStageName.FORECAST_HEAD.value: {'n_modes': 6},
+        }
+    )
+
+    assert execution['canonical_model_name'] == 'okhs_fdmd_forecaster'
+    assert execution['final_parameters']['window_size'] == 20
+    assert execution['final_parameters']['n_modes'] == 6
+    assert execution['steps'][-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value
+
+
+def test_run_sequential_stage_tuning_optimizes_stage_by_stage():
+    def objective(params):
+        return abs(params.get('window_size', 0) - 24) + abs(params.get('alpha', 0) - 2.0)
+
+    result = run_sequential_stage_tuning(
+        'lagged_ridge_forecaster',
+        objective=objective,
+        base_params={'window_size': 12, 'stride': 1, 'alpha': 1.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 24},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 2.0},
+        },
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+    )
+
+    assert result.best_parameters['window_size'] == 24
+    assert result.best_parameters['alpha'] == 2.0
+    assert result.stage_history[0]['stage'] == ForecastingStageName.TRAJECTORY.value
+    assert result.stage_history[-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value
+
+
+def test_implementation_publishes_run_stage_tuning_result():
+    implementation = LaggedRidgeForecasterImplementation(params={'window_size': 12, 'stride': 1, 'alpha': 1.0})
+
+    result = implementation.run_stage_tuning(
+        objective=lambda params: abs(params.get('window_size', 0) - 20) + abs(params.get('alpha', 0) - 2.0),
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 20},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 2.0},
+        },
+    )
+
+    assert result['best_parameters']['window_size'] == 20
+    assert result['best_parameters']['alpha'] == 2.0
+    assert result['stage_history'][-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value

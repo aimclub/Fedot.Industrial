@@ -2,10 +2,26 @@ from .regime_diagnostics import RegimeDiagnosticsResult, analyze_regime_diagnost
 from .regime_routing import adapter_name_to_family, RegimeRoutingDecision, RegimeRoutingPolicy, \
     recommend_forecasting_model
 from .stage_tuning import (
+    ForecastingStageSearchSpace,
     ForecastingStageName,
     ForecastingStageTuningPlan,
     StageTuningGroup,
+    build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
+)
+from .stage_tuning_execution import (
+    ForecastingSequentialStageTuningResult,
+    ForecastingStageTuningExecution,
+    StageTuningExecutionStep,
+    build_forecasting_stage_tuning_execution,
+    run_sequential_stage_tuning,
+)
+from .stage_tuning_runtime import (
+    ForecastingSeriesEvaluation,
+    ForecastingSeriesStageTuningResult,
+    build_forecasting_stage_objective_from_series,
+    evaluate_forecasting_model_on_series,
+    run_forecasting_stage_tuning_on_series,
 )
 
 try:  # pragma: no cover - tensor-native forecasting stack requires torch
@@ -40,9 +56,21 @@ __all__ = [
     'analyze_regime_diagnostics',
     'recommend_forecasting_model',
     'ForecastingStageName',
+    'ForecastingStageSearchSpace',
     'ForecastingStageTuningPlan',
+    'ForecastingStageTuningExecution',
+    'ForecastingSequentialStageTuningResult',
+    'ForecastingSeriesEvaluation',
+    'ForecastingSeriesStageTuningResult',
     'StageTuningGroup',
+    'StageTuningExecutionStep',
+    'build_forecasting_stage_search_spaces',
+    'build_forecasting_stage_objective_from_series',
     'build_forecasting_stage_tuning_plan',
+    'build_forecasting_stage_tuning_execution',
+    'evaluate_forecasting_model_on_series',
+    'run_forecasting_stage_tuning_on_series',
+    'run_sequential_stage_tuning',
 ]
 
 for _optional_symbol in (

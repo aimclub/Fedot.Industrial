@@ -33,7 +33,15 @@ except Exception:  # pragma: no cover
 
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
 from fedot_ind.core.models.kernel.okhs_runtime import build_okhs_stage_diagnostics
-from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
+from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+    build_forecasting_stage_search_spaces,
+    build_forecasting_stage_tuning_plan,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
+    build_forecasting_stage_tuning_execution,
+    run_sequential_stage_tuning,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 
 
 @dataclass
@@ -210,4 +218,52 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         return build_forecasting_stage_tuning_plan(
             'okhs_fdmd_forecaster',
             dict(self.params),
+        ).to_dict()
+
+    def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        return tuple(
+            stage.to_dict() for stage in build_forecasting_stage_search_spaces(
+                'okhs_fdmd_forecaster',
+                dict(self.params),
+            )
+        )
+
+    def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        return build_forecasting_stage_tuning_execution(
+            'okhs_fdmd_forecaster',
+            base_params=dict(self.params),
+            stage_updates=stage_updates,
+        ).to_dict()
+
+    def run_stage_tuning(self, objective, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        return run_sequential_stage_tuning(
+            'okhs_fdmd_forecaster',
+            objective=objective,
+            base_params=dict(self.params),
+            stage_updates=stage_updates,
+        ).to_dict()
+
+    def run_stage_tuning_on_series(
+            self,
+            time_series: np.ndarray,
+            *,
+            forecast_horizon: int,
+            metric_name: str = 'rmse',
+            split_spec=None,
+            seasonal_period: int = 1,
+            stage_updates: dict[str, object] | None = None,
+            max_values_per_parameter: int = 3,
+            max_stage_candidates: int = 16,
+    ) -> dict[str, object]:
+        return run_forecasting_stage_tuning_on_series(
+            'okhs_fdmd_forecaster',
+            time_series=np.asarray(time_series, dtype=float),
+            forecast_horizon=int(forecast_horizon),
+            base_params=dict(self.params),
+            stage_updates=stage_updates,
+            metric_name=metric_name,
+            split_spec=split_spec,
+            seasonal_period=seasonal_period,
+            max_values_per_parameter=max_values_per_parameter,
+            max_stage_candidates=max_stage_candidates,
         ).to_dict()

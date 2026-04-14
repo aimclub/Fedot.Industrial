@@ -44,7 +44,12 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
 from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
 from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
 from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
-from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
+from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+    build_forecasting_stage_search_spaces,
+    build_forecasting_stage_tuning_plan,
+)
+from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import build_forecasting_stage_tuning_execution
+from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 
 
 def _safe_forecast(model, series: np.ndarray, horizon: int) -> tuple[np.ndarray, dict[str, Any]]:
@@ -270,4 +275,63 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
                 'low_rank_params': self.low_rank_params,
                 'complex_params': self.complex_params,
             },
+        ).to_dict()
+
+    def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        return tuple(
+            stage.to_dict() for stage in build_forecasting_stage_search_spaces(
+                'hybrid_ensemble_forecaster',
+                {
+                    'complex_branch': self.complex_branch,
+                    'calibration_horizon': self.calibration_horizon,
+                    'lagged_params': self.lagged_params,
+                    'low_rank_params': self.low_rank_params,
+                    'complex_params': self.complex_params,
+                },
+            )
+        )
+
+    def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        return build_forecasting_stage_tuning_execution(
+            'hybrid_ensemble_forecaster',
+            base_params={
+                'complex_branch': self.complex_branch,
+                'calibration_horizon': self.calibration_horizon,
+                'lagged_params': self.lagged_params,
+                'low_rank_params': self.low_rank_params,
+                'complex_params': self.complex_params,
+            },
+            stage_updates=stage_updates,
+        ).to_dict()
+
+    def run_stage_tuning_on_series(
+            self,
+            time_series: np.ndarray,
+            *,
+            forecast_horizon: int,
+            metric_name: str = 'rmse',
+            split_spec=None,
+            seasonal_period: int = 1,
+            stage_updates: dict[str, object] | None = None,
+            max_values_per_parameter: int = 3,
+            max_stage_candidates: int = 16,
+    ) -> dict[str, object]:
+        return run_forecasting_stage_tuning_on_series(
+            'hybrid_ensemble_forecaster',
+            time_series=np.asarray(time_series, dtype=float),
+            forecast_horizon=int(forecast_horizon),
+            base_params={
+                'complex_branch': self.complex_branch,
+                'calibration_horizon': self.calibration_horizon,
+                'device': self.device,
+                'lagged_params': self.lagged_params,
+                'low_rank_params': self.low_rank_params,
+                'complex_params': self.complex_params,
+            },
+            stage_updates=stage_updates,
+            metric_name=metric_name,
+            split_spec=split_spec,
+            seasonal_period=seasonal_period,
+            max_values_per_parameter=max_values_per_parameter,
+            max_stage_candidates=max_stage_candidates,
         ).to_dict()

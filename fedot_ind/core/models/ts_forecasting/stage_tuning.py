@@ -14,6 +14,60 @@ class ForecastingStageName(str, Enum):
     ENSEMBLE = 'ensemble'
 
 
+FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = {
+    'lagged_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size', 'stride'),
+        ForecastingStageName.FORECAST_HEAD.value: ('channel_model',),
+    },
+    'lagged_ridge_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size', 'stride'),
+        ForecastingStageName.FORECAST_HEAD.value: ('alpha',),
+    },
+    'low_rank_lagged_ridge_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size', 'stride'),
+        ForecastingStageName.DECOMPOSITION_RANK.value: (
+            'explained_variance',
+            'decomposition_strategy',
+            'rank_truncation_policy',
+        ),
+        ForecastingStageName.FORECAST_HEAD.value: ('alpha',),
+    },
+    'ssa_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size',),
+        ForecastingStageName.DECOMPOSITION_RANK.value: ('rank', 'explained_variance'),
+    },
+    'mssa_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size',),
+        ForecastingStageName.DECOMPOSITION_RANK.value: ('rank', 'explained_variance', 'coupled'),
+    },
+    'havok_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size',),
+        ForecastingStageName.DECOMPOSITION_RANK.value: ('rank',),
+        ForecastingStageName.FORECAST_HEAD.value: ('forcing_threshold_scale', 'forcing_decay'),
+    },
+    'okhs_fdmd_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size', 'trajectory_sampling_policy'),
+        ForecastingStageName.DECOMPOSITION_RANK.value: (
+            'trajectory_rank_policy',
+            'trajectory_representation_policy',
+        ),
+        ForecastingStageName.FORECAST_HEAD.value: ('q', 'n_modes'),
+    },
+    'okhs': {
+        ForecastingStageName.TRAJECTORY.value: ('window_size', 'trajectory_sampling_policy'),
+        ForecastingStageName.DECOMPOSITION_RANK.value: (
+            'trajectory_rank_policy',
+            'trajectory_representation_policy',
+        ),
+        ForecastingStageName.FORECAST_HEAD.value: ('q', 'n_modes'),
+    },
+    'hybrid_ensemble_forecaster': {
+        ForecastingStageName.TRAJECTORY.value: (),
+        ForecastingStageName.ENSEMBLE.value: ('complex_branch', 'calibration_horizon'),
+    },
+}
+
+
 @dataclass(frozen=True)
 class StageTuningGroup:
     stage: str
@@ -44,6 +98,28 @@ class ForecastingStageTuningPlan:
         }
 
 
+@dataclass(frozen=True)
+class ForecastingStageSearchSpace:
+    model_name: str
+    canonical_model_name: str
+    family: str
+    stage: str
+    parameter_space: dict[str, Any]
+    depends_on: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'model_name': self.model_name,
+            'canonical_model_name': self.canonical_model_name,
+            'family': self.family,
+            'stage': self.stage,
+            'parameter_space': dict(self.parameter_space),
+            'depends_on': tuple(self.depends_on),
+            **self.metadata,
+        }
+
+
 def _group(stage: ForecastingStageName, parameters: tuple[str, ...], *, depends_on: tuple[str, ...] = (),
            metadata: dict[str, Any] | None = None) -> StageTuningGroup:
     return StageTuningGroup(
@@ -59,7 +135,24 @@ def build_forecasting_stage_tuning_plan(model_name: str,
     canonical_name = canonical_forecasting_model_name(model_name)
     resolved_params = dict(params or {})
 
-    if canonical_name in {'lagged_forecaster', 'lagged_ridge_forecaster'}:
+    if canonical_name == 'lagged_forecaster':
+        groups = (
+            _group(ForecastingStageName.TRAJECTORY, ('window_size', 'window_size_percent', 'stride')),
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                ('channel_model',),
+                depends_on=(ForecastingStageName.TRAJECTORY.value,),
+            ),
+        )
+        return ForecastingStageTuningPlan(
+            model_name=model_name,
+            canonical_model_name=canonical_name,
+            family='lagged_linear',
+            groups=groups,
+            metadata={'supports_simultaneous_tuning': True},
+        )
+
+    if canonical_name == 'lagged_ridge_forecaster':
         groups = (
             _group(ForecastingStageName.TRAJECTORY, ('window_size', 'window_size_percent', 'stride')),
             _group(
@@ -70,7 +163,7 @@ def build_forecasting_stage_tuning_plan(model_name: str,
         )
         return ForecastingStageTuningPlan(
             model_name=model_name,
-            canonical_model_name='lagged_ridge_forecaster',
+            canonical_model_name=canonical_name,
             family='lagged_linear',
             groups=groups,
             metadata={'supports_simultaneous_tuning': True},
@@ -236,3 +329,47 @@ def build_forecasting_stage_tuning_plan(model_name: str,
         groups=(),
         metadata={'supports_simultaneous_tuning': False},
     )
+
+
+def build_forecasting_stage_search_spaces(model_name: str,
+                                          params: dict[str, Any] | None = None) -> tuple[
+    ForecastingStageSearchSpace, ...]:
+    plan = build_forecasting_stage_tuning_plan(model_name, params=params)
+    search_space_name = canonical_forecasting_model_name(model_name)
+    try:
+        from fedot_ind.core.tuning.search_space import industrial_search_space
+
+        resolved_space = industrial_search_space.get(search_space_name, {})
+        if not resolved_space and search_space_name != plan.canonical_model_name:
+            resolved_space = industrial_search_space.get(plan.canonical_model_name, {})
+        search_space_source = 'industrial_search_space'
+    except ModuleNotFoundError:
+        fallback_parameters = FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS.get(
+            plan.canonical_model_name,
+            {group.stage: group.parameters for group in plan.groups},
+        )
+        resolved_space = {
+            parameter: {'sampling-scope': [], 'hyperopt-dist': None}
+            for group in plan.groups
+            for parameter in fallback_parameters.get(group.stage, ())
+        }
+        search_space_source = 'stage_plan_fallback'
+
+    stage_spaces: list[ForecastingStageSearchSpace] = []
+    for group in plan.groups:
+        filtered = {
+            key: value for key, value in resolved_space.items()
+            if key in group.parameters
+        }
+        stage_spaces.append(
+            ForecastingStageSearchSpace(
+                model_name=plan.model_name,
+                canonical_model_name=plan.canonical_model_name,
+                family=plan.family,
+                stage=group.stage,
+                parameter_space=filtered,
+                depends_on=group.depends_on,
+                metadata={**dict(group.metadata), 'search_space_source': search_space_source},
+            )
+        )
+    return tuple(stage_spaces)
