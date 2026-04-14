@@ -171,6 +171,41 @@ def build_okhs_stage_diagnostics(optimization_info: dict[str, Any]) -> dict[str,
     }
 
 
+def build_okhs_dmd_model(
+        *,
+        dmd_factory: Any,
+        resolved_q: float,
+        n_modes: int,
+        mode_selection_policy: str,
+        mode_energy_threshold: float,
+        prediction_mode_selection_policy: str,
+        max_prediction_modes: int | None,
+        min_prediction_modes: int,
+        boundary_alignment_policy: str,
+        boundary_alignment_decay: float,
+        prediction_stability_threshold: float | None,
+        device: str = 'cpu',
+):
+    dmd_kwargs = {
+        'q': resolved_q,
+        'n_modes': n_modes,
+        'mode_selection_policy': mode_selection_policy,
+        'mode_energy_threshold': mode_energy_threshold,
+        'prediction_mode_selection_policy': prediction_mode_selection_policy,
+        'max_prediction_modes': max_prediction_modes,
+        'min_prediction_modes': min_prediction_modes,
+        'boundary_alignment_policy': boundary_alignment_policy,
+        'boundary_alignment_decay': boundary_alignment_decay,
+        'prediction_stability_threshold': prediction_stability_threshold,
+        'device': device,
+    }
+    try:
+        return dmd_factory(**dmd_kwargs)
+    except TypeError:
+        dmd_kwargs.pop('device', None)
+        return dmd_factory(**dmd_kwargs)
+
+
 def resolve_okhs_prediction_time_grid(initial_trajectory_length: int, forecast_horizon: int,
                                       time_step: float) -> np.ndarray:
     start_time = float(initial_trajectory_length) * float(time_step)
@@ -197,6 +232,47 @@ def uses_projected_okhs_representation(projection_metadata: dict[str, Any] | Non
             and projection_metadata.get('decode_supported') is True
             and projection_runtime is not None
     )
+
+
+def build_okhs_prediction_plan(
+        *,
+        trajectories: Sequence[np.ndarray],
+        time_series: Sequence[float] | None,
+        train_series: Sequence[float],
+        window_size: int,
+        trajectory_preprocessing: dict[str, Any] | None,
+        projection_metadata: dict[str, Any] | None,
+        projection_runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    reference_series = np.asarray(
+        train_series if time_series is None else time_series,
+        dtype=float,
+    ).reshape(-1)
+    if uses_projected_okhs_representation(projection_metadata, projection_runtime):
+        initial_trajectory, decoded_initial_trajectory = resolve_projected_okhs_initial_state(
+            time_series=time_series,
+            window_size=window_size,
+            trajectory_preprocessing=trajectory_preprocessing or {},
+            projection_runtime=projection_runtime or {},
+        )
+        return {
+            'representation_policy': 'projected',
+            'initial_trajectory': np.asarray(initial_trajectory, dtype=float),
+            'decoded_initial_trajectory': np.asarray(decoded_initial_trajectory, dtype=float),
+            'reference_series': reference_series,
+        }
+
+    last_trajectory = resolve_okhs_last_trajectory(
+        trajectories=trajectories,
+        time_series=time_series,
+        window_size=window_size,
+    )
+    return {
+        'representation_policy': 'dense',
+        'initial_trajectory': np.asarray(last_trajectory, dtype=float),
+        'decoded_initial_trajectory': None,
+        'reference_series': reference_series,
+    }
 
 
 def resolve_projected_okhs_initial_state(
@@ -279,6 +355,108 @@ def decode_okhs_projected_prediction(
         'decoded_first_prediction_value': float(forecast[0]) if len(forecast) else None,
         'decode_reconstruction_error': decode_reconstruction_error,
     }
+
+
+def execute_okhs_dmd_prediction_plan(
+        *,
+        model: Any,
+        prediction_plan: dict[str, Any],
+        forecast_horizon: int,
+        projection_runtime: dict[str, Any] | None = None,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    initial_trajectory = np.asarray(prediction_plan['initial_trajectory'], dtype=float)
+    prediction, diagnostics = run_okhs_dmd_prediction(
+        model=model,
+        initial_trajectory=initial_trajectory,
+        forecast_horizon=forecast_horizon,
+    )
+    if prediction_plan.get('representation_policy') == 'projected':
+        forecast, decode_diagnostics = decode_okhs_projected_prediction(
+            initial_trajectory=initial_trajectory,
+            decoded_initial_trajectory=np.asarray(prediction_plan['decoded_initial_trajectory'], dtype=float),
+            latent_prediction=prediction,
+            projection_runtime=projection_runtime or {},
+        )
+        return forecast, {**diagnostics, **decode_diagnostics}
+    return np.asarray(prediction, dtype=float).reshape(-1), diagnostics
+
+
+def build_okhs_optimization_info(
+        *,
+        method_name: str,
+        resolved_q: float,
+        q_policy: str,
+        forecast_horizon: int,
+        window_policy: str,
+        trajectory_sampling_policy: str,
+        trajectory_rank_policy: str,
+        trajectory_rank_value: int | None,
+        trajectory_representation_policy: str,
+        latent_trajectory_stride_policy: str,
+        latent_trajectory_stride: int | None,
+        resolved_window_size: int | None,
+        window_diagnostics: dict[str, Any] | None,
+        trajectory_preprocessing: dict[str, Any] | None,
+        projection_metadata: dict[str, Any] | None,
+        mode_selection_policy: str,
+        mode_energy_threshold: float,
+        prediction_mode_selection_policy: str,
+        max_prediction_modes: int | None,
+        min_prediction_modes: int,
+        boundary_alignment_policy: str,
+        boundary_alignment_decay: float,
+        prediction_stability_threshold: float | None,
+        anti_smoothing_policy: str,
+        anti_smoothing_tail_window: int | None,
+        anti_smoothing_amplitude_ratio: float,
+        anti_smoothing_monotone_ratio: float,
+        anti_smoothing_oscillation_floor: float,
+        anti_smoothing_decay: float,
+        anti_smoothing_target_amplitude_ratio: float,
+        model: Any = None,
+        dmd_prediction_diagnostics: dict[str, Any] | None = None,
+        weights: np.ndarray | None = None,
+) -> dict[str, Any]:
+    info = {
+        'method': method_name,
+        'q': resolved_q,
+        'q_policy': q_policy,
+        'forecast_horizon': forecast_horizon,
+        'window_policy': window_policy,
+        'trajectory_sampling_policy': trajectory_sampling_policy,
+        'trajectory_rank_policy': trajectory_rank_policy,
+        'trajectory_rank_value': trajectory_rank_value,
+        'trajectory_representation_policy': trajectory_representation_policy,
+        'latent_trajectory_stride_policy': latent_trajectory_stride_policy,
+        'latent_trajectory_stride': latent_trajectory_stride,
+        'resolved_window_size': resolved_window_size,
+        'window_diagnostics': window_diagnostics,
+        'trajectory_preprocessing': trajectory_preprocessing,
+        'projection_metadata': projection_metadata,
+        'mode_selection_policy': mode_selection_policy,
+        'mode_energy_threshold': mode_energy_threshold,
+        'prediction_mode_selection_policy': prediction_mode_selection_policy,
+        'max_prediction_modes': max_prediction_modes,
+        'min_prediction_modes': min_prediction_modes,
+        'boundary_alignment_policy': boundary_alignment_policy,
+        'boundary_alignment_decay': boundary_alignment_decay,
+        'prediction_stability_threshold': prediction_stability_threshold,
+        'anti_smoothing_policy': anti_smoothing_policy,
+        'anti_smoothing_tail_window': anti_smoothing_tail_window,
+        'anti_smoothing_amplitude_ratio': anti_smoothing_amplitude_ratio,
+        'anti_smoothing_monotone_ratio': anti_smoothing_monotone_ratio,
+        'anti_smoothing_oscillation_floor': anti_smoothing_oscillation_floor,
+        'anti_smoothing_decay': anti_smoothing_decay,
+        'anti_smoothing_target_amplitude_ratio': anti_smoothing_target_amplitude_ratio,
+    }
+    if model is not None and hasattr(model, 'get_fit_diagnostics_summary'):
+        info['fdmd_fit_diagnostics'] = model.get_fit_diagnostics_summary()
+    if dmd_prediction_diagnostics is not None:
+        info['fdmd_prediction_diagnostics'] = dmd_prediction_diagnostics
+    if weights is not None:
+        info['weights_norm'] = float(np.linalg.norm(weights))
+    info['stage_diagnostics'] = build_okhs_stage_diagnostics(info)
+    return info
 
 
 def _resolve_anti_smoothing_tail_window(

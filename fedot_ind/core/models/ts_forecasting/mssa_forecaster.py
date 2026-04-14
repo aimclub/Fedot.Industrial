@@ -60,6 +60,40 @@ class MSSAForecaster:
     lag_order: int | None = None
     coupled: bool = True
 
+    def _build_stage_diagnostics(self) -> dict[str, object]:
+        decomposition_strategy = 'page_svd_coupled' if self.coupled_ else 'page_svd_per_channel'
+        return {
+            'trajectory_transform': {
+                'kind': 'page',
+                'window_size': int(self.window_size_),
+                'stride': int(self.page_stride_),
+                'forecast_horizon': int(self.forecast_horizon),
+                'channel_count': int(self.channel_count_),
+                'page_block_count': int(self.page_block_count_),
+                'features_shape': tuple(int(value) for value in self.embedding_shape_),
+            },
+            'decomposition': {
+                'strategy': decomposition_strategy,
+                'projected_shape': tuple(int(value) for value in self.projected_shape_),
+                'basis_shape': tuple(int(value) for value in self.basis_shape_),
+                'input_shape': tuple(int(value) for value in self.embedding_shape_),
+                'coupled': bool(self.coupled_),
+            },
+            'rank_truncation': {
+                'policy': 'explained_variance',
+                'selected_rank': int(self.selected_rank_),
+                'explained_variance_retained': float(self.explained_variance_retained_),
+                'projected_shape': tuple(int(value) for value in self.projected_shape_),
+                'basis_shape': tuple(int(value) for value in self.basis_shape_),
+            },
+            'forecast_head': {
+                'head_type': 'linear_autoregression_head',
+                'lag_order': int(self.lag_order_),
+                'forecast_horizon': int(self.forecast_horizon),
+                'channel_count': int(self.channel_count_),
+            },
+        }
+
     def fit(self, time_series: np.ndarray) -> 'MSSAForecaster':
         normalized = normalize_multivariate_series(time_series)
         series_length, channel_count = normalized.shape
@@ -79,6 +113,7 @@ class MSSAForecaster:
 
         if self.coupled and channel_count > 1:
             stacked_matrix = stack_multivariate([result.matrix for result in page_results])
+            self.embedding_shape_ = tuple(int(value) for value in stacked_matrix.shape)
             truncated = truncate_rank(
                 matrix=stacked_matrix,
                 rank=self.rank,
@@ -86,6 +121,8 @@ class MSSAForecaster:
                 min_rank=2,
             )
             reconstructed_by_channel = split_multivariate(truncated.reconstructed_matrix, channel_count)
+            self.projected_shape_ = tuple(int(value) for value in truncated.projected_states.shape)
+            self.basis_shape_ = tuple(int(value) for value in truncated.basis.shape)
         else:
             per_channel_truncated = [
                 truncate_rank(
@@ -98,6 +135,9 @@ class MSSAForecaster:
             ]
             truncated = per_channel_truncated[0]
             reconstructed_by_channel = tuple(item.reconstructed_matrix for item in per_channel_truncated)
+            self.embedding_shape_ = tuple(int(value) for value in page_results[0].matrix.shape)
+            self.projected_shape_ = tuple(int(value) for value in truncated.projected_states.shape)
+            self.basis_shape_ = tuple(int(value) for value in truncated.basis.shape)
 
         denoised_channels = []
         selected_ranks = []
@@ -120,20 +160,24 @@ class MSSAForecaster:
         self.series_length_ = int(series_length)
         self.window_size_ = int(resolved_window)
         self.page_block_count_ = int(page_results[0].matrix.shape[0])
+        self.page_stride_ = int(page_results[0].diagnostics.stride)
+        self.coupled_ = bool(self.coupled and channel_count > 1)
         self.selected_rank_ = int(max(selected_ranks))
         self.explained_variance_retained_ = float(np.mean(retained_variances))
         self.lag_order_ = _resolve_lag_order(self.series_length_, self.forecast_horizon, self.lag_order)
         self._fit_linear_head(self.denoised_series_)
         self.diagnostics_ = {
+            'model_family': 'low_rank_linear',
             'window_size': self.window_size_,
             'selected_rank': self.selected_rank_,
             'explained_variance_retained': self.explained_variance_retained_,
             'lag_order': self.lag_order_,
             'channel_count': self.channel_count_,
             'page_block_count': self.page_block_count_,
-            'coupled': bool(self.coupled and channel_count > 1),
+            'coupled': self.coupled_,
             'forecast_horizon': int(self.forecast_horizon),
         }
+        self.diagnostics_.update(self._build_stage_diagnostics())
         return self
 
     def _fit_linear_head(self, series: np.ndarray) -> None:

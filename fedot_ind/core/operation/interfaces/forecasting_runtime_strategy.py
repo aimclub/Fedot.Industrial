@@ -11,6 +11,31 @@ from fedot.utilities.random import ImplementationRandomStateHandler
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, FORECASTING_PREPROC
 
 
+def is_forecasting_model_operation(operation_type: str) -> bool:
+    return str(operation_type) in FORECASTING_MODELS
+
+
+def is_forecasting_preprocessing_operation(operation_type: str) -> bool:
+    return str(operation_type) in FORECASTING_PREPROC
+
+
+def should_redirect_legacy_model_strategy(strategy_cls: type, operation_type: str) -> bool:
+    """Centralized redirect policy for legacy model strategies."""
+    return strategy_cls.__name__ in {
+        'IndustrialSkLearnEvaluationStrategy',
+        'IndustrialSkLearnRegressionStrategy',
+        'IndustrialCustomRegressionStrategy',
+    } and is_forecasting_model_operation(operation_type)
+
+
+def should_redirect_legacy_preprocessing_strategy(strategy_cls: type, operation_type: str) -> bool:
+    """Centralized redirect policy for legacy preprocessing strategies."""
+    return strategy_cls.__name__ in {
+        'IndustrialCustomPreprocessingStrategy',
+        'IndustrialPreprocessingStrategy',
+    } and is_forecasting_preprocessing_operation(operation_type)
+
+
 def _supports_output_mode(method) -> bool:
     try:
         return 'output_mode' in signature(method).parameters

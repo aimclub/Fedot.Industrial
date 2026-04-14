@@ -185,9 +185,23 @@ The refactor should ensure:
   - anti-smoothing postprocess helpers
 - benchmark adapters for named composite models;
 - model family mapping for routing-aware metadata.
+- generic stage-aware benchmark artifacts for stage-native forecasting shells:
+  - per-series `forecasting_stage_diagnostics.json`
+  - aggregate `forecasting_stage_diagnostics` tables for primitive-stage models
+- branch-aware benchmark artifacts for composite ensembles:
+  - per-series `hybrid_ensemble_diagnostics.json`
+  - aggregate `hybrid_ensemble_diagnostics` tables for ensemble calibration and branch outputs
 - stage-aware benchmark artifacts for `okhs_fdmd_forecaster`:
   - per-series `okhs_fdmd_stage_diagnostics.json`
   - aggregate `okhs_fdmd_stage_diagnostics` tables in the publication pack
+- stage-aware diagnostics are now emitted directly by additional forecasting models:
+  - `HAVOK`
+  - `mSSA`
+  - `SSA` through the shared `mSSA` backend compatibility wrapper
+- repository/defaults vocabulary has been aligned with the new forecasting stack:
+  - `mssa_forecaster`
+  - `havok_forecaster`
+  - updated `ssa_forecaster` defaults to match the compatibility-shell contract
 - forecasting decomposition and rank-truncation primitives as separate industrial operations:
   - `svd_decomposition`
   - `randomized_svd_decomposition`
@@ -202,6 +216,11 @@ The refactor should ensure:
   - `IndustrialForecastingPreprocessingRuntimeStrategy`
 - repository forecasting metadata redirected away from legacy multidimensional dispatch and toward forecasting-only
   runtime entrypoints.
+- legacy preprocessing entrypoints now explicitly redirect forecasting preprocessing operations such as
+  `hankelisation` to the forecasting runtime strategy instead of falling back to legacy multidimensional dispatch.
+- legacy model entrypoints now explicitly redirect forecasting model operations such as
+  `lagged_ridge_forecaster` and `okhs_fdmd_forecaster` to the forecasting runtime strategy instead of falling back to
+  generic regression-oriented paths.
 - legacy classes
   - `IndustrialSkLearnForecastingStrategy`
   - `IndustrialForecastingPreprocessingStrategy`
@@ -259,8 +278,15 @@ Current status:
 Current status:
 
 - in progress;
+- `benchmark/v2` now persists generic primitive-stage artifacts for stage-aware forecasting shells such as
+  `lagged_ridge_forecaster`, `low_rank_lagged_ridge_forecaster`, `HAVOK`, and `mSSA/SSA`;
+- `benchmark/v2` now persists branch-aware diagnostics for `hybrid_ensemble_forecaster`;
 - `benchmark/v2` now persists stage-aware series and aggregate artifacts for `okhs_fdmd_forecaster`;
-- next useful step is to extend the same primitive-stage artifact contract to additional model families beyond OKHS.
+- direct `SSA` runtime usage now exposes compatibility and stage diagnostics through `get_diagnostics()`;
+- primary forecasting optimization space now includes additional shell-first models such as `mssa_forecaster` and
+  `havok_forecaster`;
+- next useful step is to finish shrinking legacy strategy internals and then move to explicit tuning/orchestration
+  over the primitive graph instead of model-level wrappers.
 
 ## Practical Rule For New Development
 

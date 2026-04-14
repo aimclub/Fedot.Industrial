@@ -56,3 +56,13 @@ class SSAForecasterImplementation(ModelImplementation):
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.denoised_series_, dtype=float).reshape(1, -1)
+
+    def get_diagnostics(self) -> dict[str, object]:
+        diagnostics = {
+            'compatibility_status': self.compatibility_status_,
+            'history_lookback': int(self.history_lookback),
+            'mode': self.mode,
+        }
+        if self.model_ is not None and hasattr(self.model_, 'get_diagnostics'):
+            diagnostics.update(self.model_.get_diagnostics())
+        return diagnostics

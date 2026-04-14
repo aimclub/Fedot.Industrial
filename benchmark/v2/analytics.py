@@ -148,13 +148,23 @@ def build_regime_diagnostics_frame(
 
 
 def _extract_okhs_fdmd_stage_payload(metadata: dict[str, Any]) -> dict[str, Any] | None:
-    required_keys = ('trajectory_transform', 'decomposition', 'rank_truncation', 'forecast_head')
-    if not all(key in metadata for key in required_keys):
+    stage_payload = _extract_forecasting_stage_payload(metadata)
+    if stage_payload is None:
         return None
-    return {
+    required_keys = ('trajectory_transform', 'decomposition', 'rank_truncation', 'forecast_head')
+    if not all(stage_payload.get(key) for key in required_keys):
+        return None
+    return stage_payload
+
+
+def _extract_forecasting_stage_payload(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    stage_keys = ('trajectory_transform', 'decomposition', 'rank_truncation', 'forecast_head')
+    stage_payload = {
         key: dict(metadata.get(key) or {})
-        for key in required_keys
+        for key in stage_keys
+        if metadata.get(key)
     }
+    return stage_payload or None
 
 
 def _stringify_stage_value(value: Any) -> Any:
@@ -237,6 +247,90 @@ def build_okhs_fdmd_stage_frame(result: ForecastingBenchmarkResult) -> pd.DataFr
                 'anti_smoothing_collapse_resolved': anti_smoothing.get('collapse_resolved'),
                 'anti_smoothing_envelope_ratio_before': anti_smoothing.get('envelope_ratio_before'),
                 'anti_smoothing_envelope_ratio_after': anti_smoothing.get('envelope_ratio_after'),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_forecasting_stage_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in result.run_records:
+        if record.status is not RunStatus.SUCCESS:
+            continue
+        stage_payload = _extract_forecasting_stage_payload(record.metadata)
+        if stage_payload is None:
+            continue
+
+        trajectory = dict(stage_payload.get('trajectory_transform') or {})
+        decomposition = dict(stage_payload.get('decomposition') or {})
+        rank_truncation = dict(stage_payload.get('rank_truncation') or {})
+        forecast_head = dict(stage_payload.get('forecast_head') or {})
+
+        rows.append(
+            {
+                'benchmark': record.benchmark,
+                'dataset_name': record.dataset_name,
+                'subset': record.subset,
+                'series_id': record.series_id,
+                'model_name': record.model_name,
+                'adapter_name': record.metadata.get('adapter_name'),
+                'model_adapter_family': record.metadata.get('model_adapter_family'),
+                'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                'has_trajectory_transform': bool(trajectory),
+                'has_decomposition': bool(decomposition),
+                'has_rank_truncation': bool(rank_truncation),
+                'has_forecast_head': bool(forecast_head),
+                'trajectory_window_size': trajectory.get('window_size', trajectory.get('resolved_window_size')),
+                'trajectory_stride': trajectory.get('stride', trajectory.get('effective_stride')),
+                'trajectory_features_shape': _stringify_stage_value(
+                    trajectory.get('features_shape', trajectory.get('trajectory_matrix_shape_after'))
+                ),
+                'decomposition_strategy': decomposition.get('strategy', decomposition.get('representation_policy')),
+                'decomposition_projected_shape': _stringify_stage_value(decomposition.get('projected_shape')),
+                'rank_policy': rank_truncation.get('policy', rank_truncation.get('trajectory_rank_policy')),
+                'rank_selected_rank': rank_truncation.get('selected_rank'),
+                'rank_explained_variance_retained': rank_truncation.get('explained_variance_retained'),
+                'forecast_head_json': _stringify_stage_value(forecast_head),
+                'trajectory_transform_json': _stringify_stage_value(trajectory),
+                'decomposition_json': _stringify_stage_value(decomposition),
+                'rank_truncation_json': _stringify_stage_value(rank_truncation),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _is_hybrid_ensemble_record(metadata: dict[str, Any]) -> bool:
+    return (
+            str(metadata.get('model_family', '')).lower() == 'hybrid_ensemble'
+            or str(metadata.get('adapter_name', '')).lower() == 'hybrid_ensemble_forecaster'
+    )
+
+
+def build_hybrid_ensemble_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in result.run_records:
+        if record.status is not RunStatus.SUCCESS or not _is_hybrid_ensemble_record(record.metadata):
+            continue
+        branch_calibration = dict(record.metadata.get('branch_calibration') or {})
+        ensemble_head = dict(record.metadata.get('ensemble_head') or {})
+        rows.append(
+            {
+                'benchmark': record.benchmark,
+                'dataset_name': record.dataset_name,
+                'subset': record.subset,
+                'series_id': record.series_id,
+                'model_name': record.model_name,
+                'adapter_name': record.metadata.get('adapter_name'),
+                'model_adapter_family': record.metadata.get('model_adapter_family'),
+                'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                'branch_names': _stringify_stage_value(record.metadata.get('branch_names')),
+                'calibration_horizon': branch_calibration.get('calibration_horizon'),
+                'ensemble_weights': _stringify_stage_value(
+                    record.metadata.get('ensemble_weights', ensemble_head.get('weights'))
+                ),
+                'branch_metrics_json': _stringify_stage_value(branch_calibration.get('branch_metrics')),
+                'branch_diagnostics_json': _stringify_stage_value(branch_calibration.get('branch_diagnostics')),
+                'branch_predictions_json': _stringify_stage_value(record.metadata.get('branch_predictions')),
             }
         )
     return pd.DataFrame(rows)
@@ -454,6 +548,36 @@ def compare_models_on_series(
             write_json(diagnostics_path, regime_payload)
             artifact_manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
 
+        stage_records = [
+            record for record in series_run_records
+            if record.status is RunStatus.SUCCESS and _extract_forecasting_stage_payload(record.metadata) is not None
+        ]
+        if stage_records:
+            stage_payload = {}
+            for record in stage_records:
+                stage_payload[record.model_name] = {
+                    'adapter_name': record.metadata.get('adapter_name'),
+                    'model_adapter_family': record.metadata.get('model_adapter_family'),
+                    'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                    **(_extract_forecasting_stage_payload(record.metadata) or {}),
+                }
+            stage_path = target_dir / f'{series_id}_forecasting_stage_diagnostics.json'
+            write_json(stage_path, stage_payload)
+            artifact_manifest.append(ArtifactRecord(kind='structured', path=str(stage_path), format='json'))
+
+        hybrid_records = [
+            record for record in series_run_records
+            if record.status is RunStatus.SUCCESS and _is_hybrid_ensemble_record(record.metadata)
+        ]
+        if hybrid_records:
+            hybrid_payload = {
+                record.model_name: record.metadata
+                for record in hybrid_records
+            }
+            hybrid_path = target_dir / f'{series_id}_hybrid_ensemble_diagnostics.json'
+            write_json(hybrid_path, hybrid_payload)
+            artifact_manifest.append(ArtifactRecord(kind='structured', path=str(hybrid_path), format='json'))
+
         okhs_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
@@ -660,6 +784,14 @@ def render_publication_pack(
             ]
         ].copy()
         manifest.extend(_stable_write_table(routing_evaluation, aggregate_dir / 'routing_evaluation'))
+
+    forecasting_stage_frame = build_forecasting_stage_frame(result)
+    if not forecasting_stage_frame.empty:
+        manifest.extend(_stable_write_table(forecasting_stage_frame, aggregate_dir / 'forecasting_stage_diagnostics'))
+
+    hybrid_ensemble_frame = build_hybrid_ensemble_frame(result)
+    if not hybrid_ensemble_frame.empty:
+        manifest.extend(_stable_write_table(hybrid_ensemble_frame, aggregate_dir / 'hybrid_ensemble_diagnostics'))
 
     okhs_fdmd_stage_frame = build_okhs_fdmd_stage_frame(result)
     if not okhs_fdmd_stage_frame.empty:

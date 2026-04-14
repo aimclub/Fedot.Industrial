@@ -29,6 +29,11 @@ def test_havok_forecaster_produces_forecast_and_event_diagnostics():
     assert forecast.shape == (8,)
     assert diagnostics['selected_rank'] >= 2
     assert diagnostics['state_dimension'] >= 1
+    assert diagnostics['model_family'] == 'operator_model'
+    assert diagnostics['trajectory_transform']['kind'] == 'hankel'
+    assert diagnostics['decomposition']['strategy'] == 'full'
+    assert diagnostics['rank_truncation']['selected_rank'] >= 2
+    assert diagnostics['forecast_head']['head_type'] == 'havok_head'
     assert len(diagnostics['forcing_values']) > 0
     assert 'forecast_forcing_values' in diagnostics
     assert len(diagnostics['forecast_forcing_mask']) == 8

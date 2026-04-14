@@ -30,13 +30,16 @@ def adapter_name_to_family(adapter_name: str) -> str:
     if normalized in {
         RoutingAdapterName.LOW_RANK_LAGGED_RIDGE.value,
         RoutingAdapterName.MSSA.value,
+        'mssa_forecaster',
         RoutingAdapterName.SSA_COMPAT.value,
+        'ssa_forecaster',
     }:
         return 'low_rank_linear'
     if normalized in {
         RoutingAdapterName.OKHS.value,
         RoutingAdapterName.OKHS_FDMD.value,
         RoutingAdapterName.HAVOK.value,
+        'havok_forecaster',
         RoutingAdapterName.HYBRID_ENSEMBLE.value,
         'classical_dmd',
     }:

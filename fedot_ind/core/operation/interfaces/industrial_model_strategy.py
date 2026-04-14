@@ -12,6 +12,7 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeat
 from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
     IndustrialForecastingModelRuntimeStrategy,
+    should_redirect_legacy_model_strategy,
 )
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
     IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
@@ -118,6 +119,13 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
 
 
 class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy):
+    def __new__(
+            cls,
+            operation_type: str,
+            params: Optional[OperationParameters] = None):
+        if should_redirect_legacy_model_strategy(cls, operation_type):
+            return IndustrialForecastingModelRuntimeStrategy(operation_type, params=params)
+        return super().__new__(cls)
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)

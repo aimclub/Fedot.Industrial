@@ -255,6 +255,28 @@
         "decomposition"
       ]
     },
+    "mssa_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "decomposition",
+        "low_rank"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "havok_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "operator_model",
+        "decomposition"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
      "fedot_cls": {
       "meta": "fedot_automl_classification",
       "presets": [

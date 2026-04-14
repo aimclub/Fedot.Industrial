@@ -86,6 +86,18 @@
     "low_rank_params": {},
     "complex_params": {}
   },
+  "havok_forecaster": {
+    "window_size": 16,
+    "rank": 4,
+    "forcing_threshold_scale": 1.0,
+    "forcing_decay": 0.85
+  },
+  "mssa_forecaster": {
+    "window_size": 16,
+    "rank": 4,
+    "explained_variance": 0.95,
+    "coupled": true
+  },
   "okhs_fdmd_forecaster": {
     "q": 0.7,
     "n_modes": 5,
@@ -124,8 +136,11 @@
     "activation": "ReLU"
   },
   "ssa_forecaster": {
-    "window_size_method": "hac",
-    "history_lookback": 30
+    "window_size": 16,
+    "rank": 4,
+    "explained_variance": 0.95,
+    "history_lookback": 30,
+    "mode": "one_dimensional"
   },
   "kmeans": {
     "n_clusters": 4

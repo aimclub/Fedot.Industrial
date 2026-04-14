@@ -85,6 +85,18 @@ def test_build_model_adapter_supports_new_composite_forecasters() -> None:
     assert okhs_fdmd_model.name == 'okhs_fdmd_forecaster'
 
 
+def test_build_model_adapter_supports_canonical_mssa_and_havok_names() -> None:
+    mssa_model = build_model_adapter(
+        ModelSpec(adapter_name='mssa_forecaster', display_name='mssa_forecaster')
+    )
+    havok_model = build_model_adapter(
+        ModelSpec(adapter_name='havok_forecaster', display_name='havok_forecaster')
+    )
+
+    assert mssa_model.name == 'mssa_forecaster'
+    assert havok_model.name == 'havok_forecaster'
+
+
 def test_m4_adapter_parses_frame_and_samples() -> None:
     rows = []
     for series_id in ('M4_monthly_1', 'M4_monthly_2'):
@@ -299,6 +311,30 @@ def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> Non
         'operator_model',
         'simple_baseline',
     }
+    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'toy_1_forecasting_stage_diagnostics.json' in artifact_names
+    assert 'forecasting_stage_diagnostics.csv' in artifact_names
+    assert 'toy_1_hybrid_ensemble_diagnostics.json' in artifact_names
+    assert 'hybrid_ensemble_diagnostics.csv' in artifact_names
+
+    stage_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'toy_1_forecasting_stage_diagnostics.json'
+    )
+    payload = json.loads(stage_path.read_text(encoding='utf-8'))
+    assert 'LaggedRidge' in payload
+    assert 'LowRankLaggedRidge' in payload
+    assert payload['LaggedRidge']['trajectory_transform']['window_size'] is not None
+    assert payload['LowRankLaggedRidge']['rank_truncation']['selected_rank'] is not None
+
+    hybrid_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'toy_1_hybrid_ensemble_diagnostics.json'
+    )
+    hybrid_payload = json.loads(hybrid_path.read_text(encoding='utf-8'))
+    assert 'HybridEnsemble' in hybrid_payload
+    assert hybrid_payload['HybridEnsemble']['ensemble_head']['weights']
+    assert 'branch_calibration' in hybrid_payload['HybridEnsemble']
 
 
 def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
@@ -343,6 +379,16 @@ def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
     assert 'switch_1_havok_diagnostics.json' in artifact_names
     assert 'switch_1_havok_havok_forcing_timeline.png' in artifact_names
     assert 'switch_1_havok_havok_event_overlay.png' in artifact_names
+    assert 'switch_1_forecasting_stage_diagnostics.json' in artifact_names
+
+    stage_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'switch_1_forecasting_stage_diagnostics.json'
+    )
+    stage_payload = json.loads(stage_path.read_text(encoding='utf-8'))
+    assert 'HAVOK' in stage_payload
+    assert stage_payload['HAVOK']['forecast_head']['head_type'] == 'havok_head'
+    assert stage_payload['HAVOK']['trajectory_transform']['kind'] == 'hankel'
 
 
 def test_forecasting_suite_propagates_okhs_anti_smoothing_diagnostics(tmp_path: Path, monkeypatch) -> None:

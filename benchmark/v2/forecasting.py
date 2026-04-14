@@ -1095,9 +1095,9 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
             tags=spec.tags or ('ensemble', 'forecasting', 'operator_model'),
             **params,
         )
-    if adapter_name == 'mssa':
+    if adapter_name in {'mssa', 'mssa_forecaster'}:
         return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
-    if adapter_name == 'havok':
+    if adapter_name in {'havok', 'havok_forecaster'}:
         return HAVOKModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'havok'), **params)
     if adapter_name == 'naive_last_value':
         return NaiveLastValueModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))

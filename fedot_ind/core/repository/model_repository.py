@@ -237,6 +237,8 @@ class AtomizedModel(Enum):
         'lagged_forecaster',
         'lagged_ridge_forecaster',
         'low_rank_lagged_ridge_forecaster',
+        'mssa_forecaster',
+        'havok_forecaster',
         'hybrid_ensemble_forecaster',
         'okhs_fdmd_forecaster',
         'eigen_forecaster'

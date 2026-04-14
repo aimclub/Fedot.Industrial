@@ -1,7 +1,5 @@
 import numpy as np
-from fedot.core.data.data import InputData
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+import pytest
 
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import (
     MSSAForecaster,
@@ -18,9 +16,15 @@ def test_mssa_forecaster_predicts_univariate_series():
 
     model.fit(series)
     forecast = model.predict(series)
+    diagnostics = model.get_diagnostics()
 
     assert forecast.shape == (6,)
-    assert model.get_diagnostics()['selected_rank'] >= 2
+    assert diagnostics['selected_rank'] >= 2
+    assert diagnostics['model_family'] == 'low_rank_linear'
+    assert diagnostics['trajectory_transform']['kind'] == 'page'
+    assert diagnostics['decomposition']['strategy'] == 'page_svd_per_channel'
+    assert diagnostics['rank_truncation']['selected_rank'] >= 2
+    assert diagnostics['forecast_head']['head_type'] == 'linear_autoregression_head'
 
 
 def test_mssa_forecaster_supports_multivariate_series():
@@ -35,12 +39,23 @@ def test_mssa_forecaster_supports_multivariate_series():
 
     model.fit(series)
     forecast = model.predict(series)
+    diagnostics = model.get_diagnostics()
 
     assert forecast.shape == (5, 2)
-    assert model.get_diagnostics()['coupled'] is True
+    assert diagnostics['coupled'] is True
+    assert diagnostics['decomposition']['coupled'] is True
+    assert diagnostics['trajectory_transform']['channel_count'] == 2
 
 
 def test_mssa_implementation_predict_for_fit_returns_transposed_denoised_series():
+    fedot = pytest.importorskip('fedot.core.data.data')
+    InputData = fedot.InputData
+    DataTypesEnum = pytest.importorskip('fedot.core.repository.dataset_types').DataTypesEnum
+    tasks_module = pytest.importorskip('fedot.core.repository.tasks')
+    Task = tasks_module.Task
+    TaskTypesEnum = tasks_module.TaskTypesEnum
+    TsForecastingParams = tasks_module.TsForecastingParams
+
     time = np.arange(100, dtype=float)
     series = np.sin(2 * np.pi * time / 10.0)
     input_data = InputData(
@@ -64,7 +79,8 @@ def test_regime_diagnostics_detects_periodic_structure():
     diagnostics = analyze_regime_diagnostics(series).to_dict()
 
     assert diagnostics['dominant_period'] is not None
-    assert diagnostics['regime_hint'] in {'periodic', 'locally_linear'}
+    assert diagnostics['spectral_concentration'] > 0.15
+    assert diagnostics['switching_score'] < 0.3
 
 
 def test_regime_routing_matches_periodic_diagnostics():

@@ -11,13 +11,14 @@ from .okhs_runtime import (
     analyze_okhs_smoothing_collapse as _analyze_okhs_smoothing_collapse_core,
     apply_okhs_anti_smoothing as _apply_okhs_anti_smoothing_core,
     build_dense_okhs_trajectories,
+    build_okhs_dmd_model,
     build_okhs_fit_plan,
-    build_okhs_stage_diagnostics,
-    decode_okhs_projected_prediction,
+    build_okhs_optimization_info,
+    build_okhs_prediction_plan,
+    execute_okhs_dmd_prediction_plan,
     postprocess_okhs_dmd_forecast,
     resolve_okhs_last_trajectory,
     resolve_projected_okhs_initial_state,
-    run_okhs_dmd_prediction,
     uses_projected_okhs_representation,
 )
 from ...operation.transformation.representation.kernel.kernels import OccupationKernel
@@ -206,24 +207,20 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         self.resolved_q_ = fit_plan['resolved_q']
 
         if uses_dmd(self.method):
-            dmd_kwargs = {
-                'q': self.resolved_q_,
-                'n_modes': self.n_modes,
-                'mode_selection_policy': self.mode_selection_policy,
-                'mode_energy_threshold': self.mode_energy_threshold,
-                'prediction_mode_selection_policy': self.prediction_mode_selection_policy,
-                'max_prediction_modes': self.max_prediction_modes,
-                'min_prediction_modes': self.min_prediction_modes,
-                'boundary_alignment_policy': self.boundary_alignment_policy,
-                'boundary_alignment_decay': self.boundary_alignment_decay,
-                'prediction_stability_threshold': self.prediction_stability_threshold,
-                'device': self.device,
-            }
-            try:
-                self.model = FractionalDMD(**dmd_kwargs)
-            except TypeError:
-                dmd_kwargs.pop('device', None)
-                self.model = FractionalDMD(**dmd_kwargs)
+            self.model = build_okhs_dmd_model(
+                dmd_factory=FractionalDMD,
+                resolved_q=self.resolved_q_,
+                n_modes=self.n_modes,
+                mode_selection_policy=self.mode_selection_policy,
+                mode_energy_threshold=self.mode_energy_threshold,
+                prediction_mode_selection_policy=self.prediction_mode_selection_policy,
+                max_prediction_modes=self.max_prediction_modes,
+                min_prediction_modes=self.min_prediction_modes,
+                boundary_alignment_policy=self.boundary_alignment_policy,
+                boundary_alignment_decay=self.boundary_alignment_decay,
+                prediction_stability_threshold=self.prediction_stability_threshold,
+                device=self.device,
+            )
             self.model.fit(self.trajectories_)
         else:
             self._fit_direct_okhs(time_series)
@@ -253,19 +250,22 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         )
 
     def _predict_projected_dmd(self, time_series=None):
-        initial_trajectory, decoded_initial_trajectory = self._resolve_projected_initial_trajectory(time_series)
-        latent_prediction, diagnostics = run_okhs_dmd_prediction(
-            model=self.model,
-            initial_trajectory=initial_trajectory,
-            forecast_horizon=self.forecast_horizon,
-        )
-        forecast, decode_diagnostics = decode_okhs_projected_prediction(
-            initial_trajectory=initial_trajectory,
-            decoded_initial_trajectory=decoded_initial_trajectory,
-            latent_prediction=latent_prediction,
+        prediction_plan = build_okhs_prediction_plan(
+            trajectories=self.trajectories_,
+            time_series=time_series,
+            train_series=self.train_series_,
+            window_size=self.window_size_,
+            trajectory_preprocessing=self.trajectory_preprocessing_,
+            projection_metadata=self.projection_metadata_,
             projection_runtime=self._projection_runtime_,
         )
-        self.dmd_prediction_diagnostics_ = {**diagnostics, **decode_diagnostics}
+        forecast, diagnostics = execute_okhs_dmd_prediction_plan(
+            model=self.model,
+            prediction_plan=prediction_plan,
+            forecast_horizon=self.forecast_horizon,
+            projection_runtime=self._projection_runtime_,
+        )
+        self.dmd_prediction_diagnostics_ = diagnostics
         return forecast
 
     def _postprocess_dmd_forecast(self, forecast, time_series=None):
@@ -292,18 +292,22 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
             if self._uses_projected_representation():
                 return self._postprocess_dmd_forecast(self._predict_projected_dmd(time_series), time_series)
 
-            last_trajectory = resolve_okhs_last_trajectory(
+            prediction_plan = build_okhs_prediction_plan(
                 trajectories=self.trajectories_,
                 time_series=time_series,
+                train_series=self.train_series_,
                 window_size=self.window_size_,
+                trajectory_preprocessing=self.trajectory_preprocessing_,
+                projection_metadata=self.projection_metadata_,
+                projection_runtime=self._projection_runtime_,
             )
-            predictions, diagnostics = run_okhs_dmd_prediction(
+            predictions, diagnostics = execute_okhs_dmd_prediction_plan(
                 model=self.model,
-                initial_trajectory=last_trajectory,
+                prediction_plan=prediction_plan,
                 forecast_horizon=self.forecast_horizon,
             )
             self.dmd_prediction_diagnostics_ = diagnostics
-            return self._postprocess_dmd_forecast(np.asarray(predictions, dtype=float).flatten(), time_series)
+            return self._postprocess_dmd_forecast(np.asarray(predictions, dtype=float).reshape(-1), time_series)
 
         last_trajectory = resolve_okhs_last_trajectory(
             trajectories=self.trajectories_,
@@ -331,43 +335,38 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         return np.array(predictions)
 
     def get_optimization_info(self):
-        info = {
-            'method': self.method_name_,
-            'q': self.resolved_q_,
-            'q_policy': self.q_policy,
-            'forecast_horizon': self.forecast_horizon,
-            'window_policy': self.window_policy,
-            'trajectory_sampling_policy': self.trajectory_sampling_policy,
-            'trajectory_rank_policy': self.trajectory_rank_policy,
-            'trajectory_rank_value': self.trajectory_rank_value,
-            'trajectory_representation_policy': self.trajectory_representation_policy,
-            'latent_trajectory_stride_policy': self.latent_trajectory_stride_policy,
-            'latent_trajectory_stride': self.latent_trajectory_stride,
-            'resolved_window_size': self.resolved_window_size_,
-            'window_diagnostics': self.window_diagnostics_,
-            'trajectory_preprocessing': self.trajectory_preprocessing_,
-            'projection_metadata': self.projection_metadata_,
-            'mode_selection_policy': self.mode_selection_policy,
-            'mode_energy_threshold': self.mode_energy_threshold,
-            'prediction_mode_selection_policy': self.prediction_mode_selection_policy,
-            'max_prediction_modes': self.max_prediction_modes,
-            'min_prediction_modes': self.min_prediction_modes,
-            'boundary_alignment_policy': self.boundary_alignment_policy,
-            'boundary_alignment_decay': self.boundary_alignment_decay,
-            'prediction_stability_threshold': self.prediction_stability_threshold,
-            'anti_smoothing_policy': self.anti_smoothing_policy,
-            'anti_smoothing_tail_window': self.anti_smoothing_tail_window,
-            'anti_smoothing_amplitude_ratio': self.anti_smoothing_amplitude_ratio,
-            'anti_smoothing_monotone_ratio': self.anti_smoothing_monotone_ratio,
-            'anti_smoothing_oscillation_floor': self.anti_smoothing_oscillation_floor,
-            'anti_smoothing_decay': self.anti_smoothing_decay,
-            'anti_smoothing_target_amplitude_ratio': self.anti_smoothing_target_amplitude_ratio,
-        }
-        if self.model is not None and hasattr(self.model, 'get_fit_diagnostics_summary'):
-            info['fdmd_fit_diagnostics'] = self.model.get_fit_diagnostics_summary()
-        if self.dmd_prediction_diagnostics_ is not None:
-            info['fdmd_prediction_diagnostics'] = self.dmd_prediction_diagnostics_
-        if hasattr(self, 'weights_'):
-            info['weights_norm'] = float(np.linalg.norm(self.weights_))
-        info['stage_diagnostics'] = build_okhs_stage_diagnostics(info)
-        return info
+        return build_okhs_optimization_info(
+            method_name=self.method_name_,
+            resolved_q=self.resolved_q_,
+            q_policy=self.q_policy,
+            forecast_horizon=self.forecast_horizon,
+            window_policy=self.window_policy,
+            trajectory_sampling_policy=self.trajectory_sampling_policy,
+            trajectory_rank_policy=self.trajectory_rank_policy,
+            trajectory_rank_value=self.trajectory_rank_value,
+            trajectory_representation_policy=self.trajectory_representation_policy,
+            latent_trajectory_stride_policy=self.latent_trajectory_stride_policy,
+            latent_trajectory_stride=self.latent_trajectory_stride,
+            resolved_window_size=self.resolved_window_size_,
+            window_diagnostics=self.window_diagnostics_,
+            trajectory_preprocessing=self.trajectory_preprocessing_,
+            projection_metadata=self.projection_metadata_,
+            mode_selection_policy=self.mode_selection_policy,
+            mode_energy_threshold=self.mode_energy_threshold,
+            prediction_mode_selection_policy=self.prediction_mode_selection_policy,
+            max_prediction_modes=self.max_prediction_modes,
+            min_prediction_modes=self.min_prediction_modes,
+            boundary_alignment_policy=self.boundary_alignment_policy,
+            boundary_alignment_decay=self.boundary_alignment_decay,
+            prediction_stability_threshold=self.prediction_stability_threshold,
+            anti_smoothing_policy=self.anti_smoothing_policy,
+            anti_smoothing_tail_window=self.anti_smoothing_tail_window,
+            anti_smoothing_amplitude_ratio=self.anti_smoothing_amplitude_ratio,
+            anti_smoothing_monotone_ratio=self.anti_smoothing_monotone_ratio,
+            anti_smoothing_oscillation_floor=self.anti_smoothing_oscillation_floor,
+            anti_smoothing_decay=self.anti_smoothing_decay,
+            anti_smoothing_target_amplitude_ratio=self.anti_smoothing_target_amplitude_ratio,
+            model=self.model,
+            dmd_prediction_diagnostics=self.dmd_prediction_diagnostics_,
+            weights=getattr(self, 'weights_', None),
+        )

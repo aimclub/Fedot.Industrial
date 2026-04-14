@@ -1,10 +1,14 @@
 import numpy as np
 
 from fedot_ind.core.models.kernel.okhs_runtime import (
+    build_okhs_dmd_model,
     build_dense_okhs_trajectories,
     build_okhs_fit_plan,
+    build_okhs_optimization_info,
+    build_okhs_prediction_plan,
     decode_okhs_projected_prediction,
     build_okhs_stage_diagnostics,
+    execute_okhs_dmd_prediction_plan,
     postprocess_okhs_dmd_forecast,
     resolve_okhs_prediction_time_grid,
     run_okhs_dmd_prediction,
@@ -145,6 +149,35 @@ def test_run_okhs_dmd_prediction_returns_prediction_and_time_grid():
     assert diagnostics['prediction_time_grid'] == resolve_okhs_prediction_time_grid(3, 4, 0.5).tolist()
 
 
+def test_build_okhs_dmd_model_falls_back_when_factory_rejects_device():
+    captured = {}
+
+    class FakeDMD:
+        def __init__(self, **kwargs):
+            if 'device' in kwargs:
+                raise TypeError('unexpected device')
+            captured.update(kwargs)
+
+    model = build_okhs_dmd_model(
+        dmd_factory=FakeDMD,
+        resolved_q=0.61,
+        n_modes=4,
+        mode_selection_policy='energy',
+        mode_energy_threshold=0.95,
+        prediction_mode_selection_policy='adaptive_tail_energy',
+        max_prediction_modes=None,
+        min_prediction_modes=3,
+        boundary_alignment_policy='tapered_offset',
+        boundary_alignment_decay=4.0,
+        prediction_stability_threshold=0.03,
+        device='cpu',
+    )
+
+    assert isinstance(model, FakeDMD)
+    assert captured['q'] == 0.61
+    assert 'device' not in captured
+
+
 def test_decode_okhs_projected_prediction_returns_forecast_and_decode_metadata():
     forecast, diagnostics = decode_okhs_projected_prediction(
         initial_trajectory=np.array([[1.0, 0.0], [2.0, 0.0]]),
@@ -160,6 +193,54 @@ def test_decode_okhs_projected_prediction_returns_forecast_and_decode_metadata()
     assert diagnostics['decode_supported'] is True
     assert diagnostics['basis_shape'] == (2, 2)
     assert diagnostics['latent_prediction_shape'] == (2, 2)
+
+
+def test_build_okhs_prediction_plan_uses_projected_runtime_when_available():
+    plan = build_okhs_prediction_plan(
+        trajectories=[np.array([1.0, 2.0, 3.0])],
+        time_series=None,
+        train_series=np.arange(10, dtype=float),
+        window_size=3,
+        trajectory_preprocessing={'effective_stride': 1},
+        projection_metadata={'representation_policy': 'projected', 'decode_supported': True},
+        projection_runtime={
+            'latent_window_size': 2,
+            'latent_state_matrix': np.array([[1.0, 0.0], [2.0, 0.0]]),
+            'sampled_matrix': np.array([[10.0, 11.0], [12.0, 13.0]]),
+            'basis': np.eye(2),
+        },
+    )
+
+    assert plan['representation_policy'] == 'projected'
+    assert plan['initial_trajectory'].shape == (2, 2)
+    assert plan['decoded_initial_trajectory'].shape == (2, 2)
+
+
+def test_execute_okhs_dmd_prediction_plan_decodes_projected_predictions():
+    class FakeModel:
+        dt = 1.0
+
+        def predict_with_diagnostics(self, initial_trajectory, future_times):
+            del initial_trajectory
+            return np.vstack([future_times, np.zeros_like(future_times)]).T, {'n_selected_prediction_modes': 2}
+
+    forecast, diagnostics = execute_okhs_dmd_prediction_plan(
+        model=FakeModel(),
+        prediction_plan={
+            'representation_policy': 'projected',
+            'initial_trajectory': np.array([[1.0, 0.0], [2.0, 0.0]]),
+            'decoded_initial_trajectory': np.array([[1.0, 0.0], [2.0, 0.0]]),
+        },
+        forecast_horizon=3,
+        projection_runtime={
+            'basis': np.eye(2),
+            'latent_state_matrix': np.array([[1.0, 0.0], [2.0, 0.0]]),
+        },
+    )
+
+    assert forecast.tolist() == [0.0, 0.0, 0.0]
+    assert diagnostics['decode_supported'] is True
+    assert diagnostics['n_selected_prediction_modes'] == 2
 
 
 def test_postprocess_okhs_dmd_forecast_merges_anti_smoothing_diagnostics():
@@ -180,3 +261,50 @@ def test_postprocess_okhs_dmd_forecast_merges_anti_smoothing_diagnostics():
     assert merged['boundary_discontinuity_abs_mean'] == 0.01
     assert merged['anti_smoothing_diagnostics']['collapse_detected'] is True
     assert merged['anti_smoothing_diagnostics']['correction_applied'] is True
+
+
+def test_build_okhs_optimization_info_collects_stage_diagnostics_and_optional_fields():
+    class FakeModel:
+        def get_fit_diagnostics_summary(self):
+            return {'resolved_n_modes': 3}
+
+    info = build_okhs_optimization_info(
+        method_name='fdmd',
+        resolved_q=0.7,
+        q_policy='fixed',
+        forecast_horizon=6,
+        window_policy='adaptive_cycle_aware',
+        trajectory_sampling_policy='dense',
+        trajectory_rank_policy='explained_dispersion',
+        trajectory_rank_value=None,
+        trajectory_representation_policy='projected',
+        latent_trajectory_stride_policy='adaptive',
+        latent_trajectory_stride=2,
+        resolved_window_size=18,
+        window_diagnostics={'window_fraction': 0.2},
+        trajectory_preprocessing={'selected_rank': 4},
+        projection_metadata={'decode_supported': True},
+        mode_selection_policy='energy',
+        mode_energy_threshold=0.95,
+        prediction_mode_selection_policy='adaptive_tail_energy',
+        max_prediction_modes=None,
+        min_prediction_modes=4,
+        boundary_alignment_policy='tapered_offset',
+        boundary_alignment_decay=4.0,
+        prediction_stability_threshold=0.03,
+        anti_smoothing_policy='residual_bridge',
+        anti_smoothing_tail_window=12,
+        anti_smoothing_amplitude_ratio=0.35,
+        anti_smoothing_monotone_ratio=0.9,
+        anti_smoothing_oscillation_floor=0.25,
+        anti_smoothing_decay=2.5,
+        anti_smoothing_target_amplitude_ratio=0.8,
+        model=FakeModel(),
+        dmd_prediction_diagnostics={'boundary_discontinuity_abs_mean': 0.1},
+        weights=np.array([1.0, 2.0, 3.0]),
+    )
+
+    assert info['fdmd_fit_diagnostics']['resolved_n_modes'] == 3
+    assert info['weights_norm'] > 0
+    assert info['stage_diagnostics']['forecast_head']['prediction_diagnostics'][
+               'boundary_discontinuity_abs_mean'] == 0.1

@@ -1,17 +1,31 @@
 import numpy as np
 import pytest
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+
+fedot_data = pytest.importorskip('fedot.core.data.data')
+InputData = fedot_data.InputData
+OutputData = fedot_data.OutputData
+OperationParameters = pytest.importorskip('fedot.core.operations.operation_parameters').OperationParameters
+DataTypesEnum = pytest.importorskip('fedot.core.repository.dataset_types').DataTypesEnum
+tasks_module = pytest.importorskip('fedot.core.repository.tasks')
+Task = tasks_module.Task
+TaskTypesEnum = tasks_module.TaskTypesEnum
+TsForecastingParams = tasks_module.TsForecastingParams
 
 from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
     IndustrialForecastingModelRuntimeStrategy,
     IndustrialForecastingPreprocessingRuntimeStrategy,
+    should_redirect_legacy_model_strategy,
+    should_redirect_legacy_preprocessing_strategy,
 )
-from fedot_ind.core.operation.interfaces.industrial_model_strategy import IndustrialSkLearnForecastingStrategy
+from fedot_ind.core.operation.interfaces.industrial_model_strategy import (
+    IndustrialCustomRegressionStrategy,
+    IndustrialSkLearnForecastingStrategy,
+    IndustrialSkLearnRegressionStrategy,
+)
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
+    IndustrialCustomPreprocessingStrategy,
     IndustrialForecastingPreprocessingStrategy,
+    IndustrialPreprocessingStrategy,
 )
 
 
@@ -60,3 +74,30 @@ def test_forecasting_model_runtime_strategy_lagged_ridge_predicts_horizon_vector
 def test_legacy_forecasting_strategy_wrappers_delegate_to_runtime_strategies():
     assert issubclass(IndustrialSkLearnForecastingStrategy, IndustrialForecastingModelRuntimeStrategy)
     assert issubclass(IndustrialForecastingPreprocessingStrategy, IndustrialForecastingPreprocessingRuntimeStrategy)
+
+
+def test_legacy_preprocessing_strategy_redirects_forecasting_operations_to_runtime():
+    params = OperationParameters(window_size=12, stride=2)
+
+    custom_strategy = IndustrialCustomPreprocessingStrategy('hankelisation', params=params)
+    industrial_strategy = IndustrialPreprocessingStrategy('hankelisation', params=params)
+
+    assert isinstance(custom_strategy, IndustrialForecastingPreprocessingRuntimeStrategy)
+    assert isinstance(industrial_strategy, IndustrialForecastingPreprocessingRuntimeStrategy)
+
+
+def test_legacy_model_strategies_redirect_forecasting_models_to_runtime():
+    params = OperationParameters(window_size=12, stride=1)
+
+    regression_strategy = IndustrialSkLearnRegressionStrategy('lagged_ridge_forecaster', params=params)
+    custom_regression_strategy = IndustrialCustomRegressionStrategy('okhs_fdmd_forecaster', params=params)
+
+    assert isinstance(regression_strategy, IndustrialForecastingModelRuntimeStrategy)
+    assert isinstance(custom_regression_strategy, IndustrialForecastingModelRuntimeStrategy)
+
+
+def test_forecasting_runtime_redirect_helpers_centralize_boundary_policy():
+    assert should_redirect_legacy_model_strategy(IndustrialSkLearnRegressionStrategy, 'lagged_ridge_forecaster')
+    assert not should_redirect_legacy_model_strategy(IndustrialSkLearnRegressionStrategy, 'ridge')
+    assert should_redirect_legacy_preprocessing_strategy(IndustrialPreprocessingStrategy, 'hankelisation')
+    assert not should_redirect_legacy_preprocessing_strategy(IndustrialPreprocessingStrategy, 'scaling')

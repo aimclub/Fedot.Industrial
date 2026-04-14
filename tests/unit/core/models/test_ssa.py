@@ -35,7 +35,11 @@ def test_ssa_fit_predict_works_as_compatibility_wrapper(time_series_data):
 
     forecaster.fit(time_series_data)
     prediction = forecaster.predict(time_series_data)
+    diagnostics = forecaster.get_diagnostics()
 
     assert prediction.predict is not None
     assert prediction.predict.shape[-1] == 10
     assert forecaster.compatibility_status_ == 'compatibility_wrapper'
+    assert diagnostics['compatibility_status'] == 'compatibility_wrapper'
+    assert diagnostics['mode'] == 'one_dimensional'
+    assert diagnostics['trajectory_transform']['kind'] == 'page'

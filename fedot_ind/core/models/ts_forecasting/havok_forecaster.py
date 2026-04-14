@@ -60,6 +60,41 @@ class HAVOKForecaster:
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
 
+    def _build_stage_diagnostics(self) -> dict[str, object]:
+        return {
+            'trajectory_transform': {
+                'kind': 'hankel',
+                'window_size': int(self.window_size_),
+                'stride': 1,
+                'forecast_horizon': int(self.forecast_horizon),
+                'channel_count': 1,
+                'features_shape': tuple(int(value) for value in self.hankel_shape_),
+                'latest_features_shape': (1, int(self.window_size_)),
+            },
+            'decomposition': {
+                'strategy': 'full',
+                'projected_shape': tuple(int(value) for value in self.latent_states_.shape),
+                'basis_shape': tuple(int(value) for value in self.basis_.shape),
+                'input_shape': tuple(int(value) for value in self.hankel_shape_),
+            },
+            'rank_truncation': {
+                'policy': 'explained_variance',
+                'selected_rank': int(self.selected_rank_),
+                'explained_variance_retained': float(self.explained_variance_retained_),
+                'projected_shape': tuple(int(value) for value in self.latent_states_.shape),
+                'basis_shape': tuple(int(value) for value in self.basis_.shape),
+            },
+            'forecast_head': {
+                'head_type': 'havok_head',
+                'state_dimension': int(max(1, self.selected_rank_ - 1)),
+                'forcing_threshold_scale': float(self.forcing_threshold_scale),
+                'forcing_threshold': float(self.forcing_threshold_),
+                'forcing_decay': float(self.forcing_decay),
+                'forcing_activity_ratio': float(np.mean(self.forcing_mask_)) if len(self.forcing_mask_) else 0.0,
+                **getattr(self, 'last_prediction_diagnostics_', {}),
+            },
+        }
+
     def fit(self, time_series: np.ndarray) -> 'HAVOKForecaster':
         series = np.asarray(time_series, dtype=float).reshape(-1)
         resolved_window = int(
@@ -97,6 +132,7 @@ class HAVOKForecaster:
         forcing_mask = np.abs(forcing) >= forcing_threshold
         self.series_ = series
         self.window_size_ = resolved_window
+        self.hankel_shape_ = tuple(int(value) for value in hankel.matrix.shape)
         self.selected_rank_ = int(truncated.selected_rank)
         self.basis_ = truncated.basis
         self.latent_states_ = latent
@@ -151,7 +187,8 @@ class HAVOKForecaster:
 
     def get_diagnostics(self) -> dict[str, object]:
         forcing_intervals = [[int(start), int(stop)] for start, stop in _intervals_from_mask(self.forcing_mask_)]
-        return {
+        diagnostics = {
+            'model_family': 'operator_model',
             'window_size': int(self.window_size_),
             'selected_rank': int(self.selected_rank_),
             'state_dimension': int(max(1, self.selected_rank_ - 1)),
@@ -165,8 +202,10 @@ class HAVOKForecaster:
             'explained_variance_retained': float(self.explained_variance_retained_),
             'basis_shape': tuple(int(value) for value in self.basis_.shape),
             'latent_state_shape': tuple(int(value) for value in self.latent_states_.shape),
-            **getattr(self, 'last_prediction_diagnostics_', {}),
         }
+        diagnostics.update(self._build_stage_diagnostics())
+        diagnostics.update(getattr(self, 'last_prediction_diagnostics_', {}))
+        return diagnostics
 
 
 class HAVOKForecasterImplementation(ModelImplementation):
