@@ -271,8 +271,19 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     publication_names = {Path(record.path).name for record in result.artifact_manifest}
     assert 'regime_diagnostics.csv' in publication_names
     assert 'routing_evaluation.csv' in publication_names
+    assert 'routing_family_evaluation.csv' in publication_names
+    assert 'routing_family_summary.csv' in publication_names
     assert 'toy_dataset_metric_distribution_mae.png' in publication_names
     assert 'toy_dataset_model_ranking_mae.png' in publication_names
+
+    family_summary_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'routing_family_summary.csv'
+    )
+    family_summary = pd.read_csv(family_summary_path)
+    assert 'recommended_adapter_family' in family_summary.columns
+    assert 'best_adapter_family' in family_summary.columns
+    assert 'family_match_rate' in family_summary.columns
 
 
 def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> None:
@@ -347,6 +358,77 @@ def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> Non
     assert 'HybridEnsemble' in hybrid_payload
     assert hybrid_payload['HybridEnsemble']['ensemble_head']['weights']
     assert 'branch_calibration' in hybrid_payload['HybridEnsemble']
+
+
+def test_forecasting_suite_emits_stage_tuning_artifacts(tmp_path: Path) -> None:
+    pytest.importorskip('torch')
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name='lagged_ridge_forecaster',
+                display_name='LaggedRidge',
+                params={
+                    'window_size': 10,
+                    'stride': 1,
+                    'alpha': 1.0,
+                    'stage_tuning_runtime': {
+                        'metric_name': 'rmse',
+                        'max_values_per_parameter': 2,
+                        'max_stage_candidates': 4,
+                        'stage_updates': {
+                            'trajectory_transform': {'window_size': 12},
+                            'forecast_head': {'alpha': 0.5},
+                        },
+                    },
+                },
+            ),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='stage_tuning_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    record = next(record for record in result.run_records if record.model_name == 'LaggedRidge')
+    assert record.status is RunStatus.SUCCESS
+    assert 'stage_tuning_report' in record.metadata
+    assert record.metadata['stage_tuning_runtime']['enabled'] is True
+
+    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'toy_1_forecasting_stage_tuning.json' in artifact_names
+    assert 'forecasting_stage_tuning.csv' in artifact_names
+    assert 'forecasting_stage_tuning_family_summary.csv' in artifact_names
+
+    stage_tuning_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'toy_1_forecasting_stage_tuning.json'
+    )
+    payload = json.loads(stage_tuning_path.read_text(encoding='utf-8'))
+    assert 'LaggedRidge' in payload
+    assert payload['LaggedRidge']['sequential_result']['best_parameters']
+
+    family_summary_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'forecasting_stage_tuning_family_summary.csv'
+    )
+    family_summary = pd.read_csv(family_summary_path)
+    assert 'improvement_rate' in family_summary.columns
+    assert 'routing_family_match_rate' in family_summary.columns
+    assert (family_summary['model_adapter_family'] == 'lagged_linear').any()
 
 
 def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:

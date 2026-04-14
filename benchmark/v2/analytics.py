@@ -114,11 +114,18 @@ def build_regime_diagnostics_frame(
         recommended_adapter = str(routing.get('primary_adapter', ''))
         recommended_candidates = tuple(str(item) for item in routing.get('candidate_adapters', ()))
         best_adapter = str(best_record.metadata.get('adapter_name', '')) if best_record is not None else ''
+        recommended_family = reference.metadata.get('routing_recommendation_family')
+        best_adapter_family = best_record.metadata.get('model_adapter_family') if best_record is not None else None
         best_metric = float(best_record.metrics_summary[metric_name]) if best_record is not None else None
         recommendation_hit = bool(recommended_adapter and recommended_adapter in _routing_aliases(best_adapter))
         recommendation_available = any(
             recommended_adapter in _routing_aliases(str(record.metadata.get('adapter_name', '')))
             for record in series_runs
+        )
+        family_recommendation_hit = bool(
+            recommended_family
+            and best_adapter_family
+            and str(recommended_family) == str(best_adapter_family)
         )
         rows.append(
             {
@@ -135,16 +142,67 @@ def build_regime_diagnostics_frame(
                 'switching_score': diagnostics.get('switching_score'),
                 'regime_hint': diagnostics.get('regime_hint'),
                 'recommended_adapter': recommended_adapter,
+                'recommended_adapter_family': recommended_family,
                 'recommended_candidates': ', '.join(recommended_candidates),
                 'routing_confidence': routing.get('confidence'),
                 'best_model_name': best_record.model_name if best_record is not None else None,
                 'best_adapter_name': best_adapter or None,
+                'best_adapter_family': best_adapter_family,
                 'best_primary_metric': best_metric,
                 'recommendation_available_in_run': recommendation_available,
                 'recommendation_matches_best_available': recommendation_hit,
+                'family_recommendation_matches_best': family_recommendation_hit,
             }
         )
     return pd.DataFrame(rows)
+
+
+def build_routing_family_summary_frame(
+        result: ForecastingBenchmarkResult,
+        primary_metric: str | None = None,
+) -> pd.DataFrame:
+    regime_frame = build_regime_diagnostics_frame(result, primary_metric=primary_metric)
+    if regime_frame.empty:
+        return pd.DataFrame(
+            columns=[
+                'benchmark',
+                'dataset_name',
+                'subset',
+                'recommended_adapter_family',
+                'best_adapter_family',
+                'n_series',
+                'family_match_rate',
+                'mean_best_primary_metric',
+                'mean_routing_confidence',
+            ]
+        )
+
+    frame = regime_frame.copy()
+    frame['best_primary_metric'] = pd.to_numeric(frame['best_primary_metric'], errors='coerce')
+    frame['routing_confidence'] = pd.to_numeric(frame['routing_confidence'], errors='coerce')
+    frame['family_recommendation_matches_best'] = (
+        frame['family_recommendation_matches_best'].fillna(False).astype(bool)
+    )
+
+    grouped = (
+        frame.groupby(
+            ['benchmark', 'dataset_name', 'subset', 'recommended_adapter_family', 'best_adapter_family'],
+            dropna=False,
+        )
+        .agg(
+            n_series=('series_id', 'count'),
+            family_match_rate=('family_recommendation_matches_best', 'mean'),
+            mean_best_primary_metric=('best_primary_metric', 'mean'),
+            mean_routing_confidence=('routing_confidence', 'mean'),
+        )
+        .reset_index()
+        .sort_values(
+            ['benchmark', 'dataset_name', 'subset', 'recommended_adapter_family', 'best_adapter_family'],
+            kind='stable',
+        )
+        .reset_index(drop=True)
+    )
+    return grouped
 
 
 def _extract_okhs_fdmd_stage_payload(metadata: dict[str, Any]) -> dict[str, Any] | None:
@@ -334,6 +392,99 @@ def build_hybrid_ensemble_frame(result: ForecastingBenchmarkResult) -> pd.DataFr
             }
         )
     return pd.DataFrame(rows)
+
+
+def _extract_stage_tuning_report(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    report = metadata.get('stage_tuning_report')
+    if not isinstance(report, dict):
+        return None
+    return dict(report)
+
+
+def build_stage_tuning_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in result.run_records:
+        if record.status is not RunStatus.SUCCESS:
+            continue
+        report = _extract_stage_tuning_report(record.metadata)
+        if report is None:
+            continue
+        sequential_result = dict(report.get('sequential_result') or {})
+        baseline = dict(report.get('baseline_evaluation') or {})
+        best = dict(report.get('best_evaluation') or {})
+        baseline_metric = dict(baseline.get('metric') or {})
+        best_metric = dict(best.get('metric') or {})
+        rows.append(
+            {
+                'benchmark': record.benchmark,
+                'dataset_name': record.dataset_name,
+                'subset': record.subset,
+                'series_id': record.series_id,
+                'model_name': record.model_name,
+                'adapter_name': record.metadata.get('adapter_name'),
+                'model_adapter_family': record.metadata.get('model_adapter_family'),
+                'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                'metric_name': best_metric.get('metric_name', baseline_metric.get('metric_name')),
+                'baseline_score': baseline_metric.get('metric_value'),
+                'best_score': best_metric.get('metric_value'),
+                'improved': report.get('improved', best_metric.get('metric_value', float('inf')) <= baseline_metric.get(
+                    'metric_value', float('inf'))),
+                'stage_count': len(sequential_result.get('stage_history', [])),
+                'best_parameters_json': _stringify_stage_value(sequential_result.get('best_parameters')),
+                'baseline_parameters_json': _stringify_stage_value(baseline.get('parameters')),
+                'best_diagnostics_json': _stringify_stage_value(best.get('diagnostics')),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_stage_tuning_family_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
+    tuning_frame = build_stage_tuning_frame(result)
+    if tuning_frame.empty:
+        return pd.DataFrame(
+            columns=[
+                'benchmark',
+                'dataset_name',
+                'model_adapter_family',
+                'metric_name',
+                'n_series',
+                'improvement_rate',
+                'routing_family_match_rate',
+                'mean_baseline_score',
+                'mean_best_score',
+                'mean_absolute_gain',
+                'mean_relative_gain',
+            ]
+        )
+
+    frame = tuning_frame.copy()
+    frame['baseline_score'] = pd.to_numeric(frame['baseline_score'], errors='coerce')
+    frame['best_score'] = pd.to_numeric(frame['best_score'], errors='coerce')
+    frame['absolute_gain'] = frame['baseline_score'] - frame['best_score']
+    denominator = frame['baseline_score'].replace(0.0, np.nan).abs()
+    frame['relative_gain'] = frame['absolute_gain'] / denominator
+    frame['routing_family_match'] = (
+            frame['model_adapter_family'].fillna('').astype(str)
+            == frame['routing_recommendation_family'].fillna('').astype(str)
+    )
+    frame['improved'] = frame['improved'].fillna(False).astype(bool)
+
+    summary = (
+        frame.groupby(['benchmark', 'dataset_name', 'model_adapter_family', 'metric_name'], dropna=False)
+        .agg(
+            n_series=('series_id', 'count'),
+            improvement_rate=('improved', 'mean'),
+            routing_family_match_rate=('routing_family_match', 'mean'),
+            mean_baseline_score=('baseline_score', 'mean'),
+            mean_best_score=('best_score', 'mean'),
+            mean_absolute_gain=('absolute_gain', 'mean'),
+            mean_relative_gain=('relative_gain', 'mean'),
+        )
+        .reset_index()
+    )
+    return summary.sort_values(
+        ['benchmark', 'dataset_name', 'model_adapter_family', 'metric_name']
+    ).reset_index(drop=True)
 
 
 def build_benchmark_leaderboard(
@@ -578,6 +729,24 @@ def compare_models_on_series(
             write_json(hybrid_path, hybrid_payload)
             artifact_manifest.append(ArtifactRecord(kind='structured', path=str(hybrid_path), format='json'))
 
+        stage_tuning_records = [
+            record for record in series_run_records
+            if record.status is RunStatus.SUCCESS and _extract_stage_tuning_report(record.metadata) is not None
+        ]
+        if stage_tuning_records:
+            stage_tuning_payload = {
+                record.model_name: {
+                    'adapter_name': record.metadata.get('adapter_name'),
+                    'model_adapter_family': record.metadata.get('model_adapter_family'),
+                    'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                    **(_extract_stage_tuning_report(record.metadata) or {}),
+                }
+                for record in stage_tuning_records
+            }
+            stage_tuning_path = target_dir / f'{series_id}_forecasting_stage_tuning.json'
+            write_json(stage_tuning_path, stage_tuning_payload)
+            artifact_manifest.append(ArtifactRecord(kind='structured', path=str(stage_tuning_path), format='json'))
+
         okhs_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
@@ -776,14 +945,24 @@ def render_publication_pack(
                 'series_id',
                 'regime_hint',
                 'recommended_adapter',
+                'recommended_adapter_family',
                 'best_model_name',
                 'best_adapter_name',
+                'best_adapter_family',
                 'best_primary_metric',
                 'recommendation_available_in_run',
                 'recommendation_matches_best_available',
+                'family_recommendation_matches_best',
             ]
         ].copy()
         manifest.extend(_stable_write_table(routing_evaluation, aggregate_dir / 'routing_evaluation'))
+        manifest.extend(_stable_write_table(routing_evaluation, aggregate_dir / 'routing_family_evaluation'))
+        routing_family_summary = build_routing_family_summary_frame(
+            result,
+            primary_metric=result.aggregate_report.primary_metric,
+        )
+        if not routing_family_summary.empty:
+            manifest.extend(_stable_write_table(routing_family_summary, aggregate_dir / 'routing_family_summary'))
 
     forecasting_stage_frame = build_forecasting_stage_frame(result)
     if not forecasting_stage_frame.empty:
@@ -792,6 +971,16 @@ def render_publication_pack(
     hybrid_ensemble_frame = build_hybrid_ensemble_frame(result)
     if not hybrid_ensemble_frame.empty:
         manifest.extend(_stable_write_table(hybrid_ensemble_frame, aggregate_dir / 'hybrid_ensemble_diagnostics'))
+
+    stage_tuning_frame = build_stage_tuning_frame(result)
+    if not stage_tuning_frame.empty:
+        manifest.extend(_stable_write_table(stage_tuning_frame, aggregate_dir / 'forecasting_stage_tuning'))
+        stage_tuning_family_frame = build_stage_tuning_family_frame(result)
+        if not stage_tuning_family_frame.empty:
+            manifest.extend(
+                _stable_write_table(stage_tuning_family_frame,
+                                    aggregate_dir / 'forecasting_stage_tuning_family_summary')
+            )
 
     okhs_fdmd_stage_frame = build_okhs_fdmd_stage_frame(result)
     if not okhs_fdmd_stage_frame.empty:

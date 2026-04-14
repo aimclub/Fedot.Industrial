@@ -106,8 +106,16 @@ def build_okhs_stage_diagnostics(optimization_info: dict[str, Any]) -> dict[str,
     window_diagnostics = dict(optimization_info.get('window_diagnostics') or {})
     preprocessing = dict(optimization_info.get('trajectory_preprocessing') or {})
     projection = dict(optimization_info.get('projection_metadata') or {})
-    fit_diagnostics = dict(optimization_info.get('fdmd_fit_diagnostics') or {})
-    prediction_diagnostics = dict(optimization_info.get('fdmd_prediction_diagnostics') or {})
+    fit_diagnostics = dict(
+        optimization_info.get('fdmd_fit_diagnostics')
+        or optimization_info.get('direct_fit_diagnostics')
+        or {}
+    )
+    prediction_diagnostics = dict(
+        optimization_info.get('fdmd_prediction_diagnostics')
+        or optimization_info.get('direct_prediction_diagnostics')
+        or {}
+    )
     anti_smoothing = dict(prediction_diagnostics.get('anti_smoothing_diagnostics') or {})
 
     trajectory_transform = {
@@ -150,6 +158,7 @@ def build_okhs_stage_diagnostics(optimization_info: dict[str, Any]) -> dict[str,
     forecast_head = {
         'q': optimization_info.get('q'),
         'q_policy': optimization_info.get('q_policy'),
+        'head_runtime': optimization_info.get('head_runtime'),
         'mode_selection_policy': optimization_info.get('mode_selection_policy'),
         'mode_energy_threshold': optimization_info.get('mode_energy_threshold'),
         'prediction_mode_selection_policy': optimization_info.get('prediction_mode_selection_policy'),
@@ -204,6 +213,60 @@ def build_okhs_dmd_model(
     except TypeError:
         dmd_kwargs.pop('device', None)
         return dmd_factory(**dmd_kwargs)
+
+
+def build_okhs_direct_model(
+        *,
+        kernel_factory: Any,
+        resolved_q: float,
+        trajectories: Sequence[np.ndarray],
+) -> dict[str, Any]:
+    kernel = kernel_factory(q=resolved_q)
+    x_trajectories = [np.asarray(traj, dtype=float) for traj in trajectories[:-1]]
+    y_targets = [float(np.asarray(traj, dtype=float).reshape(-1)[-1]) for traj in trajectories[1:]]
+    gram_matrix = kernel.compute_gram_matrix(x_trajectories)
+    weights = np.linalg.lstsq(gram_matrix, y_targets, rcond=None)[0]
+    return {
+        'kernel': kernel,
+        'gram_matrix': np.asarray(gram_matrix, dtype=float),
+        'weights': np.asarray(weights, dtype=float),
+        'fit_diagnostics': {
+            'n_reference_trajectories': int(len(x_trajectories)),
+            'gram_matrix_shape': tuple(int(value) for value in np.asarray(gram_matrix).shape),
+            'weights_shape': tuple(int(value) for value in np.asarray(weights).shape),
+        },
+    }
+
+
+def run_okhs_direct_prediction(
+        *,
+        kernel: Any,
+        reference_trajectories: Sequence[np.ndarray],
+        last_trajectory: np.ndarray,
+        weights: np.ndarray,
+        forecast_horizon: int,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    predictions: list[float] = []
+    current_trajectory = np.asarray(last_trajectory, dtype=float).reshape(-1).copy()
+    normalized_weights = np.asarray(weights, dtype=float).reshape(-1)
+    normalized_references = [np.asarray(traj, dtype=float).reshape(-1) for traj in reference_trajectories]
+
+    for _ in range(int(forecast_horizon)):
+        kernels = np.asarray(
+            [kernel._compute_trajectory_kernel(current_trajectory, train_traj) for train_traj in normalized_references],
+            dtype=float,
+        )
+        prediction = float(kernels @ normalized_weights)
+        predictions.append(prediction)
+        current_trajectory = np.roll(current_trajectory, -1)
+        current_trajectory[-1] = prediction
+
+    return np.asarray(predictions, dtype=float), {
+        'reference_trajectory_count': int(len(normalized_references)),
+        'forecast_horizon': int(forecast_horizon),
+        'last_trajectory_length': int(len(np.asarray(last_trajectory).reshape(-1))),
+        'weights_norm': float(np.linalg.norm(normalized_weights)),
+    }
 
 
 def resolve_okhs_prediction_time_grid(initial_trajectory_length: int, forecast_horizon: int,
@@ -415,10 +478,13 @@ def build_okhs_optimization_info(
         anti_smoothing_target_amplitude_ratio: float,
         model: Any = None,
         dmd_prediction_diagnostics: dict[str, Any] | None = None,
+        direct_fit_diagnostics: dict[str, Any] | None = None,
+        direct_prediction_diagnostics: dict[str, Any] | None = None,
         weights: np.ndarray | None = None,
 ) -> dict[str, Any]:
     info = {
         'method': method_name,
+        'head_runtime': 'fdmd' if uses_dmd(method_name) else 'direct_okhs',
         'q': resolved_q,
         'q_policy': q_policy,
         'forecast_horizon': forecast_horizon,
@@ -453,6 +519,10 @@ def build_okhs_optimization_info(
         info['fdmd_fit_diagnostics'] = model.get_fit_diagnostics_summary()
     if dmd_prediction_diagnostics is not None:
         info['fdmd_prediction_diagnostics'] = dmd_prediction_diagnostics
+    if direct_fit_diagnostics is not None:
+        info['direct_fit_diagnostics'] = direct_fit_diagnostics
+    if direct_prediction_diagnostics is not None:
+        info['direct_prediction_diagnostics'] = direct_prediction_diagnostics
     if weights is not None:
         info['weights_norm'] = float(np.linalg.norm(weights))
     info['stage_diagnostics'] = build_okhs_stage_diagnostics(info)

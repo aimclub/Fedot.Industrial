@@ -34,11 +34,16 @@ try:  # pragma: no cover - tensor-native composites require torch
     from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
     from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
     from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecaster
+    from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
+    from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 except Exception:  # pragma: no cover
     HybridEnsembleForecaster = None
     LaggedRidgeForecaster = None
     LowRankLaggedRidgeForecaster = None
     OKHSFDMDForecaster = None
+    ForecastingSplitKind = None
+    ForecastingSplitSpec = None
+    run_forecasting_stage_tuning_on_series = None
 
 try:  # pragma: no cover - optional heavyweight dependency tree in test envs
     from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, M4_PREFIX, M4_SEASONALITY
@@ -130,6 +135,82 @@ def _sample_records(
         indices = rng.choice(len(filtered), size=spec.sample_size, replace=False)
         filtered = [filtered[index] for index in sorted(indices)]
     return tuple(filtered)
+
+
+def _resolve_stage_tuning_split_spec(raw: dict[str, Any] | None):
+    if not raw or ForecastingSplitSpec is None:
+        return None
+    split_spec = raw.get('split_spec')
+    if isinstance(split_spec, ForecastingSplitSpec):
+        return split_spec
+    if isinstance(split_spec, dict):
+        kind = split_spec.get('kind')
+        validation_horizon = split_spec.get('validation_horizon')
+        min_train_length = split_spec.get('min_train_length')
+        if kind is not None and ForecastingSplitKind is not None:
+            kind = ForecastingSplitKind(str(kind).lower())
+        return ForecastingSplitSpec(
+            kind=kind or ForecastingSplitSpec().kind,
+            validation_horizon=validation_horizon,
+            min_train_length=min_train_length,
+        )
+    validation_horizon = raw.get('validation_horizon')
+    min_train_length = raw.get('min_train_length')
+    if validation_horizon is None and min_train_length is None:
+        return None
+    return ForecastingSplitSpec(
+        validation_horizon=validation_horizon,
+        min_train_length=min_train_length,
+    )
+
+
+def _maybe_attach_stage_tuning_report(
+        metadata: dict[str, Any],
+        *,
+        adapter_name: str,
+        series_record: ForecastingSeriesRecord,
+        base_params: dict[str, Any],
+        runtime_config: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not runtime_config:
+        return metadata
+    if run_forecasting_stage_tuning_on_series is None:
+        metadata['stage_tuning_report_error'] = 'stage_tuning_runtime is unavailable in the current environment.'
+        return metadata
+
+    config = dict(runtime_config)
+    metric_name = str(config.get('metric_name', 'rmse'))
+    stage_updates = config.get('stage_updates')
+    max_values_per_parameter = int(config.get('max_values_per_parameter', 3))
+    max_stage_candidates = int(config.get('max_stage_candidates', 16))
+    split_spec = _resolve_stage_tuning_split_spec(config)
+
+    try:
+        report = run_forecasting_stage_tuning_on_series(
+            adapter_name,
+            time_series=np.asarray(series_record.train_values, dtype=float),
+            forecast_horizon=series_record.forecast_horizon,
+            base_params=base_params,
+            stage_updates=stage_updates,
+            metric_name=metric_name,
+            split_spec=split_spec,
+            seasonal_period=series_record.seasonal_period,
+            max_values_per_parameter=max_values_per_parameter,
+            max_stage_candidates=max_stage_candidates,
+        )
+        metadata['stage_tuning_report'] = report.to_dict()
+        metadata['stage_tuning_runtime'] = {
+            'enabled': True,
+            'metric_name': metric_name,
+            'max_values_per_parameter': max_values_per_parameter,
+            'max_stage_candidates': max_stage_candidates,
+            'improved': report.metadata.get('improved'),
+            'baseline_score': report.metadata.get('baseline_score'),
+            'best_score': report.metadata.get('best_score'),
+        }
+    except Exception as exc:  # pragma: no cover - benchmark should keep the main run alive
+        metadata['stage_tuning_report_error'] = str(exc)
+    return metadata
 
 
 def _series_split_from_full_values(
@@ -751,6 +832,7 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
     anti_smoothing_oscillation_floor: float = 0.25
     anti_smoothing_decay: float = 2.5
     anti_smoothing_target_amplitude_ratio: float = 0.8
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'okhs_fdmd_forecaster'
     tags: tuple[str, ...] = ('okhs', 'operator_model', 'forecasting')
     optional: bool = False
@@ -809,6 +891,41 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
             metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
         if metadata['first_actual_value'] is not None:
             metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='okhs_fdmd_forecaster',
+            series_record=series_record,
+            base_params={
+                'q': self.q,
+                'n_modes': self.n_modes,
+                'window_size': min(max(self.window_size, 4), len(train) - 1),
+                'q_policy': self.q_policy,
+                'window_policy': self.window_policy,
+                'trajectory_sampling_policy': self.trajectory_sampling_policy,
+                'trajectory_rank_policy': self.trajectory_rank_policy,
+                'trajectory_rank_value': self.trajectory_rank_value,
+                'trajectory_representation_policy': self.trajectory_representation_policy,
+                'latent_trajectory_stride_policy': self.latent_trajectory_stride_policy,
+                'latent_trajectory_stride': self.latent_trajectory_stride,
+                'mode_selection_policy': self.mode_selection_policy,
+                'mode_energy_threshold': self.mode_energy_threshold,
+                'prediction_mode_selection_policy': self.prediction_mode_selection_policy,
+                'max_prediction_modes': self.max_prediction_modes,
+                'min_prediction_modes': self.min_prediction_modes,
+                'boundary_alignment_policy': self.boundary_alignment_policy,
+                'boundary_alignment_decay': self.boundary_alignment_decay,
+                'prediction_stability_threshold': self.prediction_stability_threshold,
+                'anti_smoothing_policy': self.anti_smoothing_policy,
+                'anti_smoothing_tail_window': self.anti_smoothing_tail_window,
+                'anti_smoothing_amplitude_ratio': self.anti_smoothing_amplitude_ratio,
+                'anti_smoothing_monotone_ratio': self.anti_smoothing_monotone_ratio,
+                'anti_smoothing_oscillation_floor': self.anti_smoothing_oscillation_floor,
+                'anti_smoothing_decay': self.anti_smoothing_decay,
+                'anti_smoothing_target_amplitude_ratio': self.anti_smoothing_target_amplitude_ratio,
+                'device': self.device,
+            },
+            runtime_config=self.stage_tuning_runtime,
+        )
         return forecast, metadata
 
 
@@ -819,6 +936,7 @@ class MSSAModel(ForecastingModelAdapter):
     explained_variance: float = 0.95
     lag_order: int | None = None
     coupled: bool = False
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'mSSA'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'mssa')
     optional: bool = False
@@ -838,7 +956,21 @@ class MSSAModel(ForecastingModelAdapter):
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
-        return forecast[:series_record.forecast_horizon], model.get_diagnostics()
+        metadata = model.get_diagnostics()
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='mssa_forecaster',
+            series_record=series_record,
+            base_params={
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'lag_order': self.lag_order,
+                'channel_independent': not self.coupled,
+            },
+            runtime_config=self.stage_tuning_runtime,
+        )
+        return forecast[:series_record.forecast_horizon], metadata
 
 
 @dataclass
@@ -847,6 +979,7 @@ class SSACompatModel(ForecastingModelAdapter):
     rank: int | None = None
     explained_variance: float = 0.95
     history_lookback: int = 0
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'ssa_forecaster'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'ssa')
     optional: bool = False
@@ -880,6 +1013,19 @@ class SSACompatModel(ForecastingModelAdapter):
         inner_model = getattr(model, 'model_', None)
         if inner_model is not None and hasattr(inner_model, 'get_diagnostics'):
             metadata.update(inner_model.get_diagnostics())
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='ssa_forecaster',
+            series_record=series_record,
+            base_params={
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'history_lookback': self.history_lookback,
+                'mode': 'one_dimensional',
+            },
+            runtime_config=self.stage_tuning_runtime,
+        )
         return forecast[:series_record.forecast_horizon], metadata
 
 
@@ -888,6 +1034,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
     window_size: int = 10
     stride: int = 1
     alpha: float = 1.0
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'lagged_forecaster'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'lagged_linear')
     optional: bool = False
@@ -915,6 +1062,17 @@ class LaggedForecasterModel(ForecastingModelAdapter):
                 'alpha': float(self.alpha),
             }
         )
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='lagged_forecaster',
+            series_record=series_record,
+            base_params={
+                'window_size': self.window_size,
+                'stride': self.stride,
+                'channel_model': 'ridge',
+            },
+            runtime_config=self.stage_tuning_runtime,
+        )
         return forecast[:series_record.forecast_horizon], metadata
 
 
@@ -927,6 +1085,7 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
     explained_variance: float = 0.95
     decomposition_strategy: str = 'full'
     rank_truncation_policy: str = 'explained_variance'
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'low_rank_lagged_ridge_forecaster'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'low_rank_linear')
     optional: bool = False
@@ -958,6 +1117,21 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
                 'alpha': float(self.alpha),
             }
         )
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='low_rank_lagged_ridge_forecaster',
+            series_record=series_record,
+            base_params={
+                'window_size': self.window_size,
+                'stride': self.stride,
+                'alpha': self.alpha,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'decomposition_strategy': self.decomposition_strategy,
+                'rank_truncation_policy': self.rank_truncation_policy,
+            },
+            runtime_config=self.stage_tuning_runtime,
+        )
         return forecast[:series_record.forecast_horizon], metadata
 
 
@@ -968,6 +1142,7 @@ class HybridEnsembleModel(ForecastingModelAdapter):
     lagged_params: dict[str, Any] = None
     low_rank_params: dict[str, Any] = None
     complex_params: dict[str, Any] = None
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'hybrid_ensemble_forecaster'
     tags: tuple[str, ...] = ('ensemble', 'forecasting', 'operator_model')
     optional: bool = False
@@ -991,6 +1166,19 @@ class HybridEnsembleModel(ForecastingModelAdapter):
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
         metadata = model.get_diagnostics()
         metadata.update({'complex_branch': self.complex_branch})
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='hybrid_ensemble_forecaster',
+            series_record=series_record,
+            base_params={
+                'complex_branch': self.complex_branch,
+                'calibration_horizon': self.calibration_horizon,
+                'lagged_params': dict(self.lagged_params or {}),
+                'low_rank_params': dict(self.low_rank_params or {}),
+                'complex_params': dict(self.complex_params or {}),
+            },
+            runtime_config=self.stage_tuning_runtime,
+        )
         return forecast[:series_record.forecast_horizon], metadata
 
 
@@ -1000,6 +1188,7 @@ class HAVOKModel(ForecastingModelAdapter):
     rank: int | None = None
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
+    stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'HAVOK'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'havok')
     optional: bool = False
@@ -1025,6 +1214,18 @@ class HAVOKModel(ForecastingModelAdapter):
                 'first_prediction_value': float(forecast[0]) if len(forecast) else None,
                 'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
             }
+        )
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='havok_forecaster',
+            series_record=series_record,
+            base_params={
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'forcing_threshold_scale': self.forcing_threshold_scale,
+                'forcing_decay': self.forcing_decay,
+            },
+            runtime_config=self.stage_tuning_runtime,
         )
         return forecast[:series_record.forecast_horizon], metadata
 

@@ -12,6 +12,7 @@ from .okhs_runtime import (
     apply_okhs_anti_smoothing as _apply_okhs_anti_smoothing_core,
     build_dense_okhs_trajectories,
     build_okhs_dmd_model,
+    build_okhs_direct_model,
     build_okhs_fit_plan,
     build_okhs_optimization_info,
     build_okhs_prediction_plan,
@@ -19,6 +20,7 @@ from .okhs_runtime import (
     postprocess_okhs_dmd_forecast,
     resolve_okhs_last_trajectory,
     resolve_projected_okhs_initial_state,
+    run_okhs_direct_prediction,
     uses_projected_okhs_representation,
 )
 from ...operation.transformation.representation.kernel.kernels import OccupationKernel
@@ -171,6 +173,8 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         self.projection_metadata_ = None
         self._projection_runtime_ = None
         self.dmd_prediction_diagnostics_ = None
+        self.direct_fit_diagnostics_ = None
+        self.direct_prediction_diagnostics_ = None
         self.method_name_ = canonical_method_name(self.method)
         self.device = device
         self.train_series_ = None
@@ -197,6 +201,8 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         )
         self.train_series_ = fit_plan['train_series']
         self.dmd_prediction_diagnostics_ = None
+        self.direct_fit_diagnostics_ = None
+        self.direct_prediction_diagnostics_ = None
         self.window_diagnostics_ = fit_plan['window_diagnostics']
         self.projection_metadata_ = fit_plan['projection_metadata']
         self._projection_runtime_ = fit_plan['projection_runtime']
@@ -229,11 +235,15 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
 
     def _fit_direct_okhs(self, time_series):
         del time_series
-        self.kernel_ = OccupationKernel(q=self.resolved_q_)
-        x_trajectories = self.trajectories_[:-1]
-        y_targets = [traj[-1] for traj in self.trajectories_[1:]]
-        self.gram_matrix_ = self.kernel_.compute_gram_matrix(x_trajectories)
-        self.weights_ = np.linalg.lstsq(self.gram_matrix_, y_targets, rcond=None)[0]
+        direct_model = build_okhs_direct_model(
+            kernel_factory=OccupationKernel,
+            resolved_q=self.resolved_q_,
+            trajectories=self.trajectories_,
+        )
+        self.kernel_ = direct_model['kernel']
+        self.gram_matrix_ = direct_model['gram_matrix']
+        self.weights_ = direct_model['weights']
+        self.direct_fit_diagnostics_ = direct_model['fit_diagnostics']
 
     def _uses_projected_representation(self):
         return uses_projected_okhs_representation(
@@ -317,22 +327,15 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
         return self._predict_direct(last_trajectory)
 
     def _predict_direct(self, last_trajectory):
-        predictions = []
-        current_trajectory = last_trajectory.copy()
-
-        for _ in range(self.forecast_horizon):
-            kernels = []
-            for train_traj in self.trajectories_[:-1]:
-                kernel_val = self.kernel_._compute_trajectory_kernel(current_trajectory, train_traj)
-                kernels.append(kernel_val)
-
-            kernels = np.array(kernels)
-            prediction = kernels @ self.weights_
-            predictions.append(prediction)
-            current_trajectory = np.roll(current_trajectory, -1)
-            current_trajectory[-1] = prediction
-
-        return np.array(predictions)
+        predictions, diagnostics = run_okhs_direct_prediction(
+            kernel=self.kernel_,
+            reference_trajectories=self.trajectories_[:-1],
+            last_trajectory=last_trajectory,
+            weights=self.weights_,
+            forecast_horizon=self.forecast_horizon,
+        )
+        self.direct_prediction_diagnostics_ = diagnostics
+        return predictions
 
     def get_optimization_info(self):
         return build_okhs_optimization_info(
@@ -368,5 +371,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
             anti_smoothing_target_amplitude_ratio=self.anti_smoothing_target_amplitude_ratio,
             model=self.model,
             dmd_prediction_diagnostics=self.dmd_prediction_diagnostics_,
+            direct_fit_diagnostics=self.direct_fit_diagnostics_,
+            direct_prediction_diagnostics=self.direct_prediction_diagnostics_,
             weights=getattr(self, 'weights_', None),
         )

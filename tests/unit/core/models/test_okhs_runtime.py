@@ -2,6 +2,7 @@ import numpy as np
 
 from fedot_ind.core.models.kernel.okhs_runtime import (
     build_okhs_dmd_model,
+    build_okhs_direct_model,
     build_dense_okhs_trajectories,
     build_okhs_fit_plan,
     build_okhs_optimization_info,
@@ -11,6 +12,7 @@ from fedot_ind.core.models.kernel.okhs_runtime import (
     execute_okhs_dmd_prediction_plan,
     postprocess_okhs_dmd_forecast,
     resolve_okhs_prediction_time_grid,
+    run_okhs_direct_prediction,
     run_okhs_dmd_prediction,
 )
 
@@ -178,6 +180,57 @@ def test_build_okhs_dmd_model_falls_back_when_factory_rejects_device():
     assert 'device' not in captured
 
 
+def test_build_okhs_direct_model_returns_kernel_weights_and_fit_diagnostics():
+    class FakeKernel:
+        def __init__(self, q):
+            self.q = q
+
+        def compute_gram_matrix(self, trajectories):
+            size = len(trajectories)
+            return np.eye(size, dtype=float)
+
+    direct_model = build_okhs_direct_model(
+        kernel_factory=FakeKernel,
+        resolved_q=0.55,
+        trajectories=[
+            np.array([1.0, 2.0, 3.0]),
+            np.array([2.0, 3.0, 4.0]),
+            np.array([3.0, 4.0, 5.0]),
+        ],
+    )
+
+    assert isinstance(direct_model['kernel'], FakeKernel)
+    assert direct_model['kernel'].q == 0.55
+    assert direct_model['gram_matrix'].shape == (2, 2)
+    assert direct_model['weights'].shape == (2,)
+    assert direct_model['fit_diagnostics']['n_reference_trajectories'] == 2
+    assert direct_model['fit_diagnostics']['weights_shape'] == (2,)
+
+
+def test_run_okhs_direct_prediction_rolls_last_trajectory_and_returns_diagnostics():
+    class FakeKernel:
+        @staticmethod
+        def _compute_trajectory_kernel(current_trajectory, train_trajectory):
+            del train_trajectory
+            return float(np.asarray(current_trajectory, dtype=float).reshape(-1)[-1])
+
+    forecast, diagnostics = run_okhs_direct_prediction(
+        kernel=FakeKernel(),
+        reference_trajectories=[
+            np.array([0.0, 1.0, 2.0]),
+            np.array([1.0, 2.0, 3.0]),
+        ],
+        last_trajectory=np.array([2.0, 3.0, 4.0]),
+        weights=np.array([0.25, 0.75]),
+        forecast_horizon=3,
+    )
+
+    assert forecast.tolist() == [4.0, 4.0, 4.0]
+    assert diagnostics['reference_trajectory_count'] == 2
+    assert diagnostics['forecast_horizon'] == 3
+    assert diagnostics['last_trajectory_length'] == 3
+
+
 def test_decode_okhs_projected_prediction_returns_forecast_and_decode_metadata():
     forecast, diagnostics = decode_okhs_projected_prediction(
         initial_trajectory=np.array([[1.0, 0.0], [2.0, 0.0]]),
@@ -306,5 +359,49 @@ def test_build_okhs_optimization_info_collects_stage_diagnostics_and_optional_fi
 
     assert info['fdmd_fit_diagnostics']['resolved_n_modes'] == 3
     assert info['weights_norm'] > 0
+    assert info['head_runtime'] == 'fdmd'
     assert info['stage_diagnostics']['forecast_head']['prediction_diagnostics'][
                'boundary_discontinuity_abs_mean'] == 0.1
+
+
+def test_build_okhs_optimization_info_supports_direct_runtime_diagnostics():
+    info = build_okhs_optimization_info(
+        method_name='direct',
+        resolved_q=0.7,
+        q_policy='fixed',
+        forecast_horizon=4,
+        window_policy='fixed',
+        trajectory_sampling_policy='dense',
+        trajectory_rank_policy='none',
+        trajectory_rank_value=None,
+        trajectory_representation_policy='none',
+        latent_trajectory_stride_policy='none',
+        latent_trajectory_stride=None,
+        resolved_window_size=12,
+        window_diagnostics={'window_fraction': 0.25},
+        trajectory_preprocessing=None,
+        projection_metadata=None,
+        mode_selection_policy='fixed',
+        mode_energy_threshold=0.95,
+        prediction_mode_selection_policy='fixed',
+        max_prediction_modes=None,
+        min_prediction_modes=4,
+        boundary_alignment_policy='none',
+        boundary_alignment_decay=1.0,
+        prediction_stability_threshold=None,
+        anti_smoothing_policy='none',
+        anti_smoothing_tail_window=None,
+        anti_smoothing_amplitude_ratio=0.35,
+        anti_smoothing_monotone_ratio=0.9,
+        anti_smoothing_oscillation_floor=0.25,
+        anti_smoothing_decay=2.5,
+        anti_smoothing_target_amplitude_ratio=0.8,
+        direct_fit_diagnostics={'gram_matrix_shape': (4, 4)},
+        direct_prediction_diagnostics={'reference_trajectory_count': 4},
+        weights=np.array([1.0, 2.0]),
+    )
+
+    assert info['head_runtime'] == 'direct_okhs'
+    assert info['direct_fit_diagnostics']['gram_matrix_shape'] == (4, 4)
+    assert info['direct_prediction_diagnostics']['reference_trajectory_count'] == 4
+    assert info['stage_diagnostics']['forecast_head']['fit_diagnostics']['gram_matrix_shape'] == (4, 4)

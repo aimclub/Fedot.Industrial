@@ -233,6 +233,61 @@ def test_okhs_forecaster_adaptive_window_policy_overrides_too_small_window(monke
     assert model.window_diagnostics_["resolved_window_size"] == model.resolved_window_size_
 
 
+def test_okhs_forecaster_direct_fit_uses_runtime_builder(monkeypatch):
+    captured = {}
+    model = OKHSForecaster(q=0.8, forecast_horizon=3, method="direct", window_policy="fixed")
+    model.trajectories_ = [np.array([1.0, 2.0, 3.0]), np.array([2.0, 3.0, 4.0]), np.array([3.0, 4.0, 5.0])]
+    model.resolved_q_ = 0.8
+
+    def fake_build_okhs_direct_model(*, kernel_factory, resolved_q, trajectories):
+        captured["kernel_factory"] = kernel_factory
+        captured["resolved_q"] = resolved_q
+        captured["trajectory_count"] = len(trajectories)
+        return {
+            "kernel": object(),
+            "gram_matrix": np.eye(2),
+            "weights": np.array([1.0, 2.0]),
+            "fit_diagnostics": {"gram_matrix_shape": (2, 2)},
+        }
+
+    monkeypatch.setattr(
+        "fedot_ind.core.models.kernel.okhs_forecasting.build_okhs_direct_model",
+        fake_build_okhs_direct_model,
+    )
+
+    model._fit_direct_okhs(np.arange(12, dtype=float))
+
+    assert captured["resolved_q"] == 0.8
+    assert captured["trajectory_count"] == 3
+    assert model.direct_fit_diagnostics_["gram_matrix_shape"] == (2, 2)
+    assert model.weights_.tolist() == [1.0, 2.0]
+
+
+def test_okhs_forecaster_direct_predict_uses_runtime_execution(monkeypatch):
+    model = OKHSForecaster(q=0.8, forecast_horizon=3, method="direct", window_policy="fixed")
+    model.kernel_ = object()
+    model.trajectories_ = [np.array([1.0, 2.0, 3.0]), np.array([2.0, 3.0, 4.0]), np.array([3.0, 4.0, 5.0])]
+    model.weights_ = np.array([1.0, 2.0])
+
+    def fake_run_okhs_direct_prediction(*, kernel, reference_trajectories, last_trajectory, weights, forecast_horizon):
+        assert kernel is model.kernel_
+        assert len(reference_trajectories) == 2
+        assert np.array_equal(last_trajectory, np.array([3.0, 4.0, 5.0]))
+        assert np.array_equal(weights, model.weights_)
+        assert forecast_horizon == 3
+        return np.array([10.0, 11.0, 12.0]), {"reference_trajectory_count": 2}
+
+    monkeypatch.setattr(
+        "fedot_ind.core.models.kernel.okhs_forecasting.run_okhs_direct_prediction",
+        fake_run_okhs_direct_prediction,
+    )
+
+    prediction = model._predict_direct(np.array([3.0, 4.0, 5.0]))
+
+    assert prediction.tolist() == [10.0, 11.0, 12.0]
+    assert model.direct_prediction_diagnostics_["reference_trajectory_count"] == 2
+
+
 def test_okhs_forecaster_dmd_path_uses_wrapped_fractional_dmd(monkeypatch):
     state = {}
 
