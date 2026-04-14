@@ -44,6 +44,7 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     resolve_window_size,
     truncate_decomposition_rank,
 )
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 @dataclass
@@ -194,3 +195,20 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'low_rank_lagged_ridge_forecaster',
+            {
+                'window_size': self.window_size,
+                'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+                'stride': self.stride,
+                'alpha': self.alpha,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'decomposition_strategy': self.decomposition_strategy,
+                'rank_truncation_policy': self.rank_truncation_policy,
+                'unfolding_strategy': self.unfolding_strategy,
+                'device': self.device,
+            },
+        ).to_dict()

@@ -90,6 +90,7 @@ from fedot_ind.core.operation.transformation.representation.topological.topologi
     TopologicalExtractor
 from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
+from fedot_ind.core.repository.forecasting_registry import CANONICAL_STAGE_FORECASTING_MODELS
 
 
 class AtomizedModel(Enum):
@@ -232,16 +233,9 @@ class AtomizedModel(Enum):
 
     PRIMARY_FORECASTING_MODELS = [
         'ar',
-        # 'deepar_model',
-        # 'topo_forecaster',
-        'lagged_forecaster',
-        'lagged_ridge_forecaster',
-        'low_rank_lagged_ridge_forecaster',
-        'mssa_forecaster',
-        'havok_forecaster',
-        'hybrid_ensemble_forecaster',
-        'okhs_fdmd_forecaster',
-        'eigen_forecaster'
+        'ets',
+        'stl_arima',
+        *CANONICAL_STAGE_FORECASTING_MODELS,
     ]
 
     ANOMALY_DETECTION_MODELS = {

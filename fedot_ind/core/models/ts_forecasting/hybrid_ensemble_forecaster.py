@@ -44,6 +44,7 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
 from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
 from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
 from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 def _safe_forecast(model, series: np.ndarray, horizon: int) -> tuple[np.ndarray, dict[str, Any]]:
@@ -258,3 +259,15 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'hybrid_ensemble_forecaster',
+            {
+                'complex_branch': self.complex_branch,
+                'calibration_horizon': self.calibration_horizon,
+                'lagged_params': self.lagged_params,
+                'low_rank_params': self.low_rank_params,
+                'complex_params': self.complex_params,
+            },
+        ).to_dict()

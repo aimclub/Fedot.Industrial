@@ -39,6 +39,7 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     build_hankel_trajectory_transform,
     resolve_window_size,
 )
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 def resolve_lagged_window_size(time_series_length: int, window_size_percent: float) -> int:
@@ -163,3 +164,15 @@ class LaggedRidgeForecasterImplementation(ModelImplementation):
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'lagged_ridge_forecaster',
+            {
+                'window_size': self.window_size,
+                'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+                'stride': self.stride,
+                'alpha': self.alpha,
+                'device': self.device,
+            },
+        ).to_dict()

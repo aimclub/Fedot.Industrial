@@ -19,6 +19,7 @@ from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaste
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
+from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
 try:  # pragma: no cover - operator-model path may require torch/scipy-heavy stack
     from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
@@ -1059,9 +1060,10 @@ def build_dataset_adapter(spec: DatasetSpec):
 
 
 def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
-    adapter_name = spec.adapter_name.lower()
+    raw_adapter_name = spec.adapter_name.lower()
+    adapter_name = canonical_forecasting_model_name(raw_adapter_name)
     params = dict(spec.params)
-    if adapter_name == 'okhs':
+    if raw_adapter_name == 'okhs':
         return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
     if adapter_name == 'okhs_fdmd_forecaster':
         return OKHSFDMDForecasterModel(

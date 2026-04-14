@@ -36,6 +36,7 @@ from fedot_ind.core.operation.transformation.data.trajectory_embedding import (
     stack_multivariate,
     truncate_rank,
 )
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 def _ensure_series_length(decoded: np.ndarray, original: np.ndarray) -> np.ndarray:
@@ -258,3 +259,20 @@ class MSSAForecasterImplementation(ModelImplementation):
             ).fit(np.asarray(input_data.features, dtype=float))
         denoised = np.asarray(self.model_.denoised_series_, dtype=float)
         return denoised.T if denoised.ndim > 1 else denoised.reshape(1, -1)
+
+    def get_diagnostics(self) -> dict[str, object]:
+        if self.model_ is None:
+            return {}
+        return self.model_.get_diagnostics()
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'mssa_forecaster',
+            {
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'lag_order': self.lag_order,
+                'channel_independent': not self.coupled,
+            },
+        ).to_dict()

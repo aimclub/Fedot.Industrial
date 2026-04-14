@@ -3,6 +3,8 @@ from functools import partial
 import numpy as np
 from hyperopt import hp
 
+from fedot_ind.core.repository.forecasting_registry import FORECASTING_MODEL_ALIASES
+
 NESTED_PARAMS_LABEL = 'nested_label'
 
 industrial_search_space = {
@@ -145,6 +147,21 @@ industrial_search_space = {
     'hybrid_ensemble_forecaster':
         {'complex_branch': {'hyperopt-dist': hp.choice, 'sampling-scope': [['okhs', 'havok']]},
          'calibration_horizon': {'hyperopt-dist': hp.choice, 'sampling-scope': [[None, 4, 6, 8]]}},
+    'ssa_forecaster':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},
+         'explained_variance': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.85, 0.9, 0.95, 0.98]]},
+         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[20, 30, 40, 60]]}},
+    'mssa_forecaster':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},
+         'explained_variance': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.85, 0.9, 0.95, 0.98]]},
+         'coupled': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
+    'havok_forecaster':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 12, 16, 20, 24]]},
+         'rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},
+         'forcing_threshold_scale': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.75, 1.0, 1.25, 1.5]]},
+         'forcing_decay': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.7, 0.8, 0.85, 0.9]]}},
     'okhs_fdmd_forecaster':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'n_modes': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},
@@ -865,6 +882,10 @@ default_fedot_operation_params = {
 
 pdl_base_model = {'pdl_clf': 'rf',
                   'pdl_reg': 'treg'}
+
+for _forecasting_alias, _canonical_name in FORECASTING_MODEL_ALIASES.items():
+    if _canonical_name in industrial_search_space and _forecasting_alias not in industrial_search_space:
+        industrial_search_space[_forecasting_alias] = industrial_search_space[_canonical_name]
 
 
 def get_industrial_search_space(self):

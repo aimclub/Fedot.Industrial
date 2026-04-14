@@ -16,6 +16,7 @@ from fedot.core.repository.operation_types_repository import OperationTypesRepos
 from fedot.core.repository.tasks import TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 from fedot_ind.core.repository.industrial_implementations.data_transformation import prepare_lagged_table_data
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
@@ -208,3 +209,13 @@ class LaggedAR(ModelImplementation):
 
     def predict(self, input_data: InputData) -> OutputData:
         return self._predict(input_data)
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'lagged_forecaster',
+            {
+                'window_size': self.window_size,
+                'stride': self.hankel_stride,
+                'channel_model': self.channel_model,
+            },
+        ).to_dict()

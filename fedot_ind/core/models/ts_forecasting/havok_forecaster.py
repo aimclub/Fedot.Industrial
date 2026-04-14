@@ -36,6 +36,7 @@ from fedot_ind.core.operation.transformation.data.trajectory_embedding import (
     estimate_window,
     truncate_rank,
 )
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 def _intervals_from_mask(mask: np.ndarray, offset: int = 0) -> list[tuple[int, int]]:
@@ -246,3 +247,14 @@ class HAVOKForecasterImplementation(ModelImplementation):
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'havok_forecaster',
+            {
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'forcing_threshold_scale': self.forcing_threshold_scale,
+                'forcing_decay': self.forcing_decay,
+            },
+        ).to_dict()

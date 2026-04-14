@@ -1,6 +1,12 @@
 from .regime_diagnostics import RegimeDiagnosticsResult, analyze_regime_diagnostics
 from .regime_routing import adapter_name_to_family, RegimeRoutingDecision, RegimeRoutingPolicy, \
     recommend_forecasting_model
+from .stage_tuning import (
+    ForecastingStageName,
+    ForecastingStageTuningPlan,
+    StageTuningGroup,
+    build_forecasting_stage_tuning_plan,
+)
 
 try:  # pragma: no cover - tensor-native forecasting stack requires torch
     from .forecasting_runtime import (
@@ -33,6 +39,10 @@ __all__ = [
     'adapter_name_to_family',
     'analyze_regime_diagnostics',
     'recommend_forecasting_model',
+    'ForecastingStageName',
+    'ForecastingStageTuningPlan',
+    'StageTuningGroup',
+    'build_forecasting_stage_tuning_plan',
 ]
 
 for _optional_symbol in (

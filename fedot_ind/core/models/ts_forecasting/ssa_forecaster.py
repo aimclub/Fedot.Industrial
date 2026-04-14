@@ -9,6 +9,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 class SSAForecasterImplementation(ModelImplementation):
@@ -66,3 +67,15 @@ class SSAForecasterImplementation(ModelImplementation):
         if self.model_ is not None and hasattr(self.model_, 'get_diagnostics'):
             diagnostics.update(self.model_.get_diagnostics())
         return diagnostics
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'ssa_forecaster',
+            {
+                'window_size': self.window_size,
+                'rank': self.rank,
+                'explained_variance': self.explained_variance,
+                'history_lookback': self.history_lookback,
+                'mode': self.mode,
+            },
+        ).to_dict()

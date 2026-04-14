@@ -33,6 +33,7 @@ except Exception:  # pragma: no cover
 
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
 from fedot_ind.core.models.kernel.okhs_runtime import build_okhs_stage_diagnostics
+from fedot_ind.core.models.ts_forecasting.stage_tuning import build_forecasting_stage_tuning_plan
 
 
 @dataclass
@@ -204,3 +205,9 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
+
+    def get_stage_tuning_plan(self) -> dict[str, object]:
+        return build_forecasting_stage_tuning_plan(
+            'okhs_fdmd_forecaster',
+            dict(self.params),
+        ).to_dict()

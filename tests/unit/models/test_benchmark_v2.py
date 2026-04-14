@@ -97,6 +97,18 @@ def test_build_model_adapter_supports_canonical_mssa_and_havok_names() -> None:
     assert havok_model.name == 'havok_forecaster'
 
 
+def test_build_model_adapter_supports_short_forecasting_aliases() -> None:
+    mssa_model = build_model_adapter(
+        ModelSpec(adapter_name='mssa', display_name='mssa')
+    )
+    havok_model = build_model_adapter(
+        ModelSpec(adapter_name='havok', display_name='havok')
+    )
+
+    assert mssa_model.name == 'mssa'
+    assert havok_model.name == 'havok'
+
+
 def test_m4_adapter_parses_frame_and_samples() -> None:
     rows = []
     for series_id in ('M4_monthly_1', 'M4_monthly_2'):

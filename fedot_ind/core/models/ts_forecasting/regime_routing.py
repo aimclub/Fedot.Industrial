@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from enum import Enum
 
+from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 from .regime_diagnostics import RegimeDiagnosticsResult
 
 
@@ -20,7 +21,7 @@ class RoutingAdapterName(str, Enum):
 
 
 def adapter_name_to_family(adapter_name: str) -> str:
-    normalized = str(adapter_name).lower()
+    normalized = canonical_forecasting_model_name(adapter_name)
     if normalized in {
         RoutingAdapterName.LAGGED_RIDGE.value,
         'lagged_forecaster',
