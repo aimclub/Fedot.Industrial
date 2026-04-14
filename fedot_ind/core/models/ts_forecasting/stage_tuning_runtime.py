@@ -20,6 +20,11 @@ from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
 )
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
+try:
+    from .neural_forecast_head_bridge import NeuralForecastHeadBridge
+except Exception:  # pragma: no cover - lightweight envs may miss neural runtime deps
+    NeuralForecastHeadBridge = None
+
 
 @dataclass(frozen=True)
 class ForecastingSeriesEvaluation:
@@ -217,6 +222,14 @@ def _instantiate_runtime_model(
     elif canonical_model_name == 'hybrid_ensemble_forecaster':
         from .hybrid_ensemble_forecaster import HybridEnsembleForecaster
         model_cls = HybridEnsembleForecaster
+    elif canonical_model_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+        if NeuralForecastHeadBridge is None:
+            raise ValueError('NeuralForecastHeadBridge is unavailable in the current environment.')
+        return NeuralForecastHeadBridge(
+            model_name=canonical_model_name,
+            forecast_horizon=int(forecast_horizon),
+            params=dict(params),
+        )
     elif canonical_model_name == 'lagged_forecaster':
         channel_model = str(params.get('channel_model', 'ridge')).lower()
         if channel_model != 'ridge':

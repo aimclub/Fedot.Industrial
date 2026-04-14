@@ -16,7 +16,7 @@ from pymonad.tools import curry
 from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionConverter, FedotConverter, NumpyConverter
 from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
     IndustrialForecastingPreprocessingRuntimeStrategy,
-    should_redirect_legacy_preprocessing_strategy,
+    LegacyForecastingPreprocessingRedirectMixin,
 )
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, FORECASTING_PREPROC, \
@@ -300,16 +300,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         return converted
 
 
-class IndustrialCustomPreprocessingStrategy:
+class IndustrialCustomPreprocessingStrategy(LegacyForecastingPreprocessingRedirectMixin):
     _operations_by_types = FEDOT_PREPROC_MODEL
-
-    def __new__(
-            cls,
-            operation_type: str,
-            params: Optional[OperationParameters] = None):
-        if should_redirect_legacy_preprocessing_strategy(cls, operation_type):
-            return IndustrialForecastingPreprocessingRuntimeStrategy(operation_type, params=params)
-        return super().__new__(cls)
 
     def __init__(
             self,

@@ -109,6 +109,27 @@ def test_build_model_adapter_supports_short_forecasting_aliases() -> None:
     assert havok_model.name == 'havok'
 
 
+@pytest.mark.parametrize(
+    ('adapter_name', 'display_name'),
+    (
+            ('patch_tst_model', 'PatchTST'),
+            ('tcn_model', 'TCN'),
+            ('deepar_model', 'DeepAR'),
+            ('nbeats_model', 'NBEATS'),
+    ),
+)
+def test_build_model_adapter_supports_native_neural_forecasting_heads(
+        adapter_name: str,
+        display_name: str,
+) -> None:
+    neural_model = build_model_adapter(
+        ModelSpec(adapter_name=adapter_name, display_name=display_name)
+    )
+
+    assert neural_model.name == display_name
+    assert neural_model.neural_model_name == adapter_name
+
+
 def test_m4_adapter_parses_frame_and_samples() -> None:
     rows = []
     for series_id in ('M4_monthly_1', 'M4_monthly_2'):
@@ -429,6 +450,165 @@ def test_forecasting_suite_emits_stage_tuning_artifacts(tmp_path: Path) -> None:
     assert 'improvement_rate' in family_summary.columns
     assert 'routing_family_match_rate' in family_summary.columns
     assert (family_summary['model_adapter_family'] == 'lagged_linear').any()
+
+
+def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_path: Path, monkeypatch) -> None:
+    class FakeNeuralBridge:
+        def __init__(self, model_name, forecast_horizon, params=None):
+            self.model_name = model_name
+            self.forecast_horizon = int(forecast_horizon)
+            self.params = dict(params or {})
+
+        def fit(self, time_series):
+            self.training_history_ = np.asarray(time_series, dtype=float)
+            return self
+
+        def predict(self, time_series=None, forecast_horizon=None):
+            del time_series
+            horizon = int(forecast_horizon or self.forecast_horizon)
+            start = float(self.training_history_[-1]) + 0.25
+            return np.linspace(start, start + horizon - 1, num=horizon)
+
+        def get_diagnostics(self):
+            return {
+                'model_family': 'neural_forecaster',
+                'model_name': self.model_name,
+                'trajectory_transform': {
+                    'kind': 'native_context_window',
+                    'window_size': self.params.get('patch_len'),
+                    'history_length': len(self.training_history_),
+                },
+                'decomposition': {},
+                'rank_truncation': {},
+                'forecast_head': {
+                    'head_type': self.model_name,
+                    'epochs': self.params.get('epochs'),
+                    'batch_size': self.params.get('batch_size'),
+                    'learning_rate': self.params.get('learning_rate'),
+                    'forecast_horizon': self.forecast_horizon,
+                },
+            }
+
+    class FakeStageTuningReport:
+        def __init__(self):
+            self.metadata = {
+                'baseline_score': 1.2,
+                'best_score': 0.7,
+                'improved': True,
+            }
+
+        def to_dict(self):
+            return {
+                'improved': True,
+                'baseline_evaluation': {
+                    'metric': {'metric_name': 'rmse', 'metric_value': 1.2},
+                    'parameters': {'patch_len': 8, 'epochs': 2},
+                    'diagnostics': {'model_family': 'neural_forecaster'},
+                },
+                'best_evaluation': {
+                    'metric': {'metric_name': 'rmse', 'metric_value': 0.7},
+                    'parameters': {'patch_len': 12, 'epochs': 4},
+                    'diagnostics': {'model_family': 'neural_forecaster'},
+                },
+                'sequential_result': {
+                    'best_parameters': {'patch_len': 12, 'epochs': 4},
+                    'stage_history': [
+                        {'stage': 'trajectory_transform', 'applied_parameters': {'patch_len': 12}},
+                        {'stage': 'forecast_head', 'applied_parameters': {'epochs': 4}},
+                    ],
+                },
+                'metadata': dict(self.metadata),
+            }
+
+    monkeypatch.setattr('benchmark.v2.forecasting.NeuralForecastHeadBridge', FakeNeuralBridge)
+    monkeypatch.setattr('benchmark.v2.forecasting.torch', object())
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.run_forecasting_stage_tuning_on_series',
+        lambda *args, **kwargs: FakeStageTuningReport(),
+    )
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='toy_dataset',
+                subset='monthly',
+                adapter_options={
+                    'records': _toy_records(),
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name='patch_tst_model',
+                display_name='PatchTST',
+                params={
+                    'patch_len': 12,
+                    'epochs': 2,
+                    'batch_size': 4,
+                    'learning_rate': 1e-3,
+                    'stage_tuning_runtime': {
+                        'metric_name': 'rmse',
+                        'max_values_per_parameter': 2,
+                        'max_stage_candidates': 4,
+                    },
+                },
+            ),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='neural_bridge_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    record = next(record for record in result.run_records if record.model_name == 'PatchTST')
+    assert record.status is RunStatus.SUCCESS
+    assert record.metadata['model_adapter_family'] == 'neural_forecaster'
+    assert record.metadata['routing_recommendation_family'] in {
+        'periodic_linear',
+        'operator_model',
+        'simple_baseline',
+        'neural_forecaster',
+        'lagged_linear',
+        'low_rank_linear',
+    }
+    assert record.metadata['forecast_head']['head_type'] == 'patch_tst_model'
+    assert record.metadata['stage_tuning_runtime']['enabled'] is True
+    assert record.metadata['stage_tuning_report']['sequential_result']['best_parameters']['patch_len'] == 12
+
+    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'toy_1_forecasting_stage_diagnostics.json' in artifact_names
+    assert 'toy_1_forecasting_stage_tuning.json' in artifact_names
+    assert 'forecasting_stage_diagnostics.csv' in artifact_names
+    assert 'forecasting_stage_tuning.csv' in artifact_names
+    assert 'forecasting_stage_tuning_family_summary.csv' in artifact_names
+
+    stage_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'toy_1_forecasting_stage_diagnostics.json'
+    )
+    stage_payload = json.loads(stage_path.read_text(encoding='utf-8'))
+    assert 'PatchTST' in stage_payload
+    assert stage_payload['PatchTST']['forecast_head']['head_type'] == 'patch_tst_model'
+    assert stage_payload['PatchTST']['trajectory_transform']['window_size'] == 12
+
+    tuning_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'toy_1_forecasting_stage_tuning.json'
+    )
+    tuning_payload = json.loads(tuning_path.read_text(encoding='utf-8'))
+    assert 'PatchTST' in tuning_payload
+    assert tuning_payload['PatchTST']['sequential_result']['stage_history'][0]['stage'] == 'trajectory_transform'
+
+    family_summary_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'forecasting_stage_tuning_family_summary.csv'
+    )
+    family_summary = pd.read_csv(family_summary_path)
+    assert (family_summary['model_adapter_family'] == 'neural_forecaster').any()
 
 
 def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:

@@ -36,6 +36,24 @@ def should_redirect_legacy_preprocessing_strategy(strategy_cls: type, operation_
     } and is_forecasting_preprocessing_operation(operation_type)
 
 
+class LegacyForecastingModelRedirectMixin:
+    """Minimal legacy boundary that redirects forecasting models into the dedicated runtime."""
+
+    def __new__(cls, operation_type: str, params: Optional[OperationParameters] = None):
+        if should_redirect_legacy_model_strategy(cls, operation_type):
+            return IndustrialForecastingModelRuntimeStrategy(operation_type, params=params)
+        return super().__new__(cls)
+
+
+class LegacyForecastingPreprocessingRedirectMixin:
+    """Minimal legacy boundary that redirects forecasting preprocessing into the dedicated runtime."""
+
+    def __new__(cls, operation_type: str, params: Optional[OperationParameters] = None):
+        if should_redirect_legacy_preprocessing_strategy(cls, operation_type):
+            return IndustrialForecastingPreprocessingRuntimeStrategy(operation_type, params=params)
+        return super().__new__(cls)
+
+
 def _supports_output_mode(method) -> bool:
     try:
         return 'output_mode' in signature(method).parameters

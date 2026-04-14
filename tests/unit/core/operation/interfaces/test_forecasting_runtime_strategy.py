@@ -14,11 +14,15 @@ TsForecastingParams = tasks_module.TsForecastingParams
 from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
     IndustrialForecastingModelRuntimeStrategy,
     IndustrialForecastingPreprocessingRuntimeStrategy,
+    LegacyForecastingModelRedirectMixin,
+    LegacyForecastingPreprocessingRedirectMixin,
     should_redirect_legacy_model_strategy,
     should_redirect_legacy_preprocessing_strategy,
 )
 from fedot_ind.core.operation.interfaces.industrial_model_strategy import (
+    FedotNNTimeSeriesStrategy as LegacyFedotNNTimeSeriesStrategy,
     IndustrialCustomRegressionStrategy,
+    IndustrialSkLearnEvaluationStrategy,
     IndustrialSkLearnForecastingStrategy,
     IndustrialSkLearnRegressionStrategy,
 )
@@ -26,6 +30,9 @@ from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy impor
     IndustrialCustomPreprocessingStrategy,
     IndustrialForecastingPreprocessingStrategy,
     IndustrialPreprocessingStrategy,
+)
+from fedot_ind.core.operation.interfaces.neural_forecasting_strategy import (
+    FedotNNTimeSeriesStrategy as ExtractedFedotNNTimeSeriesStrategy,
 )
 
 
@@ -101,3 +108,12 @@ def test_forecasting_runtime_redirect_helpers_centralize_boundary_policy():
     assert not should_redirect_legacy_model_strategy(IndustrialSkLearnRegressionStrategy, 'ridge')
     assert should_redirect_legacy_preprocessing_strategy(IndustrialPreprocessingStrategy, 'hankelisation')
     assert not should_redirect_legacy_preprocessing_strategy(IndustrialPreprocessingStrategy, 'scaling')
+
+
+def test_legacy_forecasting_boundaries_now_use_shared_redirect_mixins():
+    assert issubclass(IndustrialSkLearnEvaluationStrategy, LegacyForecastingModelRedirectMixin)
+    assert issubclass(IndustrialCustomPreprocessingStrategy, LegacyForecastingPreprocessingRedirectMixin)
+
+
+def test_neural_forecasting_strategy_is_extracted_to_dedicated_module():
+    assert LegacyFedotNNTimeSeriesStrategy is ExtractedFedotNNTimeSeriesStrategy

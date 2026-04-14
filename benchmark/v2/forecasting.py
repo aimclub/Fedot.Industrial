@@ -33,6 +33,7 @@ try:  # pragma: no cover - tensor-native composites require torch
     from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
     from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
     from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import NeuralForecastHeadBridge
     from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecaster
     from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
     from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
@@ -40,6 +41,7 @@ except Exception:  # pragma: no cover
     HybridEnsembleForecaster = None
     LaggedRidgeForecaster = None
     LowRankLaggedRidgeForecaster = None
+    NeuralForecastHeadBridge = None
     OKHSFDMDForecaster = None
     ForecastingSplitKind = None
     ForecastingSplitSpec = None
@@ -1231,6 +1233,73 @@ class HAVOKModel(ForecastingModelAdapter):
 
 
 @dataclass
+class NeuralForecastingHeadModel(ForecastingModelAdapter):
+    neural_model_name: str = 'patch_tst_model'
+    epochs: int | None = None
+    batch_size: int | None = None
+    learning_rate: float | None = None
+    activation: str | None = None
+    patch_len: int | None = None
+    forecast_mode: str | None = None
+    use_amp: bool | None = None
+    kernel_size: int | None = None
+    num_filters: int | None = None
+    num_layers: int | None = None
+    dilation_base: int | None = None
+    dropout: float | None = None
+    weight_norm: bool | None = None
+    cell_type: str | None = None
+    rnn_layers: int | None = None
+    hidden_size: int | None = None
+    expected_distribution: str | None = None
+    n_stacks: int | None = None
+    n_trend_blocks: int | None = None
+    n_seasonality_blocks: int | None = None
+    n_of_harmonics: int | None = None
+    layers: int | None = None
+    degree_of_polynomial: int | None = None
+    stage_tuning_runtime: dict[str, Any] | None = None
+    name: str = 'NeuralForecastHead'
+    tags: tuple[str, ...] = ('baseline', 'forecasting', 'neural_forecaster')
+    optional: bool = False
+
+    def availability(self) -> tuple[RunStatus, str]:
+        if torch is None or NeuralForecastHeadBridge is None:
+            return RunStatus.NOT_AVAILABLE, 'torch/native neural forecasting runtime is unavailable.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        train = np.asarray(series_record.train_values, dtype=float)
+        params = {
+            key: value for key, value in self.__dict__.items()
+            if key not in {'name', 'tags', 'optional', 'stage_tuning_runtime', 'neural_model_name'}
+        }
+        bridge = NeuralForecastHeadBridge(
+            model_name=self.neural_model_name,
+            forecast_horizon=series_record.forecast_horizon,
+            params=params,
+        )
+        bridge.fit(train)
+        forecast = np.asarray(bridge.predict(train), dtype=float).reshape(-1)
+        metadata = bridge.get_diagnostics()
+        metadata.update(
+            {
+                'last_train_value': float(train[-1]),
+                'first_prediction_value': float(forecast[0]) if len(forecast) else None,
+                'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
+            }
+        )
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name=self.neural_model_name,
+            series_record=series_record,
+            base_params=params,
+            runtime_config=self.stage_tuning_runtime,
+        )
+        return forecast[:series_record.forecast_horizon], metadata
+
+
+@dataclass
 class OptionalExternalModel(ForecastingModelAdapter):
     dependency_name: str
     name: str
@@ -1302,6 +1371,13 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
         return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
     if adapter_name in {'havok', 'havok_forecaster'}:
         return HAVOKModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'havok'), **params)
+    if adapter_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+        return NeuralForecastingHeadModel(
+            neural_model_name=adapter_name,
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'forecasting', 'neural_forecaster'),
+            **params,
+        )
     if adapter_name == 'naive_last_value':
         return NaiveLastValueModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'naive_mean':

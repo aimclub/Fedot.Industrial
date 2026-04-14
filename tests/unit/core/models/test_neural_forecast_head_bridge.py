@@ -1,0 +1,59 @@
+import numpy as np
+
+from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import (
+    NEURAL_FORECASTING_MODEL_REGISTRY,
+    NeuralForecastHeadBridge,
+    build_neural_forecasting_stage_diagnostics,
+)
+
+
+def test_build_neural_forecasting_stage_diagnostics_returns_stage_vocabulary():
+    diagnostics = build_neural_forecasting_stage_diagnostics(
+        'patch_tst_model',
+        forecast_horizon=6,
+        params={'patch_len': 16, 'epochs': 20, 'batch_size': 8},
+        training_history_length=96,
+    )
+
+    assert diagnostics['model_family'] == 'neural_forecaster'
+    assert diagnostics['trajectory_transform']['window_size'] == 16
+    assert diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
+    assert diagnostics['forecast_head']['forecast_horizon'] == 6
+
+
+def test_neural_forecast_head_bridge_wraps_native_model_contract(monkeypatch):
+    class FakePrediction:
+        def __init__(self, values):
+            self.predict = np.asarray(values, dtype=float)
+
+    class FakeModel:
+        def __init__(self, params):
+            self.params = params
+            self.fit_calls = 0
+            self.predict_calls = 0
+
+        def fit(self, input_data):
+            self.fit_calls += 1
+            self.seen_fit_length = len(np.asarray(input_data.features).reshape(-1))
+            return self
+
+        def predict(self, input_data):
+            self.predict_calls += 1
+            horizon = int(input_data.task.task_params.forecast_length)
+            return FakePrediction(np.linspace(1.0, float(horizon), num=horizon))
+
+    monkeypatch.setitem(NEURAL_FORECASTING_MODEL_REGISTRY, 'patch_tst_model', FakeModel)
+
+    bridge = NeuralForecastHeadBridge(
+        model_name='patch_tst_model',
+        forecast_horizon=4,
+        params={'patch_len': 12, 'epochs': 2},
+    )
+    bridge.fit(np.arange(48, dtype=float))
+    prediction = bridge.predict(np.arange(48, dtype=float))
+    diagnostics = bridge.get_diagnostics()
+
+    assert prediction.tolist() == [1.0, 2.0, 3.0, 4.0]
+    assert diagnostics['model_family'] == 'neural_forecaster'
+    assert diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
+    assert diagnostics['last_prediction_diagnostics']['forecast_shape'] == (4,)

@@ -65,6 +65,49 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
         ForecastingStageName.TRAJECTORY.value: (),
         ForecastingStageName.ENSEMBLE.value: ('complex_branch', 'calibration_horizon'),
     },
+    'patch_tst_model': {
+        ForecastingStageName.TRAJECTORY.value: ('patch_len',),
+        ForecastingStageName.FORECAST_HEAD.value: ('epochs', 'batch_size', 'learning_rate', 'activation'),
+    },
+    'tcn_model': {
+        ForecastingStageName.TRAJECTORY.value: ('patch_len',),
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'epochs',
+            'batch_size',
+            'learning_rate',
+            'activation',
+            'kernel_size',
+            'num_filters',
+            'num_layers',
+            'dilation_base',
+            'dropout',
+            'weight_norm',
+        ),
+    },
+    'deepar_model': {
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'epochs',
+            'batch_size',
+            'learning_rate',
+            'cell_type',
+            'rnn_layers',
+            'hidden_size',
+            'expected_distribution',
+            'dropout',
+        ),
+    },
+    'nbeats_model': {
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'epochs',
+            'batch_size',
+            'n_stacks',
+            'n_trend_blocks',
+            'n_seasonality_blocks',
+            'n_of_harmonics',
+            'layers',
+            'degree_of_polynomial',
+        ),
+    },
 }
 
 
@@ -320,6 +363,99 @@ def build_forecasting_stage_tuning_plan(model_name: str,
             family='hybrid_ensemble',
             groups=groups,
             metadata={'supports_simultaneous_tuning': False},
+        )
+
+    if canonical_name == 'patch_tst_model':
+        groups = (
+            _group(ForecastingStageName.TRAJECTORY, ('patch_len',)),
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                ('epochs', 'batch_size', 'learning_rate', 'activation'),
+                depends_on=(ForecastingStageName.TRAJECTORY.value,),
+            ),
+        )
+        return ForecastingStageTuningPlan(
+            model_name=model_name,
+            canonical_model_name=canonical_name,
+            family='neural_forecaster',
+            groups=groups,
+            metadata={'supports_simultaneous_tuning': False, 'head_runtime': 'neural'},
+        )
+
+    if canonical_name == 'tcn_model':
+        groups = (
+            _group(ForecastingStageName.TRAJECTORY, ('patch_len',)),
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                (
+                    'epochs',
+                    'batch_size',
+                    'learning_rate',
+                    'activation',
+                    'kernel_size',
+                    'num_filters',
+                    'num_layers',
+                    'dilation_base',
+                    'dropout',
+                    'weight_norm',
+                ),
+                depends_on=(ForecastingStageName.TRAJECTORY.value,),
+            ),
+        )
+        return ForecastingStageTuningPlan(
+            model_name=model_name,
+            canonical_model_name=canonical_name,
+            family='neural_forecaster',
+            groups=groups,
+            metadata={'supports_simultaneous_tuning': False, 'head_runtime': 'neural'},
+        )
+
+    if canonical_name == 'deepar_model':
+        groups = (
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                (
+                    'epochs',
+                    'batch_size',
+                    'learning_rate',
+                    'cell_type',
+                    'rnn_layers',
+                    'hidden_size',
+                    'expected_distribution',
+                    'dropout',
+                ),
+            ),
+        )
+        return ForecastingStageTuningPlan(
+            model_name=model_name,
+            canonical_model_name=canonical_name,
+            family='neural_forecaster',
+            groups=groups,
+            metadata={'supports_simultaneous_tuning': False, 'head_runtime': 'neural'},
+        )
+
+    if canonical_name == 'nbeats_model':
+        groups = (
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                (
+                    'epochs',
+                    'batch_size',
+                    'n_stacks',
+                    'n_trend_blocks',
+                    'n_seasonality_blocks',
+                    'n_of_harmonics',
+                    'layers',
+                    'degree_of_polynomial',
+                ),
+            ),
+        )
+        return ForecastingStageTuningPlan(
+            model_name=model_name,
+            canonical_model_name=canonical_name,
+            family='neural_forecaster',
+            groups=groups,
+            metadata={'supports_simultaneous_tuning': False, 'head_runtime': 'neural'},
         )
 
     return ForecastingStageTuningPlan(

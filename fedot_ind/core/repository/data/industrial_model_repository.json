@@ -221,7 +221,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "fedot_ind.core.operation.interfaces.neural_forecasting_strategy",
         "FedotNNTimeSeriesStrategy"
       ],
       "tags": [

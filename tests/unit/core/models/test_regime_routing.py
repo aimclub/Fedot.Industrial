@@ -55,3 +55,7 @@ def test_adapter_name_to_family_maps_new_composite_models():
     assert adapter_name_to_family('havok_forecaster') == 'operator_model'
     assert adapter_name_to_family('hybrid_ensemble_forecaster') == 'operator_model'
     assert adapter_name_to_family('okhs_fdmd_forecaster') == 'operator_model'
+    assert adapter_name_to_family('patch_tst_model') == 'neural_forecaster'
+    assert adapter_name_to_family('tcn_model') == 'neural_forecaster'
+    assert adapter_name_to_family('deepar_model') == 'neural_forecaster'
+    assert adapter_name_to_family('nbeats_model') == 'neural_forecaster'
