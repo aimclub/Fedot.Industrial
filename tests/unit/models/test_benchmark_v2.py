@@ -9,8 +9,17 @@ import pytest
 
 from benchmark.benchmark_TSF import BenchmarkTSF
 from benchmark.v2.api import compare_forecasting_models_on_series, run_forecasting_benchmark_suite
-from benchmark.v2.core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, RunStatus, TaskType
-from benchmark.v2.forecasting import build_dataset_adapter, build_model_adapter
+from benchmark.v2.core import (
+    ArtifactSpec,
+    BenchmarkSuiteConfig,
+    DatasetSpec,
+    ForecastingSeriesRecord,
+    ModelSpec,
+    RunSpec,
+    RunStatus,
+    TaskType,
+)
+from benchmark.v2.forecasting import build_dataset_adapter, build_model_adapter, run_forecasting_suite
 
 
 def _toy_records() -> list[dict]:
@@ -57,12 +66,112 @@ def test_build_model_adapter_supports_lagged_and_ssa_forecasters() -> None:
     lagged_model = build_model_adapter(
         ModelSpec(adapter_name='lagged_forecaster', display_name='lagged_forecaster')
     )
+    lagged_model_with_channel = build_model_adapter(
+        ModelSpec(
+            adapter_name='lagged_forecaster',
+            display_name='lagged_forecaster_ridge',
+            params={'channel_model': 'ridge'},
+        )
+    )
     ssa_model = build_model_adapter(
         ModelSpec(adapter_name='ssa_forecaster', display_name='ssa_forecaster')
     )
 
     assert lagged_model.name == 'lagged_forecaster'
+    assert lagged_model_with_channel.channel_model == 'ridge'
     assert ssa_model.name == 'ssa_forecaster'
+
+
+def test_lagged_forecaster_adapter_reports_unsupported_channel_model() -> None:
+    lagged_model = build_model_adapter(
+        ModelSpec(
+            adapter_name='lagged_forecaster',
+            display_name='lagged_forecaster_lasso',
+            params={'channel_model': 'lasso'},
+        )
+    )
+
+    status, message = lagged_model.availability()
+
+    assert status is RunStatus.NOT_AVAILABLE
+    assert "channel_model='ridge'" in message
+
+
+def test_run_forecasting_suite_adds_post_fit_stage_tuning_comparison(monkeypatch) -> None:
+    class FakeDatasetAdapter:
+        def load_series(self, spec):
+            del spec
+            return (
+                ForecastingSeriesRecord(
+                    benchmark='in_memory',
+                    dataset_name='debug_suite',
+                    subset='monthly',
+                    series_id='series_1',
+                    frequency='monthly',
+                    forecast_horizon=3,
+                    seasonal_period=1,
+                    train_values=(1.0, 2.0, 3.0, 4.0, 5.0),
+                    test_values=(6.0, 7.0, 8.0),
+                ),
+            )
+
+    class FakeForecastModel:
+        name = 'FakeForecastModel'
+        tags = ('baseline', 'forecasting')
+        optional = False
+
+        def __init__(self, scale: float = 1.0):
+            self.scale = float(scale)
+
+        def availability(self):
+            return RunStatus.SUCCESS, 'ready'
+
+        def forecast(self, series_record):
+            target = np.asarray(series_record.test_values, dtype=float)
+            if self.scale > 1.0:
+                return target.copy(), {'source': 'tuned'}
+            return np.zeros_like(target), {'source': 'baseline'}
+
+    monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.build_model_adapter',
+        lambda spec: FakeForecastModel(scale=float(spec.params.get('scale', 1.0))),
+    )
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.run_forecasting_stage_tuning_on_series',
+        lambda *args, **kwargs: type(
+            'FakeStageTuningRuntimeResult',
+            (),
+            {
+                'metadata': {'improved': True, 'baseline_score': 10.0, 'best_score': 0.0},
+                'to_dict': lambda self: {
+                    'sequential_result': {'best_parameters': {'scale': 2.0}},
+                    'baseline_evaluation': {'metric': {'metric_value': 10.0}},
+                    'best_evaluation': {'metric': {'metric_value': 0.0}},
+                },
+            },
+        )(),
+        raising=False,
+    )
+
+    result = run_forecasting_suite(
+        BenchmarkSuiteConfig(
+            task_type=TaskType.FORECASTING,
+            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='debug_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(output_dir='unused', persist_on_run=False),
+            run_spec=RunSpec(run_name='debug_suite_runner', show_progress=False),
+            metrics=('mae', 'rmse'),
+        )
+    )
+
+    record = result.run_records[0]
+    comparison = record.metadata['stage_tuning_comparison']
+
+    assert comparison['baseline_metrics']['mae'] > comparison['tuned_metrics']['mae']
+    assert comparison['improved_metrics']['mae'] is True
+    assert comparison['best_parameters']['scale'] == 2.0
+    assert any(metric.metric_name == 'mae_tuned' for metric in result.metric_records)
 
 
 def test_build_model_adapter_supports_new_composite_forecasters() -> None:

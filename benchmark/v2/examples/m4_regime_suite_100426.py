@@ -8,7 +8,7 @@ from benchmark.v2 import (
     run_forecasting_benchmark_suite,
 )
 
-EXPERIMENT_DATE = '100426'
+EXPERIMENT_DATE = '160426'
 M4_SUBSETS = ('daily', 'weekly', 'monthly', 'quarterly', 'yearly')
 
 M4_DATASETS = tuple(

@@ -43,7 +43,20 @@ def test_build_stage_tuning_plan_distinguishes_lagged_wrapper_from_ridge_shell()
     assert lagged_plan.canonical_model_name == 'lagged_forecaster'
     assert ridge_plan.canonical_model_name == 'lagged_ridge_forecaster'
     assert 'channel_model' in lagged_plan.groups[-1].parameters
+    assert 'alpha' in lagged_plan.groups[-1].parameters
     assert 'alpha' in ridge_plan.groups[-1].parameters
+
+
+def test_build_stage_search_spaces_for_lagged_wrapper_includes_alpha_and_stride():
+    spaces = build_forecasting_stage_search_spaces(
+        'lagged_forecaster',
+        {'window_size': 16, 'channel_model': 'ridge'},
+    )
+
+    assert spaces[0].stage == ForecastingStageName.TRAJECTORY.value
+    assert set(spaces[0].parameter_space) == {'window_size', 'stride'}
+    assert spaces[1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert set(spaces[1].parameter_space) == {'alpha'}
 
 
 def test_build_stage_tuning_plan_for_okhs_forecaster_separates_head_from_representation():

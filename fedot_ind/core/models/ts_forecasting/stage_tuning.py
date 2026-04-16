@@ -17,7 +17,7 @@ class ForecastingStageName(str, Enum):
 FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = {
     'lagged_forecaster': {
         ForecastingStageName.TRAJECTORY.value: ('window_size', 'stride'),
-        ForecastingStageName.FORECAST_HEAD.value: ('channel_model',),
+        ForecastingStageName.FORECAST_HEAD.value: ('alpha',),
     },
     'lagged_ridge_forecaster': {
         ForecastingStageName.TRAJECTORY.value: ('window_size', 'stride'),
@@ -183,7 +183,7 @@ def build_forecasting_stage_tuning_plan(model_name: str,
             _group(ForecastingStageName.TRAJECTORY, ('window_size', 'window_size_percent', 'stride')),
             _group(
                 ForecastingStageName.FORECAST_HEAD,
-                ('channel_model',),
+                ('channel_model', 'alpha'),
                 depends_on=(ForecastingStageName.TRAJECTORY.value,),
             ),
         )

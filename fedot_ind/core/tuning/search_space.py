@@ -110,11 +110,6 @@ industrial_search_space = {
         {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
          'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 40, 5)]]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 20, 3)]]}},
-    'lagged_forecaster':
-        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
-         'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 40, 5)]]},
-         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]},
-         },
     'hankelisation':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},
@@ -132,7 +127,7 @@ industrial_search_space = {
     'expert_rank_truncation':
         {'rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8, 12]]},
          'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
-    'lagged_ridge_forecaster':
+    'lagged_forecaster':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4]]},
          'alpha': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.1, 0.5, 1.0, 2.0, 5.0]]}},

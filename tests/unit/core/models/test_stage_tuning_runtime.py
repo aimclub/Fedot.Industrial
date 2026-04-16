@@ -9,6 +9,7 @@ from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster impor
 )
 from fedot_ind.core.models.ts_forecasting.stage_tuning import ForecastingStageName
 from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import (
+    _normalize_base_params,
     evaluate_forecasting_model_on_series,
     run_forecasting_stage_tuning_on_series,
 )
@@ -73,6 +74,18 @@ def test_run_forecasting_stage_tuning_on_series_improves_or_matches_baseline():
     assert result.metadata['best_score'] <= result.metadata['baseline_score']
     assert result.sequential_result.stage_history[0]['stage'] == ForecastingStageName.TRAJECTORY.value
     assert result.best_evaluation.metric.metric_name == 'rmse'
+
+
+def test_normalize_base_params_backfills_lagged_forecaster_defaults():
+    resolved = _normalize_base_params(
+        {'channel_model': 'ridge', 'window_size': 10},
+        model_name='lagged_forecaster',
+    )
+
+    assert resolved['channel_model'] == 'ridge'
+    assert resolved['window_size'] == 10
+    assert resolved['stride'] == 1
+    assert resolved['alpha'] == 1.0
 
 
 def test_implementation_run_stage_tuning_on_series_uses_runtime_bridge():

@@ -83,12 +83,19 @@ class ForecastingSeriesStageTuningResult:
         }
 
 
-def _normalize_base_params(params: dict[str, Any] | None) -> dict[str, Any]:
-    return {
+def _normalize_base_params(params: dict[str, Any] | None, *, model_name: str | None = None) -> dict[str, Any]:
+    normalized = {
         key: value
         for key, value in dict(params or {}).items()
         if value is not None
     }
+    canonical_name = canonical_forecasting_model_name(model_name) if model_name else ''
+    if canonical_name == 'lagged_forecaster':
+        normalized.setdefault('channel_model', 'ridge')
+        normalized.setdefault('window_size', 10)
+        normalized.setdefault('stride', 1)
+        normalized.setdefault('alpha', 1.0)
+    return normalized
 
 
 def _squeeze_series_if_univariate(values: np.ndarray) -> np.ndarray:
@@ -272,7 +279,7 @@ def evaluate_forecasting_model_on_series(
         seasonal_period: int = 1,
 ) -> ForecastingSeriesEvaluation:
     canonical_model_name = canonical_forecasting_model_name(model_name)
-    resolved_params = _normalize_base_params(params)
+    resolved_params = _normalize_base_params(params, model_name=canonical_model_name)
     device_policy = TensorDevicePolicy(device=str(resolved_params.get('device', 'cpu')))
     full_series = _prepare_runtime_series(canonical_model_name, np.asarray(time_series, dtype=float), resolved_params)
     batch = series_to_forecast_tensor_batch(
@@ -366,7 +373,7 @@ def run_forecasting_stage_tuning_on_series(
         max_values_per_parameter: int = 3,
         max_stage_candidates: int = 16,
 ) -> ForecastingSeriesStageTuningResult:
-    resolved_params = _normalize_base_params(base_params)
+    resolved_params = _normalize_base_params(base_params, model_name=model_name)
     objective = build_forecasting_stage_objective_from_series(
         model_name,
         time_series=time_series,

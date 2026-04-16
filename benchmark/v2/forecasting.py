@@ -1022,6 +1022,7 @@ class SSACompatModel(ForecastingModelAdapter):
 
 @dataclass
 class LaggedForecasterModel(ForecastingModelAdapter):
+    channel_model: str = 'ridge'
     window_size: int = 10
     stride: int = 1
     alpha: float = 1.0
@@ -1033,9 +1034,20 @@ class LaggedForecasterModel(ForecastingModelAdapter):
     def availability(self) -> tuple[RunStatus, str]:
         if LaggedRidgeForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for lagged_ridge_forecaster runtime.'
+        if str(self.channel_model).lower() != 'ridge':
+            return RunStatus.NOT_AVAILABLE, (
+                f"lagged_forecaster benchmark adapter currently supports only channel_model='ridge', "
+                f"got '{self.channel_model}'."
+            )
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        if str(self.channel_model).lower() != 'ridge':
+            raise ModelExecutionError(
+                RunStatus.SKIPPED,
+                f"lagged_forecaster benchmark adapter currently supports only channel_model='ridge', "
+                f"got '{self.channel_model}'.",
+            )
         model = LaggedRidgeForecaster(
             forecast_horizon=series_record.forecast_horizon,
             window_size_percent=self.window_size,
@@ -1048,6 +1060,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
         metadata = model.get_diagnostics()
         metadata.update(
             {
+                'channel_model': str(self.channel_model),
                 'window_size_percent': float(self.window_size),
                 'stride': int(self.stride),
                 'alpha': float(self.alpha),
@@ -1060,7 +1073,8 @@ class LaggedForecasterModel(ForecastingModelAdapter):
             base_params={
                 'window_size': self.window_size,
                 'stride': self.stride,
-                'channel_model': 'ridge',
+                'channel_model': str(self.channel_model),
+                'alpha': self.alpha,
             },
             runtime_config=self.stage_tuning_runtime,
         )
@@ -1502,6 +1516,7 @@ def _append_event_interval_metrics(
         actual: np.ndarray,
         forecast: np.ndarray,
         metadata: dict[str, Any],
+        metric_name_suffix: str = '',
 ) -> dict[str, float]:
     mask = _extract_forecast_event_mask(metadata, len(actual))
     if mask is None:
@@ -1522,7 +1537,7 @@ def _append_event_interval_metrics(
                 subset=series_record.subset,
                 series_id=series_record.series_id,
                 model_name=model_name,
-                metric_name=metric_name,
+                metric_name=f'{metric_name}{metric_name_suffix}',
                 metric_value=metric_value,
                 status=RunStatus.SUCCESS,
             )
@@ -1574,252 +1589,508 @@ def build_leaderboard(
     )
 
 
-def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkResult:
-    validate_forecasting_suite_config(config)
-    run_id = new_run_id(config.run_spec.run_name)
+class ForecastingSuiteRunner:
+    def __init__(self, config: BenchmarkSuiteConfig):
+        validate_forecasting_suite_config(config)
+        self.config = config
+        self.run_id = new_run_id(config.run_spec.run_name)
+        self.series_records: list[ForecastingSeriesRecord] = []
+        self.run_records: list[BenchmarkRunRecord] = []
+        self.prediction_records: list[PredictionRecord] = []
+        self.metric_records: list[MetricRecord] = []
+        self.progress = BenchmarkProgressMonitor(
+            enabled=config.run_spec.show_progress,
+            task_type=config.task_type.value,
+            run_name=config.run_spec.run_name,
+            leave=config.run_spec.progress_leave,
+            log_errors=config.run_spec.progress_log_errors,
+            log_summaries=config.run_spec.progress_log_summaries,
+        )
 
-    series_records: list[ForecastingSeriesRecord] = []
-    run_records: list[BenchmarkRunRecord] = []
-    prediction_records: list[PredictionRecord] = []
-    metric_records: list[MetricRecord] = []
-    progress = BenchmarkProgressMonitor(
-        enabled=config.run_spec.show_progress,
-        task_type=config.task_type.value,
-        run_name=config.run_spec.run_name,
-        leave=config.run_spec.progress_leave,
-        log_errors=config.run_spec.progress_log_errors,
-        log_summaries=config.run_spec.progress_log_summaries,
-    )
+    def run_suite(self) -> ForecastingBenchmarkResult:
+        try:
+            self._iter_over_datasets()
+        finally:
+            self.progress.close()
 
-    try:
-        for dataset_spec in config.datasets:
-            dataset_adapter = build_dataset_adapter(dataset_spec)
-            dataset_series = dataset_adapter.load_series(dataset_spec)
-            series_records.extend(dataset_series)
-            progress.extend_total(len(dataset_series) * len(config.models))
-            progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
+        aggregate_report = build_leaderboard(
+            tuple(self.run_records),
+            primary_metric=self.config.run_spec.primary_metric,
+        )
+        return ForecastingBenchmarkResult(
+            run_id=self.run_id,
+            config=self.config,
+            series_records=tuple(self.series_records),
+            run_records=tuple(self.run_records),
+            prediction_records=tuple(self.prediction_records),
+            metric_records=tuple(self.metric_records),
+            aggregate_report=aggregate_report,
+        )
 
-            for model_spec in config.models:
-                model = build_model_adapter(model_spec)
-                progress.model_started(dataset_spec.dataset_name, model.name)
+    def _iter_over_datasets(self) -> None:
+        for dataset_spec in self.config.datasets:
+            dataset_series = self._load_dataset_series(dataset_spec)
+            self._iter_over_models(dataset_spec, dataset_series)
+            self.progress.dataset_finished()
+
+    def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        dataset_adapter = build_dataset_adapter(dataset_spec)
+        dataset_series = dataset_adapter.load_series(dataset_spec)
+        self.series_records.extend(dataset_series)
+        self.progress.extend_total(len(dataset_series) * len(self.config.models))
+        self.progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
+        return dataset_series
+
+    def _iter_over_models(
+            self,
+            dataset_spec: DatasetSpec,
+            dataset_series: tuple[ForecastingSeriesRecord, ...],
+    ) -> None:
+        for model_spec in self.config.models:
+            model = build_model_adapter(model_spec)
+            self.progress.model_started(dataset_spec.dataset_name, model.name)
+            try:
                 availability_status, availability_message = model.availability()
-
                 if availability_status is not RunStatus.SUCCESS:
-                    for series_record in dataset_series:
-                        progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
-                        regime_diagnostics = analyze_regime_diagnostics(
-                            np.asarray(series_record.train_values, dtype=float))
-                        routing_recommendation = recommend_forecasting_model(regime_diagnostics)
-                        run_records.append(
-                            BenchmarkRunRecord(
-                                run_id=run_id,
-                                benchmark=series_record.benchmark,
-                                dataset_name=series_record.dataset_name,
-                                subset=series_record.subset,
-                                series_id=series_record.series_id,
-                                model_name=model.name,
-                                status=availability_status,
-                                tags=model.tags,
-                                message=availability_message,
-                                metadata={
-                                    'optional': model.optional,
-                                    'adapter_name': model_spec.adapter_name,
-                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
-                                    'regime_diagnostics': regime_diagnostics.to_dict(),
-                                    'routing_recommendation': routing_recommendation.to_dict(),
-                                    'routing_recommendation_family': adapter_name_to_family(
-                                        routing_recommendation.primary_adapter
-                                    ),
-                                },
-                            )
-                        )
-                        progress.advance(availability_status.value, availability_message)
-                    progress.model_finished()
+                    self._handle_unavailable_model(
+                        model_spec=model_spec,
+                        model=model,
+                        dataset_series=dataset_series,
+                        availability_status=availability_status,
+                        availability_message=availability_message,
+                    )
                     continue
+                self._iter_over_series(model_spec, model, dataset_series)
+            finally:
+                self.progress.model_finished()
 
-                for series_record in dataset_series:
-                    progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
-                    regime_diagnostics = analyze_regime_diagnostics(
-                        np.asarray(series_record.train_values, dtype=float))
-                    routing_recommendation = recommend_forecasting_model(regime_diagnostics)
-                    try:
-                        prediction, metadata = model.forecast(series_record)
-                        actual = np.asarray(series_record.test_values, dtype=float)
-                        forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
-                        if len(forecast) != len(actual):
-                            raise ModelExecutionError(
-                                RunStatus.FAILED,
-                                f'Model returned {len(forecast)} predictions for horizon {len(actual)}.',
-                            )
+    def _iter_over_series(
+            self,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            dataset_series: tuple[ForecastingSeriesRecord, ...],
+    ) -> None:
+        for series_record in dataset_series:
+            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
+            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
+            try:
+                self._evaluate_series(model_spec, model, series_record, regime_diagnostics, routing_recommendation)
+                self.progress.advance(RunStatus.SUCCESS.value)
+            except ModelExecutionError as exc:
+                self._append_failed_run_record(
+                    model_spec=model_spec,
+                    model=model,
+                    series_record=series_record,
+                    status=exc.status,
+                    message=exc.message,
+                    regime_diagnostics=regime_diagnostics,
+                    routing_recommendation=routing_recommendation,
+                )
+                self.progress.advance(exc.status.value, exc.message)
+            except Exception as exc:
+                self._append_failed_run_record(
+                    model_spec=model_spec,
+                    model=model,
+                    series_record=series_record,
+                    status=RunStatus.FAILED,
+                    message=str(exc),
+                    regime_diagnostics=regime_diagnostics,
+                    routing_recommendation=routing_recommendation,
+                )
+                self.progress.advance(RunStatus.FAILED.value, str(exc))
 
-                        metrics_summary: dict[str, float] = {}
-                        train = np.asarray(series_record.train_values, dtype=float)
-                        for metric_name in config.metrics:
-                            metric_value = compute_forecasting_metric(
-                                metric_name,
-                                actual,
-                                forecast,
-                                train,
-                                series_record.seasonal_period,
-                            )
-                            metrics_summary[metric_name] = metric_value
-                            metric_records.append(
-                                MetricRecord(
-                                    run_id=run_id,
-                                    benchmark=series_record.benchmark,
-                                    dataset_name=series_record.dataset_name,
-                                    subset=series_record.subset,
-                                    series_id=series_record.series_id,
-                                    model_name=model.name,
-                                    metric_name=metric_name,
-                                    metric_value=metric_value,
-                                    status=RunStatus.SUCCESS,
-                                )
-                            )
-                            pointwise = compute_pointwise_metric(
-                                metric_name,
-                                actual,
-                                forecast,
-                                train,
-                                series_record.seasonal_period,
-                            )
-                            for horizon_index, pointwise_value in enumerate(pointwise, start=1):
-                                metric_records.append(
-                                    MetricRecord(
-                                        run_id=run_id,
-                                        benchmark=series_record.benchmark,
-                                        dataset_name=series_record.dataset_name,
-                                        subset=series_record.subset,
-                                        series_id=series_record.series_id,
-                                        model_name=model.name,
-                                        metric_name=metric_name,
-                                        metric_value=float(pointwise_value),
-                                        status=RunStatus.SUCCESS,
-                                        horizon_index=horizon_index,
-                                    )
-                                )
+    def _handle_unavailable_model(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            dataset_series: tuple[ForecastingSeriesRecord, ...],
+            availability_status: RunStatus,
+            availability_message: str,
+    ) -> None:
+        for series_record in dataset_series:
+            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
+            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
+            self.run_records.append(
+                BenchmarkRunRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model.name,
+                    status=availability_status,
+                    tags=model.tags,
+                    message=availability_message,
+                    metadata=self._build_common_metadata(
+                        model_spec=model_spec,
+                        model=model,
+                        regime_diagnostics=regime_diagnostics,
+                        routing_recommendation=routing_recommendation,
+                        extra={'optional': model.optional},
+                    ),
+                )
+            )
+            self.progress.advance(availability_status.value, availability_message)
 
-                        event_metrics = _append_event_interval_metrics(
-                            metric_records,
-                            run_id=run_id,
-                            series_record=series_record,
-                            model_name=model.name,
-                            actual=actual,
-                            forecast=forecast,
-                            metadata=metadata,
+    def _build_series_context(self, series_record: ForecastingSeriesRecord):
+        regime_diagnostics = analyze_regime_diagnostics(np.asarray(series_record.train_values, dtype=float))
+        routing_recommendation = recommend_forecasting_model(regime_diagnostics)
+        return regime_diagnostics, routing_recommendation
+
+    def _build_common_metadata(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            regime_diagnostics,
+            routing_recommendation,
+            extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            'adapter_name': model_spec.adapter_name,
+            'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
+            'regime_diagnostics': regime_diagnostics.to_dict(),
+            'routing_recommendation': routing_recommendation.to_dict(),
+            'routing_recommendation_family': adapter_name_to_family(routing_recommendation.primary_adapter),
+            **dict(extra or {}),
+        }
+
+    def _validate_forecast_length(
+            self,
+            series_record: ForecastingSeriesRecord,
+            prediction: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        actual = np.asarray(series_record.test_values, dtype=float)
+        forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
+        if len(forecast) != len(actual):
+            raise ModelExecutionError(
+                RunStatus.FAILED,
+                f'Model returned {len(forecast)} predictions for horizon {len(actual)}.',
+            )
+        return actual, forecast
+
+    def _record_metric_bundle(
+            self,
+            *,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast: np.ndarray,
+            metadata: dict[str, Any],
+            metric_name_suffix: str = '',
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        metrics_summary: dict[str, float] = {}
+        train = np.asarray(series_record.train_values, dtype=float)
+        for metric_name in self.config.metrics:
+            metric_value = compute_forecasting_metric(
+                metric_name,
+                actual,
+                forecast,
+                train,
+                series_record.seasonal_period,
+            )
+            metrics_summary[metric_name] = metric_value
+            self.metric_records.append(
+                MetricRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model_name,
+                    metric_name=f'{metric_name}{metric_name_suffix}',
+                    metric_value=metric_value,
+                    status=RunStatus.SUCCESS,
+                )
+            )
+            pointwise = compute_pointwise_metric(
+                metric_name,
+                actual,
+                forecast,
+                train,
+                series_record.seasonal_period,
+            )
+            for horizon_index, pointwise_value in enumerate(pointwise, start=1):
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name=f'{metric_name}{metric_name_suffix}',
+                        metric_value=float(pointwise_value),
+                        status=RunStatus.SUCCESS,
+                        horizon_index=horizon_index,
+                    )
+                )
+
+        event_metrics = _append_event_interval_metrics(
+            self.metric_records,
+            run_id=self.run_id,
+            series_record=series_record,
+            model_name=model_name,
+            actual=actual,
+            forecast=forecast,
+            metadata=metadata,
+            metric_name_suffix=metric_name_suffix,
+        )
+        metrics_summary.update({key: value for key, value in event_metrics.items() if key.startswith('mae_')})
+        return metrics_summary, event_metrics
+
+    def _record_predictions(
+            self,
+            *,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast: np.ndarray,
+    ) -> None:
+        for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
+            self.prediction_records.append(
+                PredictionRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model_name,
+                    horizon_index=horizon_index,
+                    y_true=float(actual_value),
+                    y_pred=float(forecast_value),
+                    status=RunStatus.SUCCESS,
+                )
+            )
+
+    def _build_tuned_model_spec(self, model_spec: ModelSpec, best_parameters: dict[str, Any]) -> ModelSpec:
+        tuned_params = {
+            **dict(model_spec.params),
+            **dict(best_parameters),
+        }
+        tuned_params.pop('stage_tuning_runtime', None)
+        return ModelSpec(
+            adapter_name=model_spec.adapter_name,
+            display_name=model_spec.display_name,
+            tags=model_spec.tags,
+            optional=model_spec.optional,
+            params=tuned_params,
+        )
+
+    def _resolve_post_fit_tuning_runtime_config(
+            self,
+            model_spec: ModelSpec,
+            baseline_metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
+        metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
+        return {
+            'metric_name': str(raw_config.get('metric_name', metadata_runtime.get('metric_name',
+                                                                                  self.config.run_spec.primary_metric))),
+            'stage_updates': raw_config.get('stage_updates'),
+            'max_values_per_parameter': int(raw_config.get('max_values_per_parameter', 3)),
+            'max_stage_candidates': int(raw_config.get('max_stage_candidates', 16)),
+            'split_spec': _resolve_stage_tuning_split_spec(raw_config),
+        }
+
+    def _maybe_run_post_fit_tuning_comparison(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            series_record: ForecastingSeriesRecord,
+            baseline_metadata: dict[str, Any],
+            baseline_metrics_summary: dict[str, float],
+            regime_diagnostics,
+            routing_recommendation,
+    ) -> dict[str, Any]:
+        runtime_config = self._resolve_post_fit_tuning_runtime_config(model_spec, baseline_metadata)
+        if run_forecasting_stage_tuning_on_series is None:
+            return {
+                **baseline_metadata,
+                'stage_tuning_report_error': 'stage_tuning_runtime is unavailable in the current environment.',
+            }
+
+        try:
+            report = run_forecasting_stage_tuning_on_series(
+                model_spec.adapter_name,
+                time_series=np.asarray(series_record.train_values, dtype=float),
+                forecast_horizon=series_record.forecast_horizon,
+                base_params={
+                    key: value
+                    for key, value in dict(model_spec.params).items()
+                    if key != 'stage_tuning_runtime'
+                },
+                stage_updates=runtime_config.get('stage_updates'),
+                metric_name=str(runtime_config['metric_name']),
+                split_spec=runtime_config.get('split_spec'),
+                seasonal_period=series_record.seasonal_period,
+                max_values_per_parameter=int(runtime_config['max_values_per_parameter']),
+                max_stage_candidates=int(runtime_config['max_stage_candidates']),
+            )
+            report_dict = report.to_dict()
+            sequential_result = dict(report_dict.get('sequential_result') or {})
+            best_parameters = dict(sequential_result.get('best_parameters') or {})
+            enriched_baseline_metadata = {
+                **baseline_metadata,
+                'stage_tuning_report': report_dict,
+                'stage_tuning_runtime': {
+                    'enabled': True,
+                    'metric_name': str(runtime_config['metric_name']),
+                    'max_values_per_parameter': int(runtime_config['max_values_per_parameter']),
+                    'max_stage_candidates': int(runtime_config['max_stage_candidates']),
+                    'improved': report.metadata.get('improved'),
+                    'baseline_score': report.metadata.get('baseline_score'),
+                    'best_score': report.metadata.get('best_score'),
+                },
+            }
+            if not best_parameters:
+                return enriched_baseline_metadata
+
+            tuned_model_spec = self._build_tuned_model_spec(model_spec, best_parameters)
+            tuned_model = build_model_adapter(tuned_model_spec)
+            tuned_status, tuned_message = tuned_model.availability()
+            if tuned_status is not RunStatus.SUCCESS:
+                return {
+                    **enriched_baseline_metadata,
+                    'stage_tuning_comparison_error': tuned_message,
+                }
+
+            tuned_prediction, tuned_metadata = tuned_model.forecast(series_record)
+            actual, tuned_forecast = self._validate_forecast_length(series_record, tuned_prediction)
+            tuned_metrics_summary, tuned_event_metrics = self._record_metric_bundle(
+                series_record=series_record,
+                model_name=model.name,
+                actual=actual,
+                forecast=tuned_forecast,
+                metadata=tuned_metadata,
+                metric_name_suffix='_tuned',
+            )
+            tuned_metrics_summary.update(
+                {key: value for key, value in tuned_event_metrics.items() if key.startswith('mae_')}
+            )
+            return {
+                **enriched_baseline_metadata,
+                'stage_tuning_comparison': {
+                    'best_parameters': best_parameters,
+                    'baseline_metrics': baseline_metrics_summary,
+                    'tuned_metrics': tuned_metrics_summary,
+                    'improved_metrics': {
+                        metric_name: bool(
+                            tuned_metrics_summary.get(metric_name, math.inf)
+                            <= baseline_metrics_summary.get(metric_name, math.inf)
                         )
-                        metrics_summary.update(
-                            {
-                                key: value
-                                for key, value in event_metrics.items()
-                                if key.startswith('mae_')
-                            }
-                        )
+                        for metric_name in baseline_metrics_summary
+                        if metric_name in tuned_metrics_summary
+                    },
+                    'absolute_gain': {
+                        metric_name: float(baseline_metrics_summary[metric_name] - tuned_metrics_summary[metric_name])
+                        for metric_name in baseline_metrics_summary
+                        if metric_name in tuned_metrics_summary
+                    },
+                    'tuned_metadata': dict(tuned_metadata),
+                    'tuned_forecast': [float(value) for value in tuned_forecast.tolist()],
+                    'tuned_adapter_family': adapter_name_to_family(tuned_model_spec.adapter_name),
+                    'regime_diagnostics': regime_diagnostics.to_dict(),
+                    'routing_recommendation': routing_recommendation.to_dict(),
+                },
+            }
+        except Exception as exc:
+            return {
+                **baseline_metadata,
+                'stage_tuning_comparison_error': str(exc),
+            }
 
-                        for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
-                            prediction_records.append(
-                                PredictionRecord(
-                                    run_id=run_id,
-                                    benchmark=series_record.benchmark,
-                                    dataset_name=series_record.dataset_name,
-                                    subset=series_record.subset,
-                                    series_id=series_record.series_id,
-                                    model_name=model.name,
-                                    horizon_index=horizon_index,
-                                    y_true=float(actual_value),
-                                    y_pred=float(forecast_value),
-                                    status=RunStatus.SUCCESS,
-                                )
-                            )
+    def _append_failed_run_record(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            series_record: ForecastingSeriesRecord,
+            status: RunStatus,
+            message: str,
+            regime_diagnostics,
+            routing_recommendation,
+    ) -> None:
+        self.run_records.append(
+            BenchmarkRunRecord(
+                run_id=self.run_id,
+                benchmark=series_record.benchmark,
+                dataset_name=series_record.dataset_name,
+                subset=series_record.subset,
+                series_id=series_record.series_id,
+                model_name=model.name,
+                status=status,
+                tags=model.tags,
+                message=message,
+                metadata=self._build_common_metadata(
+                    model_spec=model_spec,
+                    model=model,
+                    regime_diagnostics=regime_diagnostics,
+                    routing_recommendation=routing_recommendation,
+                    extra={'optional': model.optional},
+                ),
+            )
+        )
 
-                        run_records.append(
-                            BenchmarkRunRecord(
-                                run_id=run_id,
-                                benchmark=series_record.benchmark,
-                                dataset_name=series_record.dataset_name,
-                                subset=series_record.subset,
-                                series_id=series_record.series_id,
-                                model_name=model.name,
-                                status=RunStatus.SUCCESS,
-                                tags=model.tags,
-                                metrics_summary=metrics_summary,
-                                metadata={
-                                    'adapter_name': model_spec.adapter_name,
-                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
-                                    **metadata,
-                                    'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
-                                    'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
-                                    'regime_diagnostics': regime_diagnostics.to_dict(),
-                                    'routing_recommendation': routing_recommendation.to_dict(),
-                                    'routing_recommendation_family': adapter_name_to_family(
-                                        routing_recommendation.primary_adapter
-                                    ),
-                                },
-                            )
-                        )
-                        progress.advance(RunStatus.SUCCESS.value)
-                    except ModelExecutionError as exc:
-                        run_records.append(
-                            BenchmarkRunRecord(
-                                run_id=run_id,
-                                benchmark=series_record.benchmark,
-                                dataset_name=series_record.dataset_name,
-                                subset=series_record.subset,
-                                series_id=series_record.series_id,
-                                model_name=model.name,
-                                status=exc.status,
-                                tags=model.tags,
-                                message=exc.message,
-                                metadata={
-                                    'optional': model.optional,
-                                    'adapter_name': model_spec.adapter_name,
-                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
-                                    'regime_diagnostics': regime_diagnostics.to_dict(),
-                                    'routing_recommendation': routing_recommendation.to_dict(),
-                                    'routing_recommendation_family': adapter_name_to_family(
-                                        routing_recommendation.primary_adapter
-                                    ),
-                                },
-                            )
-                        )
-                        progress.advance(exc.status.value, exc.message)
-                    except Exception as exc:
-                        run_records.append(
-                            BenchmarkRunRecord(
-                                run_id=run_id,
-                                benchmark=series_record.benchmark,
-                                dataset_name=series_record.dataset_name,
-                                subset=series_record.subset,
-                                series_id=series_record.series_id,
-                                model_name=model.name,
-                                status=RunStatus.FAILED,
-                                tags=model.tags,
-                                message=str(exc),
-                                metadata={
-                                    'optional': model.optional,
-                                    'adapter_name': model_spec.adapter_name,
-                                    'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
-                                    'regime_diagnostics': regime_diagnostics.to_dict(),
-                                    'routing_recommendation': routing_recommendation.to_dict(),
-                                    'routing_recommendation_family': adapter_name_to_family(
-                                        routing_recommendation.primary_adapter
-                                    ),
-                                },
-                            )
-                        )
-                        progress.advance(RunStatus.FAILED.value, str(exc))
-                progress.model_finished()
-            progress.dataset_finished()
-    finally:
-        progress.close()
+    def _evaluate_series(
+            self,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            series_record: ForecastingSeriesRecord,
+            regime_diagnostics,
+            routing_recommendation,
+    ) -> None:
+        prediction, metadata = model.forecast(series_record)
+        actual, forecast = self._validate_forecast_length(series_record, prediction)
+        metrics_summary, event_metrics = self._record_metric_bundle(
+            series_record=series_record,
+            model_name=model.name,
+            actual=actual,
+            forecast=forecast,
+            metadata=metadata,
+        )
+        self._record_predictions(
+            series_record=series_record,
+            model_name=model.name,
+            actual=actual,
+            forecast=forecast,
+        )
+        metadata = self._maybe_run_post_fit_tuning_comparison(
+            model_spec=model_spec,
+            model=model,
+            series_record=series_record,
+            baseline_metadata=metadata,
+            baseline_metrics_summary=metrics_summary,
+            regime_diagnostics=regime_diagnostics,
+            routing_recommendation=routing_recommendation,
+        )
+        self.run_records.append(
+            BenchmarkRunRecord(
+                run_id=self.run_id,
+                benchmark=series_record.benchmark,
+                dataset_name=series_record.dataset_name,
+                subset=series_record.subset,
+                series_id=series_record.series_id,
+                model_name=model.name,
+                status=RunStatus.SUCCESS,
+                tags=model.tags,
+                metrics_summary=metrics_summary,
+                metadata=self._build_common_metadata(
+                    model_spec=model_spec,
+                    model=model,
+                    regime_diagnostics=regime_diagnostics,
+                    routing_recommendation=routing_recommendation,
+                    extra={
+                        **metadata,
+                        'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
+                        'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
+                    },
+                ),
+            )
+        )
 
-    aggregate_report = build_leaderboard(tuple(run_records), primary_metric=config.run_spec.primary_metric)
-    return ForecastingBenchmarkResult(
-        run_id=run_id,
-        config=config,
-        series_records=tuple(series_records),
-        run_records=tuple(run_records),
-        prediction_records=tuple(prediction_records),
-        metric_records=tuple(metric_records),
-        aggregate_report=aggregate_report,
-    )
+
+def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkResult:
+    return ForecastingSuiteRunner(config).run_suite()
