@@ -12,8 +12,6 @@ try:  # pragma: no cover - benchmark/lightweight envs may not have fedot install
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
     InputData = OutputData = None
-
-
     class ModelImplementation:  # type: ignore[override]
         def __init__(self, params=None):
             self.params = params or {}

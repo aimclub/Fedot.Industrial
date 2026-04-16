@@ -99,32 +99,47 @@ def test_implementation_run_stage_tuning_on_series_uses_runtime_bridge():
 
 
 def test_okhs_runtime_bridge_supports_stubbed_backend(monkeypatch):
-    class FakeInnerOKHSForecaster:
-        def __init__(self, **kwargs):
-            self.kwargs = kwargs
+    class FakeOKHSRuntimeModel:
+        def __init__(self, forecast_horizon, params=None):
+            self.forecast_horizon = int(forecast_horizon)
+            self.params = dict(params or {})
 
-        def fit(self, time_series, window_size=20):
-            self.window_size = window_size
+        def fit(self, time_series):
             self.series = np.asarray(time_series, dtype=float)
             return self
 
-        def predict(self, time_series=None):
-            del time_series
-            horizon = int(self.kwargs['forecast_horizon'])
-            return np.linspace(1.0, 1.0 + horizon - 1, num=horizon)
-
         def get_optimization_info(self):
             return {
-                'resolved_window_size': int(self.window_size),
+                'resolved_window_size': int(self.params.get('window_size', 18)),
                 'trajectory_representation_policy': 'projected',
                 'trajectory_preprocessing': {'selected_rank': 4},
                 'projection_metadata': {'decode_supported': True},
                 'fdmd_prediction_diagnostics': {'anti_smoothing_diagnostics': {'collapse_detected': False}},
             }
 
+        def predict(self, time_series=None, forecast_horizon=None):
+            del time_series, forecast_horizon
+            horizon = int(self.forecast_horizon)
+            return np.linspace(1.0, 1.0 + horizon - 1, num=horizon)
+
+        def get_diagnostics(self):
+            return {
+                'model_family': 'operator_model',
+                'trajectory_transform': {
+                    'resolved_window_size': int(self.params.get('window_size', 18)),
+                },
+                'decomposition': {'decode_supported': True},
+                'rank_truncation': {'selected_rank': 4},
+                'forecast_head': {},
+            }
+
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster.OKHSForecaster',
-        FakeInnerOKHSForecaster,
+        'fedot_ind.core.models.ts_forecasting.stage_tuning_runtime.build_okhs_fdmd_forecaster',
+        lambda forecast_horizon, params=None, series_length=None: FakeOKHSRuntimeModel(
+            forecast_horizon=forecast_horizon,
+            params={**dict(params or {}), 'series_length': series_length},
+        ),
+        raising=False,
     )
 
     evaluation = evaluate_forecasting_model_on_series(

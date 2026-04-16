@@ -9,6 +9,35 @@ import numpy as np
 
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
+try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
+    from fedot.core.data.data import InputData, OutputData
+    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+    from fedot.core.operations.operation_parameters import OperationParameters
+    from fedot.core.repository.dataset_types import DataTypesEnum
+except Exception:  # pragma: no cover
+    InputData = OutputData = None
+
+
+    class ModelImplementation:  # type: ignore[override]
+        def __init__(self, params=None):
+            self.params = params or {}
+
+        def _convert_to_output(self, input_data, predict=None, data_type=None):
+            return type(
+                'OutputData',
+                (),
+                {'predict': predict, 'data_type': data_type, 'idx': getattr(input_data, 'idx', None)},
+            )
+
+
+    class OperationParameters(dict):  # type: ignore[override]
+        def get(self, key, default=None):
+            return super().get(key, default)
+
+
+    class DataTypesEnum:  # pragma: no cover
+        table = 'table'
+
 NEURAL_FORECASTING_MODEL_REGISTRY: dict[str, Any] = {
     'patch_tst_model': (
         'fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst',
@@ -46,6 +75,27 @@ class NeuralForecastHeadSpec:
     @property
     def family(self) -> str:
         return 'neural_forecaster'
+
+
+@dataclass(frozen=True)
+class NeuralForecastHeadRunResult:
+    spec: NeuralForecastHeadSpec
+    forecast: tuple[float, ...]
+    diagnostics: dict[str, Any]
+    metadata: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'spec': {
+                'model_name': self.spec.model_name,
+                'forecast_horizon': int(self.spec.forecast_horizon),
+                'params': dict(self.spec.params),
+                'family': self.spec.family,
+            },
+            'forecast': list(self.forecast),
+            'diagnostics': dict(self.diagnostics),
+            'metadata': dict(self.metadata),
+        }
 
 
 def resolve_neural_forecasting_model_cls(model_name: str):
@@ -167,6 +217,33 @@ def build_neural_forecast_head(
     )
 
 
+def run_neural_forecast_head_on_series(
+        model_name: str,
+        *,
+        time_series: np.ndarray,
+        forecast_horizon: int,
+        params: dict[str, Any] | None = None,
+) -> NeuralForecastHeadRunResult:
+    spec = NeuralForecastHeadSpec(
+        model_name=model_name,
+        forecast_horizon=int(forecast_horizon),
+        params=params,
+    )
+    head = NeuralForecastHead(spec=spec)
+    history = np.asarray(time_series, dtype=float).reshape(-1)
+    head.fit(history)
+    forecast = head.predict(history)
+    return NeuralForecastHeadRunResult(
+        spec=spec,
+        forecast=tuple(float(value) for value in np.asarray(forecast, dtype=float).reshape(-1).tolist()),
+        diagnostics=head.get_diagnostics(),
+        metadata={
+            'history_length': int(len(history)),
+            'model_family': spec.family,
+        },
+    )
+
+
 @dataclass
 class NeuralForecastHead:
     spec: NeuralForecastHeadSpec
@@ -223,3 +300,55 @@ class NeuralForecastHead:
 
     def get_diagnostics(self) -> dict[str, Any]:
         return dict(self.diagnostics_)
+
+
+class NeuralForecastHeadImplementation(ModelImplementation):
+    model_name: str = ''
+
+    def __init__(self, params: OperationParameters | None = None):
+        params = params or OperationParameters()
+        super().__init__(params)
+        self.model_: NeuralForecastHead | None = None
+
+    def fit(self, input_data: InputData):
+        self.model_ = build_neural_forecast_head(
+            self.model_name,
+            forecast_horizon=int(input_data.task.task_params.forecast_length),
+            params=dict(self.params),
+        )
+        self.model_.fit(np.asarray(input_data.features, dtype=float))
+        return self
+
+    def predict(self, input_data: InputData) -> OutputData:
+        prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
+        return self._convert_to_output(
+            input_data,
+            predict=np.asarray(prediction, dtype=float),
+            data_type=DataTypesEnum.table,
+        )
+
+    def predict_for_fit(self, input_data: InputData):
+        if self.model_ is None:
+            self.fit(input_data)
+        return self.predict(input_data)
+
+    def get_diagnostics(self) -> dict[str, Any]:
+        if self.model_ is None:
+            return {}
+        return self.model_.get_diagnostics()
+
+
+class PatchTSTForecastHeadImplementation(NeuralForecastHeadImplementation):
+    model_name = 'patch_tst_model'
+
+
+class TCNForecastHeadImplementation(NeuralForecastHeadImplementation):
+    model_name = 'tcn_model'
+
+
+class DeepARForecastHeadImplementation(NeuralForecastHeadImplementation):
+    model_name = 'deepar_model'
+
+
+class NBeatsForecastHeadImplementation(NeuralForecastHeadImplementation):
+    model_name = 'nbeats_model'

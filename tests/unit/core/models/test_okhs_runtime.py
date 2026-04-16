@@ -15,6 +15,15 @@ from fedot_ind.core.models.kernel.okhs_runtime import (
     run_okhs_direct_prediction,
     run_okhs_dmd_prediction,
 )
+from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import (
+    OKHSFDMDForecasterRunResult,
+    OKHSFDMDForecasterSpec,
+    build_okhs_fdmd_spec,
+    build_okhs_fdmd_runtime_diagnostics,
+    normalize_okhs_fdmd_params,
+    normalize_okhs_fdmd_prediction,
+    run_okhs_fdmd_forecaster_on_series,
+)
 
 
 class CountingQSelector:
@@ -405,3 +414,96 @@ def test_build_okhs_optimization_info_supports_direct_runtime_diagnostics():
     assert info['direct_fit_diagnostics']['gram_matrix_shape'] == (4, 4)
     assert info['direct_prediction_diagnostics']['reference_trajectory_count'] == 4
     assert info['stage_diagnostics']['forecast_head']['fit_diagnostics']['gram_matrix_shape'] == (4, 4)
+
+
+def test_run_okhs_fdmd_forecaster_on_series_returns_typed_result(monkeypatch):
+    class FakeInnerForecaster:
+        def __init__(self, **kwargs):
+            self.forecast_horizon = int(kwargs['forecast_horizon'])
+            self.window_size = int(kwargs.get('window_size', 8))
+
+        def fit(self, time_series, window_size=20):
+            self.window_size = int(window_size)
+            self.history = np.asarray(time_series, dtype=float)
+            return self
+
+        def predict(self, time_series=None):
+            del time_series
+            return np.linspace(1.0, 1.0 + self.forecast_horizon - 1, num=self.forecast_horizon)
+
+        def get_optimization_info(self):
+            return {
+                'q': 0.7,
+                'q_policy': 'fixed',
+                'window_policy': 'adaptive_cycle_aware',
+                'resolved_window_size': self.window_size,
+                'trajectory_rank_policy': 'explained_dispersion',
+                'trajectory_representation_policy': 'projected',
+                'trajectory_preprocessing': {'selected_rank': 4},
+                'projection_metadata': {'decode_supported': True},
+                'fdmd_prediction_diagnostics': {'anti_smoothing_diagnostics': {'collapse_detected': False}},
+            }
+
+    monkeypatch.setattr(
+        'fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster.OKHSForecaster',
+        FakeInnerForecaster,
+    )
+
+    result = run_okhs_fdmd_forecaster_on_series(
+        time_series=np.arange(40, dtype=float),
+        forecast_horizon=4,
+        params={'window_size': 10, 'q': 0.7, 'n_modes': 3},
+    )
+
+    assert isinstance(result, OKHSFDMDForecasterRunResult)
+    assert isinstance(result.spec, OKHSFDMDForecasterSpec)
+    assert result.spec.family == 'operator_model'
+    assert result.forecast == (1.0, 2.0, 3.0, 4.0)
+    assert result.diagnostics['model_name'] == 'okhs_fdmd_forecaster'
+
+
+def test_build_okhs_fdmd_spec_normalizes_and_clips_runtime_params():
+    spec = build_okhs_fdmd_spec(
+        forecast_horizon=6,
+        params={'window_size': 40, 'q': 0.8, 'n_modes': 7},
+        series_length=18,
+    )
+
+    assert isinstance(spec, OKHSFDMDForecasterSpec)
+    assert spec.forecast_horizon == 6
+    assert spec.params['window_size'] == 17
+    assert spec.params['q'] == 0.8
+    assert spec.params['n_modes'] == 7
+    assert spec.family == 'operator_model'
+
+
+def test_normalize_okhs_fdmd_params_keeps_default_vocabulary():
+    params = normalize_okhs_fdmd_params({'window_size': 12}, forecast_horizon=4)
+
+    assert params['window_size'] == 12
+    assert params['trajectory_representation_policy'] == 'projected'
+    assert params['prediction_mode_selection_policy'] == 'adaptive_tail_energy'
+    assert params['device'] == 'cpu'
+
+
+def test_normalize_okhs_fdmd_prediction_squeezes_and_clips_horizon():
+    prediction = normalize_okhs_fdmd_prediction(np.array([[1.0], [2.0], [3.0], [4.0]]), forecast_horizon=3)
+
+    assert prediction.tolist() == [1.0, 2.0, 3.0]
+
+
+def test_build_okhs_fdmd_runtime_diagnostics_wraps_stage_vocabulary():
+    diagnostics = build_okhs_fdmd_runtime_diagnostics(
+        {
+            'resolved_window_size': 18,
+            'trajectory_representation_policy': 'projected',
+            'trajectory_preprocessing': {'selected_rank': 4},
+            'projection_metadata': {'decode_supported': True},
+        },
+        prediction_diagnostics={'forecast_shape': (6,)},
+    )
+
+    assert diagnostics['model_name'] == 'okhs_fdmd_forecaster'
+    assert diagnostics['model_family'] == 'operator_model'
+    assert diagnostics['trajectory_transform']['resolved_window_size'] == 18
+    assert diagnostics['forecast_shape'] == (6,)

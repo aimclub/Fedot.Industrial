@@ -67,6 +67,12 @@ from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import
 from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import \
     LowRankLaggedRidgeForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
+    DeepARForecastHeadImplementation,
+    NBeatsForecastHeadImplementation,
+    PatchTSTForecastHeadImplementation,
+    TCNForecastHeadImplementation,
+)
 from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
@@ -209,9 +215,11 @@ class AtomizedModel(Enum):
         'ssa_forecaster': SSAForecasterImplementation,
         'mssa_forecaster': MSSAForecasterImplementation,
         'havok_forecaster': HAVOKForecasterImplementation,
-        # variational
-        'deepar_model': DeepAR,
-        'tcn_model': TCNModel,
+        # primitive neural forecast heads
+        'patch_tst_model': PatchTSTForecastHeadImplementation,
+        'deepar_model': DeepARForecastHeadImplementation,
+        'tcn_model': TCNForecastHeadImplementation,
+        'nbeats_model': NBeatsForecastHeadImplementation,
         'glm': GLMIndustrial
         # 'locf': RepeatLastValueImplementation
     }

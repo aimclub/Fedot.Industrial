@@ -1,11 +1,17 @@
 import numpy as np
 
 from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
+    DeepARForecastHeadImplementation,
     NEURAL_FORECASTING_MODEL_REGISTRY,
+    NBeatsForecastHeadImplementation,
     NeuralForecastHead,
+    NeuralForecastHeadRunResult,
     NeuralForecastHeadSpec,
+    PatchTSTForecastHeadImplementation,
+    TCNForecastHeadImplementation,
     build_neural_forecast_head,
     build_neural_forecasting_stage_diagnostics,
+    run_neural_forecast_head_on_series,
 )
 from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import (
     NeuralForecastHeadBridge,
@@ -75,6 +81,45 @@ def test_neural_forecast_head_spec_canonicalizes_runtime_contract():
     assert spec.forecast_horizon == 6
     assert spec.params['patch_len'] == 16
     assert spec.family == 'neural_forecaster'
+
+
+def test_run_neural_forecast_head_on_series_returns_typed_result(monkeypatch):
+    class FakePrediction:
+        def __init__(self, values):
+            self.predict = np.asarray(values, dtype=float)
+
+    class FakeModel:
+        def __init__(self, params):
+            self.params = params
+
+        def fit(self, input_data):
+            self.seen_fit_length = len(np.asarray(input_data.features).reshape(-1))
+            return self
+
+        def predict(self, input_data):
+            horizon = int(input_data.task.task_params.forecast_length)
+            return FakePrediction(np.linspace(3.0, 3.0 + horizon - 1, num=horizon))
+
+    monkeypatch.setitem(NEURAL_FORECASTING_MODEL_REGISTRY, 'patch_tst_model', FakeModel)
+
+    result = run_neural_forecast_head_on_series(
+        'patch_tst_model',
+        time_series=np.arange(40, dtype=float),
+        forecast_horizon=4,
+        params={'patch_len': 12, 'epochs': 2},
+    )
+
+    assert isinstance(result, NeuralForecastHeadRunResult)
+    assert result.spec.family == 'neural_forecaster'
+    assert result.forecast == (3.0, 4.0, 5.0, 6.0)
+    assert result.diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
+
+
+def test_neural_forecast_head_implementations_publish_model_specific_entrypoints():
+    assert PatchTSTForecastHeadImplementation.model_name == 'patch_tst_model'
+    assert TCNForecastHeadImplementation.model_name == 'tcn_model'
+    assert DeepARForecastHeadImplementation.model_name == 'deepar_model'
+    assert NBeatsForecastHeadImplementation.model_name == 'nbeats_model'
 
 
 def test_neural_forecast_head_bridge_remains_compatibility_shell(monkeypatch):

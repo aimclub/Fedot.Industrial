@@ -25,6 +25,11 @@ try:
 except Exception:  # pragma: no cover - lightweight envs may miss neural runtime deps
     build_neural_forecast_head = None
 
+try:
+    from .okhs_fdmd_forecaster import build_okhs_fdmd_forecaster
+except Exception:  # pragma: no cover - lightweight envs may miss operator runtime deps
+    build_okhs_fdmd_forecaster = None
+
 
 @dataclass(frozen=True)
 class ForecastingSeriesEvaluation:
@@ -199,6 +204,7 @@ def _instantiate_runtime_model(
         *,
         forecast_horizon: int,
         params: dict[str, Any],
+        series_length: int | None = None,
 ):
     if canonical_model_name == 'lagged_ridge_forecaster':
         from .lagged_ridge_forecaster import LaggedRidgeForecaster
@@ -207,8 +213,13 @@ def _instantiate_runtime_model(
         from .low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
         model_cls = LowRankLaggedRidgeForecaster
     elif canonical_model_name in {'okhs', 'okhs_fdmd_forecaster'}:
-        from .okhs_fdmd_forecaster import OKHSFDMDForecaster
-        model_cls = OKHSFDMDForecaster
+        if build_okhs_fdmd_forecaster is None:
+            raise ValueError('OKHS FDMD runtime is unavailable in the current environment.')
+        return build_okhs_fdmd_forecaster(
+            forecast_horizon=int(forecast_horizon),
+            params=dict(params),
+            series_length=series_length,
+        )
     elif canonical_model_name == 'havok_forecaster':
         from .havok_forecaster import HAVOKForecaster
         model_cls = HAVOKForecaster
@@ -280,6 +291,7 @@ def evaluate_forecasting_model_on_series(
         canonical_model_name,
         forecast_horizon=validation_horizon,
         params=resolved_params,
+        series_length=int(np.asarray(prepared_train_series).reshape(-1).shape[0]),
     )
     model.fit(prepared_train_series)
     try:

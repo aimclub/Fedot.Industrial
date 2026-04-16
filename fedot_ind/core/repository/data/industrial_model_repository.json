@@ -403,7 +403,7 @@
       ]
     },
     "patch_tst_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": ["fast_train", "best_quality", "ts"],
       "tags": [
         "deep", "ts_model"
@@ -411,7 +411,7 @@
 	  "input_type": "[DataTypesEnum.ts]"
     },
     "tcn_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": [
         "fast_train",
         "best_quality",
@@ -424,7 +424,7 @@
       "input_type": "[DataTypesEnum.ts]"
     },
     "deepar_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": [
         "ts"
       ],
@@ -701,7 +701,7 @@
       ]
     },
     "nbeats_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": ["fast_train", "best_quality", "ts"],
       "tags": [
         "deep", "ts_model"

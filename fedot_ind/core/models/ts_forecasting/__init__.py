@@ -45,19 +45,36 @@ try:  # pragma: no cover - tensor-native forecasting stack requires torch
         LowRankLaggedRidgeForecasterImplementation,
     )
     from .neural_forecast_head import (
+        DeepARForecastHeadImplementation,
         NEURAL_FORECASTING_MODEL_REGISTRY,
+        NBeatsForecastHeadImplementation,
         NeuralForecastHead,
+        NeuralForecastHeadImplementation,
+        NeuralForecastHeadRunResult,
         NeuralForecastHeadSpec,
+        PatchTSTForecastHeadImplementation,
+        TCNForecastHeadImplementation,
         build_neural_forecast_head,
         build_neural_forecasting_input_data,
         build_neural_forecasting_stage_diagnostics,
         normalize_neural_forecast_prediction,
+        run_neural_forecast_head_on_series,
         resolve_neural_forecasting_model_cls,
     )
     from .neural_forecast_head_bridge import (
         NeuralForecastHeadBridge,
     )
     from .okhs_fdmd_forecaster import OKHSFDMDForecaster, OKHSFDMDForecasterImplementation
+    from .okhs_fdmd_forecaster import (
+        OKHSFDMDForecasterRunResult,
+        OKHSFDMDForecasterSpec,
+        build_okhs_fdmd_forecaster,
+        build_okhs_fdmd_spec,
+        build_okhs_fdmd_runtime_diagnostics,
+        normalize_okhs_fdmd_params,
+        normalize_okhs_fdmd_prediction,
+        run_okhs_fdmd_forecaster_on_series,
+    )
 except Exception:  # pragma: no cover - keep regime-level utilities importable in lightweight envs
     pass
 
@@ -104,17 +121,32 @@ for _optional_symbol in (
         'LowRankLaggedRidgeForecasterImplementation',
         'HybridEnsembleForecaster',
         'HybridEnsembleForecasterImplementation',
+        'DeepARForecastHeadImplementation',
+        'NBeatsForecastHeadImplementation',
         'NeuralForecastHead',
+        'NeuralForecastHeadImplementation',
+        'NeuralForecastHeadRunResult',
         'NeuralForecastHeadSpec',
         'NeuralForecastHeadBridge',
         'NEURAL_FORECASTING_MODEL_REGISTRY',
+        'PatchTSTForecastHeadImplementation',
+        'TCNForecastHeadImplementation',
         'build_neural_forecast_head',
         'build_neural_forecasting_input_data',
         'build_neural_forecasting_stage_diagnostics',
         'normalize_neural_forecast_prediction',
+        'run_neural_forecast_head_on_series',
         'resolve_neural_forecasting_model_cls',
         'OKHSFDMDForecaster',
         'OKHSFDMDForecasterImplementation',
+        'OKHSFDMDForecasterRunResult',
+        'OKHSFDMDForecasterSpec',
+        'build_okhs_fdmd_forecaster',
+        'build_okhs_fdmd_spec',
+        'build_okhs_fdmd_runtime_diagnostics',
+        'normalize_okhs_fdmd_params',
+        'normalize_okhs_fdmd_prediction',
+        'run_okhs_fdmd_forecaster_on_series',
 ):
     if _optional_symbol in globals():
         __all__.append(_optional_symbol)

@@ -33,16 +33,22 @@ try:  # pragma: no cover - tensor-native composites require torch
     from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
     from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
     from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
-    from fedot_ind.core.models.ts_forecasting.neural_forecast_head import build_neural_forecast_head
-    from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecaster
+    from fedot_ind.core.models.ts_forecasting.neural_forecast_head import run_neural_forecast_head_on_series
+    from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import (
+        OKHSFDMDForecaster,
+        build_okhs_fdmd_spec,
+        run_okhs_fdmd_forecaster_on_series,
+    )
     from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
     from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 except Exception:  # pragma: no cover
     HybridEnsembleForecaster = None
     LaggedRidgeForecaster = None
     LowRankLaggedRidgeForecaster = None
-    build_neural_forecast_head = None
+    run_neural_forecast_head_on_series = None
     OKHSFDMDForecaster = None
+    build_okhs_fdmd_spec = None
+    run_okhs_fdmd_forecaster_on_series = None
     ForecastingSplitKind = None
     ForecastingSplitSpec = None
     run_forecasting_stage_tuning_on_series = None
@@ -841,66 +847,22 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
     device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
-        if OKHSFDMDForecaster is None:
+        if (
+                OKHSFDMDForecaster is None
+                or build_okhs_fdmd_spec is None
+                or run_okhs_fdmd_forecaster_on_series is None
+        ):
             return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for okhs_fdmd_forecaster.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         train = np.asarray(series_record.train_values, dtype=float)
-        model = OKHSFDMDForecaster(
+        spec = build_okhs_fdmd_spec(
             forecast_horizon=series_record.forecast_horizon,
-            q=self.q,
-            n_modes=self.n_modes,
-            window_size=min(max(self.window_size, 4), len(train) - 1),
-            q_policy=self.q_policy,
-            window_policy=self.window_policy,
-            trajectory_sampling_policy=self.trajectory_sampling_policy,
-            trajectory_rank_policy=self.trajectory_rank_policy,
-            trajectory_rank_value=self.trajectory_rank_value,
-            trajectory_representation_policy=self.trajectory_representation_policy,
-            latent_trajectory_stride_policy=self.latent_trajectory_stride_policy,
-            latent_trajectory_stride=self.latent_trajectory_stride,
-            mode_selection_policy=self.mode_selection_policy,
-            mode_energy_threshold=self.mode_energy_threshold,
-            prediction_mode_selection_policy=self.prediction_mode_selection_policy,
-            max_prediction_modes=self.max_prediction_modes,
-            min_prediction_modes=self.min_prediction_modes,
-            boundary_alignment_policy=self.boundary_alignment_policy,
-            boundary_alignment_decay=self.boundary_alignment_decay,
-            prediction_stability_threshold=self.prediction_stability_threshold,
-            anti_smoothing_policy=self.anti_smoothing_policy,
-            anti_smoothing_tail_window=self.anti_smoothing_tail_window,
-            anti_smoothing_amplitude_ratio=self.anti_smoothing_amplitude_ratio,
-            anti_smoothing_monotone_ratio=self.anti_smoothing_monotone_ratio,
-            anti_smoothing_oscillation_floor=self.anti_smoothing_oscillation_floor,
-            anti_smoothing_decay=self.anti_smoothing_decay,
-            anti_smoothing_target_amplitude_ratio=self.anti_smoothing_target_amplitude_ratio,
-            device=self.device,
-        )
-        model.fit(train)
-        forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)[:series_record.forecast_horizon]
-        metadata = model.get_diagnostics()
-        metadata.update(
-            {
-                'selected_q': float(self.q),
-                'window_size': int(model.window_size),
-                'last_train_value': float(train[-1]),
-                'first_prediction_value': float(forecast[0]) if len(forecast) else None,
-                'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
-            }
-        )
-        if metadata['first_prediction_value'] is not None:
-            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
-        if metadata['first_actual_value'] is not None:
-            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
-        metadata = _maybe_attach_stage_tuning_report(
-            metadata,
-            adapter_name='okhs_fdmd_forecaster',
-            series_record=series_record,
-            base_params={
+            params={
                 'q': self.q,
                 'n_modes': self.n_modes,
-                'window_size': min(max(self.window_size, 4), len(train) - 1),
+                'window_size': self.window_size,
                 'q_policy': self.q_policy,
                 'window_policy': self.window_policy,
                 'trajectory_sampling_policy': self.trajectory_sampling_policy,
@@ -926,6 +888,33 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
                 'anti_smoothing_target_amplitude_ratio': self.anti_smoothing_target_amplitude_ratio,
                 'device': self.device,
             },
+            series_length=len(train),
+        )
+        run_result = run_okhs_fdmd_forecaster_on_series(
+            time_series=train,
+            forecast_horizon=series_record.forecast_horizon,
+            params=dict(spec.params),
+        )
+        forecast = np.asarray(run_result.forecast, dtype=float).reshape(-1)[:series_record.forecast_horizon]
+        metadata = dict(run_result.diagnostics)
+        metadata.update(
+            {
+                'selected_q': float(spec.params['q']),
+                'window_size': int(spec.params['window_size']),
+                'last_train_value': float(train[-1]),
+                'first_prediction_value': float(forecast[0]) if len(forecast) else None,
+                'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
+            }
+        )
+        if metadata['first_prediction_value'] is not None:
+            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
+        if metadata['first_actual_value'] is not None:
+            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='okhs_fdmd_forecaster',
+            series_record=series_record,
+            base_params=dict(spec.params),
             runtime_config=self.stage_tuning_runtime,
         )
         return forecast, metadata
@@ -1264,7 +1253,7 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
-        if torch is None or build_neural_forecast_head is None:
+        if torch is None or run_neural_forecast_head_on_series is None:
             return RunStatus.NOT_AVAILABLE, 'torch/native neural forecasting runtime is unavailable.'
         return RunStatus.SUCCESS, 'ready'
 
@@ -1274,14 +1263,14 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
             key: value for key, value in self.__dict__.items()
             if key not in {'name', 'tags', 'optional', 'stage_tuning_runtime', 'neural_model_name'}
         }
-        head = build_neural_forecast_head(
+        run_result = run_neural_forecast_head_on_series(
             self.neural_model_name,
+            time_series=train,
             forecast_horizon=series_record.forecast_horizon,
             params=params,
         )
-        head.fit(train)
-        forecast = np.asarray(head.predict(train), dtype=float).reshape(-1)
-        metadata = head.get_diagnostics()
+        forecast = np.asarray(run_result.forecast, dtype=float).reshape(-1)
+        metadata = dict(run_result.diagnostics)
         metadata.update(
             {
                 'last_train_value': float(train[-1]),

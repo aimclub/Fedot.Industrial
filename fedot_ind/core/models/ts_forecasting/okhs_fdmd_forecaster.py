@@ -43,6 +43,142 @@ from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
 )
 from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 
+OKHS_FDMD_DEFAULT_PARAMS: dict[str, Any] = {
+    'q': 0.7,
+    'n_modes': 5,
+    'window_size': 20,
+    'q_policy': 'fixed',
+    'window_policy': 'adaptive_cycle_aware',
+    'trajectory_sampling_policy': 'dense',
+    'trajectory_rank_policy': 'explained_dispersion',
+    'trajectory_rank_value': None,
+    'trajectory_representation_policy': 'projected',
+    'latent_trajectory_stride_policy': 'adaptive',
+    'latent_trajectory_stride': None,
+    'mode_selection_policy': 'energy',
+    'mode_energy_threshold': 0.95,
+    'prediction_mode_selection_policy': 'adaptive_tail_energy',
+    'max_prediction_modes': None,
+    'min_prediction_modes': 4,
+    'boundary_alignment_policy': 'tapered_offset',
+    'boundary_alignment_decay': 4.0,
+    'prediction_stability_threshold': 0.03,
+    'anti_smoothing_policy': 'residual_bridge',
+    'anti_smoothing_tail_window': None,
+    'anti_smoothing_amplitude_ratio': 0.35,
+    'anti_smoothing_monotone_ratio': 0.9,
+    'anti_smoothing_oscillation_floor': 0.25,
+    'anti_smoothing_decay': 2.5,
+    'anti_smoothing_target_amplitude_ratio': 0.8,
+    'device': 'cpu',
+}
+
+
+def _maybe_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
+
+
+def _maybe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def normalize_okhs_fdmd_params(
+        params: dict[str, Any] | None = None,
+        *,
+        forecast_horizon: int,
+        series_length: int | None = None,
+) -> dict[str, Any]:
+    resolved = {
+        key: value
+        for key, value in OKHS_FDMD_DEFAULT_PARAMS.items()
+    }
+    for key, value in dict(params or {}).items():
+        if value is not None:
+            resolved[key] = value
+
+    resolved_forecast_horizon = int(forecast_horizon)
+    resolved_window_size = int(resolved.get('window_size', 20))
+    if series_length is None:
+        resolved['window_size'] = max(4, resolved_window_size)
+    else:
+        max_window_size = max(2, int(series_length) - 1)
+        min_window_size = 4 if max_window_size >= 4 else max_window_size
+        resolved['window_size'] = min(max(resolved_window_size, min_window_size), max_window_size)
+
+    resolved['q'] = float(resolved.get('q', 0.7))
+    resolved['n_modes'] = int(resolved.get('n_modes', 5))
+    resolved['q_policy'] = str(resolved.get('q_policy', 'fixed'))
+    resolved['window_policy'] = str(resolved.get('window_policy', 'adaptive_cycle_aware'))
+    resolved['trajectory_sampling_policy'] = str(resolved.get('trajectory_sampling_policy', 'dense'))
+    resolved['trajectory_rank_policy'] = str(resolved.get('trajectory_rank_policy', 'explained_dispersion'))
+    resolved['trajectory_rank_value'] = _maybe_int(resolved.get('trajectory_rank_value'))
+    resolved['trajectory_representation_policy'] = str(
+        resolved.get('trajectory_representation_policy', 'projected')
+    )
+    resolved['latent_trajectory_stride_policy'] = str(
+        resolved.get('latent_trajectory_stride_policy', 'adaptive')
+    )
+    resolved['latent_trajectory_stride'] = _maybe_int(resolved.get('latent_trajectory_stride'))
+    resolved['mode_selection_policy'] = str(resolved.get('mode_selection_policy', 'energy'))
+    resolved['mode_energy_threshold'] = float(resolved.get('mode_energy_threshold', 0.95))
+    resolved['prediction_mode_selection_policy'] = str(
+        resolved.get('prediction_mode_selection_policy', 'adaptive_tail_energy')
+    )
+    resolved['max_prediction_modes'] = _maybe_int(resolved.get('max_prediction_modes'))
+    resolved['min_prediction_modes'] = int(resolved.get('min_prediction_modes', 4))
+    resolved['boundary_alignment_policy'] = str(resolved.get('boundary_alignment_policy', 'tapered_offset'))
+    resolved['boundary_alignment_decay'] = float(resolved.get('boundary_alignment_decay', 4.0))
+    resolved['prediction_stability_threshold'] = _maybe_float(resolved.get('prediction_stability_threshold'))
+    resolved['anti_smoothing_policy'] = str(resolved.get('anti_smoothing_policy', 'residual_bridge'))
+    resolved['anti_smoothing_tail_window'] = _maybe_int(resolved.get('anti_smoothing_tail_window'))
+    resolved['anti_smoothing_amplitude_ratio'] = float(resolved.get('anti_smoothing_amplitude_ratio', 0.35))
+    resolved['anti_smoothing_monotone_ratio'] = float(resolved.get('anti_smoothing_monotone_ratio', 0.9))
+    resolved['anti_smoothing_oscillation_floor'] = float(
+        resolved.get('anti_smoothing_oscillation_floor', 0.25)
+    )
+    resolved['anti_smoothing_decay'] = float(resolved.get('anti_smoothing_decay', 2.5))
+    resolved['anti_smoothing_target_amplitude_ratio'] = float(
+        resolved.get('anti_smoothing_target_amplitude_ratio', 0.8)
+    )
+    resolved['device'] = str(resolved.get('device', 'cpu'))
+    resolved['forecast_horizon'] = resolved_forecast_horizon
+    if series_length is not None:
+        resolved['series_length'] = int(series_length)
+    return resolved
+
+
+def normalize_okhs_fdmd_prediction(
+        prediction: np.ndarray | Any,
+        *,
+        forecast_horizon: int,
+) -> np.ndarray:
+    if hasattr(prediction, 'cpu'):
+        prediction = prediction.cpu()
+    return np.asarray(prediction, dtype=float).reshape(-1)[: int(forecast_horizon)]
+
+
+def build_okhs_fdmd_runtime_diagnostics(
+        optimization_info: dict[str, Any],
+        *,
+        model_name: str = 'okhs_fdmd_forecaster',
+        model_family: str = 'operator_model',
+        prediction_diagnostics: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    stage_diagnostics = build_okhs_stage_diagnostics(dict(optimization_info))
+    runtime_diagnostics = {
+        'model_family': model_family,
+        'model_name': model_name,
+        **stage_diagnostics,
+        'raw_okhs': dict(optimization_info),
+    }
+    if prediction_diagnostics:
+        runtime_diagnostics.update(dict(prediction_diagnostics))
+    return runtime_diagnostics
+
 
 @dataclass
 class OKHSFDMDForecaster:
@@ -111,12 +247,7 @@ class OKHSFDMDForecaster:
         optimization_info = dict(self.inner_model_.get_optimization_info())
         self.raw_diagnostics_ = optimization_info
         self.stage_diagnostics_ = build_okhs_stage_diagnostics(optimization_info)
-        self.diagnostics_ = {
-            'model_family': 'operator_model',
-            'model_name': 'okhs_fdmd_forecaster',
-            **self.stage_diagnostics_,
-            'raw_okhs': optimization_info,
-        }
+        self.diagnostics_ = build_okhs_fdmd_runtime_diagnostics(optimization_info)
 
     def fit(self, time_series: np.ndarray) -> 'OKHSFDMDForecaster':
         series = np.asarray(time_series, dtype=float).reshape(-1)
@@ -134,15 +265,16 @@ class OKHSFDMDForecaster:
             )
         source_series = self.training_history_ if time_series is None else np.asarray(time_series, dtype=float).reshape(
             -1)
-        forecast = self.inner_model_.predict(source_series)
-        if hasattr(forecast, 'cpu'):
-            forecast = forecast.cpu()
-        values = np.asarray(forecast, dtype=float).reshape(-1)[:horizon]
-        self._refresh_diagnostics()
         self.last_prediction_diagnostics_ = {
+            'source_series_length': int(len(source_series)),
+        }
+        forecast = self.inner_model_.predict(source_series)
+        values = normalize_okhs_fdmd_prediction(forecast, forecast_horizon=horizon)
+        self._refresh_diagnostics()
+        self.last_prediction_diagnostics_.update({
             'forecast_shape': tuple(int(value) for value in values.shape),
             'first_prediction_value': float(values[0]) if len(values) else None,
-        }
+        })
         return values
 
     def get_diagnostics(self) -> dict[str, Any]:
@@ -152,6 +284,110 @@ class OKHSFDMDForecaster:
         }
 
 
+@dataclass(frozen=True)
+class OKHSFDMDForecasterSpec:
+    forecast_horizon: int
+    params: dict[str, Any]
+
+    @property
+    def family(self) -> str:
+        return 'operator_model'
+
+    @property
+    def model_name(self) -> str:
+        return 'okhs_fdmd_forecaster'
+
+
+@dataclass(frozen=True)
+class OKHSFDMDForecasterRunResult:
+    spec: OKHSFDMDForecasterSpec
+    forecast: tuple[float, ...]
+    diagnostics: dict[str, Any]
+    metadata: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'spec': {
+                'forecast_horizon': int(self.spec.forecast_horizon),
+                'params': dict(self.spec.params),
+                'family': self.spec.family,
+                'model_name': self.spec.model_name,
+            },
+            'forecast': list(self.forecast),
+            'diagnostics': dict(self.diagnostics),
+            'metadata': dict(self.metadata),
+        }
+
+
+def build_okhs_fdmd_spec(
+        *,
+        forecast_horizon: int,
+        params: dict[str, Any] | None = None,
+        series_length: int | None = None,
+) -> OKHSFDMDForecasterSpec:
+    normalized_params = normalize_okhs_fdmd_params(
+        params,
+        forecast_horizon=int(forecast_horizon),
+        series_length=series_length,
+    )
+    normalized_params.pop('forecast_horizon', None)
+    normalized_params.pop('series_length', None)
+    return OKHSFDMDForecasterSpec(
+        forecast_horizon=int(forecast_horizon),
+        params=normalized_params,
+    )
+
+
+def build_okhs_fdmd_forecaster(
+        *,
+        forecast_horizon: int | None = None,
+        params: dict[str, Any] | None = None,
+        series_length: int | None = None,
+        spec: OKHSFDMDForecasterSpec | None = None,
+) -> OKHSFDMDForecaster:
+    resolved_spec = spec or build_okhs_fdmd_spec(
+        forecast_horizon=int(forecast_horizon),
+        params=params,
+        series_length=series_length,
+    )
+    return OKHSFDMDForecaster(
+        forecast_horizon=int(resolved_spec.forecast_horizon),
+        **dict(resolved_spec.params),
+    )
+
+
+def run_okhs_fdmd_forecaster_on_series(
+        *,
+        time_series: np.ndarray,
+        forecast_horizon: int,
+        params: dict[str, Any] | None = None,
+) -> OKHSFDMDForecasterRunResult:
+    history = np.asarray(time_series, dtype=float).reshape(-1)
+    spec = build_okhs_fdmd_spec(
+        forecast_horizon=int(forecast_horizon),
+        params=params,
+        series_length=len(history),
+    )
+    model = build_okhs_fdmd_forecaster(
+        spec=spec,
+    )
+    model.fit(history)
+    forecast = normalize_okhs_fdmd_prediction(
+        model.predict(history),
+        forecast_horizon=spec.forecast_horizon,
+    )
+    return OKHSFDMDForecasterRunResult(
+        spec=spec,
+        forecast=tuple(float(value) for value in forecast.tolist()),
+        diagnostics=model.get_diagnostics(),
+        metadata={
+            'history_length': int(len(history)),
+            'model_family': spec.family,
+            'resolved_params': dict(spec.params),
+        },
+    )
+
+
 class OKHSFDMDForecasterImplementation(ModelImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         params = params or OperationParameters()
@@ -159,48 +395,24 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         self.model_: OKHSFDMDForecaster | None = None
 
     def fit(self, input_data: InputData):
-        self.model_ = OKHSFDMDForecaster(
+        features = np.asarray(input_data.features, dtype=float)
+        self.spec_ = build_okhs_fdmd_spec(
             forecast_horizon=input_data.task.task_params.forecast_length,
-            q=float(self.params.get('q', 0.7)),
-            n_modes=int(self.params.get('n_modes', 5)),
-            window_size=int(self.params.get('window_size', 20)),
-            q_policy=str(self.params.get('q_policy', 'fixed')),
-            window_policy=str(self.params.get('window_policy', 'adaptive_cycle_aware')),
-            trajectory_sampling_policy=str(self.params.get('trajectory_sampling_policy', 'dense')),
-            trajectory_rank_policy=str(self.params.get('trajectory_rank_policy', 'explained_dispersion')),
-            trajectory_rank_value=self.params.get('trajectory_rank_value'),
-            trajectory_representation_policy=str(self.params.get('trajectory_representation_policy', 'projected')),
-            latent_trajectory_stride_policy=str(self.params.get('latent_trajectory_stride_policy', 'adaptive')),
-            latent_trajectory_stride=self.params.get('latent_trajectory_stride'),
-            mode_selection_policy=str(self.params.get('mode_selection_policy', 'energy')),
-            mode_energy_threshold=float(self.params.get('mode_energy_threshold', 0.95)),
-            prediction_mode_selection_policy=str(
-                self.params.get('prediction_mode_selection_policy', 'adaptive_tail_energy')
-            ),
-            max_prediction_modes=self.params.get('max_prediction_modes'),
-            min_prediction_modes=int(self.params.get('min_prediction_modes', 4)),
-            boundary_alignment_policy=str(self.params.get('boundary_alignment_policy', 'tapered_offset')),
-            boundary_alignment_decay=float(self.params.get('boundary_alignment_decay', 4.0)),
-            prediction_stability_threshold=self.params.get('prediction_stability_threshold', 0.03),
-            anti_smoothing_policy=str(self.params.get('anti_smoothing_policy', 'residual_bridge')),
-            anti_smoothing_tail_window=self.params.get('anti_smoothing_tail_window'),
-            anti_smoothing_amplitude_ratio=float(self.params.get('anti_smoothing_amplitude_ratio', 0.35)),
-            anti_smoothing_monotone_ratio=float(self.params.get('anti_smoothing_monotone_ratio', 0.9)),
-            anti_smoothing_oscillation_floor=float(self.params.get('anti_smoothing_oscillation_floor', 0.25)),
-            anti_smoothing_decay=float(self.params.get('anti_smoothing_decay', 2.5)),
-            anti_smoothing_target_amplitude_ratio=float(
-                self.params.get('anti_smoothing_target_amplitude_ratio', 0.8)
-            ),
-            device=str(self.params.get('device', 'cpu')),
+            params=dict(self.params),
+            series_length=int(np.asarray(features).reshape(-1).shape[0]),
         )
-        self.model_.fit(np.asarray(input_data.features, dtype=float))
+        self.model_ = build_okhs_fdmd_forecaster(spec=self.spec_)
+        self.model_.fit(features)
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
-        prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
+        prediction = normalize_okhs_fdmd_prediction(
+            self.model_.predict(np.asarray(input_data.features, dtype=float)),
+            forecast_horizon=int(self.model_.forecast_horizon),
+        )
         return self._convert_to_output(
             input_data,
-            predict=np.asarray(prediction, dtype=float),
+            predict=prediction,
             data_type=DataTypesEnum.table,
         )
 

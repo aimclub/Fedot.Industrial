@@ -521,12 +521,25 @@ def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_pa
             }
 
     monkeypatch.setattr(
-        'benchmark.v2.forecasting.build_neural_forecast_head',
-        lambda model_name, forecast_horizon, params=None: FakeNeuralBridge(
-            model_name=model_name,
-            forecast_horizon=forecast_horizon,
-            params=params,
-        ),
+        'benchmark.v2.forecasting.run_neural_forecast_head_on_series',
+        lambda model_name, time_series, forecast_horizon, params=None: type(
+            'FakeNeuralRunResult',
+            (),
+            {
+                'forecast': tuple(
+                    FakeNeuralBridge(
+                        model_name=model_name,
+                        forecast_horizon=forecast_horizon,
+                        params=params,
+                    ).fit(time_series).predict(time_series)
+                ),
+                'diagnostics': FakeNeuralBridge(
+                    model_name=model_name,
+                    forecast_horizon=forecast_horizon,
+                    params=params,
+                ).fit(time_series).get_diagnostics(),
+            },
+        )(),
     )
     monkeypatch.setattr('benchmark.v2.forecasting.torch', object())
     monkeypatch.setattr(
@@ -734,73 +747,65 @@ def test_forecasting_suite_propagates_okhs_anti_smoothing_diagnostics(tmp_path: 
 
 
 def test_forecasting_suite_emits_okhs_fdmd_stage_artifacts(tmp_path: Path, monkeypatch) -> None:
-    class FakeOKHSFDMDForecaster:
-        def __init__(self, forecast_horizon, **kwargs):
-            self.forecast_horizon = int(forecast_horizon)
-            self.window_size = int(kwargs.get('window_size', 8))
-            self.q = float(kwargs.get('q', 0.7))
-
-        def fit(self, time_series):
-            self.training_history_ = np.asarray(time_series, dtype=float)
-            return self
-
-        def predict(self, time_series=None, forecast_horizon=None):
-            del time_series
-            horizon = int(forecast_horizon or self.forecast_horizon)
-            return np.linspace(1.0, 1.3, num=horizon)
-
-        def get_diagnostics(self):
-            return {
-                'model_family': 'operator_model',
-                'model_name': 'okhs_fdmd_forecaster',
-                'trajectory_transform': {
-                    'window_policy': 'adaptive_cycle_aware',
-                    'resolved_window_size': self.window_size,
-                    'expected_overlap_ratio': 0.8,
-                    'effective_stride': 2,
-                    'effective_trajectory_count': 10,
-                    'trajectory_matrix_shape_before': (10, self.window_size),
-                    'trajectory_matrix_shape_after': (10, self.window_size),
-                },
-                'decomposition': {
-                    'representation_policy': 'projected',
-                    'projected_shape': (10, 4),
-                    'basis_shape': (self.window_size, 4),
-                    'decode_supported': True,
-                    'decode_reconstruction_error': 0.01,
-                    'latent_window_size': 4,
-                    'latent_stride': 2,
-                },
-                'rank_truncation': {
-                    'trajectory_rank_policy': 'explained_dispersion',
-                    'selected_rank': 4,
-                    'raw_selected_rank': 3,
-                    'explained_variance_retained': 0.96,
-                    'compression_ratio': 0.5,
-                },
-                'forecast_head': {
-                    'q': self.q,
-                    'q_policy': 'fixed',
-                    'mode_selection_policy': 'energy',
-                    'prediction_mode_selection_policy': 'adaptive_tail_energy',
-                    'boundary_alignment_policy': 'tapered_offset',
-                    'prediction_stability_threshold': 0.03,
-                    'fit_diagnostics': {
-                        'resolved_n_modes': 5,
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.run_okhs_fdmd_forecaster_on_series',
+        lambda time_series, forecast_horizon, params=None: type(
+            'FakeOKHSRunResult',
+            (),
+            {
+                'forecast': tuple(np.linspace(1.0, 1.3, num=int(forecast_horizon))),
+                'diagnostics': {
+                    'model_family': 'operator_model',
+                    'model_name': 'okhs_fdmd_forecaster',
+                    'trajectory_transform': {
+                        'window_policy': 'adaptive_cycle_aware',
+                        'resolved_window_size': int((params or {}).get('window_size', 8)),
+                        'expected_overlap_ratio': 0.8,
+                        'effective_stride': 2,
+                        'effective_trajectory_count': 10,
+                        'trajectory_matrix_shape_before': (10, int((params or {}).get('window_size', 8))),
+                        'trajectory_matrix_shape_after': (10, int((params or {}).get('window_size', 8))),
                     },
-                    'prediction_diagnostics': {
-                        'n_selected_prediction_modes': 3,
-                        'boundary_discontinuity_abs_mean': 0.25,
+                    'decomposition': {
+                        'representation_policy': 'projected',
+                        'projected_shape': (10, 4),
+                        'basis_shape': (int((params or {}).get('window_size', 8)), 4),
+                        'decode_supported': True,
+                        'decode_reconstruction_error': 0.01,
+                        'latent_window_size': 4,
+                        'latent_stride': 2,
                     },
-                    'anti_smoothing': {
-                        'collapse_detected': False,
-                        'correction_applied': False,
-                        'collapse_resolved': True,
+                    'rank_truncation': {
+                        'trajectory_rank_policy': 'explained_dispersion',
+                        'selected_rank': 4,
+                        'raw_selected_rank': 3,
+                        'explained_variance_retained': 0.96,
+                        'compression_ratio': 0.5,
+                    },
+                    'forecast_head': {
+                        'q': float((params or {}).get('q', 0.7)),
+                        'q_policy': 'fixed',
+                        'mode_selection_policy': 'energy',
+                        'prediction_mode_selection_policy': 'adaptive_tail_energy',
+                        'boundary_alignment_policy': 'tapered_offset',
+                        'prediction_stability_threshold': 0.03,
+                        'fit_diagnostics': {
+                            'resolved_n_modes': 5,
+                        },
+                        'prediction_diagnostics': {
+                            'n_selected_prediction_modes': 3,
+                            'boundary_discontinuity_abs_mean': 0.25,
+                        },
+                        'anti_smoothing': {
+                            'collapse_detected': False,
+                            'correction_applied': False,
+                            'collapse_resolved': True,
+                        },
                     },
                 },
-            }
-
-    monkeypatch.setattr('benchmark.v2.forecasting.OKHSFDMDForecaster', FakeOKHSFDMDForecaster)
+            },
+        )(),
+    )
 
     config = BenchmarkSuiteConfig(
         task_type=TaskType.FORECASTING,
@@ -842,6 +847,83 @@ def test_forecasting_suite_emits_okhs_fdmd_stage_artifacts(tmp_path: Path, monke
     assert payload['OKHS FDMD']['trajectory_transform']['resolved_window_size'] == 8
     assert payload['OKHS FDMD']['decomposition']['representation_policy'] == 'projected'
     assert payload['OKHS FDMD']['forecast_head']['fit_diagnostics']['resolved_n_modes'] == 5
+
+
+def test_okhs_fdmd_adapter_normalizes_runtime_spec_before_execution(tmp_path: Path, monkeypatch) -> None:
+    captured = {}
+
+    def _fake_build_spec(*, forecast_horizon, params=None, series_length=None):
+        captured['requested_forecast_horizon'] = int(forecast_horizon)
+        captured['requested_window_size'] = int((params or {}).get('window_size', 0))
+        captured['series_length'] = int(series_length)
+        return type(
+            'FakeOKHSSpec',
+            (),
+            {
+                'params': {
+                    **dict(params or {}),
+                    'window_size': min(max(int((params or {}).get('window_size', 20)), 4), int(series_length) - 1),
+                },
+            },
+        )()
+
+    monkeypatch.setattr('benchmark.v2.forecasting.build_okhs_fdmd_spec', _fake_build_spec)
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.run_okhs_fdmd_forecaster_on_series',
+        lambda time_series, forecast_horizon, params=None: type(
+            'FakeOKHSRunResult',
+            (),
+            {
+                'forecast': tuple(np.linspace(1.0, 1.2, num=int(forecast_horizon))),
+                'diagnostics': {
+                    'model_family': 'operator_model',
+                    'model_name': 'okhs_fdmd_forecaster',
+                    'trajectory_transform': {'resolved_window_size': int((params or {}).get('window_size', 0))},
+                    'decomposition': {},
+                    'rank_truncation': {},
+                    'forecast_head': {},
+                },
+            },
+        )(),
+    )
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='in_memory',
+                dataset_name='okhs_window_clip',
+                subset='monthly',
+                adapter_options={
+                    'records': [{
+                        'series_id': 'clip_case',
+                        'train_values': list(np.arange(12, dtype=float)),
+                        'test_values': [12.0, 13.0, 14.0, 15.0],
+                    }],
+                    'forecast_horizon': 4,
+                    'seasonal_period': 4,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name='okhs_fdmd_forecaster',
+                display_name='OKHS FDMD Clipped',
+                params={'window_size': 100, 'q': 0.7, 'n_modes': 3},
+            ),
+        ),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='okhs_clip_suite', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    record = next(record for record in result.run_records if record.model_name == 'OKHS FDMD Clipped')
+    assert captured['requested_forecast_horizon'] == 4
+    assert captured['requested_window_size'] == 100
+    assert captured['series_length'] == 12
+    assert record.metadata['window_size'] == 11
+    assert record.metadata['trajectory_transform']['resolved_window_size'] == 11
 
 
 def test_forecasting_publication_pack_falls_back_without_tabulate(tmp_path: Path, monkeypatch) -> None:
