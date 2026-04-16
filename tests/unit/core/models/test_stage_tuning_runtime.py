@@ -164,8 +164,12 @@ def test_neural_runtime_bridge_supports_stubbed_head_bridge(monkeypatch):
             }
 
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.stage_tuning_runtime.NeuralForecastHead',
-        FakeNeuralBridge,
+        'fedot_ind.core.models.ts_forecasting.stage_tuning_runtime.build_neural_forecast_head',
+        lambda model_name, forecast_horizon, params=None: FakeNeuralBridge(
+            model_name=model_name,
+            forecast_horizon=forecast_horizon,
+            params=params,
+        ),
         raising=False,
     )
 

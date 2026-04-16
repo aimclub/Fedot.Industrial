@@ -520,7 +520,14 @@ def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_pa
                 'metadata': dict(self.metadata),
             }
 
-    monkeypatch.setattr('benchmark.v2.forecasting.NeuralForecastHead', FakeNeuralBridge)
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.build_neural_forecast_head',
+        lambda model_name, forecast_horizon, params=None: FakeNeuralBridge(
+            model_name=model_name,
+            forecast_horizon=forecast_horizon,
+            params=params,
+        ),
+    )
     monkeypatch.setattr('benchmark.v2.forecasting.torch', object())
     monkeypatch.setattr(
         'benchmark.v2.forecasting.run_forecasting_stage_tuning_on_series',

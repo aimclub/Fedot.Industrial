@@ -33,7 +33,7 @@ try:  # pragma: no cover - tensor-native composites require torch
     from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
     from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
     from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
-    from fedot_ind.core.models.ts_forecasting.neural_forecast_head import NeuralForecastHead
+    from fedot_ind.core.models.ts_forecasting.neural_forecast_head import build_neural_forecast_head
     from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecaster
     from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
     from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
@@ -41,7 +41,7 @@ except Exception:  # pragma: no cover
     HybridEnsembleForecaster = None
     LaggedRidgeForecaster = None
     LowRankLaggedRidgeForecaster = None
-    NeuralForecastHead = None
+    build_neural_forecast_head = None
     OKHSFDMDForecaster = None
     ForecastingSplitKind = None
     ForecastingSplitSpec = None
@@ -1264,7 +1264,7 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
-        if torch is None or NeuralForecastHead is None:
+        if torch is None or build_neural_forecast_head is None:
             return RunStatus.NOT_AVAILABLE, 'torch/native neural forecasting runtime is unavailable.'
         return RunStatus.SUCCESS, 'ready'
 
@@ -1274,8 +1274,8 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
             key: value for key, value in self.__dict__.items()
             if key not in {'name', 'tags', 'optional', 'stage_tuning_runtime', 'neural_model_name'}
         }
-        head = NeuralForecastHead(
-            model_name=self.neural_model_name,
+        head = build_neural_forecast_head(
+            self.neural_model_name,
             forecast_horizon=series_record.forecast_horizon,
             params=params,
         )

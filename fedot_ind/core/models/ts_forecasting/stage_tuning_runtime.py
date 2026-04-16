@@ -21,9 +21,9 @@ from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
 try:
-    from .neural_forecast_head import NeuralForecastHead
+    from .neural_forecast_head import build_neural_forecast_head
 except Exception:  # pragma: no cover - lightweight envs may miss neural runtime deps
-    NeuralForecastHead = None
+    build_neural_forecast_head = None
 
 
 @dataclass(frozen=True)
@@ -223,10 +223,10 @@ def _instantiate_runtime_model(
         from .hybrid_ensemble_forecaster import HybridEnsembleForecaster
         model_cls = HybridEnsembleForecaster
     elif canonical_model_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
-        if NeuralForecastHead is None:
-            raise ValueError('NeuralForecastHead is unavailable in the current environment.')
-        return NeuralForecastHead(
-            model_name=canonical_model_name,
+        if build_neural_forecast_head is None:
+            raise ValueError('Neural forecast head runtime is unavailable in the current environment.')
+        return build_neural_forecast_head(
+            canonical_model_name,
             forecast_horizon=int(forecast_horizon),
             params=dict(params),
         )

@@ -3,6 +3,8 @@ import numpy as np
 from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
     NEURAL_FORECASTING_MODEL_REGISTRY,
     NeuralForecastHead,
+    NeuralForecastHeadSpec,
+    build_neural_forecast_head,
     build_neural_forecasting_stage_diagnostics,
 )
 from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import (
@@ -47,8 +49,8 @@ def test_neural_forecast_head_wraps_native_model_contract(monkeypatch):
 
     monkeypatch.setitem(NEURAL_FORECASTING_MODEL_REGISTRY, 'patch_tst_model', FakeModel)
 
-    head = NeuralForecastHead(
-        model_name='patch_tst_model',
+    head = build_neural_forecast_head(
+        'patch_tst_model',
         forecast_horizon=4,
         params={'patch_len': 12, 'epochs': 2},
     )
@@ -60,6 +62,19 @@ def test_neural_forecast_head_wraps_native_model_contract(monkeypatch):
     assert diagnostics['model_family'] == 'neural_forecaster'
     assert diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
     assert diagnostics['last_prediction_diagnostics']['forecast_shape'] == (4,)
+
+
+def test_neural_forecast_head_spec_canonicalizes_runtime_contract():
+    spec = NeuralForecastHeadSpec(
+        model_name='patch_tst_model',
+        forecast_horizon=6,
+        params={'patch_len': 16, 'epochs': 5},
+    )
+
+    assert spec.model_name == 'patch_tst_model'
+    assert spec.forecast_horizon == 6
+    assert spec.params['patch_len'] == 16
+    assert spec.family == 'neural_forecaster'
 
 
 def test_neural_forecast_head_bridge_remains_compatibility_shell(monkeypatch):

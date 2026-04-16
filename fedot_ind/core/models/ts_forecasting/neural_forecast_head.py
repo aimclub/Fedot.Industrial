@@ -29,6 +29,25 @@ NEURAL_FORECASTING_MODEL_REGISTRY: dict[str, Any] = {
 }
 
 
+@dataclass(frozen=True)
+class NeuralForecastHeadSpec:
+    model_name: str
+    forecast_horizon: int
+    params: dict[str, Any] | None = None
+
+    def __post_init__(self):
+        canonical_name = canonical_forecasting_model_name(self.model_name)
+        if canonical_name not in NEURAL_FORECASTING_MODEL_REGISTRY:
+            raise ValueError(f'Unsupported neural forecasting head: {self.model_name}')
+        object.__setattr__(self, 'model_name', canonical_name)
+        object.__setattr__(self, 'forecast_horizon', int(self.forecast_horizon))
+        object.__setattr__(self, 'params', dict(self.params or {}))
+
+    @property
+    def family(self) -> str:
+        return 'neural_forecaster'
+
+
 def resolve_neural_forecasting_model_cls(model_name: str):
     entry = NEURAL_FORECASTING_MODEL_REGISTRY[model_name]
     if isinstance(entry, tuple):
@@ -133,17 +152,29 @@ def normalize_neural_forecast_prediction(prediction: Any, forecast_horizon: int)
     return values[:int(forecast_horizon)]
 
 
+def build_neural_forecast_head(
+        model_name: str,
+        *,
+        forecast_horizon: int,
+        params: dict[str, Any] | None = None,
+) -> 'NeuralForecastHead':
+    return NeuralForecastHead(
+        spec=NeuralForecastHeadSpec(
+            model_name=model_name,
+            forecast_horizon=int(forecast_horizon),
+            params=params,
+        )
+    )
+
+
 @dataclass
 class NeuralForecastHead:
-    model_name: str
-    forecast_horizon: int
-    params: dict[str, Any] | None = None
+    spec: NeuralForecastHeadSpec
 
     def __post_init__(self):
-        self.canonical_model_name = canonical_forecasting_model_name(self.model_name)
-        if self.canonical_model_name not in NEURAL_FORECASTING_MODEL_REGISTRY:
-            raise ValueError(f'Unsupported neural forecasting head: {self.model_name}')
-        self.params = dict(self.params or {})
+        self.canonical_model_name = self.spec.model_name
+        self.params = dict(self.spec.params)
+        self.forecast_horizon = int(self.spec.forecast_horizon)
         self.model_cls_ = resolve_neural_forecasting_model_cls(self.canonical_model_name)
         self.model_ = None
         self.training_history_ = None
