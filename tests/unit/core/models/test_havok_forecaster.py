@@ -34,7 +34,25 @@ def test_havok_forecaster_produces_forecast_and_event_diagnostics():
     assert diagnostics['decomposition']['strategy'] == 'full'
     assert diagnostics['rank_truncation']['selected_rank'] >= 2
     assert diagnostics['forecast_head']['head_type'] == 'havok_head'
+    assert diagnostics['forecast_head']['head_policy'] == 'mlp'
     assert len(diagnostics['forcing_values']) > 0
     assert 'forecast_forcing_values' in diagnostics
     assert len(diagnostics['forecast_forcing_mask']) == 8
     assert isinstance(diagnostics['forcing_active_intervals'], list)
+
+
+def test_havok_forecaster_supports_linear_head_fallback():
+    series = _switching_series()
+    model = HAVOKForecaster(
+        forecast_horizon=6,
+        window_size=16,
+        rank=4,
+        head_policy='linear',
+    )
+
+    model.fit(series)
+    forecast = model.predict(series)
+    diagnostics = model.get_diagnostics()
+
+    assert forecast.shape == (6,)
+    assert diagnostics['forecast_head']['head_policy'] == 'linear'

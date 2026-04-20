@@ -24,7 +24,8 @@ def test_mssa_forecaster_predicts_univariate_series():
     assert diagnostics['trajectory_transform']['kind'] == 'page'
     assert diagnostics['decomposition']['strategy'] == 'page_svd_per_channel'
     assert diagnostics['rank_truncation']['selected_rank'] >= 2
-    assert diagnostics['forecast_head']['head_type'] == 'linear_autoregression_head'
+    assert diagnostics['forecast_head']['head_type'] == 'autoregression_head'
+    assert diagnostics['forecast_head']['head_policy'] == 'mlp'
 
 
 def test_mssa_forecaster_supports_multivariate_series():
@@ -45,6 +46,26 @@ def test_mssa_forecaster_supports_multivariate_series():
     assert diagnostics['coupled'] is True
     assert diagnostics['decomposition']['coupled'] is True
     assert diagnostics['trajectory_transform']['channel_count'] == 2
+    assert diagnostics['forecast_head']['head_policy'] == 'mlp'
+
+
+def test_mssa_forecaster_supports_linear_head_fallback():
+    time = np.arange(120, dtype=float)
+    series = np.sin(2 * np.pi * time / 12.0)
+    model = MSSAForecaster(
+        forecast_horizon=4,
+        window_size=12,
+        rank=2,
+        coupled=False,
+        head_policy='linear',
+    )
+
+    model.fit(series)
+    forecast = model.predict(series)
+    diagnostics = model.get_diagnostics()
+
+    assert forecast.shape == (4,)
+    assert diagnostics['forecast_head']['head_policy'] == 'linear'
 
 
 def test_mssa_implementation_predict_for_fit_returns_transposed_denoised_series():

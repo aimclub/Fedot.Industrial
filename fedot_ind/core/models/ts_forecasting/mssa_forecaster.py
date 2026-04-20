@@ -36,6 +36,11 @@ from fedot_ind.core.operation.transformation.data.trajectory_embedding import (
     stack_multivariate,
     truncate_rank,
 )
+from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
+    MLPForecastingHead,
+    RidgeForecastingHead,
+    TensorDevicePolicy,
+)
 from fedot_ind.core.models.ts_forecasting.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
@@ -65,6 +70,117 @@ class MSSAForecaster:
     explained_variance: float = 0.95
     lag_order: int | None = None
     coupled: bool = True
+    head_policy: str = 'mlp'
+    head_hidden_dim: int = 64
+    head_hidden_layers: int = 2
+    head_epochs: int = 120
+    head_learning_rate: float = 1e-3
+    device: str = 'cpu'
+    dtype: str = 'float32'
+
+    def __post_init__(self):
+        self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
+
+    def _resolve_head_hidden_dims(self) -> tuple[int, ...]:
+        return tuple(int(max(1, self.head_hidden_dim)) for _ in range(int(max(1, self.head_hidden_layers))))
+
+    def _prepare_series(self, time_series: np.ndarray) -> tuple[np.ndarray, int, int, int]:
+        normalized = normalize_multivariate_series(time_series)
+        series_length, channel_count = normalized.shape
+        resolved_window = self.window_size or estimate_window(
+            series_length=series_length,
+            forecast_horizon=self.forecast_horizon,
+            min_ratio=0.10,
+            max_ratio=0.25,
+        )
+        resolved_window = int(max(self.forecast_horizon + 1, min(resolved_window, series_length)))
+        return normalized, int(series_length), int(channel_count), int(resolved_window)
+
+    def _build_page_results(self, normalized: np.ndarray, resolved_window: int) -> list[object]:
+        page_results = [
+            build_page(normalized[:, channel_index], window_size=resolved_window)
+            for channel_index in range(normalized.shape[1])
+        ]
+        if any(result.matrix.shape[0] < 2 for result in page_results):
+            raise ValueError('mSSA requires at least two Page blocks per channel.')
+        return page_results
+
+    def _truncate_page_embeddings(self, page_results: list[object], channel_count: int):
+        if self.coupled and channel_count > 1:
+            stacked_matrix = stack_multivariate([result.matrix for result in page_results])
+            self.embedding_shape_ = tuple(int(value) for value in stacked_matrix.shape)
+            truncated = truncate_rank(
+                matrix=stacked_matrix,
+                rank=self.rank,
+                explained_variance=self.explained_variance,
+                min_rank=2,
+            )
+            reconstructed_by_channel = split_multivariate(truncated.reconstructed_matrix, channel_count)
+            self.projected_shape_ = tuple(int(value) for value in truncated.projected_states.shape)
+            self.basis_shape_ = tuple(int(value) for value in truncated.basis.shape)
+            return reconstructed_by_channel, [int(truncated.selected_rank)], [
+                float(truncated.explained_variance_retained)]
+
+        per_channel_truncated = [
+            truncate_rank(
+                matrix=result.matrix,
+                rank=self.rank,
+                explained_variance=self.explained_variance,
+                min_rank=2,
+            )
+            for result in page_results
+        ]
+        self.embedding_shape_ = tuple(int(value) for value in page_results[0].matrix.shape)
+        self.projected_shape_ = tuple(int(value) for value in per_channel_truncated[0].projected_states.shape)
+        self.basis_shape_ = tuple(int(value) for value in per_channel_truncated[0].basis.shape)
+        return (
+            tuple(item.reconstructed_matrix for item in per_channel_truncated),
+            [int(item.selected_rank) for item in per_channel_truncated],
+            [float(item.explained_variance_retained) for item in per_channel_truncated],
+        )
+
+    def _decode_denoised_series(self,
+                                normalized: np.ndarray,
+                                page_results: list[object],
+                                reconstructed_by_channel) -> np.ndarray:
+        denoised_channels = []
+        for channel_index, reconstructed in enumerate(reconstructed_by_channel):
+            decoded = decode_page(
+                reconstructed,
+                original_length=page_results[channel_index].diagnostics.original_length,
+            )
+            denoised_channels.append(_ensure_series_length(decoded, normalized[:, channel_index]))
+        return np.column_stack(denoised_channels)
+
+    def _build_head_training_matrices(self, series: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        lag_order = self.lag_order_
+        if series.shape[0] <= lag_order:
+            raise ValueError('Series is too short for the selected lag order.')
+        design_rows = []
+        targets = []
+        for index in range(lag_order, series.shape[0]):
+            design_rows.append(series[index - lag_order:index].reshape(-1))
+            targets.append(series[index])
+        return np.asarray(design_rows, dtype=float), np.asarray(targets, dtype=float)
+
+    def _build_forecast_head(self):
+        resolved_policy = str(self.head_policy).lower()
+        if resolved_policy == 'linear':
+            return RidgeForecastingHead(alpha=0.0, device_policy=self.device_policy_)
+        return MLPForecastingHead(
+            hidden_dims=self._resolve_head_hidden_dims(),
+            epochs=self.head_epochs,
+            learning_rate=self.head_learning_rate,
+            device_policy=self.device_policy_,
+        )
+
+    def _fit_forecast_head(self, series: np.ndarray) -> None:
+        design, target = self._build_head_training_matrices(series)
+        self.head_design_shape_ = tuple(int(value) for value in design.shape)
+        self.head_target_shape_ = tuple(int(value) for value in target.shape)
+        self.head_policy_ = str(self.head_policy).lower()
+        self.head_ = self._build_forecast_head()
+        self.head_.fit(design, target)
 
     def _build_stage_diagnostics(self) -> dict[str, object]:
         decomposition_strategy = 'page_svd_coupled' if self.coupled_ else 'page_svd_per_channel'
@@ -93,75 +209,25 @@ class MSSAForecaster:
                 'basis_shape': tuple(int(value) for value in self.basis_shape_),
             },
             'forecast_head': {
-                'head_type': 'linear_autoregression_head',
+                'head_type': 'autoregression_head',
+                'head_policy': str(self.head_policy_),
                 'lag_order': int(self.lag_order_),
                 'forecast_horizon': int(self.forecast_horizon),
                 'channel_count': int(self.channel_count_),
+                'design_shape': tuple(int(value) for value in self.head_design_shape_),
+                'target_shape': tuple(int(value) for value in self.head_target_shape_),
+                **self.head_.get_diagnostics(),
             },
         }
 
     def fit(self, time_series: np.ndarray) -> 'MSSAForecaster':
-        normalized = normalize_multivariate_series(time_series)
-        series_length, channel_count = normalized.shape
-        resolved_window = self.window_size or estimate_window(
-            series_length=series_length,
-            forecast_horizon=self.forecast_horizon,
-            min_ratio=0.10,
-            max_ratio=0.25,
+        normalized, series_length, channel_count, resolved_window = self._prepare_series(time_series)
+        page_results = self._build_page_results(normalized, resolved_window)
+        reconstructed_by_channel, selected_ranks, retained_variances = self._truncate_page_embeddings(
+            page_results,
+            channel_count,
         )
-        resolved_window = int(max(self.forecast_horizon + 1, min(resolved_window, series_length)))
-        page_results = [
-            build_page(normalized[:, channel_index], window_size=resolved_window)
-            for channel_index in range(channel_count)
-        ]
-        if any(result.matrix.shape[0] < 2 for result in page_results):
-            raise ValueError('mSSA requires at least two Page blocks per channel.')
-
-        if self.coupled and channel_count > 1:
-            stacked_matrix = stack_multivariate([result.matrix for result in page_results])
-            self.embedding_shape_ = tuple(int(value) for value in stacked_matrix.shape)
-            truncated = truncate_rank(
-                matrix=stacked_matrix,
-                rank=self.rank,
-                explained_variance=self.explained_variance,
-                min_rank=2,
-            )
-            reconstructed_by_channel = split_multivariate(truncated.reconstructed_matrix, channel_count)
-            self.projected_shape_ = tuple(int(value) for value in truncated.projected_states.shape)
-            self.basis_shape_ = tuple(int(value) for value in truncated.basis.shape)
-        else:
-            per_channel_truncated = [
-                truncate_rank(
-                    matrix=result.matrix,
-                    rank=self.rank,
-                    explained_variance=self.explained_variance,
-                    min_rank=2,
-                )
-                for result in page_results
-            ]
-            truncated = per_channel_truncated[0]
-            reconstructed_by_channel = tuple(item.reconstructed_matrix for item in per_channel_truncated)
-            self.embedding_shape_ = tuple(int(value) for value in page_results[0].matrix.shape)
-            self.projected_shape_ = tuple(int(value) for value in truncated.projected_states.shape)
-            self.basis_shape_ = tuple(int(value) for value in truncated.basis.shape)
-
-        denoised_channels = []
-        selected_ranks = []
-        retained_variances = []
-        for channel_index, reconstructed in enumerate(reconstructed_by_channel):
-            decoded = decode_page(reconstructed,
-                                  original_length=page_results[channel_index].diagnostics.original_length)
-            denoised_channel = _ensure_series_length(decoded, normalized[:, channel_index])
-            denoised_channels.append(denoised_channel)
-        if self.coupled and channel_count > 1:
-            selected_ranks.append(int(truncated.selected_rank))
-            retained_variances.append(float(truncated.explained_variance_retained))
-        else:
-            for item in per_channel_truncated:
-                selected_ranks.append(int(item.selected_rank))
-                retained_variances.append(float(item.explained_variance_retained))
-
-        self.denoised_series_ = np.column_stack(denoised_channels)
+        self.denoised_series_ = self._decode_denoised_series(normalized, page_results, reconstructed_by_channel)
         self.channel_count_ = int(channel_count)
         self.series_length_ = int(series_length)
         self.window_size_ = int(resolved_window)
@@ -171,7 +237,7 @@ class MSSAForecaster:
         self.selected_rank_ = int(max(selected_ranks))
         self.explained_variance_retained_ = float(np.mean(retained_variances))
         self.lag_order_ = _resolve_lag_order(self.series_length_, self.forecast_horizon, self.lag_order)
-        self._fit_linear_head(self.denoised_series_)
+        self._fit_forecast_head(self.denoised_series_)
         self.diagnostics_ = {
             'model_family': 'low_rank_linear',
             'window_size': self.window_size_,
@@ -186,29 +252,15 @@ class MSSAForecaster:
         self.diagnostics_.update(self._build_stage_diagnostics())
         return self
 
-    def _fit_linear_head(self, series: np.ndarray) -> None:
-        lag_order = self.lag_order_
-        if series.shape[0] <= lag_order:
-            raise ValueError('Series is too short for the selected lag order.')
-        design_rows = []
-        targets = []
-        for index in range(lag_order, series.shape[0]):
-            design_rows.append(series[index - lag_order:index].reshape(-1))
-            targets.append(series[index])
-        design = np.asarray(design_rows, dtype=float)
-        target = np.asarray(targets, dtype=float)
-        design_with_bias = np.column_stack([np.ones(design.shape[0]), design])
-        coefficients = np.linalg.pinv(design_with_bias) @ target
-        self.intercept_ = coefficients[0]
-        self.transition_ = coefficients[1:]
-
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
         horizon = int(forecast_horizon or self.forecast_horizon)
         history = self.denoised_series_ if time_series is None else normalize_multivariate_series(time_series)
         state = history[-self.lag_order_:].copy()
         predictions = []
         for _ in range(horizon):
-            next_value = self.intercept_ + state.reshape(-1) @ self.transition_
+            next_value = self.head_.predict(state.reshape(1, -1))
+            if hasattr(next_value, 'detach'):
+                next_value = next_value.detach().cpu().numpy()
             next_value = np.asarray(next_value, dtype=float).reshape(self.channel_count_)
             predictions.append(next_value)
             state = np.vstack([state, next_value])[-self.lag_order_:]
@@ -228,6 +280,12 @@ class MSSAForecasterImplementation(ModelImplementation):
         self.explained_variance = self.params.get('explained_variance', 0.95)
         self.lag_order = self.params.get('lag_order')
         self.coupled = not self.params.get('channel_independent', False)
+        self.head_policy = str(self.params.get('head_policy', 'mlp'))
+        self.head_hidden_dim = int(self.params.get('head_hidden_dim', 64))
+        self.head_hidden_layers = int(self.params.get('head_hidden_layers', 2))
+        self.head_epochs = int(self.params.get('head_epochs', 120))
+        self.head_learning_rate = float(self.params.get('head_learning_rate', 1e-3))
+        self.device = str(self.params.get('device', 'cpu'))
         self.model_: MSSAForecaster | None = None
 
     def fit(self, input_data: InputData):
@@ -239,6 +297,12 @@ class MSSAForecasterImplementation(ModelImplementation):
             explained_variance=self.explained_variance,
             lag_order=self.lag_order,
             coupled=self.coupled,
+            head_policy=self.head_policy,
+            head_hidden_dim=self.head_hidden_dim,
+            head_hidden_layers=self.head_hidden_layers,
+            head_epochs=self.head_epochs,
+            head_learning_rate=self.head_learning_rate,
+            device=self.device,
         )
         self.model_.fit(np.asarray(input_data.features, dtype=float))
         return self
@@ -261,6 +325,12 @@ class MSSAForecasterImplementation(ModelImplementation):
                 explained_variance=self.explained_variance,
                 lag_order=self.lag_order,
                 coupled=self.coupled,
+                head_policy=self.head_policy,
+                head_hidden_dim=self.head_hidden_dim,
+                head_hidden_layers=self.head_hidden_layers,
+                head_epochs=self.head_epochs,
+                head_learning_rate=self.head_learning_rate,
+                device=self.device,
             ).fit(np.asarray(input_data.features, dtype=float))
         denoised = np.asarray(self.model_.denoised_series_, dtype=float)
         return denoised.T if denoised.ndim > 1 else denoised.reshape(1, -1)
@@ -279,6 +349,12 @@ class MSSAForecasterImplementation(ModelImplementation):
                 'explained_variance': self.explained_variance,
                 'lag_order': self.lag_order,
                 'channel_independent': not self.coupled,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
         ).to_dict()
 
@@ -292,6 +368,12 @@ class MSSAForecasterImplementation(ModelImplementation):
                     'explained_variance': self.explained_variance,
                     'lag_order': self.lag_order,
                     'channel_independent': not self.coupled,
+                    'head_policy': self.head_policy,
+                    'head_hidden_dim': self.head_hidden_dim,
+                    'head_hidden_layers': self.head_hidden_layers,
+                    'head_epochs': self.head_epochs,
+                    'head_learning_rate': self.head_learning_rate,
+                    'device': self.device,
                 },
             )
         )
@@ -305,6 +387,12 @@ class MSSAForecasterImplementation(ModelImplementation):
                 'explained_variance': self.explained_variance,
                 'lag_order': self.lag_order,
                 'channel_independent': not self.coupled,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             stage_updates=stage_updates,
         ).to_dict()
@@ -331,6 +419,12 @@ class MSSAForecasterImplementation(ModelImplementation):
                 'explained_variance': self.explained_variance,
                 'lag_order': self.lag_order,
                 'channel_independent': not self.coupled,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             stage_updates=stage_updates,
             metric_name=metric_name,

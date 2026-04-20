@@ -315,6 +315,138 @@ class RidgeForecastingHead:
         }
 
 
+class _ForecastingMLP(torch.nn.Module):
+    def __init__(self,
+                 input_dim: int,
+                 output_dim: int,
+                 hidden_dims: Sequence[int],
+                 activation: str = 'relu'):
+        super().__init__()
+        layers: list[torch.nn.Module] = []
+        current_dim = int(input_dim)
+        activation_name = str(activation).lower()
+        activation_factory = {
+            'relu': torch.nn.ReLU,
+            'gelu': torch.nn.GELU,
+            'tanh': torch.nn.Tanh,
+            'elu': torch.nn.ELU,
+        }.get(activation_name, torch.nn.ReLU)
+        for hidden_dim in hidden_dims:
+            resolved_hidden_dim = int(max(1, hidden_dim))
+            layers.append(torch.nn.Linear(current_dim, resolved_hidden_dim))
+            layers.append(activation_factory())
+            current_dim = resolved_hidden_dim
+        layers.append(torch.nn.Linear(current_dim, int(output_dim)))
+        self.network = torch.nn.Sequential(*layers)
+
+    def forward(self, values: torch.Tensor) -> torch.Tensor:
+        return self.network(values)
+
+
+@dataclass
+class MLPForecastingHead:
+    hidden_dims: tuple[int, ...] = (64, 32)
+    epochs: int = 120
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-4
+    activation: str = 'relu'
+    random_seed: int = 42
+    device_policy: TensorDevicePolicy = field(default_factory=TensorDevicePolicy)
+    network_: torch.nn.Module | None = None
+    input_dim_: int | None = None
+    output_dim_: int | None = None
+    feature_mean_: torch.Tensor | None = None
+    feature_std_: torch.Tensor | None = None
+    target_mean_: torch.Tensor | None = None
+    target_std_: torch.Tensor | None = None
+    final_loss_: float | None = None
+
+    def _normalize_features(self, values: torch.Tensor) -> torch.Tensor:
+        if self.feature_mean_ is None or self.feature_std_ is None:
+            raise ValueError('MLPForecastingHead is not fitted.')
+        return (values - self.feature_mean_) / self.feature_std_
+
+    def _denormalize_target(self, values: torch.Tensor) -> torch.Tensor:
+        if self.target_mean_ is None or self.target_std_ is None:
+            raise ValueError('MLPForecastingHead is not fitted.')
+        return values * self.target_std_ + self.target_mean_
+
+    def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'MLPForecastingHead':
+        X = ensure_tensor_2d(features, self.device_policy)
+        Y = ensure_tensor_2d(target, self.device_policy)
+        self.input_dim_ = int(X.shape[1])
+        self.output_dim_ = int(Y.shape[1])
+        self.feature_mean_ = torch.mean(X, dim=0, keepdim=True)
+        self.feature_std_ = torch.std(X, dim=0, keepdim=True, unbiased=False)
+        self.feature_std_ = torch.where(self.feature_std_ < 1e-6, torch.ones_like(self.feature_std_), self.feature_std_)
+        self.target_mean_ = torch.mean(Y, dim=0, keepdim=True)
+        self.target_std_ = torch.std(Y, dim=0, keepdim=True, unbiased=False)
+        self.target_std_ = torch.where(self.target_std_ < 1e-6, torch.ones_like(self.target_std_), self.target_std_)
+        normalized_x = self._normalize_features(X)
+        normalized_y = (Y - self.target_mean_) / self.target_std_
+
+        cpu_rng_state = torch.random.get_rng_state()
+        cuda_rng_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        torch.manual_seed(int(self.random_seed))
+        try:
+            network = _ForecastingMLP(
+                input_dim=self.input_dim_,
+                output_dim=self.output_dim_,
+                hidden_dims=tuple(int(max(1, value)) for value in self.hidden_dims),
+                activation=self.activation,
+            ).to(device=X.device, dtype=X.dtype)
+        finally:
+            torch.random.set_rng_state(cpu_rng_state)
+            if cuda_rng_state is not None:
+                torch.cuda.set_rng_state_all(cuda_rng_state)
+
+        optimizer = torch.optim.AdamW(
+            network.parameters(),
+            lr=float(self.learning_rate),
+            weight_decay=float(self.weight_decay),
+        )
+        loss_fn = torch.nn.MSELoss()
+        network.train()
+        for _ in range(int(max(1, self.epochs))):
+            optimizer.zero_grad(set_to_none=True)
+            prediction = network(normalized_x)
+            loss = loss_fn(prediction, normalized_y)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.0)
+            optimizer.step()
+
+        self.network_ = network
+        self.final_loss_ = float(loss.detach().cpu().item())
+        return self
+
+    def predict(self, features: torch.Tensor) -> torch.Tensor:
+        if self.network_ is None:
+            raise ValueError('MLPForecastingHead is not fitted.')
+        X = ensure_tensor_2d(features, self.device_policy).to(
+            device=self.feature_mean_.device,
+            dtype=self.feature_mean_.dtype,
+        )
+        self.network_.eval()
+        with torch.no_grad():
+            normalized_prediction = self.network_(self._normalize_features(X))
+        return self._denormalize_target(normalized_prediction)
+
+    def get_diagnostics(self) -> dict[str, Any]:
+        return {
+            'head_policy': 'mlp',
+            'hidden_dims': tuple(int(value) for value in self.hidden_dims),
+            'epochs': int(self.epochs),
+            'learning_rate': float(self.learning_rate),
+            'weight_decay': float(self.weight_decay),
+            'activation': str(self.activation),
+            'input_dim': self.input_dim_,
+            'output_dim': self.output_dim_,
+            'final_loss': self.final_loss_,
+            'device': str(self.feature_mean_.device) if self.feature_mean_ is not None else str(
+                self.device_policy.device),
+        }
+
+
 @dataclass
 class WeightedAverageHead:
     device_policy: TensorDevicePolicy = field(default_factory=TensorDevicePolicy)

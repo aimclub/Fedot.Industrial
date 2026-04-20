@@ -35,15 +35,37 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
     'ssa_forecaster': {
         ForecastingStageName.TRAJECTORY.value: ('window_size',),
         ForecastingStageName.DECOMPOSITION_RANK.value: ('rank', 'explained_variance'),
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'head_policy',
+            'head_hidden_dim',
+            'head_hidden_layers',
+            'head_epochs',
+            'head_learning_rate',
+        ),
     },
     'mssa_forecaster': {
         ForecastingStageName.TRAJECTORY.value: ('window_size',),
         ForecastingStageName.DECOMPOSITION_RANK.value: ('rank', 'explained_variance', 'coupled'),
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'head_policy',
+            'head_hidden_dim',
+            'head_hidden_layers',
+            'head_epochs',
+            'head_learning_rate',
+        ),
     },
     'havok_forecaster': {
         ForecastingStageName.TRAJECTORY.value: ('window_size',),
         ForecastingStageName.DECOMPOSITION_RANK.value: ('rank',),
-        ForecastingStageName.FORECAST_HEAD.value: ('forcing_threshold_scale', 'forcing_decay'),
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'forcing_threshold_scale',
+            'forcing_decay',
+            'head_policy',
+            'head_hidden_dim',
+            'head_hidden_layers',
+            'head_epochs',
+            'head_learning_rate',
+        ),
     },
     'okhs_fdmd_forecaster': {
         ForecastingStageName.TRAJECTORY.value: ('window_size', 'trajectory_sampling_policy'),
@@ -220,6 +242,14 @@ def build_forecasting_stage_tuning_plan(model_name: str,
                 ('rank', 'explained_variance', 'lag_order', 'coupled', 'channel_independent'),
                 depends_on=(ForecastingStageName.TRAJECTORY.value,),
             ),
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                ('head_policy', 'head_hidden_dim', 'head_hidden_layers', 'head_epochs', 'head_learning_rate'),
+                depends_on=(
+                    ForecastingStageName.TRAJECTORY.value,
+                    ForecastingStageName.DECOMPOSITION_RANK.value,
+                ),
+            ),
         )
         return ForecastingStageTuningPlan(
             model_name=model_name,
@@ -265,7 +295,15 @@ def build_forecasting_stage_tuning_plan(model_name: str,
             ),
             _group(
                 ForecastingStageName.FORECAST_HEAD,
-                ('forcing_threshold_scale', 'forcing_decay'),
+                (
+                    'forcing_threshold_scale',
+                    'forcing_decay',
+                    'head_policy',
+                    'head_hidden_dim',
+                    'head_hidden_layers',
+                    'head_epochs',
+                    'head_learning_rate',
+                ),
                 depends_on=(
                     ForecastingStageName.TRAJECTORY.value,
                     ForecastingStageName.DECOMPOSITION_RANK.value,

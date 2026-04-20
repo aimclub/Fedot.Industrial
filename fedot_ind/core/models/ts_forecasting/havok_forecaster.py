@@ -36,6 +36,11 @@ from fedot_ind.core.operation.transformation.data.trajectory_embedding import (
     estimate_window,
     truncate_rank,
 )
+from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
+    MLPForecastingHead,
+    RidgeForecastingHead,
+    TensorDevicePolicy,
+)
 from fedot_ind.core.models.ts_forecasting.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
@@ -65,6 +70,81 @@ class HAVOKForecaster:
     rank: int | None = None
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
+    head_policy: str = 'mlp'
+    head_hidden_dim: int = 64
+    head_hidden_layers: int = 2
+    head_epochs: int = 120
+    head_learning_rate: float = 1e-3
+    device: str = 'cpu'
+    dtype: str = 'float32'
+
+    def __post_init__(self):
+        self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
+
+    def _resolve_head_hidden_dims(self) -> tuple[int, ...]:
+        return tuple(int(max(1, self.head_hidden_dim)) for _ in range(int(max(1, self.head_hidden_layers))))
+
+    def _prepare_series(self, time_series: np.ndarray) -> tuple[np.ndarray, int]:
+        series = np.asarray(time_series, dtype=float).reshape(-1)
+        resolved_window = int(
+            self.window_size or estimate_window(
+                series_length=len(series),
+                forecast_horizon=self.forecast_horizon,
+                min_ratio=0.10,
+                max_ratio=0.20,
+            )
+        )
+        resolved_window = int(max(self.forecast_horizon + 2, min(resolved_window, len(series) - 1)))
+        return series, resolved_window
+
+    def _build_latent_embedding(self, series: np.ndarray, resolved_window: int):
+        hankel = build_hankel(series, window_size=resolved_window)
+        truncated = truncate_rank(
+            hankel.matrix,
+            rank=self.rank,
+            explained_variance=0.95,
+            min_rank=2,
+        )
+        latent = truncated.projected_states
+        if latent.shape[0] < 3:
+            raise ValueError('HAVOK requires at least three latent states after embedding.')
+        return hankel, truncated, latent
+
+    def _build_transition_matrices(self, latent: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        state = latent[:-1, :-1]
+        forcing = latent[:-1, -1]
+        next_state = latent[1:, :-1]
+        state_design = np.column_stack([state, forcing.reshape(-1, 1)])
+        forcing_target = latent[1:, -1].reshape(-1, 1)
+        forcing_design = forcing.reshape(-1, 1)
+        return state_design, next_state, forcing_design, forcing_target
+
+    def _build_transition_head(self):
+        resolved_policy = str(self.head_policy).lower()
+        if resolved_policy == 'linear':
+            return RidgeForecastingHead(alpha=0.0, device_policy=self.device_policy_)
+        return MLPForecastingHead(
+            hidden_dims=self._resolve_head_hidden_dims(),
+            epochs=self.head_epochs,
+            learning_rate=self.head_learning_rate,
+            device_policy=self.device_policy_,
+        )
+
+    def _fit_transition_heads(self, latent: np.ndarray) -> None:
+        state_design, next_state, forcing_design, forcing_target = self._build_transition_matrices(latent)
+        self.state_design_shape_ = tuple(int(value) for value in state_design.shape)
+        self.state_target_shape_ = tuple(int(value) for value in next_state.shape)
+        self.forcing_design_shape_ = tuple(int(value) for value in forcing_design.shape)
+        self.forcing_target_shape_ = tuple(int(value) for value in forcing_target.shape)
+        self.head_policy_ = str(self.head_policy).lower()
+        self.state_head_ = self._build_transition_head()
+        self.state_head_.fit(state_design, next_state)
+        self.forcing_head_ = self._build_transition_head()
+        self.forcing_head_.fit(forcing_design, forcing_target)
+
+    def _compute_forcing_threshold(self, forcing: np.ndarray) -> float:
+        forcing_scale = float(np.std(forcing)) if len(forcing) else 0.0
+        return float(max(1e-8, forcing_scale * self.forcing_threshold_scale))
 
     def _build_stage_diagnostics(self) -> dict[str, object]:
         return {
@@ -92,49 +172,28 @@ class HAVOKForecaster:
             },
             'forecast_head': {
                 'head_type': 'havok_head',
+                'head_policy': str(self.head_policy_),
                 'state_dimension': int(max(1, self.selected_rank_ - 1)),
                 'forcing_threshold_scale': float(self.forcing_threshold_scale),
                 'forcing_threshold': float(self.forcing_threshold_),
                 'forcing_decay': float(self.forcing_decay),
                 'forcing_activity_ratio': float(np.mean(self.forcing_mask_)) if len(self.forcing_mask_) else 0.0,
+                'state_design_shape': tuple(int(value) for value in self.state_design_shape_),
+                'state_target_shape': tuple(int(value) for value in self.state_target_shape_),
+                'forcing_design_shape': tuple(int(value) for value in self.forcing_design_shape_),
+                'forcing_target_shape': tuple(int(value) for value in self.forcing_target_shape_),
+                'state_head_diagnostics': self.state_head_.get_diagnostics(),
+                'forcing_head_diagnostics': self.forcing_head_.get_diagnostics(),
                 **getattr(self, 'last_prediction_diagnostics_', {}),
             },
         }
 
     def fit(self, time_series: np.ndarray) -> 'HAVOKForecaster':
-        series = np.asarray(time_series, dtype=float).reshape(-1)
-        resolved_window = int(
-            self.window_size or estimate_window(
-                series_length=len(series),
-                forecast_horizon=self.forecast_horizon,
-                min_ratio=0.10,
-                max_ratio=0.20,
-            )
-        )
-        resolved_window = int(max(self.forecast_horizon + 2, min(resolved_window, len(series) - 1)))
-        hankel = build_hankel(series, window_size=resolved_window)
-        truncated = truncate_rank(
-            hankel.matrix,
-            rank=self.rank,
-            explained_variance=0.95,
-            min_rank=2,
-        )
-        latent = truncated.projected_states
-        if latent.shape[0] < 3:
-            raise ValueError('HAVOK requires at least three latent states after embedding.')
-
-        state = latent[:-1, :-1]
+        series, resolved_window = self._prepare_series(time_series)
+        hankel, truncated, latent = self._build_latent_embedding(series, resolved_window)
         forcing = latent[:-1, -1]
-        next_state = latent[1:, :-1]
-        design = np.column_stack([np.ones(state.shape[0]), state, forcing.reshape(-1, 1)])
-        coefficients = np.linalg.pinv(design) @ next_state
-
-        forcing_target = latent[1:, -1]
-        forcing_design = np.column_stack([np.ones(len(forcing)), forcing])
-        forcing_coefficients = np.linalg.pinv(forcing_design) @ forcing_target
-
-        forcing_scale = float(np.std(forcing)) if len(forcing) else 0.0
-        forcing_threshold = float(max(1e-8, forcing_scale * self.forcing_threshold_scale))
+        self._fit_transition_heads(latent)
+        forcing_threshold = self._compute_forcing_threshold(forcing)
         forcing_mask = np.abs(forcing) >= forcing_threshold
         self.series_ = series
         self.window_size_ = resolved_window
@@ -142,11 +201,6 @@ class HAVOKForecaster:
         self.selected_rank_ = int(truncated.selected_rank)
         self.basis_ = truncated.basis
         self.latent_states_ = latent
-        self.state_intercept_ = coefficients[0]
-        self.state_matrix_ = coefficients[1:-1]
-        self.forcing_vector_ = coefficients[-1]
-        self.forcing_intercept_ = float(forcing_coefficients[0])
-        self.forcing_autoreg_ = float(forcing_coefficients[1])
         self.forcing_threshold_ = forcing_threshold
         self.forcing_values_ = forcing
         self.forcing_mask_ = forcing_mask
@@ -167,15 +221,26 @@ class HAVOKForecaster:
         forecast = []
         forecast_forcing = []
         for _ in range(horizon):
-            next_state = self.state_intercept_ + current_state @ self.state_matrix_ + current_forcing * self.forcing_vector_
-            next_forcing = self.forcing_intercept_ + self.forcing_autoreg_ * current_forcing
+            state_features = np.concatenate(
+                [np.asarray(current_state, dtype=float).reshape(-1), [float(current_forcing)]],
+            ).reshape(1, -1)
+            next_state = self.state_head_.predict(
+                state_features,
+            )
+            if hasattr(next_state, 'detach'):
+                next_state = next_state.detach().cpu().numpy()
+            next_state = np.asarray(next_state, dtype=float).reshape(-1)
+            next_forcing = self.forcing_head_.predict(np.asarray([[float(current_forcing)]], dtype=float))
+            if hasattr(next_forcing, 'detach'):
+                next_forcing = next_forcing.detach().cpu().numpy()
+            next_forcing = float(np.asarray(next_forcing, dtype=float).reshape(-1)[0])
             if abs(current_forcing) < self.forcing_threshold_:
                 next_forcing *= self.forcing_decay
-            next_latent = np.concatenate([np.asarray(next_state, dtype=float).reshape(-1), [float(next_forcing)]])
+            next_latent = np.concatenate([next_state, [float(next_forcing)]])
             decoded_window = next_latent @ self.basis_.T
             forecast.append(float(decoded_window[-1]))
             forecast_forcing.append(float(next_forcing))
-            current_state = np.asarray(next_state, dtype=float).reshape(-1)
+            current_state = next_state
             current_forcing = float(next_forcing)
         self.last_prediction_diagnostics_ = {
             'forecast_forcing_values': [float(value) for value in forecast_forcing],
@@ -222,6 +287,12 @@ class HAVOKForecasterImplementation(ModelImplementation):
         self.rank = self.params.get('rank')
         self.forcing_threshold_scale = self.params.get('forcing_threshold_scale', 1.0)
         self.forcing_decay = self.params.get('forcing_decay', 0.85)
+        self.head_policy = str(self.params.get('head_policy', 'mlp'))
+        self.head_hidden_dim = int(self.params.get('head_hidden_dim', 64))
+        self.head_hidden_layers = int(self.params.get('head_hidden_layers', 2))
+        self.head_epochs = int(self.params.get('head_epochs', 120))
+        self.head_learning_rate = float(self.params.get('head_learning_rate', 1e-3))
+        self.device = str(self.params.get('device', 'cpu'))
         self.model_: HAVOKForecaster | None = None
 
     def fit(self, input_data: InputData):
@@ -231,6 +302,12 @@ class HAVOKForecasterImplementation(ModelImplementation):
             rank=self.rank,
             forcing_threshold_scale=self.forcing_threshold_scale,
             forcing_decay=self.forcing_decay,
+            head_policy=self.head_policy,
+            head_hidden_dim=self.head_hidden_dim,
+            head_hidden_layers=self.head_hidden_layers,
+            head_epochs=self.head_epochs,
+            head_learning_rate=self.head_learning_rate,
+            device=self.device,
         )
         self.model_.fit(np.asarray(input_data.features, dtype=float))
         return self
@@ -261,6 +338,12 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'rank': self.rank,
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
         ).to_dict()
 
@@ -273,6 +356,12 @@ class HAVOKForecasterImplementation(ModelImplementation):
                     'rank': self.rank,
                     'forcing_threshold_scale': self.forcing_threshold_scale,
                     'forcing_decay': self.forcing_decay,
+                    'head_policy': self.head_policy,
+                    'head_hidden_dim': self.head_hidden_dim,
+                    'head_hidden_layers': self.head_hidden_layers,
+                    'head_epochs': self.head_epochs,
+                    'head_learning_rate': self.head_learning_rate,
+                    'device': self.device,
                 },
             )
         )
@@ -285,6 +374,12 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'rank': self.rank,
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             stage_updates=stage_updates,
         ).to_dict()
@@ -310,6 +405,12 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'rank': self.rank,
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             stage_updates=stage_updates,
             metric_name=metric_name,

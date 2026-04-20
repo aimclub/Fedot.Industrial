@@ -23,24 +23,24 @@ M4_DATASETS = tuple(
 )
 
 FORECASTING_MODELS = (
-    ModelSpec(
-        adapter_name='lagged_forecaster',
-        display_name='lagged_forecaster',
-        params={
-            'window_size': 10,
-            'channel_model': 'ridge',
-        },
-    ),
-    ModelSpec(
-        adapter_name='havok',
-        display_name='havok_forecaster',
-        params={
-            'window_size': None,
-            'rank': 4,
-            'forcing_threshold_scale': 0.85,
-            'forcing_decay': 0.85,
-        },
-    ),
+    # ModelSpec(
+    #     adapter_name='lagged_forecaster',
+    #     display_name='lagged_forecaster',
+    #     params={
+    #         'window_size': 10,
+    #         'channel_model': 'ridge',
+    #     },
+    # ),
+    # ModelSpec(
+    #     adapter_name='havok',
+    #     display_name='havok_forecaster',
+    #     params={
+    #         'window_size': None,
+    #         'rank': 4,
+    #         'forcing_threshold_scale': 0.85,
+    #         'forcing_decay': 0.85,
+    #     },
+    # ),
     ModelSpec(
         adapter_name='ssa_forecaster',
         display_name='ssa_forecaster',

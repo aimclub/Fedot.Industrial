@@ -95,6 +95,20 @@ def _normalize_base_params(params: dict[str, Any] | None, *, model_name: str | N
         normalized.setdefault('window_size', 10)
         normalized.setdefault('stride', 1)
         normalized.setdefault('alpha', 1.0)
+    elif canonical_name in {'mssa_forecaster', 'ssa_forecaster'}:
+        normalized.setdefault('head_policy', 'mlp')
+        normalized.setdefault('head_hidden_dim', 64)
+        normalized.setdefault('head_hidden_layers', 2)
+        normalized.setdefault('head_epochs', 120)
+        normalized.setdefault('head_learning_rate', 1e-3)
+        normalized.setdefault('device', 'cpu')
+    elif canonical_name == 'havok_forecaster':
+        normalized.setdefault('head_policy', 'mlp')
+        normalized.setdefault('head_hidden_dim', 64)
+        normalized.setdefault('head_hidden_layers', 2)
+        normalized.setdefault('head_epochs', 120)
+        normalized.setdefault('head_learning_rate', 1e-3)
+        normalized.setdefault('device', 'cpu')
     return normalized
 
 

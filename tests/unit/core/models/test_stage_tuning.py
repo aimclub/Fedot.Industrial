@@ -59,6 +59,42 @@ def test_build_stage_search_spaces_for_lagged_wrapper_includes_alpha_and_stride(
     assert set(spaces[1].parameter_space) == {'alpha'}
 
 
+def test_build_stage_tuning_plan_for_mssa_and_havok_exposes_head_stage():
+    mssa_plan = build_forecasting_stage_tuning_plan(
+        'mssa_forecaster',
+        {'window_size': 16, 'rank': 4, 'head_policy': 'mlp'},
+    )
+    havok_plan = build_forecasting_stage_tuning_plan(
+        'havok_forecaster',
+        {'window_size': 16, 'rank': 4, 'head_policy': 'mlp'},
+    )
+
+    assert mssa_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'head_policy' in mssa_plan.groups[-1].parameters
+    assert 'head_hidden_dim' in mssa_plan.groups[-1].parameters
+    assert havok_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'forcing_threshold_scale' in havok_plan.groups[-1].parameters
+    assert 'head_policy' in havok_plan.groups[-1].parameters
+
+
+def test_build_stage_search_spaces_for_mssa_and_havok_include_head_parameters():
+    mssa_spaces = build_forecasting_stage_search_spaces(
+        'mssa_forecaster',
+        {'window_size': 16, 'rank': 4, 'head_policy': 'mlp'},
+    )
+    havok_spaces = build_forecasting_stage_search_spaces(
+        'havok_forecaster',
+        {'window_size': 16, 'rank': 4, 'head_policy': 'mlp'},
+    )
+
+    assert mssa_spaces[-1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'head_policy' in mssa_spaces[-1].parameter_space
+    assert 'head_epochs' in mssa_spaces[-1].parameter_space
+    assert havok_spaces[-1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'head_hidden_layers' in havok_spaces[-1].parameter_space
+    assert 'forcing_decay' in havok_spaces[-1].parameter_space
+
+
 def test_build_stage_tuning_plan_for_okhs_forecaster_separates_head_from_representation():
     plan = build_forecasting_stage_tuning_plan(
         'okhs_fdmd_forecaster',

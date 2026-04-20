@@ -927,6 +927,12 @@ class MSSAModel(ForecastingModelAdapter):
     explained_variance: float = 0.95
     lag_order: int | None = None
     coupled: bool = False
+    head_policy: str = 'mlp'
+    head_hidden_dim: int = 64
+    head_hidden_layers: int = 2
+    head_epochs: int = 120
+    head_learning_rate: float = 1e-3
+    device: str = 'cpu'
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'mSSA'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'mssa')
@@ -944,6 +950,12 @@ class MSSAModel(ForecastingModelAdapter):
             explained_variance=self.explained_variance,
             lag_order=self.lag_order,
             coupled=self.coupled,
+            head_policy=self.head_policy,
+            head_hidden_dim=self.head_hidden_dim,
+            head_hidden_layers=self.head_hidden_layers,
+            head_epochs=self.head_epochs,
+            head_learning_rate=self.head_learning_rate,
+            device=self.device,
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
@@ -958,6 +970,12 @@ class MSSAModel(ForecastingModelAdapter):
                 'explained_variance': self.explained_variance,
                 'lag_order': self.lag_order,
                 'channel_independent': not self.coupled,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             runtime_config=self.stage_tuning_runtime,
         )
@@ -1193,6 +1211,12 @@ class HAVOKModel(ForecastingModelAdapter):
     rank: int | None = None
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
+    head_policy: str = 'mlp'
+    head_hidden_dim: int = 64
+    head_hidden_layers: int = 2
+    head_epochs: int = 120
+    head_learning_rate: float = 1e-3
+    device: str = 'cpu'
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'HAVOK'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'havok')
@@ -1209,6 +1233,12 @@ class HAVOKModel(ForecastingModelAdapter):
             rank=self.rank,
             forcing_threshold_scale=self.forcing_threshold_scale,
             forcing_decay=self.forcing_decay,
+            head_policy=self.head_policy,
+            head_hidden_dim=self.head_hidden_dim,
+            head_hidden_layers=self.head_hidden_layers,
+            head_epochs=self.head_epochs,
+            head_learning_rate=self.head_learning_rate,
+            device=self.device,
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
@@ -1229,6 +1259,12 @@ class HAVOKModel(ForecastingModelAdapter):
                 'rank': self.rank,
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             runtime_config=self.stage_tuning_runtime,
         )

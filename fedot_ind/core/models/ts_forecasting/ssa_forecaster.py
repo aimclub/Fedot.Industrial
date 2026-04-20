@@ -28,6 +28,12 @@ class SSAForecasterImplementation(ModelImplementation):
         self.explained_variance = params.get('explained_variance', 0.95)
         self.history_lookback = max(params.get('history_lookback', 0), 0)
         self.mode = params.get('mode', 'one_dimensional')
+        self.head_policy = str(params.get('head_policy', 'mlp'))
+        self.head_hidden_dim = int(params.get('head_hidden_dim', 64))
+        self.head_hidden_layers = int(params.get('head_hidden_layers', 2))
+        self.head_epochs = int(params.get('head_epochs', 120))
+        self.head_learning_rate = float(params.get('head_learning_rate', 1e-3))
+        self.device = str(params.get('device', 'cpu'))
         self.compatibility_status_ = 'compatibility_wrapper'
         self.model_: MSSAForecaster | None = None
 
@@ -45,6 +51,12 @@ class SSAForecasterImplementation(ModelImplementation):
             rank=self.rank,
             explained_variance=self.explained_variance,
             coupled=False,
+            head_policy=self.head_policy,
+            head_hidden_dim=self.head_hidden_dim,
+            head_hidden_layers=self.head_hidden_layers,
+            head_epochs=self.head_epochs,
+            head_learning_rate=self.head_learning_rate,
+            device=self.device,
         )
         self.model_.fit(self._prepare_series(input_data))
         return self
@@ -82,6 +94,12 @@ class SSAForecasterImplementation(ModelImplementation):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': self.mode,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
         ).to_dict()
 
@@ -95,6 +113,12 @@ class SSAForecasterImplementation(ModelImplementation):
                     'explained_variance': self.explained_variance,
                     'history_lookback': self.history_lookback,
                     'mode': self.mode,
+                    'head_policy': self.head_policy,
+                    'head_hidden_dim': self.head_hidden_dim,
+                    'head_hidden_layers': self.head_hidden_layers,
+                    'head_epochs': self.head_epochs,
+                    'head_learning_rate': self.head_learning_rate,
+                    'device': self.device,
                 },
             )
         )
@@ -108,6 +132,12 @@ class SSAForecasterImplementation(ModelImplementation):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': self.mode,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             stage_updates=stage_updates,
         ).to_dict()
@@ -134,6 +164,12 @@ class SSAForecasterImplementation(ModelImplementation):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': self.mode,
+                'head_policy': self.head_policy,
+                'head_hidden_dim': self.head_hidden_dim,
+                'head_hidden_layers': self.head_hidden_layers,
+                'head_epochs': self.head_epochs,
+                'head_learning_rate': self.head_learning_rate,
+                'device': self.device,
             },
             stage_updates=stage_updates,
             metric_name=metric_name,
