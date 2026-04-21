@@ -283,31 +283,121 @@ def split_detection_batch(
         split_spec: DetectionSplitSpec,
 ) -> tuple[DetectionWindowBatch, DetectionWindowBatch, DetectionWindowBatch | None]:
     n_windows = batch.n_windows
-    n_train = max(1, int(round(n_windows * split_spec.train_fraction)))
-    remaining = max(0, n_windows - n_train)
-    n_calibration = int(round(remaining * split_spec.calibration_fraction / max(1e-8, 1.0 - split_spec.train_fraction)))
-    n_calibration = min(remaining, max(0, n_calibration))
+    if n_windows == 0:
+        raise ValueError('Detection batch must contain at least one window.')
 
-    def _slice(start: int, end: int) -> DetectionWindowBatch | None:
-        if end <= start:
+    def _select(window_ids: np.ndarray, split_name: str) -> DetectionWindowBatch | None:
+        selected = np.asarray(window_ids, dtype=int).reshape(-1)
+        if selected.size == 0:
             return None
+        selected = np.unique(selected)
+        base_metadata = dict(batch.metadata)
+        if 'window_domains' in base_metadata:
+            base_metadata['window_domains'] = [base_metadata['window_domains'][index] for index in selected.tolist()]
+        if 'domains' in base_metadata:
+            base_metadata['domains'] = [base_metadata['domains'][index] for index in selected.tolist()]
+        metadata = {
+            **base_metadata,
+            'split_kind': split_spec.kind.value,
+            'split_name': split_name,
+            'selected_window_ids': selected.tolist(),
+        }
         return DetectionWindowBatch(
-            windows=batch.windows[start:end],
-            window_indices=batch.window_indices[start:end],
+            windows=batch.windows[selected],
+            window_indices=batch.window_indices[selected],
             original_length=batch.original_length,
             window_size=batch.window_size,
             stride=batch.stride,
             channel_names=batch.channel_names,
             mask=batch.mask,
-            metadata=dict(batch.metadata),
+            metadata=metadata,
         )
 
-    train_batch = _slice(0, n_train)
-    calibration_batch = _slice(n_train, n_train + n_calibration)
-    test_batch = _slice(n_train + n_calibration, n_windows)
+    if split_spec.kind is DetectionSplitKind.DOMAIN_HOLDOUT:
+        window_domains = batch.metadata.get('window_domains', batch.metadata.get('domains'))
+        if window_domains is None:
+            raise ValueError('Domain-holdout detection split requires batch.metadata["window_domains"].')
+        window_domains = np.asarray(window_domains, dtype=object).reshape(-1)
+        if window_domains.shape[0] != n_windows:
+            raise ValueError('window_domains length must match the number of detection windows.')
+        target_domain = split_spec.target_domain or str(window_domains[-1])
+        train_ids = np.flatnonzero(window_domains != target_domain)
+        holdout_ids = np.flatnonzero(window_domains == target_domain)
+        if train_ids.size == 0 or holdout_ids.size == 0:
+            raise ValueError('Domain-holdout split requires both source and target-domain windows.')
+        n_calibration = max(1, int(round(holdout_ids.size * split_spec.calibration_fraction)))
+        calibration_ids, test_ids = _split_temporal_window_ids(
+            batch.window_indices,
+            holdout_ids,
+            calibration_size=n_calibration,
+            prevent_future_leakage=split_spec.prevent_future_leakage,
+        )
+        train_batch = _select(train_ids, 'train')
+        calibration_batch = _select(calibration_ids, 'calibration')
+        test_batch = _select(test_ids, 'test')
+        if train_batch is None:
+            raise ValueError('Detection split produced an empty train batch.')
+        return train_batch, calibration_batch or train_batch, test_batch
+
+    n_train = max(1, int(round(n_windows * split_spec.train_fraction)))
+    remaining = max(0, n_windows - n_train)
+    n_calibration = min(
+        remaining,
+        max(0, int(round(n_windows * split_spec.calibration_fraction))),
+    )
+    all_ids = np.arange(n_windows, dtype=int)
+
+    if split_spec.kind is DetectionSplitKind.HOLDOUT and not split_spec.prevent_future_leakage:
+        rng = np.random.RandomState(split_spec.random_seed)
+        shuffled_ids = rng.permutation(all_ids)
+        train_ids = np.sort(shuffled_ids[:n_train])
+        calibration_ids = np.sort(shuffled_ids[n_train:n_train + n_calibration])
+        test_ids = np.sort(shuffled_ids[n_train + n_calibration:])
+    else:
+        train_ids = all_ids[:n_train]
+        remaining_ids = all_ids[n_train:]
+        calibration_ids, test_ids = _split_temporal_window_ids(
+            batch.window_indices,
+            remaining_ids,
+            calibration_size=n_calibration,
+            prevent_future_leakage=split_spec.prevent_future_leakage,
+            minimum_start=batch.window_indices[train_ids[-1], 1] if train_ids.size else None,
+        )
+
+    train_batch = _select(train_ids, 'train')
+    calibration_batch = _select(calibration_ids, 'calibration')
+    test_batch = _select(test_ids, 'test')
     if train_batch is None:
         raise ValueError('Detection split produced an empty train batch.')
     return train_batch, calibration_batch or train_batch, test_batch
+
+
+def _split_temporal_window_ids(
+        window_indices: np.ndarray,
+        candidate_ids: np.ndarray,
+        *,
+        calibration_size: int,
+        prevent_future_leakage: bool,
+        minimum_start: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    candidates = np.asarray(candidate_ids, dtype=int).reshape(-1)
+    if candidates.size == 0:
+        return np.asarray([], dtype=int), np.asarray([], dtype=int)
+    ordered = np.sort(candidates)
+    if minimum_start is not None:
+        ordered = ordered[window_indices[ordered, 0] >= int(minimum_start)]
+    if ordered.size == 0:
+        return np.asarray([], dtype=int), np.asarray([], dtype=int)
+
+    calibration_size = max(0, int(calibration_size))
+    calibration_ids = ordered[:calibration_size]
+    if not prevent_future_leakage or calibration_ids.size == 0:
+        return calibration_ids, ordered[calibration_size:]
+
+    calibration_end = int(window_indices[calibration_ids[-1], 1])
+    test_ids = ordered[window_indices[ordered, 0] >= calibration_end]
+    test_ids = test_ids[~np.isin(test_ids, calibration_ids)]
+    return calibration_ids, test_ids
 
 
 def build_window_statistical_features(windows: np.ndarray) -> np.ndarray:

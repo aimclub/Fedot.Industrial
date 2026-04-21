@@ -189,8 +189,8 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
-        "IndustrialAnomalyDetectionStrategy"
+        "fedot_ind.core.operation.interfaces.detection_runtime_strategy",
+        "IndustrialDetectionModelRuntimeStrategy"
       ],
       "tags": [
       ],
@@ -360,6 +360,22 @@
       "tags": [
       ]
     },
+    "feature_iforest_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "feature_oneclass_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
     "conv_ae_detector": {
       "meta": "fedot_anomaly_detection",
       "presets": [
@@ -368,7 +384,55 @@
       "tags": [
       ]
     },
+    "conv_autoencoder_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "tcn_autoencoder_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
     "lstm_ae_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "legacy_sst_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "legacy_kalman_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "legacy_arima_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "legacy_lstm_autoencoder_detector": {
       "meta": "fedot_anomaly_detection",
       "presets": [
         "best_quality"

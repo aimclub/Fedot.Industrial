@@ -160,14 +160,14 @@ helpers.
 
 ## 4. Где в репозитории живет легаси
 
-Ниже список зон, которые новый разработчик должен сразу воспринимать как “архитектурно чувствительные”.
+Ниже список “архитектурно чувствительные” зон.
 
 ### 4.1. `fedot_ind/api/main.py`
 
 Проблемы:
 
-- много orchestration logic в одном facade;
-- конфигурирование, routing, preprocessing и solver wiring живут близко друг к другу;
+- много orchestration logic в одном классе;
+- конфигурирование, routing, preprocessing живут близко друг к другу;
 - часть flow исторически рассчитана на generic FEDOT semantics, а не на task-specific runtime.
 
 Как относиться:
@@ -178,12 +178,10 @@ helpers.
 
 ### 4.2. `industrial_model_strategy.py`
 
-Это текущий legacy hub для task/model dispatch.
-
-Главная проблема для anomaly detection:
+Это текущий legacy hub для task/model стратегий. Главная проблема для anomaly detection:
 
 - `IndustrialAnomalyDetectionStrategy` сейчас наследуется от `IndustrialSkLearnClassificationStrategy`;
-- это означает classification-by-accident архитектуру;
+- это означает архитектуру "ориентированную на задачу классификацию";
 - detection runtime semantics, scoring, calibration и event aggregation здесь не являются first-class.
 
 ### 4.3. `industrial_preprocessing_strategy.py`
@@ -200,9 +198,8 @@ helpers.
 
 Проблемы:
 
-- giant registry;
-- stringly-typed model naming;
-- смешение historical names, canonical names и compatibility aliases;
+- огромное пространство имен;
+- строково типизированное название моеделй;
 - сложно понять, какие модели являются первичными, а какие legacy.
 
 Практическое правило:
@@ -219,14 +216,13 @@ helpers.
 - `anomaly_detector.py` опирается на mode flags (`lagged`, `full`, `batch`);
 - detection task завернут в `TaskTypesEnum.classification`;
 - thresholding и score-to-label логика частично скрыты внутри model shell;
-- старые detector families живут как heterogeneous set без единого runtime contract;
+- старые detector families живут без единого runtime contract;
 - benchmark/v2 detection пока отсутствует.
 
 ### 4.6. `core/architecture/pipelines/*`
 
-Исторически важный слой, но не architectural center текущей ветки.
-
-Используй его как compatibility/history layer, а не как место, откуда нужно копировать новую архитектуру.
+Исторически важный слой, но не "архитектурный центр" текущей ветки. Использовать его не как место,
+откуда нужно копировать новую архитектуру.
 
 ### 4.7. `ensemble/*` и часть `examples/*`
 
@@ -234,7 +230,7 @@ helpers.
 
 - они не определяют target architecture;
 - часть примеров устарела;
-- папка `examples/outdated_examples` — явно не source-of-truth.
+- папка `examples/outdated_examples`
 
 ## 5. Текущие инженерные принципы ветки
 
@@ -318,7 +314,7 @@ helpers.
 
 ### 7.1. Что является legacy source-of-truth
 
-Сейчас legacy contour detection сосредоточен в:
+Сейчас контур легаси модуля детектирования аномалий сосредоточен в:
 
 - `fedot_ind/core/models/detection/anomaly_detector.py`
 - `fedot_ind/core/models/detection/anomaly/algorithms/*`
@@ -367,7 +363,7 @@ helpers.
 
 Перед изменениями ответь себе:
 
-- это facade?
+- это класс "facade" (например API)?
 - это runtime strategy?
 - это registry/config boundary?
 - это benchmark runner?
@@ -403,429 +399,7 @@ helpers.
 - tests;
 - пример запуска или manifest/preset.
 
-## 9. Backlog по `anomaly_detection`: issue-level декомпозиция
 
-Ниже backlog в формате, пригодном для GitHub Issues.
-
-### Issue 1 - Detection runtime contracts + stage vocabulary
-
-Почему:
-
-сейчас anomaly detection опирается на legacy base class с mode flags (`lagged` / `full` / `batch`) и implicit state. Это
-мешает сделать detection first-class задачей и не позволяет стабильно строить calibration, events, transfer и benchmark
-artifacts.
-
-Задачи:
-
-- зафиксировать canonical runtime objects для detection:
-    - `DetectionWindowBatch`
-    - `DetectionSplitSpec`
-    - `RegimeSegment`
-    - `AnomalyScoreSeries`
-    - `DetectionEvent`
-    - `TransferAlignmentReport`
-    - `DetectionSeriesEvaluation`
-    - `DetectionStageTuningPlan`
-    - `RiskFeatureFrame`
-- ввести стабильную stage vocabulary:
-    - `data_quality`
-    - `regime_segmentation`
-    - `representation`
-    - `anomaly_scoring`
-    - `calibration`
-    - `event_aggregation`
-    - `transfer_alignment`
-    - `interpretation`
-- вынести split/windowing/calibration/event aggregation в reusable helpers
-- зафиксировать no-future-leakage semantics для split и calibration
-
-DoD:
-
-- typed runtime contracts существуют как source-of-truth для нового detection stack
-- mode flags перестают быть единственным механизмом моделирования detection flow
-- stage vocabulary описана и используется в коде
-- есть unit tests на windowing, calibration, aggregation и split invariants
-
-Labels: architecture, detection, runtime, blocker
-
-### Issue 2 - Canonical detection registry + alias policy
-
-Почему:
-
-сейчас detection naming живет в giant legacy registry и не разделяет canonical models, aliases и legacy families. Это
-усложняет migration path и мешает benchmark/v2 агрегировать результаты по model family.
-
-Задачи:
-
-- ввести canonical detection naming policy
-- явно разделить:
-    - first-class detector families
-    - legacy detector families
-    - compatibility aliases
-- оформить family mapping для benchmark/reporting/tuning
-- подключить новый detection registry к repository metadata
-
-DoD:
-
-- для detection есть canonical names и aliases policy
-- legacy detector names больше не являются source-of-truth
-- family-level grouping можно использовать в benchmark/v2 и tuning
-- migration path документирован
-
-Labels: architecture, repository, detection, parallelizable
-
-### Issue 3 - Detection runtime strategy вместо classification-by-accident
-
-Почему:
-
-сейчас `IndustrialAnomalyDetectionStrategy` наследуется от classification strategy. Это архитектурно неверно: у
-detection другие semantics вывода, калибровки, scoring и event aggregation.
-
-Задачи:
-
-- выделить dedicated detection runtime strategy
-- перестать использовать classification task semantics как внутренний detection substrate
-- определить boundary adapter между `InputData` и новым detection runtime
-- минимизировать зависимость detection path от `MultiDimPreprocessingStrategy`
-
-DoD:
-
-- detection runtime strategy существует как отдельный путь
-- classification inheritance больше не является архитектурным центром detection task
-- shell boundary остается совместимой с текущими public entrypoints
-- есть boundary/smoke tests через public strategy path
-
-Labels: architecture, detection, runtime, blocker
-
-### Issue 4 - First-class detector families + explicit calibration layer
-
-Почему:
-
-сейчас detection families гетерогенны, thresholding частично скрыт в model shells, а новые detectors не оформлены как
-единый runtime-first стек.
-
-Задачи:
-
-- сделать canonical wave-1 families:
-    - `feature_iforest_detector`
-    - `feature_oneclass_detector`
-    - `conv_autoencoder_detector`
-    - `tcn_autoencoder_detector`
-- вынести thresholding в explicit calibration layer
-- поддержать calibration strategies:
-    - `mad`
-    - `quantile`
-    - `regime_conditional`
-    - `domain_calibrated`
-- перевести legacy families в non-canonical namespace:
-    - `legacy_lstm_autoencoder_detector`
-    - `legacy_arima_detector`
-    - `legacy_sst_detector`
-    - `legacy_kalman_detector`
-    - `legacy_functional_pca_detector`
-
-DoD:
-
-- first-class detectors работают через единый runtime contract
-- calibration strategy задается явно и попадает в diagnostics
-- old hidden threshold heuristics больше не являются основным поведением
-- есть tests на monotonic threshold behavior и score-to-event conversion
-
-Labels: detection, models, calibration, blocker
-
-### Issue 5 - Benchmark V2 detection suite + public local benchmark
-
-Почему:
-
-сейчас `benchmark/v2` покрывает forecasting, classification и regression, но не anomaly detection. Пока detection не
-встроен сюда, рефакторинг остается частично “невидимым” и трудно сравнимым.
-
-Задачи:
-
-- добавить `TaskType.ANOMALY_DETECTION`
-- реализовать detection suite runner в `benchmark/v2`
-- добавить dataset adapters под локальные public detection CSV
-- определить detection metrics:
-    - point-level precision/recall/f1
-    - event-level precision/recall/f1
-    - false positives per series
-    - delay-aware metric при наличии разметки
-- подключить manifests, presets, registry и publication artifacts
-
-DoD:
-
-- `benchmark/v2` умеет запускать anomaly detection suite
-- есть хотя бы один public local preset
-- detection runs попадают в registry и manifest flow
-- benchmark сохраняет structured diagnostics и summary artifacts
-
-Labels: benchmark-v2, detection, evaluation, blocker
-
-### Issue 6 - MPSI local preset + data policy + manifests
-
-Почему:
-
-industrial use case по МПСИ является одним из главных драйверов рефакторинга. Без отдельного локального preset и явной
-data policy этот контур останется документом, а не инженерным path.
-
-Задачи:
-
-- зафиксировать MPSI data policy:
-    - analog telemetry и vibration как first-class signals
-    - discrete PIMS tags как context/sync/regime signals
-    - raw archives не коммитим
-    - храним manifests, mappings, lightweight fixtures, derived metadata
-- добавить lightweight local preset для MPSI
-- оформить manifest-driven запуск
-- определить базовый набор acceptance metrics для industrial contour
-
-DoD:
-
-- есть MPSI local preset
-- есть manifest example
-- data policy описана в docs
-- raw industrial archives не нужны для smoke path
-
-Labels: detection, industrial, data, benchmark-v2
-
-### Issue 7 - Transfer alignment + risk scaffold
-
-Почему:
-
-refactor detection нужен не только ради anomaly scores, но и как база для следующего слоя failure/risk forecasting. Это
-требует явного scaffold, а не ad-hoc feature export из моделей.
-
-Задачи:
-
-- добавить baseline transfer path:
-    - `domain_invariant_scaling`
-    - `CORAL/feature_alignment`
-    - `few_shot_calibration`
-- добавить `RiskFeatureFrame` export
-- связать events, regimes, domain/node context и maintenance-ready joins
-- сделать diagnostics и export пригодными для следующей волны failure modeling
-
-DoD:
-
-- transfer alignment report формируется явно
-- risk-ready feature export существует как typed artifact
-- detection runtime может работать на unseen domain/node сценариях
-- есть tests на basic alignment semantics и export shape
-
-Labels: detection, transfer-learning, risk, parallelizable
-
-### Issue 8 - Examples, docs и migration guide для нового detection stack
-
-Почему:
-
-без обновления docs/examples новый runtime останется “скрытым знанием”, а новые разработчики продолжат копировать legacy
-path.
-
-Задачи:
-
-- обновить docs по anomaly detection
-- добавить benchmark/v2 quick path для detection
-- обновить или заменить legacy examples
-- оформить migration guide:
-    - old detector names -> canonical names
-    - classification-style path -> detection runtime path
-    - benchmark old flow -> benchmark/v2 flow
-
-DoD:
-
-- есть onboarding-совместимая документация по detection stack
-- есть example/preset/manifest path
-- legacy и canonical naming различаются явно
-- новый developer может воспроизвести public detection smoke без чтения исходников
-
-Labels: docs, examples, detection, onboarding
-
-## 10. Предлагаемый PR stack по `anomaly_detection`
-
-Ниже предлагаемый стек PR, который можно вести параллельно командой из 2-3 разработчиков.
-
-### PR-1 - Detection runtime foundation
-
-Цель:
-
-сделать typed runtime и stage vocabulary архитектурным source-of-truth для detection.
-
-Scope:
-
-- runtime contracts
-- split/window helpers
-- calibration/event aggregation helpers
-- stage tuning contracts
-- initial tests
-
-Связанные issue:
-
-- Issue 1
-- Issue 2
-
-DoD:
-
-- typed runtime contracts и stage vocabulary лежат в репозитории
-- detection registry и canonical naming policy существуют
-- есть unit coverage на core runtime helpers
-
-### PR-2 - Detection runtime strategy + repository wiring
-
-Цель:
-
-вывести detection из classification-by-accident path и подключить новый runtime к repository/runtime layer.
-
-Scope:
-
-- dedicated detection runtime strategy
-- boundary adapter для `InputData`
-- repository wiring
-- alias policy integration
-- default params update
-
-Связанные issue:
-
-- Issue 2
-- Issue 3
-
-DoD:
-
-- detection больше не опирается архитектурно на classification strategy
-- new canonical detector names подключены к repository
-- public shell path продолжает работать
-
-### PR-3 - Canonical detectors + explicit calibration
-
-Цель:
-
-сделать first-class detector families рабочим вертикальным срезом нового detection runtime.
-
-Scope:
-
-- `feature_iforest_detector`
-- `feature_oneclass_detector`
-- `conv_autoencoder_detector`
-- `tcn_autoencoder_detector`
-- calibration layer
-- event diagnostics
-
-Связанные issue:
-
-- Issue 4
-
-DoD:
-
-- canonical detectors работают через единый runtime contract
-- calibration strategies попадают в diagnostics и tuning
-- legacy detectors остаются как compatibility/legacy namespace
-
-### PR-4 - Benchmark V2 detection + public preset
-
-Цель:
-
-сделать detection наблюдаемым, сравнимым и запускаемым через актуальный benchmark layer.
-
-Scope:
-
-- `TaskType.ANOMALY_DETECTION`
-- detection suite runner
-- public local dataset adapter
-- manifests
-- presets
-- registry artifacts
-
-Связанные issue:
-
-- Issue 5
-
-DoD:
-
-- detection запускается через `benchmark/v2`
-- public local preset работает
-- результат попадает в registry и publication artifacts
-
-### PR-5 - MPSI preset + transfer/risk scaffold
-
-Цель:
-
-замкнуть рефакторинг на реальный industrial contour, не перетаскивая в git сырые архивы.
-
-Scope:
-
-- MPSI local preset
-- data policy docs
-- transfer alignment baseline
-- `RiskFeatureFrame`
-- smoke validation на industrial contour
-
-Связанные issue:
-
-- Issue 6
-- Issue 7
-
-DoD:
-
-- есть lightweight MPSI path
-- transfer/risk artifacts существуют
-- public и industrial contour проходят через один detection runtime
-
-### PR-6 - Docs, examples, migration
-
-Цель:
-
-сделать новый detection stack понятным для следующих разработчиков и убрать ambiguity между old path и new path.
-
-Scope:
-
-- docs update
-- onboarding update
-- examples/presets update
-- migration guide
-- final hardening tests
-
-Связанные issue:
-
-- Issue 8
-
-DoD:
-
-- docs и examples соответствуют новому detection path
-- onboarding ведет новичка в актуальный архитектурный контур
-- migration path описан явно
-
-## 11. Как распределять задачи по команде 2-3 разработчиков
-
-### Вариант для 3 разработчиков
-
-Dev A:
-
-- runtime contracts
-- detection strategy
-- split/calibration/event aggregation
-
-Dev B:
-
-- detector families
-- transfer alignment
-- risk scaffold
-
-Dev C:
-
-- benchmark/v2 detection
-- presets/manifests
-- docs/examples/migration
-
-### Вариант для 2 разработчиков
-
-Dev A:
-
-- runtime + strategy + repository wiring
-
-Dev B:
-
-- detectors + benchmark/v2 + docs/presets
-
-В этом варианте PR-6 почти наверняка придется делать отдельной стабилизационной итерацией.
 
 ## 12. Короткая памятка новому разработчику
 

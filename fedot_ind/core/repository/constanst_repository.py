@@ -342,11 +342,14 @@ class FedotOperationConstant(Enum):
         'kernel_pca']
 
     AVAILABLE_ANOMALY_DETECTION_OPERATIONS = [
-        'sst',
-        'unscented_kalman_filter',
-        'channel_filtration',
-        'gaussian_filter',
-        'smoothing'
+        'feature_iforest_detector',
+        'feature_oneclass_detector',
+        'conv_autoencoder_detector',
+        'tcn_autoencoder_detector',
+        'legacy_sst_detector',
+        'legacy_kalman_detector',
+        'legacy_arima_detector',
+        'legacy_lstm_autoencoder_detector',
     ]
 
     AVAILABLE_REG_OPERATIONS = [
@@ -364,7 +367,7 @@ class FedotOperationConstant(Enum):
         'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
         'regression_tabular': PipelineBuilder().add_node('treg'),
-        'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
+        'anomaly_detection': PipelineBuilder().add_node('feature_iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node('ar')
     }
 
@@ -976,8 +979,10 @@ class UnitTestConstant(Enum):
         'tcn': ['tcn_model'],
     }
     VALID_LINEAR_DETECTION_PIPELINE = {
-        # 'sst': ['sst'],
-        # 'unscented_kalman_filter': ['unscented_kalman_filter'],
+        'feature_iforest_detector': ['feature_iforest_detector'],
+        'feature_oneclass_detector': ['feature_oneclass_detector'],
+        'conv_autoencoder_detector': ['conv_autoencoder_detector'],
+        'tcn_autoencoder_detector': ['tcn_autoencoder_detector'],
         'stat_detector': ['stat_detector'],
         'iforest_detector': ['iforest_detector'],
         'conv_ae_detector': ['conv_ae_detector'],

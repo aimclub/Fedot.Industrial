@@ -533,7 +533,23 @@
   },
   "stat_detector": {
     "window_length": 10,
-    "anomaly_thr": 0.9
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "representation_mode": "statistical",
+    "nu": 0.05,
+    "kernel": "rbf",
+    "gamma": "scale"
+  },
+  "feature_oneclass_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "representation_mode": "statistical",
+    "nu": 0.05,
+    "kernel": "rbf",
+    "gamma": "scale"
   },
   "topo_detector": {
     "n_jobs": 2,
@@ -548,16 +564,49 @@
   },
   "iforest_detector": {
     "window_length": 10,
-    "anomaly_thr": 0.1,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "representation_mode": "statistical",
     "n_jobs": 2,
+    "n_estimators": 200,
+    "contamination": "auto",
+    "random_state": 42
+  },
+  "feature_iforest_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "representation_mode": "statistical",
+    "n_jobs": 2,
+    "n_estimators": 200,
     "contamination": "auto",
     "random_state": 42
   },
   "conv_ae_detector": {
     "window_length": 10,
-    "anomaly_thr": 0.9,
-    "ucl_quantile": 0.99,
-    "n_steps_share": 0.15
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "latent_dim": 16,
+    "transfer_strategy": "domain_invariant_scaling",
+    "device": "cpu"
+  },
+  "conv_autoencoder_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "latent_dim": 16,
+    "transfer_strategy": "domain_invariant_scaling",
+    "device": "cpu"
   },
   "lstm_ae_detector": {
     "window_length": 10,
@@ -565,8 +614,45 @@
     "ucl_quantile": 0.99,
     "n_steps_share": 0.15
   },
+  "tcn_autoencoder_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "latent_dim": 16,
+    "kernel_size": 3,
+    "num_filters": 32,
+    "num_levels": 3,
+    "transfer_strategy": "domain_invariant_scaling",
+    "device": "cpu"
+  },
+  "legacy_sst_detector": {
+    "window_length": 10,
+    "threshold_quantile": 0.99
+  },
+  "legacy_kalman_detector": {
+    "window_length": 10,
+    "threshold_quantile": 0.99
+  },
+  "legacy_arima_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ar_order": 3
+  },
+  "legacy_lstm_autoencoder_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ucl_quantile": 0.99,
+    "n_steps_share": 0.15
+  },
   "one_class_svm": {
     "kernel": "rbf",
-    "gamma": "auto"
+    "gamma": "scale",
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99
   }
 }

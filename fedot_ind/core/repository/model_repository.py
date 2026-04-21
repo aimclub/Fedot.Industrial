@@ -38,9 +38,13 @@ from fedot_ind.core.models.classification.stat_domain_clf import StatClassificat
 from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
     ConvolutionalAutoEncoderDetector
-from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
-from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
+from fedot_ind.core.models.detection.modern_detectors import (
+    ConvAutoencoderDetector,
+    FeatureIsolationForestDetector,
+    FeatureOneClassDetector,
+    TCNAutoencoderDetector,
+)
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from fedot_ind.core.models.nn.network_impl.common_model.dummy_nn import DummyOverComplicatedNeuralNetwork
@@ -95,6 +99,10 @@ from fedot_ind.core.operation.transformation.representation.statistical.quantile
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import \
     TopologicalExtractor
 from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
+from fedot_ind.core.repository.detection_registry import (
+    CANONICAL_STAGE_DETECTION_MODELS,
+    LEGACY_DETECTION_MODELS,
+)
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 from fedot_ind.core.repository.forecasting_registry import CANONICAL_STAGE_FORECASTING_MODELS
 
@@ -248,13 +256,23 @@ class AtomizedModel(Enum):
 
     ANOMALY_DETECTION_MODELS = {
         # for detection
-        'one_class_svm': OneClassSVM,
+        'one_class_svm': FeatureOneClassDetector,
+        'feature_oneclass_detector': FeatureOneClassDetector,
+        'feature_iforest_detector': FeatureIsolationForestDetector,
+        'conv_autoencoder_detector': ConvAutoencoderDetector,
+        'tcn_autoencoder_detector': TCNAutoencoderDetector,
+        # compatibility aliases to the first-class runtime detectors
+        'stat_detector': FeatureOneClassDetector,
+        'iforest_detector': FeatureIsolationForestDetector,
+        'conv_ae_detector': ConvAutoencoderDetector,
+        # legacy detectors retained outside the first-class family set
+        'legacy_sst_detector': SingularSpectrumTransformation,
+        'legacy_kalman_detector': UnscentedKalmanFilter,
+        'legacy_arima_detector': ARIMAFaultDetector,
+        'legacy_lstm_autoencoder_detector': LSTMAutoEncoderDetector,
         'sst': SingularSpectrumTransformation,
         'unscented_kalman_filter': UnscentedKalmanFilter,
-        'stat_detector': StatisticalDetector,
         'arima_detector': ARIMAFaultDetector,
-        'iforest_detector': IsolationForestDetector,
-        'conv_ae_detector': ConvolutionalAutoEncoderDetector,
         'lstm_ae_detector': LSTMAutoEncoderDetector,
         'channel_filtration': ChannelCentroidFilter,
         'gaussian_filter': GaussianFilterImplementation,
@@ -281,6 +299,8 @@ class AtomizedModel(Enum):
         'deepar_model': DeepAR,
         # detection models
         'conv_ae_detector': ConvolutionalAutoEncoderDetector,
+        'conv_autoencoder_detector': ConvAutoencoderDetector,
+        'tcn_autoencoder_detector': TCNAutoencoderDetector,
         'lstm_ae_detector': LSTMAutoEncoderDetector,
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,
@@ -296,12 +316,17 @@ class AtomizedModel(Enum):
                    'ridge': DaskRidgeRegression
                    }
 
+    PRIMARY_ANOMALY_DETECTION_MODELS = [
+        *CANONICAL_STAGE_DETECTION_MODELS,
+        *LEGACY_DETECTION_MODELS,
+    ]
+
 
 def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': INDUSTRIAL_REG_AUTOML_MODEL.keys(),
                       'ts_forecasting': FORECASTING_MODELS.keys(),
                       'classification': INDUSTRIAL_CLF_AUTOML_MODEL.keys(),
-                      'anomaly_detection': ANOMALY_DETECTION_MODELS.keys(),
+                      'anomaly_detection': PRIMARY_ANOMALY_DETECTION_MODELS,
                       'classification_tabular': SKLEARN_CLF_MODELS.keys(),
                       'regression_tabular': SKLEARN_CLF_MODELS.keys()}
     available_operations = {'ts_forecasting': [operation_dict[problem],
@@ -361,3 +386,4 @@ NEURAL_MODEL_FOR_CLF = AtomizedModel.NEURAL_MODEL_FOR_CLF.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value
 PRIMARY_FORECASTING_MODELS = AtomizedModel.PRIMARY_FORECASTING_MODELS.value
+PRIMARY_ANOMALY_DETECTION_MODELS = AtomizedModel.PRIMARY_ANOMALY_DETECTION_MODELS.value
