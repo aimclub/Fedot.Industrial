@@ -63,7 +63,7 @@ class LaggedRidgeForecaster:
     window_size_percent: float | None = 10.0
     stride: int = 1
     alpha: float = 1.0
-    device: str = 'cpu'
+    device: str = 'auto'
     dtype: str = 'float32'
 
     def __post_init__(self):
@@ -138,7 +138,7 @@ class LaggedRidgeForecasterImplementation(ModelImplementation):
         self.window_size_percent = self.params.get('window_size_percent')
         self.stride = int(self.params.get('stride', 1))
         self.alpha = float(self.params.get('alpha', 1.0))
-        self.device = str(self.params.get('device', 'cpu'))
+        self.device = str(self.params.get('device', 'auto'))
         self.model_: LaggedRidgeForecaster | None = None
 
     def fit(self, input_data: InputData):

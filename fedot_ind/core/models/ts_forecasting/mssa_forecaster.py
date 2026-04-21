@@ -41,6 +41,7 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     RidgeForecastingHead,
     TensorDevicePolicy,
 )
+from fedot_ind.core.models.ts_forecasting.progress_policy import resolve_forecasting_progress_policy
 from fedot_ind.core.models.ts_forecasting.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
@@ -75,11 +76,13 @@ class MSSAForecaster:
     head_hidden_layers: int = 2
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
-    device: str = 'cpu'
+    device: str = 'auto'
     dtype: str = 'float32'
+    progress_policy: dict[str, object] | bool | None = None
 
     def __post_init__(self):
         self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
+        self.progress_policy_ = resolve_forecasting_progress_policy(self.progress_policy)
 
     def _resolve_head_hidden_dims(self) -> tuple[int, ...]:
         return tuple(int(max(1, self.head_hidden_dim)) for _ in range(int(max(1, self.head_hidden_layers))))
@@ -171,6 +174,7 @@ class MSSAForecaster:
             hidden_dims=self._resolve_head_hidden_dims(),
             epochs=self.head_epochs,
             learning_rate=self.head_learning_rate,
+            progress_policy=self.progress_policy_,
             device_policy=self.device_policy_,
         )
 
@@ -285,7 +289,8 @@ class MSSAForecasterImplementation(ModelImplementation):
         self.head_hidden_layers = int(self.params.get('head_hidden_layers', 2))
         self.head_epochs = int(self.params.get('head_epochs', 120))
         self.head_learning_rate = float(self.params.get('head_learning_rate', 1e-3))
-        self.device = str(self.params.get('device', 'cpu'))
+        self.device = str(self.params.get('device', 'auto'))
+        self.progress_policy = self.params.get('progress_policy')
         self.model_: MSSAForecaster | None = None
 
     def fit(self, input_data: InputData):
@@ -303,6 +308,7 @@ class MSSAForecasterImplementation(ModelImplementation):
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         self.model_.fit(np.asarray(input_data.features, dtype=float))
         return self
@@ -331,6 +337,7 @@ class MSSAForecasterImplementation(ModelImplementation):
                 head_epochs=self.head_epochs,
                 head_learning_rate=self.head_learning_rate,
                 device=self.device,
+                progress_policy=self.progress_policy,
             ).fit(np.asarray(input_data.features, dtype=float))
         denoised = np.asarray(self.model_.denoised_series_, dtype=float)
         return denoised.T if denoised.ndim > 1 else denoised.reshape(1, -1)

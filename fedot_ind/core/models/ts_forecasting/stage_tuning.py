@@ -365,7 +365,7 @@ def build_forecasting_stage_tuning_plan(model_name: str,
                     ForecastingStageName.TRAJECTORY.value,
                     ForecastingStageName.DECOMPOSITION_RANK.value,
                 ),
-                metadata={'device': resolved_params.get('device', 'cpu')},
+                metadata={'device': resolved_params.get('device', 'auto')},
             ),
         )
         return ForecastingStageTuningPlan(

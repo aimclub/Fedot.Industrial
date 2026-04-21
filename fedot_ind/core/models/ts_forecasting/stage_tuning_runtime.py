@@ -7,12 +7,17 @@ from typing import Any, Callable
 import numpy as np
 
 from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
+    ForecastingSplitKind,
     ForecastingEvaluationResult,
     ForecastingSplitSpec,
     TensorDevicePolicy,
     evaluate_forecast,
+    iter_forecasting_splits,
     series_to_forecast_tensor_batch,
-    split_forecasting_batch,
+)
+from fedot_ind.core.models.ts_forecasting.progress_policy import (
+    ForecastingProgressPolicy,
+    resolve_forecasting_progress_policy,
 )
 from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
     ForecastingSequentialStageTuningResult,
@@ -101,14 +106,14 @@ def _normalize_base_params(params: dict[str, Any] | None, *, model_name: str | N
         normalized.setdefault('head_hidden_layers', 2)
         normalized.setdefault('head_epochs', 120)
         normalized.setdefault('head_learning_rate', 1e-3)
-        normalized.setdefault('device', 'cpu')
+        normalized.setdefault('device', 'auto')
     elif canonical_name == 'havok_forecaster':
         normalized.setdefault('head_policy', 'mlp')
         normalized.setdefault('head_hidden_dim', 64)
         normalized.setdefault('head_hidden_layers', 2)
         normalized.setdefault('head_epochs', 120)
         normalized.setdefault('head_learning_rate', 1e-3)
-        normalized.setdefault('device', 'cpu')
+        normalized.setdefault('device', 'auto')
     return normalized
 
 
@@ -220,6 +225,29 @@ def _evaluate_forecast_metric(
     )
 
 
+def _aggregate_fold_metrics(evaluations: list[ForecastingEvaluationResult]) -> ForecastingEvaluationResult:
+    if not evaluations:
+        raise ValueError('At least one fold evaluation is required.')
+    metric_name = str(evaluations[0].metric_name)
+    metric_values = np.asarray([evaluation.metric_value for evaluation in evaluations], dtype=float)
+    per_fold_vectors = [np.asarray(evaluation.per_horizon_metrics, dtype=float) for evaluation in evaluations]
+    max_length = max(len(vector) for vector in per_fold_vectors)
+    padded = np.full((len(per_fold_vectors), max_length), np.nan, dtype=float)
+    for index, vector in enumerate(per_fold_vectors):
+        padded[index, :len(vector)] = vector
+    aggregated_per_horizon = np.nanmean(padded, axis=0)
+    return ForecastingEvaluationResult(
+        metric_name=metric_name,
+        metric_value=float(np.mean(metric_values)),
+        per_horizon_metrics=tuple(float(value) for value in aggregated_per_horizon.tolist()),
+        metadata={
+            'fold_count': int(len(evaluations)),
+            'aggregation': 'mean_across_folds',
+            'per_fold_metric_values': [float(value) for value in metric_values.tolist()],
+        },
+    )
+
+
 def _instantiate_runtime_model(
         canonical_model_name: str,
         *,
@@ -291,10 +319,18 @@ def evaluate_forecasting_model_on_series(
         metric_name: str = 'rmse',
         split_spec: ForecastingSplitSpec | None = None,
         seasonal_period: int = 1,
+        show_progress: bool | None = None,
+        progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> ForecastingSeriesEvaluation:
     canonical_model_name = canonical_forecasting_model_name(model_name)
     resolved_params = _normalize_base_params(params, model_name=canonical_model_name)
-    device_policy = TensorDevicePolicy(device=str(resolved_params.get('device', 'cpu')))
+    resolved_progress_policy = resolve_forecasting_progress_policy(
+        progress_policy,
+        show_progress=show_progress,
+    )
+    if canonical_model_name in {'mssa_forecaster', 'ssa_forecaster', 'havok_forecaster'}:
+        resolved_params['progress_policy'] = resolved_progress_policy
+    device_policy = TensorDevicePolicy(device=str(resolved_params.get('device', 'auto')))
     full_series = _prepare_runtime_series(canonical_model_name, np.asarray(time_series, dtype=float), resolved_params)
     batch = series_to_forecast_tensor_batch(
         full_series,
@@ -302,34 +338,60 @@ def evaluate_forecasting_model_on_series(
         device_policy=device_policy,
         metadata={'model_name': canonical_model_name},
     )
-    resolved_split = split_spec or ForecastingSplitSpec(validation_horizon=int(forecast_horizon))
-    train_batch, validation_target = split_forecasting_batch(batch, resolved_split)
-    validation_horizon = int(resolved_split.validation_horizon or forecast_horizon)
-    train_series = train_batch.history.detach().cpu().numpy()
-    prepared_train_series = _prepare_runtime_series(canonical_model_name, train_series, resolved_params)
+    resolved_split = split_spec or ForecastingSplitSpec(
+        kind=ForecastingSplitKind.TIME_SERIES_SPLIT,
+        validation_horizon=int(forecast_horizon),
+        n_splits=3,
+        gap=0,
+    )
+    folds = iter_forecasting_splits(batch, resolved_split)
+    validation_horizon = int(resolved_split.test_size or resolved_split.validation_horizon or forecast_horizon)
 
-    model = _instantiate_runtime_model(
-        canonical_model_name,
-        forecast_horizon=validation_horizon,
-        params=resolved_params,
-        series_length=int(np.asarray(prepared_train_series).reshape(-1).shape[0]),
-    )
-    model.fit(prepared_train_series)
-    try:
-        raw_forecast = model.predict(prepared_train_series, forecast_horizon=validation_horizon)
-    except TypeError:
-        raw_forecast = model.predict(prepared_train_series)
-    forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)[:validation_horizon]
-    target = validation_target.detach().cpu().numpy().reshape(-1)[:validation_horizon]
-    evaluation = _evaluate_forecast_metric(
-        target,
-        forecast,
-        y_train=np.asarray(prepared_train_series, dtype=float),
-        metric_name=metric_name,
-        seasonal_period=int(seasonal_period),
-    )
-    diagnostics = model.get_diagnostics() if hasattr(model, 'get_diagnostics') else {}
-    family = str(diagnostics.get('model_family', 'forecasting'))
+    fold_evaluations: list[ForecastingEvaluationResult] = []
+    fold_forecasts: list[np.ndarray] = []
+    fold_targets: list[np.ndarray] = []
+    fold_details: list[dict[str, Any]] = []
+    diagnostics: dict[str, Any] = {}
+    family = 'forecasting'
+
+    for fold in folds:
+        train_series = fold.train_batch.history.detach().cpu().numpy()
+        prepared_train_series = _prepare_runtime_series(canonical_model_name, train_series, resolved_params)
+        model = _instantiate_runtime_model(
+            canonical_model_name,
+            forecast_horizon=validation_horizon,
+            params=resolved_params,
+            series_length=int(np.asarray(prepared_train_series).reshape(-1).shape[0]),
+        )
+        model.fit(prepared_train_series)
+        try:
+            raw_forecast = model.predict(prepared_train_series, forecast_horizon=validation_horizon)
+        except TypeError:
+            raw_forecast = model.predict(prepared_train_series)
+        forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)[:validation_horizon]
+        target = fold.validation_target.detach().cpu().numpy().reshape(-1)[:validation_horizon]
+        fold_metric = _evaluate_forecast_metric(
+            target,
+            forecast,
+            y_train=np.asarray(prepared_train_series, dtype=float),
+            metric_name=metric_name,
+            seasonal_period=int(seasonal_period),
+        )
+        fold_evaluations.append(fold_metric)
+        fold_forecasts.append(forecast)
+        fold_targets.append(target)
+        diagnostics = model.get_diagnostics() if hasattr(model, 'get_diagnostics') else {}
+        family = str(diagnostics.get('model_family', family))
+        fold_details.append(
+            {
+                **fold.to_dict(),
+                'metric': fold_metric.to_dict(),
+            }
+        )
+
+    evaluation = _aggregate_fold_metrics(fold_evaluations)
+    forecast = np.concatenate(fold_forecasts) if fold_forecasts else np.asarray([], dtype=float)
+    target = np.concatenate(fold_targets) if fold_targets else np.asarray([], dtype=float)
     return ForecastingSeriesEvaluation(
         model_name=model_name,
         canonical_model_name=canonical_model_name,
@@ -341,12 +403,20 @@ def evaluate_forecasting_model_on_series(
         target=tuple(float(value) for value in target.tolist()),
         split_metadata={
             'split_kind': resolved_split.kind.value,
-            'train_length': int(train_batch.history.shape[0]),
+            'train_length': int(folds[-1].train_batch.history.shape[0]),
+            'train_lengths': [int(fold.train_batch.history.shape[0]) for fold in folds],
+            'fold_count': int(len(folds)),
             'validation_horizon': int(validation_horizon),
             'seasonal_period': int(seasonal_period),
+            'gap': int(resolved_split.gap or 0),
+            'n_splits': int(resolved_split.n_splits or len(folds)),
+            'folds': fold_details,
         },
         diagnostics=dict(diagnostics),
-        metadata={'device': str(device_policy.resolve_device())},
+        metadata={
+            'device': str(device_policy.resolve_device()),
+            'progress_policy': resolved_progress_policy.to_dict(),
+        },
     )
 
 
@@ -358,6 +428,8 @@ def build_forecasting_stage_objective_from_series(
         metric_name: str = 'rmse',
         split_spec: ForecastingSplitSpec | None = None,
         seasonal_period: int = 1,
+        show_progress: bool | None = None,
+        progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> Callable[[dict[str, Any]], float]:
     def objective(candidate_params: dict[str, Any]) -> float:
         evaluation = evaluate_forecasting_model_on_series(
@@ -368,6 +440,8 @@ def build_forecasting_stage_objective_from_series(
             metric_name=metric_name,
             split_spec=split_spec,
             seasonal_period=seasonal_period,
+            show_progress=show_progress,
+            progress_policy=progress_policy,
         )
         return float(evaluation.metric.metric_value)
 
@@ -386,8 +460,16 @@ def run_forecasting_stage_tuning_on_series(
         seasonal_period: int = 1,
         max_values_per_parameter: int = 3,
         max_stage_candidates: int = 16,
+        show_progress: bool | None = None,
+        progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> ForecastingSeriesStageTuningResult:
+    resolved_progress_policy = resolve_forecasting_progress_policy(
+        progress_policy,
+        show_progress=show_progress,
+    )
     resolved_params = _normalize_base_params(base_params, model_name=model_name)
+    if canonical_forecasting_model_name(model_name) in {'mssa_forecaster', 'ssa_forecaster', 'havok_forecaster'}:
+        resolved_params['progress_policy'] = resolved_progress_policy
     objective = build_forecasting_stage_objective_from_series(
         model_name,
         time_series=time_series,
@@ -395,6 +477,8 @@ def run_forecasting_stage_tuning_on_series(
         metric_name=metric_name,
         split_spec=split_spec,
         seasonal_period=seasonal_period,
+        show_progress=show_progress,
+        progress_policy=resolved_progress_policy,
     )
     baseline_evaluation = evaluate_forecasting_model_on_series(
         model_name,
@@ -404,6 +488,8 @@ def run_forecasting_stage_tuning_on_series(
         metric_name=metric_name,
         split_spec=split_spec,
         seasonal_period=seasonal_period,
+        show_progress=show_progress,
+        progress_policy=resolved_progress_policy,
     )
     sequential_result = run_sequential_stage_tuning(
         model_name,
@@ -412,6 +498,8 @@ def run_forecasting_stage_tuning_on_series(
         stage_updates=stage_updates,
         max_values_per_parameter=max_values_per_parameter,
         max_stage_candidates=max_stage_candidates,
+        show_progress=show_progress,
+        progress_policy=resolved_progress_policy,
     )
     best_evaluation = evaluate_forecasting_model_on_series(
         model_name,
@@ -421,6 +509,8 @@ def run_forecasting_stage_tuning_on_series(
         metric_name=metric_name,
         split_spec=split_spec,
         seasonal_period=seasonal_period,
+        show_progress=show_progress,
+        progress_policy=resolved_progress_policy,
     )
     return ForecastingSeriesStageTuningResult(
         model_name=model_name,
@@ -434,5 +524,6 @@ def run_forecasting_stage_tuning_on_series(
             'baseline_score': float(baseline_evaluation.metric.metric_value),
             'best_score': float(best_evaluation.metric.metric_value),
             'improved': bool(best_evaluation.metric.metric_value <= baseline_evaluation.metric.metric_value),
+            'progress_policy': resolved_progress_policy.to_dict(),
         },
     )

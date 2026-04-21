@@ -33,7 +33,8 @@ class SSAForecasterImplementation(ModelImplementation):
         self.head_hidden_layers = int(params.get('head_hidden_layers', 2))
         self.head_epochs = int(params.get('head_epochs', 120))
         self.head_learning_rate = float(params.get('head_learning_rate', 1e-3))
-        self.device = str(params.get('device', 'cpu'))
+        self.device = str(params.get('device', 'auto'))
+        self.progress_policy = params.get('progress_policy')
         self.compatibility_status_ = 'compatibility_wrapper'
         self.model_: MSSAForecaster | None = None
 
@@ -57,6 +58,7 @@ class SSAForecasterImplementation(ModelImplementation):
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         self.model_.fit(self._prepare_series(input_data))
         return self
@@ -100,6 +102,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
         ).to_dict()
 
@@ -119,6 +122,7 @@ class SSAForecasterImplementation(ModelImplementation):
                     'head_epochs': self.head_epochs,
                     'head_learning_rate': self.head_learning_rate,
                     'device': self.device,
+                    'progress_policy': self.progress_policy,
                 },
             )
         )
@@ -138,6 +142,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
             stage_updates=stage_updates,
         ).to_dict()
@@ -170,6 +175,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
             stage_updates=stage_updates,
             metric_name=metric_name,

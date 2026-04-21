@@ -113,8 +113,7 @@ industrial_search_space = {
     'hankelisation':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},
-    'svd_decomposition':
-        {'device': {'hyperopt-dist': hp.choice, 'sampling-scope': [['cpu']]}},
+    'svd_decomposition': {},
     'randomized_svd_decomposition':
         {'n_oversamples': {'hyperopt-dist': hp.choice, 'sampling-scope': [[3, 5, 8, 10]]}},
     'tensor_decomposition':

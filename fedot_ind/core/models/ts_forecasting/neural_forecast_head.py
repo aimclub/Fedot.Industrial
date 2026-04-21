@@ -130,7 +130,7 @@ def build_neural_forecasting_stage_diagnostics(
         'learning_rate': resolved_params.get('learning_rate'),
         'activation': resolved_params.get('activation'),
         'forecast_horizon': int(forecast_horizon),
-        'device': resolved_params.get('device', 'cpu'),
+        'device': resolved_params.get('device', 'auto'),
     }
 
     model_specific_fields = {

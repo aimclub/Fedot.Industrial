@@ -7,6 +7,14 @@ from typing import Any, Sequence
 import numpy as np
 import torch
 
+try:  # pragma: no cover - progress bar is optional in lightweight envs
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover
+    def tqdm(iterable=None, *args, **kwargs):
+        return iterable if iterable is not None else []
+
+from .progress_policy import ForecastingProgressPolicy, resolve_forecasting_progress_policy
+
 try:  # pragma: no cover - optional FEDOT runtime in lightweight envs
     from fedot.core.data.data import InputData, OutputData
     from fedot.core.repository.dataset_types import DataTypesEnum
@@ -21,17 +29,22 @@ except Exception:  # pragma: no cover
 
 class ForecastingSplitKind(str, Enum):
     HOLDOUT = 'holdout'
+    TIME_SERIES_SPLIT = 'time_series_split'
+    EXPANDING_WINDOW = 'expanding_window'
+    ROLLING_WINDOW = 'rolling_window'
     ROLLING_ORIGIN = 'rolling_origin'
     BLOCKED = 'blocked'
 
 
 @dataclass(frozen=True)
 class TensorDevicePolicy:
-    device: str = 'cpu'
+    device: str = 'auto'
     dtype: str = 'float32'
 
     def resolve_device(self) -> torch.device:
         requested = str(self.device).lower()
+        if requested == 'auto':
+            return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
         if requested.startswith('cuda') and torch.cuda.is_available():
             return torch.device(requested)
         return torch.device('cpu')
@@ -101,6 +114,36 @@ class ForecastingSplitSpec:
     kind: ForecastingSplitKind = ForecastingSplitKind.HOLDOUT
     validation_horizon: int | None = None
     min_train_length: int | None = None
+    n_splits: int | None = None
+    test_size: int | None = None
+    gap: int = 0
+    max_train_size: int | None = None
+    initial_window: int | None = None
+    step_length: int | None = None
+
+
+@dataclass(frozen=True)
+class ForecastingFoldSplit:
+    train_batch: ForecastTensorBatch
+    validation_target: torch.Tensor
+    fold_index: int
+    train_start: int
+    train_end: int
+    test_start: int
+    test_end: int
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'fold_index': int(self.fold_index),
+            'train_start': int(self.train_start),
+            'train_end': int(self.train_end),
+            'test_start': int(self.test_start),
+            'test_end': int(self.test_end),
+            'train_length': int(self.train_end - self.train_start),
+            'test_length': int(self.test_end - self.test_start),
+            **dict(self.metadata),
+        }
 
 
 @dataclass(frozen=True)
@@ -351,6 +394,8 @@ class MLPForecastingHead:
     weight_decay: float = 1e-4
     activation: str = 'relu'
     random_seed: int = 42
+    show_progress: bool | None = None
+    progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None
     device_policy: TensorDevicePolicy = field(default_factory=TensorDevicePolicy)
     network_: torch.nn.Module | None = None
     input_dim_: int | None = None
@@ -372,6 +417,10 @@ class MLPForecastingHead:
         return values * self.target_std_ + self.target_mean_
 
     def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'MLPForecastingHead':
+        resolved_progress_policy = resolve_forecasting_progress_policy(
+            self.progress_policy,
+            show_progress=self.show_progress,
+        )
         X = ensure_tensor_2d(features, self.device_policy)
         Y = ensure_tensor_2d(target, self.device_policy)
         self.input_dim_ = int(X.shape[1])
@@ -407,13 +456,26 @@ class MLPForecastingHead:
         )
         loss_fn = torch.nn.MSELoss()
         network.train()
-        for _ in range(int(max(1, self.epochs))):
+        epoch_iterator = tqdm(
+            range(int(max(1, self.epochs))),
+            **resolved_progress_policy.tqdm_kwargs(
+                scope='head_training',
+                desc='MLP head fit',
+                unit='epoch',
+            ),
+        )
+        for epoch_index in epoch_iterator:
             optimizer.zero_grad(set_to_none=True)
             prediction = network(normalized_x)
             loss = loss_fn(prediction, normalized_y)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.0)
             optimizer.step()
+            if resolved_progress_policy.show_postfix and hasattr(epoch_iterator, 'set_postfix') and (
+                    epoch_index == 0 or (epoch_index + 1) % max(1, self.epochs // 10) == 0
+                    or epoch_index + 1 == int(max(1, self.epochs))
+            ):
+                epoch_iterator.set_postfix(loss=f'{float(loss.detach().cpu().item()):.5f}')
 
         self.network_ = network
         self.final_loss_ = float(loss.detach().cpu().item())
@@ -442,6 +504,10 @@ class MLPForecastingHead:
             'input_dim': self.input_dim_,
             'output_dim': self.output_dim_,
             'final_loss': self.final_loss_,
+            'progress_policy': resolve_forecasting_progress_policy(
+                self.progress_policy,
+                show_progress=self.show_progress,
+            ).to_dict(),
             'device': str(self.feature_mean_.device) if self.feature_mean_ is not None else str(
                 self.device_policy.device),
         }
@@ -735,27 +801,221 @@ def inverse_project_features(projected_features: torch.Tensor, basis: torch.Tens
     return Z @ basis.T
 
 
-def split_forecasting_batch(
+def _resolve_split_horizon(batch: ForecastTensorBatch, spec: ForecastingSplitSpec) -> int:
+    return int(spec.test_size or spec.validation_horizon or batch.forecast_horizon)
+
+
+def _resolve_min_train_length(batch: ForecastTensorBatch,
+                              spec: ForecastingSplitSpec,
+                              validation_horizon: int) -> int:
+    return int(spec.min_train_length or max(batch.forecast_horizon + 2, validation_horizon * 2))
+
+
+def _build_fold_split(
         batch: ForecastTensorBatch,
-        split_spec: ForecastingSplitSpec | None = None,
-) -> tuple[ForecastTensorBatch, torch.Tensor]:
-    spec = split_spec or ForecastingSplitSpec(validation_horizon=batch.forecast_horizon)
-    validation_horizon = int(spec.validation_horizon or batch.forecast_horizon)
-    if spec.kind is not ForecastingSplitKind.HOLDOUT:
-        raise NotImplementedError(f'Only holdout split is implemented in wave 1, got {spec.kind}.')
-    min_train = int(spec.min_train_length or max(batch.forecast_horizon + 2, validation_horizon * 2))
-    if batch.series_length <= min_train + validation_horizon:
-        raise ValueError('Series is too short for the requested holdout split.')
-    train_history = batch.history[:-validation_horizon]
-    validation_target = batch.history[-validation_horizon:].reshape(-1)
+        *,
+        spec: ForecastingSplitSpec,
+        fold_index: int,
+        train_start: int,
+        train_end: int,
+        test_start: int,
+        test_end: int,
+        validation_horizon: int,
+) -> ForecastingFoldSplit:
+    train_history = batch.history[train_start:train_end]
+    validation_target = batch.history[test_start:test_end].reshape(-1)
+    train_idx = None if batch.idx is None else batch.idx[train_start:train_end]
     train_batch = ForecastTensorBatch(
         history=train_history,
         target=None,
         forecast_horizon=batch.forecast_horizon,
-        idx=None if batch.idx is None else batch.idx[:-validation_horizon],
-        metadata={**batch.metadata, 'split_kind': spec.kind.value, 'validation_horizon': validation_horizon},
+        idx=train_idx,
+        metadata={
+            **batch.metadata,
+            'split_kind': spec.kind.value,
+            'validation_horizon': int(validation_horizon),
+            'fold_index': int(fold_index),
+            'train_start': int(train_start),
+            'train_end': int(train_end),
+            'test_start': int(test_start),
+            'test_end': int(test_end),
+        },
     )
-    return train_batch, validation_target
+    return ForecastingFoldSplit(
+        train_batch=train_batch,
+        validation_target=validation_target,
+        fold_index=int(fold_index),
+        train_start=int(train_start),
+        train_end=int(train_end),
+        test_start=int(test_start),
+        test_end=int(test_end),
+        metadata={
+            'split_kind': spec.kind.value,
+            'validation_horizon': int(validation_horizon),
+            'gap': int(spec.gap or 0),
+        },
+    )
+
+
+def _build_holdout_folds(batch: ForecastTensorBatch,
+                         spec: ForecastingSplitSpec,
+                         validation_horizon: int,
+                         min_train: int) -> tuple[ForecastingFoldSplit, ...]:
+    if batch.series_length <= min_train + validation_horizon:
+        raise ValueError('Series is too short for the requested holdout split.')
+    test_end = int(batch.series_length)
+    test_start = int(test_end - validation_horizon)
+    train_start = 0
+    train_end = test_start
+    return (
+        _build_fold_split(
+            batch,
+            spec=spec,
+            fold_index=0,
+            train_start=train_start,
+            train_end=train_end,
+            test_start=test_start,
+            test_end=test_end,
+            validation_horizon=validation_horizon,
+        ),
+    )
+
+
+def _build_time_series_split_folds(batch: ForecastTensorBatch,
+                                   spec: ForecastingSplitSpec,
+                                   validation_horizon: int,
+                                   min_train: int) -> tuple[ForecastingFoldSplit, ...]:
+    gap = int(max(0, spec.gap))
+    remaining = batch.series_length - min_train - gap
+    max_possible_splits = remaining // validation_horizon
+    if max_possible_splits < 1:
+        return ()
+    requested_splits = int(spec.n_splits or 3)
+    n_splits = max(1, min(requested_splits, max_possible_splits))
+    initial_test_start = batch.series_length - n_splits * validation_horizon
+    folds: list[ForecastingFoldSplit] = []
+    for fold_index in range(n_splits):
+        test_start = initial_test_start + fold_index * validation_horizon
+        test_end = test_start + validation_horizon
+        train_end = test_start - gap
+        train_start = 0 if spec.max_train_size is None else max(0, train_end - int(spec.max_train_size))
+        if train_end - train_start < min_train:
+            continue
+        folds.append(
+            _build_fold_split(
+                batch,
+                spec=spec,
+                fold_index=fold_index,
+                train_start=train_start,
+                train_end=train_end,
+                test_start=test_start,
+                test_end=test_end,
+                validation_horizon=validation_horizon,
+            )
+        )
+    return tuple(folds)
+
+
+def _build_expanding_window_folds(batch: ForecastTensorBatch,
+                                  spec: ForecastingSplitSpec,
+                                  validation_horizon: int,
+                                  min_train: int) -> tuple[ForecastingFoldSplit, ...]:
+    gap = int(max(0, spec.gap))
+    initial_window = int(spec.initial_window or min_train)
+    step_length = int(spec.step_length or validation_horizon)
+    folds: list[ForecastingFoldSplit] = []
+    fold_index = 0
+    train_end = initial_window
+    while train_end + gap + validation_horizon <= batch.series_length:
+        train_start = 0 if spec.max_train_size is None else max(0, train_end - int(spec.max_train_size))
+        if train_end - train_start >= min_train:
+            test_start = train_end + gap
+            test_end = test_start + validation_horizon
+            folds.append(
+                _build_fold_split(
+                    batch,
+                    spec=spec,
+                    fold_index=fold_index,
+                    train_start=train_start,
+                    train_end=train_end,
+                    test_start=test_start,
+                    test_end=test_end,
+                    validation_horizon=validation_horizon,
+                )
+            )
+            fold_index += 1
+        train_end += step_length
+    if spec.n_splits is not None and len(folds) > int(spec.n_splits):
+        folds = folds[-int(spec.n_splits):]
+    return tuple(folds)
+
+
+def _build_rolling_window_folds(batch: ForecastTensorBatch,
+                                spec: ForecastingSplitSpec,
+                                validation_horizon: int,
+                                min_train: int) -> tuple[ForecastingFoldSplit, ...]:
+    gap = int(max(0, spec.gap))
+    window = int(spec.max_train_size or spec.initial_window or min_train)
+    step_length = int(spec.step_length or validation_horizon)
+    folds: list[ForecastingFoldSplit] = []
+    fold_index = 0
+    start = 0
+    while start + window + gap + validation_horizon <= batch.series_length:
+        train_start = start
+        train_end = start + window
+        test_start = train_end + gap
+        test_end = test_start + validation_horizon
+        if train_end - train_start >= min_train:
+            folds.append(
+                _build_fold_split(
+                    batch,
+                    spec=spec,
+                    fold_index=fold_index,
+                    train_start=train_start,
+                    train_end=train_end,
+                    test_start=test_start,
+                    test_end=test_end,
+                    validation_horizon=validation_horizon,
+                )
+            )
+            fold_index += 1
+        start += step_length
+    if spec.n_splits is not None and len(folds) > int(spec.n_splits):
+        folds = folds[-int(spec.n_splits):]
+    return tuple(folds)
+
+
+def iter_forecasting_splits(
+        batch: ForecastTensorBatch,
+        split_spec: ForecastingSplitSpec | None = None,
+) -> tuple[ForecastingFoldSplit, ...]:
+    spec = split_spec or ForecastingSplitSpec(validation_horizon=batch.forecast_horizon)
+    validation_horizon = _resolve_split_horizon(batch, spec)
+    min_train = _resolve_min_train_length(batch, spec, validation_horizon)
+
+    if spec.kind in {ForecastingSplitKind.HOLDOUT, ForecastingSplitKind.BLOCKED}:
+        folds = _build_holdout_folds(batch, spec, validation_horizon, min_train)
+    elif spec.kind == ForecastingSplitKind.TIME_SERIES_SPLIT:
+        folds = _build_time_series_split_folds(batch, spec, validation_horizon, min_train)
+    elif spec.kind in {ForecastingSplitKind.EXPANDING_WINDOW, ForecastingSplitKind.ROLLING_ORIGIN}:
+        folds = _build_expanding_window_folds(batch, spec, validation_horizon, min_train)
+    elif spec.kind == ForecastingSplitKind.ROLLING_WINDOW:
+        folds = _build_rolling_window_folds(batch, spec, validation_horizon, min_train)
+    else:  # pragma: no cover - defensive
+        raise ValueError(f'Unsupported forecasting split kind: {spec.kind}')
+
+    if not folds:
+        raise ValueError('Series is too short for the requested forecasting split specification.')
+    return folds
+
+
+def split_forecasting_batch(
+        batch: ForecastTensorBatch,
+        split_spec: ForecastingSplitSpec | None = None,
+) -> tuple[ForecastTensorBatch, torch.Tensor]:
+    folds = iter_forecasting_splits(batch, split_spec)
+    last_fold = folds[-1]
+    return last_fold.train_batch, last_fold.validation_target
 
 
 def evaluate_forecast(

@@ -50,6 +50,8 @@ class RunSpec:
     progress_leave: bool = True
     progress_log_errors: bool = True
     progress_log_summaries: bool = True
+    verbosity: str = 'standard'
+    verbosity_options: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,13 @@ from dataclasses import asdict, dataclass, field
 from itertools import product
 from typing import Any, Callable
 
+try:  # pragma: no cover - progress bar is optional in lightweight envs
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover
+    def tqdm(iterable=None, *args, **kwargs):
+        return iterable if iterable is not None else []
+
+from .progress_policy import ForecastingProgressPolicy, resolve_forecasting_progress_policy
 from .stage_tuning import (
     ForecastingStageSearchSpace,
     build_forecasting_stage_search_spaces,
@@ -234,7 +241,13 @@ def run_sequential_stage_tuning(
         stage_updates: dict[str, Any] | None = None,
         max_values_per_parameter: int = 3,
         max_stage_candidates: int = 16,
+        show_progress: bool | None = None,
+        progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> ForecastingSequentialStageTuningResult:
+    resolved_progress_policy = resolve_forecasting_progress_policy(
+        progress_policy,
+        show_progress=show_progress,
+    )
     execution = build_forecasting_stage_tuning_execution(
         model_name,
         base_params=base_params,
@@ -249,7 +262,15 @@ def run_sequential_stage_tuning(
     current_best_score = float(objective(current_best_params))
     stage_history: list[dict[str, Any]] = []
 
-    for step in execution.steps:
+    stage_iterator = tqdm(
+        execution.steps,
+        **resolved_progress_policy.tqdm_kwargs(
+            scope='stage_tuning',
+            desc=f'Stage tuning: {execution.canonical_model_name}',
+            unit='stage',
+        ),
+    )
+    for step in stage_iterator:
         stage_search_space = search_spaces.get(step.stage)
         candidate_grid = _build_stage_candidate_grid(
             stage_search_space or ForecastingStageSearchSpace(
@@ -269,7 +290,15 @@ def run_sequential_stage_tuning(
         evaluations: list[StageCandidateEvaluation] = []
         best_stage_params = dict(current_best_params)
         best_stage_score = current_best_score
-        for candidate in candidate_grid:
+        candidate_iterator = tqdm(
+            candidate_grid,
+            **resolved_progress_policy.tqdm_kwargs(
+                scope='stage_tuning',
+                desc=f'  {step.stage}',
+                unit='candidate',
+            ),
+        )
+        for candidate in candidate_iterator:
             merged_params, applied_step = _execute_stage_group(
                 current_params=current_best_params,
                 group=type('StageGroup', (), {
@@ -295,9 +324,13 @@ def run_sequential_stage_tuning(
             if score < best_stage_score:
                 best_stage_score = score
                 best_stage_params = merged_params
+            if resolved_progress_policy.show_postfix and hasattr(candidate_iterator, 'set_postfix'):
+                candidate_iterator.set_postfix(best=f'{float(best_stage_score):.5f}', current=f'{float(score):.5f}')
 
         current_best_params = dict(best_stage_params)
         current_best_score = float(best_stage_score)
+        if resolved_progress_policy.show_postfix and hasattr(stage_iterator, 'set_postfix'):
+            stage_iterator.set_postfix(best=f'{float(current_best_score):.5f}', stage=step.stage)
         stage_history.append(
             {
                 'stage': step.stage,
@@ -322,5 +355,6 @@ def run_sequential_stage_tuning(
             'stage_count': len(stage_history),
             'max_values_per_parameter': int(max_values_per_parameter),
             'max_stage_candidates': int(max_stage_candidates),
+            'progress_policy': resolved_progress_policy.to_dict(),
         },
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,10 @@ except Exception:  # pragma: no cover
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
 from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
 from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
+from fedot_ind.core.models.ts_forecasting.progress_policy import (
+    ForecastingProgressPolicy,
+    resolve_forecasting_progress_policy,
+)
 from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
@@ -74,6 +79,10 @@ from benchmark.v2.core import (
     RunStatus,
     TaskType,
     new_run_id,
+)
+from benchmark.v2.verbosity import (
+    ForecastingVerbosityPolicy,
+    resolve_forecasting_verbosity_policy,
 )
 from benchmark.v2.progress import BenchmarkProgressMonitor
 
@@ -155,20 +164,53 @@ def _resolve_stage_tuning_split_spec(raw: dict[str, Any] | None):
         kind = split_spec.get('kind')
         validation_horizon = split_spec.get('validation_horizon')
         min_train_length = split_spec.get('min_train_length')
+        n_splits = split_spec.get('n_splits')
+        test_size = split_spec.get('test_size')
+        gap = split_spec.get('gap', 0)
+        max_train_size = split_spec.get('max_train_size')
+        initial_window = split_spec.get('initial_window')
+        step_length = split_spec.get('step_length')
         if kind is not None and ForecastingSplitKind is not None:
             kind = ForecastingSplitKind(str(kind).lower())
         return ForecastingSplitSpec(
             kind=kind or ForecastingSplitSpec().kind,
             validation_horizon=validation_horizon,
             min_train_length=min_train_length,
+            n_splits=n_splits,
+            test_size=test_size,
+            gap=gap,
+            max_train_size=max_train_size,
+            initial_window=initial_window,
+            step_length=step_length,
         )
     validation_horizon = raw.get('validation_horizon')
     min_train_length = raw.get('min_train_length')
-    if validation_horizon is None and min_train_length is None:
+    n_splits = raw.get('n_splits')
+    test_size = raw.get('test_size')
+    gap = raw.get('gap')
+    max_train_size = raw.get('max_train_size')
+    initial_window = raw.get('initial_window')
+    step_length = raw.get('step_length')
+    if (
+            validation_horizon is None
+            and min_train_length is None
+            and n_splits is None
+            and test_size is None
+            and gap is None
+            and max_train_size is None
+            and initial_window is None
+            and step_length is None
+    ):
         return None
     return ForecastingSplitSpec(
         validation_horizon=validation_horizon,
         min_train_length=min_train_length,
+        n_splits=n_splits,
+        test_size=test_size,
+        gap=0 if gap is None else gap,
+        max_train_size=max_train_size,
+        initial_window=initial_window,
+        step_length=step_length,
     )
 
 
@@ -192,6 +234,16 @@ def _maybe_attach_stage_tuning_report(
     max_values_per_parameter = int(config.get('max_values_per_parameter', 3))
     max_stage_candidates = int(config.get('max_stage_candidates', 16))
     split_spec = _resolve_stage_tuning_split_spec(config)
+    progress_policy = config.get('progress_policy')
+    verbosity_policy = config.get('verbosity_policy')
+    resolved_verbosity_policy = (
+        verbosity_policy
+        if isinstance(verbosity_policy, ForecastingVerbosityPolicy)
+        else resolve_forecasting_verbosity_policy(
+            (verbosity_policy or {}).get('level') if isinstance(verbosity_policy, dict) else verbosity_policy,
+            options=verbosity_policy if isinstance(verbosity_policy, dict) else None,
+        )
+    )
 
     try:
         report = run_forecasting_stage_tuning_on_series(
@@ -205,9 +257,12 @@ def _maybe_attach_stage_tuning_report(
             seasonal_period=series_record.seasonal_period,
             max_values_per_parameter=max_values_per_parameter,
             max_stage_candidates=max_stage_candidates,
+            progress_policy=progress_policy,
         )
-        metadata['stage_tuning_report'] = report.to_dict()
-        metadata['stage_tuning_runtime'] = {
+        stage_tuning_report = resolved_verbosity_policy.prune_stage_tuning_report(report.to_dict())
+        if stage_tuning_report is not None:
+            metadata['stage_tuning_report'] = stage_tuning_report
+        stage_tuning_runtime = {
             'enabled': True,
             'metric_name': metric_name,
             'max_values_per_parameter': max_values_per_parameter,
@@ -215,7 +270,11 @@ def _maybe_attach_stage_tuning_report(
             'improved': report.metadata.get('improved'),
             'baseline_score': report.metadata.get('baseline_score'),
             'best_score': report.metadata.get('best_score'),
+            'progress_policy': resolve_forecasting_progress_policy(progress_policy).to_dict(),
         }
+        pruned_runtime = resolved_verbosity_policy.prune_stage_tuning_runtime(stage_tuning_runtime)
+        if pruned_runtime is not None:
+            metadata['stage_tuning_runtime'] = pruned_runtime
     except Exception as exc:  # pragma: no cover - benchmark should keep the main run alive
         metadata['stage_tuning_report_error'] = str(exc)
     return metadata
@@ -932,7 +991,8 @@ class MSSAModel(ForecastingModelAdapter):
     head_hidden_layers: int = 2
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
-    device: str = 'cpu'
+    device: str = 'auto'
+    progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'mSSA'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'mssa')
@@ -956,6 +1016,7 @@ class MSSAModel(ForecastingModelAdapter):
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
@@ -976,8 +1037,19 @@ class MSSAModel(ForecastingModelAdapter):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
-            runtime_config=self.stage_tuning_runtime,
+            runtime_config={
+                **dict(self.stage_tuning_runtime or {}),
+                **(
+                    {
+                        'progress_policy': dict(self.progress_policy or {})
+                        if isinstance(self.progress_policy, dict)
+                        else self.progress_policy,
+                    }
+                    if self.progress_policy is not None else {}
+                ),
+            },
         )
         return forecast[:series_record.forecast_horizon], metadata
 
@@ -988,6 +1060,7 @@ class SSACompatModel(ForecastingModelAdapter):
     rank: int | None = None
     explained_variance: float = 0.95
     history_lookback: int = 0
+    progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'ssa_forecaster'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'ssa')
@@ -1009,6 +1082,7 @@ class SSACompatModel(ForecastingModelAdapter):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': 'one_dimensional',
+                'progress_policy': self.progress_policy,
             }
         )
         model.fit(input_data)
@@ -1032,8 +1106,19 @@ class SSACompatModel(ForecastingModelAdapter):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': 'one_dimensional',
+                'progress_policy': self.progress_policy,
             },
-            runtime_config=self.stage_tuning_runtime,
+            runtime_config={
+                **dict(self.stage_tuning_runtime or {}),
+                **(
+                    {
+                        'progress_policy': dict(self.progress_policy or {})
+                        if isinstance(self.progress_policy, dict)
+                        else self.progress_policy,
+                    }
+                    if self.progress_policy is not None else {}
+                ),
+            },
         )
         return forecast[:series_record.forecast_horizon], metadata
 
@@ -1216,7 +1301,8 @@ class HAVOKModel(ForecastingModelAdapter):
     head_hidden_layers: int = 2
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
-    device: str = 'cpu'
+    device: str = 'auto'
+    progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'HAVOK'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'havok')
@@ -1239,6 +1325,7 @@ class HAVOKModel(ForecastingModelAdapter):
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
@@ -1265,8 +1352,19 @@ class HAVOKModel(ForecastingModelAdapter):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
-            runtime_config=self.stage_tuning_runtime,
+            runtime_config={
+                **dict(self.stage_tuning_runtime or {}),
+                **(
+                    {
+                        'progress_policy': dict(self.progress_policy or {})
+                        if isinstance(self.progress_policy, dict)
+                        else self.progress_policy,
+                    }
+                    if self.progress_policy is not None else {}
+                ),
+            },
         )
         return forecast[:series_record.forecast_horizon], metadata
 
@@ -1368,54 +1466,53 @@ def build_dataset_adapter(spec: DatasetSpec):
     raise BenchmarkConfigurationError(f'Unsupported forecasting benchmark adapter: {spec.benchmark}')
 
 
+def _instantiate_model_adapter(adapter_cls, spec: ModelSpec, default_tags: tuple[str, ...]):
+    accepted_parameters = set(inspect.signature(adapter_cls).parameters)
+    filtered_params = {
+        key: value
+        for key, value in dict(spec.params).items()
+        if key in accepted_parameters
+    }
+    return adapter_cls(
+        name=spec.display_name,
+        tags=spec.tags or default_tags,
+        **filtered_params,
+    )
+
+
 def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_forecasting_model_name(raw_adapter_name)
-    params = dict(spec.params)
     if raw_adapter_name == 'okhs':
-        return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
+        return _instantiate_model_adapter(OKHSModel, spec, ('okhs', 'forecasting'))
     if adapter_name == 'okhs_fdmd_forecaster':
-        return OKHSFDMDForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('okhs', 'forecasting', 'operator_model'),
-            **params,
-        )
+        return _instantiate_model_adapter(OKHSFDMDForecasterModel, spec, ('okhs', 'forecasting', 'operator_model'))
     if adapter_name == 'ssa_forecaster':
-        return SSACompatModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'ssa'), **params)
+        return _instantiate_model_adapter(SSACompatModel, spec, ('baseline', 'forecasting', 'ssa'))
     if adapter_name == 'lagged_forecaster':
-        return LaggedForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'lagged_linear'),
-            **params,
-        )
+        return _instantiate_model_adapter(LaggedForecasterModel, spec, ('baseline', 'forecasting', 'lagged_linear'))
     if adapter_name == 'lagged_ridge_forecaster':
-        return LaggedForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'lagged_linear'),
-            **params,
-        )
+        return _instantiate_model_adapter(LaggedForecasterModel, spec, ('baseline', 'forecasting', 'lagged_linear'))
     if adapter_name == 'low_rank_lagged_ridge_forecaster':
-        return LowRankLaggedForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'low_rank_linear'),
-            **params,
-        )
+        return _instantiate_model_adapter(LowRankLaggedForecasterModel, spec,
+                                          ('baseline', 'forecasting', 'low_rank_linear'))
     if adapter_name == 'hybrid_ensemble_forecaster':
-        return HybridEnsembleModel(
-            name=spec.display_name,
-            tags=spec.tags or ('ensemble', 'forecasting', 'operator_model'),
-            **params,
-        )
+        return _instantiate_model_adapter(HybridEnsembleModel, spec, ('ensemble', 'forecasting', 'operator_model'))
     if adapter_name in {'mssa', 'mssa_forecaster'}:
-        return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
+        return _instantiate_model_adapter(MSSAModel, spec, ('baseline', 'forecasting', 'mssa'))
     if adapter_name in {'havok', 'havok_forecaster'}:
-        return HAVOKModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'havok'), **params)
+        return _instantiate_model_adapter(HAVOKModel, spec, ('baseline', 'forecasting', 'havok'))
     if adapter_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+        filtered_params = {
+            key: value
+            for key, value in dict(spec.params).items()
+            if key in set(inspect.signature(NeuralForecastingHeadModel).parameters)
+        }
         return NeuralForecastingHeadModel(
             neural_model_name=adapter_name,
             name=spec.display_name,
             tags=spec.tags or ('baseline', 'forecasting', 'neural_forecaster'),
-            **params,
+            **filtered_params,
         )
     if adapter_name == 'naive_last_value':
         return NaiveLastValueModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
@@ -1634,6 +1731,18 @@ class ForecastingSuiteRunner:
         self.run_records: list[BenchmarkRunRecord] = []
         self.prediction_records: list[PredictionRecord] = []
         self.metric_records: list[MetricRecord] = []
+        self.progress_policy = resolve_forecasting_progress_policy(
+            ForecastingProgressPolicy(
+                enabled=bool(config.run_spec.show_progress),
+                leave=bool(config.run_spec.progress_leave),
+                stage_tuning_enabled=bool(config.run_spec.show_progress),
+                head_training_enabled=bool(config.run_spec.show_progress),
+            ),
+        )
+        self.verbosity_policy = resolve_forecasting_verbosity_policy(
+            config.run_spec.verbosity,
+            options=config.run_spec.verbosity_options,
+        )
         self.progress = BenchmarkProgressMonitor(
             enabled=config.run_spec.show_progress,
             task_type=config.task_type.value,
@@ -1642,6 +1751,34 @@ class ForecastingSuiteRunner:
             log_errors=config.run_spec.progress_log_errors,
             log_summaries=config.run_spec.progress_log_summaries,
         )
+
+    def _augment_model_spec_with_progress_policy(self, model_spec: ModelSpec) -> ModelSpec:
+        params = dict(model_spec.params)
+        params.setdefault('progress_policy', self.progress_policy.to_dict())
+        if isinstance(params.get('stage_tuning_runtime'), dict):
+            params['stage_tuning_runtime'] = {
+                **dict(params['stage_tuning_runtime']),
+                'verbosity_policy': dict(
+                    params['stage_tuning_runtime'].get('verbosity_policy', self.verbosity_policy.to_dict())
+                ),
+            }
+        return ModelSpec(
+            adapter_name=model_spec.adapter_name,
+            display_name=model_spec.display_name,
+            tags=model_spec.tags,
+            optional=model_spec.optional,
+            params=params,
+        )
+
+    def _runner_context_metadata(self) -> dict[str, Any]:
+        if not self.verbosity_policy.include_runner_context:
+            return {}
+        return {
+            'benchmark_runtime_context': {
+                'progress_policy': self.progress_policy.to_dict(),
+                'verbosity_policy': self.verbosity_policy.to_dict(),
+            }
+        }
 
     def run_suite(self) -> ForecastingBenchmarkResult:
         try:
@@ -1683,20 +1820,21 @@ class ForecastingSuiteRunner:
             dataset_series: tuple[ForecastingSeriesRecord, ...],
     ) -> None:
         for model_spec in self.config.models:
-            model = build_model_adapter(model_spec)
+            resolved_model_spec = self._augment_model_spec_with_progress_policy(model_spec)
+            model = build_model_adapter(resolved_model_spec)
             self.progress.model_started(dataset_spec.dataset_name, model.name)
             try:
                 availability_status, availability_message = model.availability()
                 if availability_status is not RunStatus.SUCCESS:
                     self._handle_unavailable_model(
-                        model_spec=model_spec,
+                        model_spec=resolved_model_spec,
                         model=model,
                         dataset_series=dataset_series,
                         availability_status=availability_status,
                         availability_message=availability_message,
                     )
                     continue
-                self._iter_over_series(model_spec, model, dataset_series)
+                self._iter_over_series(resolved_model_spec, model, dataset_series)
             finally:
                 self.progress.model_finished()
 
@@ -1789,6 +1927,7 @@ class ForecastingSuiteRunner:
             'regime_diagnostics': regime_diagnostics.to_dict(),
             'routing_recommendation': routing_recommendation.to_dict(),
             'routing_recommendation_family': adapter_name_to_family(routing_recommendation.primary_adapter),
+            **self._runner_context_metadata(),
             **dict(extra or {}),
         }
 
@@ -1921,6 +2060,24 @@ class ForecastingSuiteRunner:
     ) -> dict[str, Any]:
         raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
         metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
+        raw_progress_policy = raw_config.get('progress_policy', metadata_runtime.get('progress_policy'))
+        raw_verbosity_policy = raw_config.get('verbosity_policy', self.verbosity_policy.to_dict())
+        if raw_progress_policy is None:
+            resolved_progress_policy = resolve_forecasting_progress_policy(
+                None,
+                show_progress=self.config.run_spec.show_progress,
+            )
+        else:
+            resolved_progress_policy = resolve_forecasting_progress_policy(raw_progress_policy)
+        resolved_verbosity_policy = (
+            raw_verbosity_policy
+            if isinstance(raw_verbosity_policy, ForecastingVerbosityPolicy)
+            else resolve_forecasting_verbosity_policy(
+                (raw_verbosity_policy or {}).get('level') if isinstance(raw_verbosity_policy, dict)
+                else raw_verbosity_policy,
+                options=raw_verbosity_policy if isinstance(raw_verbosity_policy, dict) else None,
+            )
+        )
         return {
             'metric_name': str(raw_config.get('metric_name', metadata_runtime.get('metric_name',
                                                                                   self.config.run_spec.primary_metric))),
@@ -1928,6 +2085,8 @@ class ForecastingSuiteRunner:
             'max_values_per_parameter': int(raw_config.get('max_values_per_parameter', 3)),
             'max_stage_candidates': int(raw_config.get('max_stage_candidates', 16)),
             'split_spec': _resolve_stage_tuning_split_spec(raw_config),
+            'progress_policy': resolved_progress_policy,
+            'verbosity_policy': resolved_verbosity_policy,
         }
 
     def _maybe_run_post_fit_tuning_comparison(
@@ -1964,14 +2123,16 @@ class ForecastingSuiteRunner:
                 seasonal_period=series_record.seasonal_period,
                 max_values_per_parameter=int(runtime_config['max_values_per_parameter']),
                 max_stage_candidates=int(runtime_config['max_stage_candidates']),
+                progress_policy=runtime_config.get('progress_policy'),
             )
-            report_dict = report.to_dict()
+            verbosity_policy = runtime_config.get('verbosity_policy', self.verbosity_policy)
+            report_dict = verbosity_policy.prune_stage_tuning_report(report.to_dict()) or {}
             sequential_result = dict(report_dict.get('sequential_result') or {})
             best_parameters = dict(sequential_result.get('best_parameters') or {})
             enriched_baseline_metadata = {
                 **baseline_metadata,
                 'stage_tuning_report': report_dict,
-                'stage_tuning_runtime': {
+                'stage_tuning_runtime': verbosity_policy.prune_stage_tuning_runtime({
                     'enabled': True,
                     'metric_name': str(runtime_config['metric_name']),
                     'max_values_per_parameter': int(runtime_config['max_values_per_parameter']),
@@ -1979,7 +2140,11 @@ class ForecastingSuiteRunner:
                     'improved': report.metadata.get('improved'),
                     'baseline_score': report.metadata.get('baseline_score'),
                     'best_score': report.metadata.get('best_score'),
-                },
+                    'progress_policy': resolve_forecasting_progress_policy(
+                        runtime_config.get('progress_policy'),
+                        show_progress=self.config.run_spec.show_progress,
+                    ).to_dict(),
+                }) or {},
             }
             if not best_parameters:
                 return enriched_baseline_metadata
@@ -2006,9 +2171,8 @@ class ForecastingSuiteRunner:
             tuned_metrics_summary.update(
                 {key: value for key, value in tuned_event_metrics.items() if key.startswith('mae_')}
             )
-            return {
-                **enriched_baseline_metadata,
-                'stage_tuning_comparison': {
+            comparison_payload = verbosity_policy.prune_stage_tuning_comparison(
+                {
                     'best_parameters': best_parameters,
                     'baseline_metrics': baseline_metrics_summary,
                     'tuned_metrics': tuned_metrics_summary,
@@ -2030,7 +2194,11 @@ class ForecastingSuiteRunner:
                     'tuned_adapter_family': adapter_name_to_family(tuned_model_spec.adapter_name),
                     'regime_diagnostics': regime_diagnostics.to_dict(),
                     'routing_recommendation': routing_recommendation.to_dict(),
-                },
+                }
+            )
+            return {
+                **enriched_baseline_metadata,
+                **({'stage_tuning_comparison': comparison_payload} if comparison_payload is not None else {}),
             }
         except Exception as exc:
             return {

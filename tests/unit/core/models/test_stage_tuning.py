@@ -4,6 +4,7 @@ from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster impor
     LowRankLaggedRidgeForecasterImplementation,
 )
 from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
 from fedot_ind.core.models.ts_forecasting.stage_tuning import (
     ForecastingStageName,
     build_forecasting_stage_search_spaces,
@@ -278,6 +279,53 @@ def test_run_sequential_stage_tuning_optimizes_stage_by_stage():
     assert result.best_parameters['alpha'] == 2.0
     assert result.stage_history[0]['stage'] == ForecastingStageName.TRAJECTORY.value
     assert result.stage_history[-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value
+
+
+def test_run_sequential_stage_tuning_uses_tqdm_progress(monkeypatch):
+    calls = []
+
+    def fake_tqdm(iterable=None, *args, **kwargs):
+        calls.append(kwargs.get('desc'))
+        return iterable
+
+    monkeypatch.setattr(
+        'fedot_ind.core.models.ts_forecasting.stage_tuning_execution.tqdm',
+        fake_tqdm,
+    )
+
+    run_sequential_stage_tuning(
+        'lagged_ridge_forecaster',
+        objective=lambda params: abs(params.get('window_size', 0) - 16) + abs(params.get('alpha', 0) - 1.0),
+        base_params={'window_size': 12, 'stride': 1, 'alpha': 2.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 16},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 1.0},
+        },
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+        show_progress=True,
+    )
+
+    assert calls
+    assert any(desc and 'Stage tuning:' in desc for desc in calls)
+
+
+def test_run_sequential_stage_tuning_preserves_progress_policy_metadata():
+    result = run_sequential_stage_tuning(
+        'lagged_ridge_forecaster',
+        objective=lambda params: abs(params.get('window_size', 0) - 16) + abs(params.get('alpha', 0) - 1.0),
+        base_params={'window_size': 12, 'stride': 1, 'alpha': 2.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 16},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 1.0},
+        },
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+        progress_policy=ForecastingProgressPolicy(enabled=True, stage_tuning_enabled=True),
+    )
+
+    assert result.metadata['progress_policy']['enabled'] is True
+    assert result.metadata['progress_policy']['stage_tuning_enabled'] is True
 
 
 def test_implementation_publishes_run_stage_tuning_result():

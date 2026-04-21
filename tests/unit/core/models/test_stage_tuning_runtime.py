@@ -3,10 +3,11 @@ import pytest
 
 pytest.importorskip('torch')
 
-from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitSpec
+from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
 from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import (
     LowRankLaggedRidgeForecasterImplementation,
 )
+from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
 from fedot_ind.core.models.ts_forecasting.stage_tuning import ForecastingStageName
 from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import (
     _normalize_base_params,
@@ -32,9 +33,10 @@ def test_evaluate_forecasting_model_on_series_returns_runtime_report_for_lagged_
     )
 
     assert evaluation.metric.metric_name == 'rmse'
-    assert len(evaluation.forecast) == 8
-    assert len(evaluation.target) == 8
-    assert evaluation.split_metadata['train_length'] == len(series) - 8
+    assert len(evaluation.forecast) == 24
+    assert len(evaluation.target) == 24
+    assert evaluation.split_metadata['split_kind'] == ForecastingSplitKind.TIME_SERIES_SPLIT.value
+    assert evaluation.split_metadata['fold_count'] == 3
     assert 'trajectory_transform' in evaluation.diagnostics
 
 
@@ -76,6 +78,24 @@ def test_run_forecasting_stage_tuning_on_series_improves_or_matches_baseline():
     assert result.best_evaluation.metric.metric_name == 'rmse'
 
 
+def test_run_forecasting_stage_tuning_on_series_propagates_progress_policy():
+    series = _trend_with_oscillation(132)
+
+    result = run_forecasting_stage_tuning_on_series(
+        'lagged_ridge_forecaster',
+        time_series=series,
+        forecast_horizon=8,
+        base_params={'window_size': 10, 'stride': 1, 'alpha': 4.0},
+        metric_name='rmse',
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+        progress_policy=ForecastingProgressPolicy(enabled=True, stage_tuning_enabled=True),
+    )
+
+    assert result.metadata['progress_policy']['enabled'] is True
+    assert result.sequential_result.metadata['progress_policy']['stage_tuning_enabled'] is True
+
+
 def test_normalize_base_params_backfills_lagged_forecaster_defaults():
     resolved = _normalize_base_params(
         {'channel_model': 'ridge', 'window_size': 10},
@@ -98,7 +118,13 @@ def test_implementation_run_stage_tuning_on_series_uses_runtime_bridge():
         series,
         forecast_horizon=8,
         metric_name='mae',
-        split_spec=ForecastingSplitSpec(validation_horizon=8),
+        split_spec=ForecastingSplitSpec(
+            kind=ForecastingSplitKind.ROLLING_WINDOW,
+            validation_horizon=8,
+            max_train_size=48,
+            step_length=8,
+            n_splits=3,
+        ),
         stage_updates={
             ForecastingStageName.DECOMPOSITION_RANK.value: {'rank': 3},
             ForecastingStageName.FORECAST_HEAD.value: {'alpha': 0.5},
@@ -109,6 +135,7 @@ def test_implementation_run_stage_tuning_on_series_uses_runtime_bridge():
 
     assert result['best_evaluation']['metric']['metric_name'] == 'mae'
     assert result['sequential_result']['stage_history'][-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value
+    assert result['best_evaluation']['split_metadata']['split_kind'] == ForecastingSplitKind.ROLLING_WINDOW.value
 
 
 def test_okhs_runtime_bridge_supports_stubbed_backend(monkeypatch):

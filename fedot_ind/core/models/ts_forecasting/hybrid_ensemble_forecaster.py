@@ -72,7 +72,7 @@ class HybridEnsembleForecaster:
     forecast_horizon: int
     complex_branch: str = 'okhs'
     calibration_horizon: int | None = None
-    device: str = 'cpu'
+    device: str = 'auto'
     lagged_params: dict[str, Any] = field(default_factory=dict)
     low_rank_params: dict[str, Any] = field(default_factory=dict)
     complex_params: dict[str, Any] = field(default_factory=dict)
@@ -228,7 +228,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         super().__init__(params)
         self.complex_branch = str(self.params.get('complex_branch', 'okhs'))
         self.calibration_horizon = self.params.get('calibration_horizon')
-        self.device = str(self.params.get('device', 'cpu'))
+        self.device = str(self.params.get('device', 'auto'))
         self.lagged_params = dict(self.params.get('lagged_params', {}))
         self.low_rank_params = dict(self.params.get('low_rank_params', {}))
         self.complex_params = dict(self.params.get('complex_params', {}))

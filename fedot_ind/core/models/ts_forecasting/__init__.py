@@ -1,3 +1,4 @@
+from .progress_policy import ForecastingProgressPolicy, resolve_forecasting_progress_policy
 from .regime_diagnostics import RegimeDiagnosticsResult, analyze_regime_diagnostics
 from .regime_routing import adapter_name_to_family, RegimeRoutingDecision, RegimeRoutingPolicy, \
     recommend_forecasting_model
@@ -101,6 +102,8 @@ __all__ = [
     'evaluate_forecasting_model_on_series',
     'run_forecasting_stage_tuning_on_series',
     'run_sequential_stage_tuning',
+    'ForecastingProgressPolicy',
+    'resolve_forecasting_progress_policy',
 ]
 
 for _optional_symbol in (

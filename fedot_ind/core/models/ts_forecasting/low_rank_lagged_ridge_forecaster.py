@@ -67,7 +67,7 @@ class LowRankLaggedRidgeForecaster:
     decomposition_strategy: str = 'full'
     rank_truncation_policy: str = 'explained_variance'
     unfolding_strategy: str = 'channels_last'
-    device: str = 'cpu'
+    device: str = 'auto'
     dtype: str = 'float32'
 
     def __post_init__(self):
@@ -166,7 +166,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         self.decomposition_strategy = str(self.params.get('decomposition_strategy', 'full'))
         self.rank_truncation_policy = str(self.params.get('rank_truncation_policy', 'explained_variance'))
         self.unfolding_strategy = str(self.params.get('unfolding_strategy', 'channels_last'))
-        self.device = str(self.params.get('device', 'cpu'))
+        self.device = str(self.params.get('device', 'auto'))
         self.model_: LowRankLaggedRidgeForecaster | None = None
 
     def fit(self, input_data: InputData):

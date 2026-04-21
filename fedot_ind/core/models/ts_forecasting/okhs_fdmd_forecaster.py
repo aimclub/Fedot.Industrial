@@ -144,7 +144,7 @@ def normalize_okhs_fdmd_params(
     resolved['anti_smoothing_target_amplitude_ratio'] = float(
         resolved.get('anti_smoothing_target_amplitude_ratio', 0.8)
     )
-    resolved['device'] = str(resolved.get('device', 'cpu'))
+    resolved['device'] = str(resolved.get('device', 'auto'))
     resolved['forecast_horizon'] = resolved_forecast_horizon
     if series_length is not None:
         resolved['series_length'] = int(series_length)
@@ -209,7 +209,7 @@ class OKHSFDMDForecaster:
     anti_smoothing_oscillation_floor: float = 0.25
     anti_smoothing_decay: float = 2.5
     anti_smoothing_target_amplitude_ratio: float = 0.8
-    device: str = 'cpu'
+    device: str = 'auto'
 
     def _build_inner_model(self) -> OKHSForecaster:
         return OKHSForecaster(
