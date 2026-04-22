@@ -185,3 +185,29 @@ def test_mlp_forecasting_head_uses_progress_policy(monkeypatch):
 
     assert any(desc == 'MLP head fit' for desc in calls)
     assert head.get_diagnostics()['progress_policy']['head_training_enabled'] is True
+
+
+def test_mlp_forecasting_head_scales_hidden_dims_and_tracks_scheduler_state():
+    head = MLPForecastingHead(
+        depth=4,
+        base_hidden_dim=64,
+        activation='gelu',
+        epochs=8,
+        learning_rate=1e-3,
+        early_stopping_patience=3,
+        scheduler_patience=1,
+        validation_fraction=0.25,
+    )
+    features = np.linspace(1.0, 48.0, num=48).reshape(24, 2)
+    target = (0.5 * features[:, :1] + 0.25 * features[:, 1:2])
+
+    head.fit(features, target)
+    diagnostics = head.get_diagnostics()
+
+    assert diagnostics['hidden_dims'] == (64, 32, 16, 8)
+    assert diagnostics['depth'] == 4
+    assert diagnostics['activation'] == 'gelu'
+    assert diagnostics['best_validation_loss'] is not None
+    assert diagnostics['best_epoch'] is not None
+    assert diagnostics['final_learning_rate'] is not None
+    assert diagnostics['final_learning_rate'] <= diagnostics['learning_rate']

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Sequence
@@ -386,13 +387,37 @@ class _ForecastingMLP(torch.nn.Module):
         return self.network(values)
 
 
+def build_scaled_mlp_hidden_dims(
+        depth: int,
+        *,
+        base_hidden_dim: int = 512,
+        min_hidden_dim: int = 8,
+) -> tuple[int, ...]:
+    resolved_depth = int(max(1, depth))
+    current_dim = int(max(min_hidden_dim, base_hidden_dim))
+    resolved_dims: list[int] = []
+    for _ in range(resolved_depth):
+        resolved_dims.append(int(max(min_hidden_dim, current_dim)))
+        current_dim = max(min_hidden_dim, current_dim // 2)
+    return tuple(resolved_dims)
+
+
 @dataclass
 class MLPForecastingHead:
-    hidden_dims: tuple[int, ...] = (64, 32)
+    hidden_dims: tuple[int, ...] | None = None
+    depth: int = 2
+    base_hidden_dim: int = 512
+    min_hidden_dim: int = 8
     epochs: int = 120
     learning_rate: float = 1e-3
     weight_decay: float = 1e-4
     activation: str = 'relu'
+    validation_fraction: float = 0.2
+    early_stopping_patience: int = 12
+    early_stopping_min_delta: float = 1e-5
+    scheduler_patience: int = 6
+    scheduler_factor: float = 0.5
+    scheduler_min_lr: float = 1e-5
     random_seed: int = 42
     show_progress: bool | None = None
     progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None
@@ -405,58 +430,127 @@ class MLPForecastingHead:
     target_mean_: torch.Tensor | None = None
     target_std_: torch.Tensor | None = None
     final_loss_: float | None = None
+    best_validation_loss_: float | None = None
+    best_epoch_: int | None = None
+    stopped_early_: bool = False
+    resolved_hidden_dims_: tuple[int, ...] = field(default_factory=tuple)
+    final_learning_rate_: float | None = None
+
+    def _resolve_hidden_dims(self) -> tuple[int, ...]:
+        if self.hidden_dims:
+            return tuple(int(max(1, value)) for value in self.hidden_dims)
+        return build_scaled_mlp_hidden_dims(
+            int(max(1, self.depth)),
+            base_hidden_dim=int(max(1, self.base_hidden_dim)),
+            min_hidden_dim=int(max(1, self.min_hidden_dim)),
+        )
+
+    @staticmethod
+    def _compute_tensor_statistics(values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        mean = torch.mean(values, dim=0, keepdim=True)
+        std = torch.std(values, dim=0, keepdim=True, unbiased=False)
+        std = torch.where(std < 1e-6, torch.ones_like(std), std)
+        return mean, std
+
+    def _split_train_validation(
+            self,
+            features: torch.Tensor,
+            target: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        n_samples = int(features.shape[0])
+        if n_samples <= 2:
+            return features, target, features, target
+        validation_fraction = float(min(0.5, max(0.05, self.validation_fraction)))
+        validation_size = int(max(1, round(n_samples * validation_fraction)))
+        validation_size = min(validation_size, n_samples - 1)
+        train_size = n_samples - validation_size
+        if train_size <= 0:
+            return features, target, features, target
+        return (
+            features[:train_size],
+            target[:train_size],
+            features[train_size:],
+            target[train_size:],
+        )
 
     def _normalize_features(self, values: torch.Tensor) -> torch.Tensor:
         if self.feature_mean_ is None or self.feature_std_ is None:
             raise ValueError('MLPForecastingHead is not fitted.')
         return (values - self.feature_mean_) / self.feature_std_
 
+    def _normalize_target(self, values: torch.Tensor) -> torch.Tensor:
+        if self.target_mean_ is None or self.target_std_ is None:
+            raise ValueError('MLPForecastingHead is not fitted.')
+        return (values - self.target_mean_) / self.target_std_
+
     def _denormalize_target(self, values: torch.Tensor) -> torch.Tensor:
         if self.target_mean_ is None or self.target_std_ is None:
             raise ValueError('MLPForecastingHead is not fitted.')
         return values * self.target_std_ + self.target_mean_
 
-    def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'MLPForecastingHead':
-        resolved_progress_policy = resolve_forecasting_progress_policy(
-            self.progress_policy,
-            show_progress=self.show_progress,
-        )
+    def _initialize_data_statistics(self, features: torch.Tensor, target: torch.Tensor) -> tuple[
+        torch.Tensor, torch.Tensor]:
+        self.input_dim_ = int(features.shape[1])
+        self.output_dim_ = int(target.shape[1])
+        self.feature_mean_, self.feature_std_ = self._compute_tensor_statistics(features)
+        self.target_mean_, self.target_std_ = self._compute_tensor_statistics(target)
+        normalized_x = self._normalize_features(features)
+        normalized_y = self._normalize_target(target)
+        return normalized_x, normalized_y
+
+    def _prepare_fit_data(self, features: torch.Tensor, target: torch.Tensor) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
         X = ensure_tensor_2d(features, self.device_policy)
         Y = ensure_tensor_2d(target, self.device_policy)
-        self.input_dim_ = int(X.shape[1])
-        self.output_dim_ = int(Y.shape[1])
-        self.feature_mean_ = torch.mean(X, dim=0, keepdim=True)
-        self.feature_std_ = torch.std(X, dim=0, keepdim=True, unbiased=False)
-        self.feature_std_ = torch.where(self.feature_std_ < 1e-6, torch.ones_like(self.feature_std_), self.feature_std_)
-        self.target_mean_ = torch.mean(Y, dim=0, keepdim=True)
-        self.target_std_ = torch.std(Y, dim=0, keepdim=True, unbiased=False)
-        self.target_std_ = torch.where(self.target_std_ < 1e-6, torch.ones_like(self.target_std_), self.target_std_)
-        normalized_x = self._normalize_features(X)
-        normalized_y = (Y - self.target_mean_) / self.target_std_
+        normalized_x, normalized_y = self._initialize_data_statistics(X, Y)
+        train_x, train_y, validation_x, validation_y = self._split_train_validation(normalized_x, normalized_y)
+        return X, Y, train_x, train_y, validation_x, validation_y
 
+    def _build_network(self, *, device: torch.device, dtype: torch.dtype) -> tuple[torch.nn.Module, tuple[int, ...]]:
         cpu_rng_state = torch.random.get_rng_state()
         cuda_rng_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
         torch.manual_seed(int(self.random_seed))
+        resolved_hidden_dims = self._resolve_hidden_dims()
         try:
             network = _ForecastingMLP(
                 input_dim=self.input_dim_,
                 output_dim=self.output_dim_,
-                hidden_dims=tuple(int(max(1, value)) for value in self.hidden_dims),
+                hidden_dims=resolved_hidden_dims,
                 activation=self.activation,
-            ).to(device=X.device, dtype=X.dtype)
+            ).to(device=device, dtype=dtype)
         finally:
             torch.random.set_rng_state(cpu_rng_state)
             if cuda_rng_state is not None:
                 torch.cuda.set_rng_state_all(cuda_rng_state)
+        return network, resolved_hidden_dims
 
-        optimizer = torch.optim.AdamW(
+    def _build_optimizer(self, network: torch.nn.Module) -> torch.optim.Optimizer:
+        return torch.optim.AdamW(
             network.parameters(),
             lr=float(self.learning_rate),
             weight_decay=float(self.weight_decay),
         )
-        loss_fn = torch.nn.MSELoss()
-        network.train()
-        epoch_iterator = tqdm(
+
+    def _build_scheduler(self, optimizer: torch.optim.Optimizer):
+        return torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=float(self.scheduler_factor),
+            patience=int(max(1, self.scheduler_patience)),
+            min_lr=float(self.scheduler_min_lr),
+        )
+
+    def _build_loss_fn(self):
+        return torch.nn.MSELoss()
+
+    def _build_epoch_iterator(self, resolved_progress_policy: ForecastingProgressPolicy):
+        return tqdm(
             range(int(max(1, self.epochs))),
             **resolved_progress_policy.tqdm_kwargs(
                 scope='head_training',
@@ -464,21 +558,141 @@ class MLPForecastingHead:
                 unit='epoch',
             ),
         )
-        for epoch_index in epoch_iterator:
-            optimizer.zero_grad(set_to_none=True)
-            prediction = network(normalized_x)
-            loss = loss_fn(prediction, normalized_y)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.0)
-            optimizer.step()
-            if resolved_progress_policy.show_postfix and hasattr(epoch_iterator, 'set_postfix') and (
-                    epoch_index == 0 or (epoch_index + 1) % max(1, self.epochs // 10) == 0
-                    or epoch_index + 1 == int(max(1, self.epochs))
-            ):
-                epoch_iterator.set_postfix(loss=f'{float(loss.detach().cpu().item()):.5f}')
 
+    def _should_update_epoch_postfix(self, epoch_index: int) -> bool:
+        resolved_epochs = int(max(1, self.epochs))
+        return (
+                epoch_index == 0
+                or (epoch_index + 1) % max(1, resolved_epochs // 10) == 0
+                or epoch_index + 1 == resolved_epochs
+        )
+
+    def _run_training_epoch(
+            self,
+            *,
+            network: torch.nn.Module,
+            optimizer: torch.optim.Optimizer,
+            loss_fn,
+            train_x: torch.Tensor,
+            train_y: torch.Tensor,
+            validation_x: torch.Tensor,
+            validation_y: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        optimizer.zero_grad(set_to_none=True)
+        train_prediction = network(train_x)
+        train_loss = loss_fn(train_prediction, train_y)
+        train_loss.backward()
+        torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.0)
+        optimizer.step()
+        network.eval()
+        with torch.no_grad():
+            validation_prediction = network(validation_x)
+            validation_loss = loss_fn(validation_prediction, validation_y)
+        network.train()
+        return train_loss, validation_loss
+
+    def _run_training_loop(
+            self,
+            *,
+            network: torch.nn.Module,
+            optimizer: torch.optim.Optimizer,
+            scheduler,
+            loss_fn,
+            train_x: torch.Tensor,
+            train_y: torch.Tensor,
+            validation_x: torch.Tensor,
+            validation_y: torch.Tensor,
+            resolved_progress_policy: ForecastingProgressPolicy,
+    ) -> tuple[torch.nn.Module, float, int, bool]:
+        network.train()
+        best_state_dict = copy.deepcopy(network.state_dict())
+        best_validation_loss = float('inf')
+        best_epoch = 0
+        patience_counter = 0
+        stopped_early = False
+        epoch_iterator = self._build_epoch_iterator(resolved_progress_policy)
+
+        for epoch_index in epoch_iterator:
+            train_loss, validation_loss = self._run_training_epoch(
+                network=network,
+                optimizer=optimizer,
+                loss_fn=loss_fn,
+                train_x=train_x,
+                train_y=train_y,
+                validation_x=validation_x,
+                validation_y=validation_y,
+            )
+            monitored_loss = float(validation_loss.detach().cpu().item())
+            scheduler.step(validation_loss)
+            if monitored_loss + float(self.early_stopping_min_delta) < best_validation_loss:
+                best_validation_loss = monitored_loss
+                best_epoch = int(epoch_index) + 1
+                patience_counter = 0
+                best_state_dict = copy.deepcopy(network.state_dict())
+            else:
+                patience_counter += 1
+                if patience_counter >= int(max(1, self.early_stopping_patience)):
+                    stopped_early = True
+            if resolved_progress_policy.show_postfix and hasattr(epoch_iterator, 'set_postfix') and \
+                    self._should_update_epoch_postfix(int(epoch_index)):
+                epoch_iterator.set_postfix(
+                    train_loss=f'{float(train_loss.detach().cpu().item()):.5f}',
+                    val_loss=f'{monitored_loss:.5f}',
+                    lr=f"{float(optimizer.param_groups[0]['lr']):.2e}",
+                )
+            if stopped_early:
+                break
+
+        network.load_state_dict(best_state_dict)
+        return network, float(best_validation_loss), int(best_epoch), bool(stopped_early)
+
+    def _finalize_fit_state(
+            self,
+            *,
+            network: torch.nn.Module,
+            best_validation_loss: float,
+            best_epoch: int,
+            stopped_early: bool,
+            resolved_hidden_dims: tuple[int, ...],
+            optimizer: torch.optim.Optimizer,
+    ) -> None:
         self.network_ = network
-        self.final_loss_ = float(loss.detach().cpu().item())
+        self.final_loss_ = float(best_validation_loss)
+        self.best_validation_loss_ = float(best_validation_loss)
+        self.best_epoch_ = int(best_epoch)
+        self.stopped_early_ = bool(stopped_early)
+        self.resolved_hidden_dims_ = tuple(int(value) for value in resolved_hidden_dims)
+        self.final_learning_rate_ = float(optimizer.param_groups[0]['lr'])
+
+    def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'MLPForecastingHead':
+        resolved_progress_policy = resolve_forecasting_progress_policy(
+            self.progress_policy,
+            show_progress=self.show_progress,
+        )
+        X, _, train_x, train_y, validation_x, validation_y = self._prepare_fit_data(features, target)
+        network, resolved_hidden_dims = self._build_network(device=X.device, dtype=X.dtype)
+        optimizer = self._build_optimizer(network)
+        scheduler = self._build_scheduler(optimizer)
+        loss_fn = self._build_loss_fn()
+        network, best_validation_loss, best_epoch, stopped_early = self._run_training_loop(
+            network=network,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            loss_fn=loss_fn,
+            train_x=train_x,
+            train_y=train_y,
+            validation_x=validation_x,
+            validation_y=validation_y,
+            resolved_progress_policy=resolved_progress_policy,
+        )
+        self._finalize_fit_state(
+            network=network,
+            best_validation_loss=best_validation_loss,
+            best_epoch=best_epoch,
+            stopped_early=stopped_early,
+            resolved_hidden_dims=resolved_hidden_dims,
+            optimizer=optimizer,
+        )
         return self
 
     def predict(self, features: torch.Tensor) -> torch.Tensor:
@@ -496,14 +710,27 @@ class MLPForecastingHead:
     def get_diagnostics(self) -> dict[str, Any]:
         return {
             'head_policy': 'mlp',
-            'hidden_dims': tuple(int(value) for value in self.hidden_dims),
+            'hidden_dims': tuple(int(value) for value in self.resolved_hidden_dims_),
+            'depth': int(max(1, self.depth)),
+            'base_hidden_dim': int(max(1, self.base_hidden_dim)),
+            'min_hidden_dim': int(max(1, self.min_hidden_dim)),
             'epochs': int(self.epochs),
             'learning_rate': float(self.learning_rate),
             'weight_decay': float(self.weight_decay),
             'activation': str(self.activation),
+            'validation_fraction': float(self.validation_fraction),
+            'early_stopping_patience': int(max(1, self.early_stopping_patience)),
+            'early_stopping_min_delta': float(self.early_stopping_min_delta),
+            'scheduler_patience': int(max(1, self.scheduler_patience)),
+            'scheduler_factor': float(self.scheduler_factor),
+            'scheduler_min_lr': float(self.scheduler_min_lr),
             'input_dim': self.input_dim_,
             'output_dim': self.output_dim_,
             'final_loss': self.final_loss_,
+            'best_validation_loss': self.best_validation_loss_,
+            'best_epoch': self.best_epoch_,
+            'stopped_early': bool(self.stopped_early_),
+            'final_learning_rate': self.final_learning_rate_,
             'progress_policy': resolve_forecasting_progress_policy(
                 self.progress_policy,
                 show_progress=self.show_progress,

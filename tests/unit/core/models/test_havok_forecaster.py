@@ -56,3 +56,29 @@ def test_havok_forecaster_supports_linear_head_fallback():
 
     assert forecast.shape == (6,)
     assert diagnostics['forecast_head']['head_policy'] == 'linear'
+
+
+def test_havok_forecaster_uses_mlp_head_activation_and_depth_contract():
+    series = _switching_series()
+    model = HAVOKForecaster(
+        forecast_horizon=6,
+        window_size=16,
+        rank=4,
+        head_policy='mlp',
+        head_activation='gelu',
+        head_depth=4,
+        head_base_hidden_dim=64,
+        head_epochs=8,
+        head_learning_rate=1e-3,
+    )
+
+    model.fit(series)
+    diagnostics = model.get_diagnostics()
+    head_diagnostics = diagnostics['forecast_head']['state_head_diagnostics']
+
+    assert diagnostics['forecast_head']['head_activation'] == 'gelu'
+    assert diagnostics['forecast_head']['head_depth'] == 4
+    assert diagnostics['forecast_head']['head_base_hidden_dim'] == 64
+    assert head_diagnostics['activation'] == 'gelu'
+    assert head_diagnostics['depth'] == 4
+    assert head_diagnostics['hidden_dims'] == (64, 32, 16, 8)

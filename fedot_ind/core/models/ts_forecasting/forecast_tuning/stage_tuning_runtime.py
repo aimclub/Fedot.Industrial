@@ -115,9 +115,16 @@ def _normalize_base_params(params: dict[str, Any] | None, *, model_name: str | N
         normalized.setdefault('head_learning_rate', 1e-3)
         normalized.setdefault('device', 'auto')
     elif canonical_name == 'havok_forecaster':
+        if 'head_activation' not in normalized and normalized.get('activation') is not None:
+            normalized['head_activation'] = normalized['activation']
+        if 'head_depth' not in normalized and normalized.get('head_hidden_layers') is not None:
+            normalized['head_depth'] = normalized['head_hidden_layers']
+        if 'head_base_hidden_dim' not in normalized and normalized.get('head_hidden_dim') is not None:
+            normalized['head_base_hidden_dim'] = normalized['head_hidden_dim']
         normalized.setdefault('head_policy', 'mlp')
-        normalized.setdefault('head_hidden_dim', 64)
-        normalized.setdefault('head_hidden_layers', 2)
+        normalized.setdefault('head_activation', 'relu')
+        normalized.setdefault('head_depth', 2)
+        normalized.setdefault('head_base_hidden_dim', 512)
         normalized.setdefault('head_epochs', 120)
         normalized.setdefault('head_learning_rate', 1e-3)
         normalized.setdefault('device', 'auto')

@@ -78,6 +78,8 @@ def test_build_stage_tuning_plan_for_mssa_and_havok_exposes_head_stage():
     assert havok_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert 'forcing_threshold_scale' in havok_plan.groups[-1].parameters
     assert 'head_policy' in havok_plan.groups[-1].parameters
+    assert 'head_activation' in havok_plan.groups[-1].parameters
+    assert 'head_depth' in havok_plan.groups[-1].parameters
 
 
 def test_build_stage_search_spaces_for_mssa_and_havok_include_head_parameters():
@@ -94,7 +96,8 @@ def test_build_stage_search_spaces_for_mssa_and_havok_include_head_parameters():
     assert 'head_policy' in mssa_spaces[-1].parameter_space
     assert 'head_epochs' in mssa_spaces[-1].parameter_space
     assert havok_spaces[-1].stage == ForecastingStageName.FORECAST_HEAD.value
-    assert 'head_hidden_layers' in havok_spaces[-1].parameter_space
+    assert 'head_activation' in havok_spaces[-1].parameter_space
+    assert 'head_depth' in havok_spaces[-1].parameter_space
     assert 'forcing_decay' in havok_spaces[-1].parameter_space
 
 

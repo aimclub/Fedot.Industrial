@@ -481,6 +481,26 @@ def test_build_model_adapter_supports_mssa_head_runtime_parameters() -> None:
     assert mssa_model.head_epochs == 40
 
 
+def test_build_model_adapter_supports_havok_mlp_head_runtime_parameters() -> None:
+    havok_model = build_model_adapter(
+        ModelSpec(
+            adapter_name='havok_forecaster',
+            display_name='havok_tuned',
+            params={
+                'head_policy': 'mlp',
+                'head_activation': 'gelu',
+                'head_depth': 6,
+                'head_base_hidden_dim': 256,
+            },
+        )
+    )
+
+    assert havok_model.head_policy == 'mlp'
+    assert havok_model.head_activation == 'gelu'
+    assert havok_model.head_depth == 6
+    assert havok_model.head_base_hidden_dim == 256
+
+
 @pytest.mark.parametrize(
     ('adapter_name', 'display_name'),
     (

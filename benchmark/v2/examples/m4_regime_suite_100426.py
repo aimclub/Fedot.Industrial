@@ -8,7 +8,7 @@ from benchmark.v2 import (
     run_forecasting_benchmark_suite,
 )
 
-EXPERIMENT_DATE = '160426'
+EXPERIMENT_DATE = '220426'
 M4_SUBSETS = ('daily', 'weekly', 'monthly', 'quarterly', 'yearly')
 
 M4_DATASETS = tuple(
@@ -23,14 +23,14 @@ M4_DATASETS = tuple(
 )
 
 FORECASTING_MODELS = (
-    ModelSpec(
-        adapter_name='lagged_forecaster',
-        display_name='lagged_forecaster',
-        params={
-            'window_size': 10,
-            'channel_model': 'ridge',
-        },
-    ),
+    # ModelSpec(
+    #     adapter_name='lagged_forecaster',
+    #     display_name='lagged_forecaster',
+    #     params={
+    #         'window_size': 10,
+    #         'channel_model': 'ridge',
+    #     },
+    # ),
     ModelSpec(
         adapter_name='havok',
         display_name='havok_forecaster',
@@ -41,15 +41,15 @@ FORECASTING_MODELS = (
             'forcing_decay': 0.85,
         },
     ),
-    ModelSpec(
-        adapter_name='ssa_forecaster',
-        display_name='ssa_forecaster',
-        params={
-            'window_size': None,
-            'rank': None,
-            'explained_variance': 0.95,
-        },
-    ),
+    # ModelSpec(
+    #     adapter_name='ssa_forecaster',
+    #     display_name='ssa_forecaster',
+    #     params={
+    #         'window_size': None,
+    #         'rank': None,
+    #         'explained_variance': 0.95,
+    #     },
+    # ),
     ModelSpec(
         adapter_name='okhs',
         display_name='okhs_forecasting',

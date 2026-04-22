@@ -168,10 +168,8 @@ industrial_search_space = {
          'forcing_threshold_scale': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.75, 1.0, 1.25, 1.5]]},
          'forcing_decay': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.7, 0.8, 0.85, 0.9]]},
          'head_policy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['mlp', 'linear']]},
-         'head_hidden_dim': {'hyperopt-dist': hp.choice, 'sampling-scope': [[32, 64, 96]]},
-         'head_hidden_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3]]},
-         'head_epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[60, 120, 180]]},
-         'head_learning_rate': {'hyperopt-dist': hp.choice, 'sampling-scope': [[5e-4, 1e-3, 2e-3]]}},
+         'head_activation': {'hyperopt-dist': hp.choice, 'sampling-scope': [['relu', 'gelu', 'tanh', 'elu']]},
+         'head_depth': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]}},
     'okhs_fdmd_forecaster':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'n_modes': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},

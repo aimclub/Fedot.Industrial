@@ -76,8 +76,11 @@ class HAVOKForecaster:
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
     head_policy: str = 'mlp'
-    head_hidden_dim: int = 64
-    head_hidden_layers: int = 2
+    head_activation: str = 'relu'
+    head_depth: int = 2
+    head_base_hidden_dim: int = 512
+    head_hidden_dim: int | None = None
+    head_hidden_layers: int | None = None
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
     device: str = 'auto'
@@ -88,8 +91,15 @@ class HAVOKForecaster:
         self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
         self.progress_policy_ = resolve_forecasting_progress_policy(self.progress_policy)
 
-    def _resolve_head_hidden_dims(self) -> tuple[int, ...]:
-        return tuple(int(max(1, self.head_hidden_dim)) for _ in range(int(max(1, self.head_hidden_layers))))
+    def _resolve_head_depth(self) -> int:
+        if self.head_hidden_layers is not None:
+            return int(max(1, self.head_hidden_layers))
+        return int(max(1, self.head_depth))
+
+    def _resolve_head_base_hidden_dim(self) -> int:
+        if self.head_hidden_dim is not None:
+            return int(max(1, self.head_hidden_dim))
+        return int(max(1, self.head_base_hidden_dim))
 
     def _prepare_series(self, time_series: np.ndarray) -> tuple[np.ndarray, int]:
         series = np.asarray(time_series, dtype=float).reshape(-1)
@@ -109,7 +119,7 @@ class HAVOKForecaster:
         truncated = truncate_rank(
             hankel.matrix,
             rank=self.rank,
-            explained_variance=0.95,
+            explained_variance=0.99,
             min_rank=2,
         )
         latent = truncated.projected_states
@@ -131,7 +141,9 @@ class HAVOKForecaster:
         if resolved_policy == 'linear':
             return RidgeForecastingHead(alpha=0.0, device_policy=self.device_policy_)
         return MLPForecastingHead(
-            hidden_dims=self._resolve_head_hidden_dims(),
+            depth=self._resolve_head_depth(),
+            base_hidden_dim=self._resolve_head_base_hidden_dim(),
+            activation=str(self.head_activation).lower(),
             epochs=self.head_epochs,
             learning_rate=self.head_learning_rate,
             progress_policy=self.progress_policy_,
@@ -181,6 +193,9 @@ class HAVOKForecaster:
             'forecast_head': {
                 'head_type': 'havok_head',
                 'head_policy': str(self.head_policy_),
+                'head_activation': str(self.head_activation).lower(),
+                'head_depth': int(self._resolve_head_depth()),
+                'head_base_hidden_dim': int(self._resolve_head_base_hidden_dim()),
                 'state_dimension': int(max(1, self.selected_rank_ - 1)),
                 'forcing_threshold_scale': float(self.forcing_threshold_scale),
                 'forcing_threshold': float(self.forcing_threshold_),
@@ -296,8 +311,14 @@ class HAVOKForecasterImplementation(ModelImplementation):
         self.forcing_threshold_scale = self.params.get('forcing_threshold_scale', 1.0)
         self.forcing_decay = self.params.get('forcing_decay', 0.85)
         self.head_policy = str(self.params.get('head_policy', 'mlp'))
-        self.head_hidden_dim = int(self.params.get('head_hidden_dim', 64))
-        self.head_hidden_layers = int(self.params.get('head_hidden_layers', 2))
+        self.head_activation = str(self.params.get('head_activation', 'relu'))
+        self.head_depth = int(self.params.get('head_depth', 2))
+        raw_head_base_hidden_dim = self.params.get('head_base_hidden_dim')
+        self.head_base_hidden_dim = 512 if raw_head_base_hidden_dim is None else int(raw_head_base_hidden_dim)
+        raw_head_hidden_dim = self.params.get('head_hidden_dim')
+        self.head_hidden_dim = None if raw_head_hidden_dim is None else int(raw_head_hidden_dim)
+        raw_head_hidden_layers = self.params.get('head_hidden_layers')
+        self.head_hidden_layers = None if raw_head_hidden_layers is None else int(raw_head_hidden_layers)
         self.head_epochs = int(self.params.get('head_epochs', 120))
         self.head_learning_rate = float(self.params.get('head_learning_rate', 1e-3))
         self.device = str(self.params.get('device', 'auto'))
@@ -312,6 +333,9 @@ class HAVOKForecasterImplementation(ModelImplementation):
             forcing_threshold_scale=self.forcing_threshold_scale,
             forcing_decay=self.forcing_decay,
             head_policy=self.head_policy,
+            head_activation=self.head_activation,
+            head_depth=self.head_depth,
+            head_base_hidden_dim=self.head_base_hidden_dim,
             head_hidden_dim=self.head_hidden_dim,
             head_hidden_layers=self.head_hidden_layers,
             head_epochs=self.head_epochs,
@@ -349,6 +373,9 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
                 'head_policy': self.head_policy,
+                'head_activation': self.head_activation,
+                'head_depth': self.head_depth,
+                'head_base_hidden_dim': self.head_base_hidden_dim,
                 'head_hidden_dim': self.head_hidden_dim,
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
@@ -367,6 +394,9 @@ class HAVOKForecasterImplementation(ModelImplementation):
                     'forcing_threshold_scale': self.forcing_threshold_scale,
                     'forcing_decay': self.forcing_decay,
                     'head_policy': self.head_policy,
+                    'head_activation': self.head_activation,
+                    'head_depth': self.head_depth,
+                    'head_base_hidden_dim': self.head_base_hidden_dim,
                     'head_hidden_dim': self.head_hidden_dim,
                     'head_hidden_layers': self.head_hidden_layers,
                     'head_epochs': self.head_epochs,
@@ -385,6 +415,9 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
                 'head_policy': self.head_policy,
+                'head_activation': self.head_activation,
+                'head_depth': self.head_depth,
+                'head_base_hidden_dim': self.head_base_hidden_dim,
                 'head_hidden_dim': self.head_hidden_dim,
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
@@ -416,6 +449,9 @@ class HAVOKForecasterImplementation(ModelImplementation):
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
                 'head_policy': self.head_policy,
+                'head_activation': self.head_activation,
+                'head_depth': self.head_depth,
+                'head_base_hidden_dim': self.head_base_hidden_dim,
                 'head_hidden_dim': self.head_hidden_dim,
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,

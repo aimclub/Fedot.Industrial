@@ -1299,8 +1299,11 @@ class HAVOKModel(ForecastingModelAdapter):
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
     head_policy: str = 'mlp'
-    head_hidden_dim: int = 64
-    head_hidden_layers: int = 2
+    head_activation: str = 'relu'
+    head_depth: int = 2
+    head_base_hidden_dim: int = 512
+    head_hidden_dim: int | None = None
+    head_hidden_layers: int | None = None
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
     device: str = 'auto'
@@ -1322,6 +1325,9 @@ class HAVOKModel(ForecastingModelAdapter):
             forcing_threshold_scale=self.forcing_threshold_scale,
             forcing_decay=self.forcing_decay,
             head_policy=self.head_policy,
+            head_activation=self.head_activation,
+            head_depth=self.head_depth,
+            head_base_hidden_dim=self.head_base_hidden_dim,
             head_hidden_dim=self.head_hidden_dim,
             head_hidden_layers=self.head_hidden_layers,
             head_epochs=self.head_epochs,
@@ -1349,6 +1355,9 @@ class HAVOKModel(ForecastingModelAdapter):
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
                 'head_policy': self.head_policy,
+                'head_activation': self.head_activation,
+                'head_depth': self.head_depth,
+                'head_base_hidden_dim': self.head_base_hidden_dim,
                 'head_hidden_dim': self.head_hidden_dim,
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
