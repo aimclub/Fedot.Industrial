@@ -44,7 +44,7 @@ class ForecastingProgressPolicy:
 def resolve_forecasting_progress_policy(
         policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
         *,
-        show_progress: bool | None = None,
+        show_progress: bool | None = True,
 ) -> ForecastingProgressPolicy:
     if isinstance(policy, ForecastingProgressPolicy):
         resolved = policy

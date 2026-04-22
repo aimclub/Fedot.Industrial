@@ -7,6 +7,7 @@ FORECASTING_MODEL_ALIASES: dict[str, str] = {
 
 CANONICAL_STAGE_FORECASTING_MODELS: tuple[str, ...] = (
     'lagged_ridge_forecaster',
+    'topo_forecaster',
     'low_rank_lagged_ridge_forecaster',
     'ssa_forecaster',
     'mssa_forecaster',

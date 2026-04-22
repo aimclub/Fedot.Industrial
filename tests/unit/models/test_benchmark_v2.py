@@ -306,6 +306,123 @@ def test_run_forecasting_suite_compact_verbosity_trims_stage_tuning_payload(monk
     assert 'tuned_metadata' not in comparison
 
 
+def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_path: Path, monkeypatch) -> None:
+    class FakeDatasetAdapter:
+        def load_series(self, spec):
+            del spec
+            return (
+                ForecastingSeriesRecord(
+                    benchmark='in_memory',
+                    dataset_name='compact_publication_suite',
+                    subset='monthly',
+                    series_id='series_1',
+                    frequency='monthly',
+                    forecast_horizon=3,
+                    seasonal_period=1,
+                    train_values=(1.0, 2.0, 3.0, 4.0, 5.0),
+                    test_values=(6.0, 7.0, 8.0),
+                ),
+            )
+
+    class FakeForecastModel:
+        name = 'FakeForecastModel'
+        tags = ('baseline', 'forecasting')
+        optional = False
+
+        def __init__(self, scale: float = 1.0):
+            self.scale = float(scale)
+
+        def availability(self):
+            return RunStatus.SUCCESS, 'ready'
+
+        def forecast(self, series_record):
+            target = np.asarray(series_record.test_values, dtype=float)
+            if self.scale > 1.0:
+                return target.copy(), {
+                    'source': 'tuned',
+                    'benchmark_runtime_context': {'debug': True},
+                    'progress_policy': {'enabled': False},
+                }
+            return np.zeros_like(target), {
+                'source': 'baseline',
+                'benchmark_runtime_context': {'debug': True},
+                'progress_policy': {'enabled': False},
+            }
+
+    monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.build_model_adapter',
+        lambda spec: FakeForecastModel(scale=float(spec.params.get('scale', 1.0))),
+    )
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.run_forecasting_stage_tuning_on_series',
+        lambda *args, **kwargs: type(
+            'FakeStageTuningRuntimeResult',
+            (),
+            {
+                'metadata': {'improved': True, 'baseline_score': 10.0, 'best_score': 0.0},
+                'to_dict': lambda self: {
+                    'sequential_result': {
+                        'best_parameters': {'scale': 2.0},
+                        'stage_history': [{'stage': 'forecast_head', 'evaluations': [{'score': 1.0}]}],
+                        'metadata': {'progress_policy': {'enabled': False}},
+                    },
+                    'baseline_evaluation': {
+                        'metric': {'metric_value': 10.0},
+                        'split_metadata': {'folds': [{'fold_index': 0}]},
+                        'metadata': {'progress_policy': {'enabled': False}},
+                    },
+                    'best_evaluation': {
+                        'metric': {'metric_value': 0.0},
+                        'split_metadata': {'folds': [{'fold_index': 0}]},
+                        'metadata': {'progress_policy': {'enabled': False}},
+                    },
+                },
+            },
+        )(),
+        raising=False,
+    )
+
+    result = run_forecasting_benchmark_suite(
+        BenchmarkSuiteConfig(
+            task_type=TaskType.FORECASTING,
+            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='compact_publication_suite', subset='monthly'),),
+            models=(ModelSpec(
+                adapter_name='fake_model',
+                display_name='FakeForecastModel',
+                params={'stage_tuning_runtime': {}},
+            ),),
+            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(
+                run_name='compact_publication_suite',
+                show_progress=False,
+                primary_metric='mae',
+                verbosity='compact',
+            ),
+            metrics=('mae', 'rmse'),
+        )
+    )
+
+    stage_tuning_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'series_1_forecasting_stage_tuning.json'
+    )
+    stage_payload = json.loads(stage_tuning_path.read_text(encoding='utf-8'))
+    report = stage_payload['FakeForecastModel']
+
+    assert 'evaluations' not in report['sequential_result']['stage_history'][0]
+    assert 'split_metadata' not in report['baseline_evaluation'] or 'folds' not in report['baseline_evaluation'][
+        'split_metadata']
+    assert 'progress_policy' not in report['sequential_result'].get('metadata', {})
+
+    metadata_path = next(
+        Path(record.path) for record in result.artifact_manifest
+        if Path(record.path).name == 'run_metadata.json'
+    )
+    metadata_payload = json.loads(metadata_path.read_text(encoding='utf-8'))
+    assert metadata_payload['verbosity_policy']['level'] == 'compact'
+
+
 def test_build_model_adapter_supports_new_composite_forecasters() -> None:
     lagged_ridge_model = build_model_adapter(
         ModelSpec(adapter_name='lagged_ridge_forecaster', display_name='lagged_ridge_forecaster')

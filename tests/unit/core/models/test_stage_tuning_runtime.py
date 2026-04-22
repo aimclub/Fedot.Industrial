@@ -4,12 +4,14 @@ import pytest
 pytest.importorskip('torch')
 
 from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
-from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import (
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import (
     LowRankLaggedRidgeForecasterImplementation,
 )
 from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
-from fedot_ind.core.models.ts_forecasting.stage_tuning import ForecastingStageName
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import ForecastingStageName
 from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import (
+    ForecastingSeriesEvaluator,
+    ForecastingSeriesStageTuningRunner,
     _normalize_base_params,
     evaluate_forecasting_model_on_series,
     run_forecasting_stage_tuning_on_series,
@@ -33,11 +35,27 @@ def test_evaluate_forecasting_model_on_series_returns_runtime_report_for_lagged_
     )
 
     assert evaluation.metric.metric_name == 'rmse'
-    assert len(evaluation.forecast) == 24
-    assert len(evaluation.target) == 24
+    assert len(evaluation.forecast) == 80
+    assert len(evaluation.target) == 80
     assert evaluation.split_metadata['split_kind'] == ForecastingSplitKind.TIME_SERIES_SPLIT.value
-    assert evaluation.split_metadata['fold_count'] == 3
+    assert evaluation.split_metadata['fold_count'] == 10
     assert 'trajectory_transform' in evaluation.diagnostics
+
+
+def test_forecasting_series_evaluator_class_matches_wrapper_contract():
+    series = _trend_with_oscillation()
+
+    evaluation = ForecastingSeriesEvaluator(
+        'lagged_ridge_forecaster',
+        time_series=series,
+        forecast_horizon=8,
+        params={'window_size': 18, 'stride': 2, 'alpha': 0.5},
+        metric_name='rmse',
+    ).run()
+
+    assert evaluation.metric.metric_name == 'rmse'
+    assert evaluation.split_metadata['fold_count'] == 10
+    assert evaluation.canonical_model_name == 'lagged_ridge_forecaster'
 
 
 def test_evaluate_forecasting_model_on_series_supports_smape_for_low_rank_forecaster():
@@ -76,6 +94,28 @@ def test_run_forecasting_stage_tuning_on_series_improves_or_matches_baseline():
     assert result.metadata['best_score'] <= result.metadata['baseline_score']
     assert result.sequential_result.stage_history[0]['stage'] == ForecastingStageName.TRAJECTORY.value
     assert result.best_evaluation.metric.metric_name == 'rmse'
+    assert result.best_evaluation.split_metadata['fold_count'] == 10
+
+
+def test_forecasting_series_stage_tuning_runner_class_matches_wrapper_contract():
+    series = _trend_with_oscillation(132)
+
+    result = ForecastingSeriesStageTuningRunner(
+        'lagged_ridge_forecaster',
+        time_series=series,
+        forecast_horizon=8,
+        base_params={'window_size': 10, 'stride': 1, 'alpha': 4.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 20},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 1.0},
+        },
+        metric_name='rmse',
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+    ).run()
+
+    assert result.metadata['best_score'] <= result.metadata['baseline_score']
+    assert result.sequential_result.stage_history[0]['stage'] == ForecastingStageName.TRAJECTORY.value
 
 
 def test_run_forecasting_stage_tuning_on_series_propagates_progress_policy():

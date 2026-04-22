@@ -107,9 +107,10 @@ industrial_search_space = {
                             ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
 
     'topo_forecaster':
-        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
-         'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 40, 5)]]},
-         'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 20, 3)]]}},
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(4, 24, 2)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4]]},
+         'alpha': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.1, 0.5, 1.0, 2.0, 5.0]]}},
     'hankelisation':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},

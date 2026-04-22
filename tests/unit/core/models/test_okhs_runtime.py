@@ -15,7 +15,7 @@ from fedot_ind.core.models.kernel.okhs_runtime import (
     run_okhs_direct_prediction,
     run_okhs_dmd_prediction,
 )
-from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import (
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import (
     OKHSFDMDForecasterRunResult,
     OKHSFDMDForecasterSpec,
     build_okhs_fdmd_spec,

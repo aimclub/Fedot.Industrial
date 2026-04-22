@@ -37,15 +37,17 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     build_hankel_trajectory_transform,
     resolve_window_size,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_execution import (
     build_forecasting_stage_tuning_execution,
     run_sequential_stage_tuning,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime import (
+    run_forecasting_stage_tuning_on_series,
+)
 
 
 def resolve_lagged_window_size(time_series_length: int, window_size_percent: float) -> int:

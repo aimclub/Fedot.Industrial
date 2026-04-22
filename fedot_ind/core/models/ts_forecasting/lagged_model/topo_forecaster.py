@@ -19,8 +19,11 @@ except Exception:  # pragma: no cover
             self.params = params or {}
 
         def _convert_to_output(self, input_data, predict=None, data_type=None):
-            return type('OutputData', (),
-                        {'predict': predict, 'data_type': data_type, 'idx': getattr(input_data, 'idx', None)})
+            return type(
+                'OutputData',
+                (),
+                {'predict': predict, 'data_type': data_type, 'idx': getattr(input_data, 'idx', None)},
+            )
 
 
     class OperationParameters(dict):  # type: ignore[override]
@@ -28,7 +31,7 @@ except Exception:  # pragma: no cover
             return super().get(key, default)
 
 
-    class DataTypesEnum:  # pragma: no cover - only used in full FEDOT runtime
+    class DataTypesEnum:  # pragma: no cover
         table = 'table'
 
 from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
@@ -37,40 +40,58 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     RidgeForecastingHead,
     TensorDevicePolicy,
     build_hankel_trajectory_transform,
-    compute_randomized_svd_decomposition,
-    compute_svd_decomposition,
-    compute_tensor_decomposition,
-    project_features,
     resolve_window_size,
-    truncate_decomposition_rank,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_execution import (
     build_forecasting_stage_tuning_execution,
     run_sequential_stage_tuning,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime import (
+    run_forecasting_stage_tuning_on_series,
+)
+
+
+def _resolve_topological_patch_len(window_size: int, patch_len: int | None) -> int:
+    requested = int(patch_len or max(2, window_size // 2))
+    return int(max(2, min(requested, max(2, window_size - 1))))
+
+
+def _extract_topological_window_features(window: np.ndarray, *, patch_len: int, stride: int) -> np.ndarray:
+    from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
+
+    series = np.asarray(window, dtype=float).reshape(-1)
+    resolved_patch_len = _resolve_topological_patch_len(len(series), patch_len)
+    transformer = TopologicalTransformation(
+        time_series=series,
+        max_simplex_dim=1,
+        epsilon=3,
+        window_length=resolved_patch_len,
+        stride=int(max(1, stride)),
+    )
+    betti = transformer.time_series_rolling_betti_ripser(series)
+    return np.asarray(betti, dtype=float).reshape(-1)
 
 
 @dataclass
-class LowRankLaggedRidgeForecaster:
+class TopologicalRidgeForecaster:
     forecast_horizon: int
     window_size: int | None = None
     window_size_percent: float | None = 10.0
+    patch_len: int = 10
     stride: int = 1
     alpha: float = 1.0
-    rank: int | None = None
-    explained_variance: float = 0.95
-    decomposition_strategy: str = 'full'
-    rank_truncation_policy: str = 'explained_variance'
-    unfolding_strategy: str = 'channels_last'
+    channel_model: str = 'ridge'
     device: str = 'auto'
     dtype: str = 'float32'
 
     def __post_init__(self):
+        resolved_channel_model = str(self.channel_model).lower()
+        if resolved_channel_model != 'ridge':
+            raise ValueError("TopologicalRidgeForecaster currently supports only channel_model='ridge'.")
         self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
         self.runtime_ = ForecastingRuntimeAdapter(self.device_policy_)
 
@@ -82,15 +103,18 @@ class LowRankLaggedRidgeForecaster:
             window_size_percent=self.window_size_percent,
         )
 
-    def _decompose(self, features):
-        strategy = str(self.decomposition_strategy).lower()
-        if strategy == 'randomized':
-            return compute_randomized_svd_decomposition(features)
-        if strategy == 'tensor':
-            return compute_tensor_decomposition(features, unfolding_strategy=self.unfolding_strategy)
-        return compute_svd_decomposition(features, strategy='full')
+    def _transform_windows(self, windows: np.ndarray) -> np.ndarray:
+        feature_rows = [
+            _extract_topological_window_features(
+                row,
+                patch_len=self.patch_len,
+                stride=self.stride,
+            )
+            for row in np.asarray(windows, dtype=float)
+        ]
+        return np.asarray(feature_rows, dtype=float)
 
-    def fit(self, time_series: np.ndarray) -> 'LowRankLaggedRidgeForecaster':
+    def fit(self, time_series: np.ndarray) -> 'TopologicalRidgeForecaster':
         batch = self.runtime_.make_batch(time_series, forecast_horizon=self.forecast_horizon)
         self.resolved_window_size_ = self._resolve_window_size(batch)
         self.transform_result_ = build_hankel_trajectory_transform(
@@ -98,24 +122,20 @@ class LowRankLaggedRidgeForecaster:
             window_size=self.resolved_window_size_,
             stride=self.stride,
         )
-        self.decomposition_result_ = self._decompose(self.transform_result_.features)
-        self.rank_result_ = truncate_decomposition_rank(
-            self.decomposition_result_,
-            rank=self.rank,
-            explained_variance=self.explained_variance,
-            policy=self.rank_truncation_policy,
-            expert_rank=self.rank,
-            min_rank=2,
-        )
+        training_windows = self.transform_result_.features.detach().cpu().numpy()
+        self.topological_features_ = self._transform_windows(training_windows)
+        self.resolved_patch_len_ = _resolve_topological_patch_len(self.resolved_window_size_, self.patch_len)
         self.head_ = RidgeForecastingHead(alpha=self.alpha, device_policy=self.device_policy_)
-        self.head_.fit(self.rank_result_.projected_features, self.transform_result_.target)
+        self.head_.fit(self.topological_features_, self.transform_result_.target)
         self.channel_count_ = int(self.transform_result_.channel_count)
         self.training_history_ = batch.history.detach().clone()
         self.diagnostics_ = {
-            'model_family': 'low_rank_linear',
-            'trajectory_transform': self.transform_result_.to_dict(),
-            'decomposition': self.decomposition_result_.to_dict(),
-            'rank_truncation': self.rank_result_.to_dict(),
+            'model_family': 'lagged_linear',
+            'trajectory_transform': {
+                **self.transform_result_.to_dict(),
+                'patch_len': int(self.resolved_patch_len_),
+                'representation': 'topological_hankel',
+            },
             'forecast_head': self.head_.get_diagnostics(),
             'runtime': batch.to_dict(),
         }
@@ -125,7 +145,8 @@ class LowRankLaggedRidgeForecaster:
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
-                f'LowRankLaggedRidgeForecaster was trained for horizon={self.forecast_horizon}, got requested horizon={horizon}.'
+                f'TopologicalRidgeForecaster was trained for horizon={self.forecast_horizon}, '
+                f'got requested horizon={horizon}.'
             )
         batch = self.runtime_.make_batch(
             self.training_history_.detach().cpu().numpy() if time_series is None else time_series,
@@ -136,11 +157,12 @@ class LowRankLaggedRidgeForecaster:
             window_size=self.resolved_window_size_,
             stride=self.transform_result_.stride,
         )
-        latest_projected = project_features(latest_transform.latest_features, self.rank_result_.basis)
-        forecast_vector = self.head_.predict(latest_projected).reshape(self.forecast_horizon, self.channel_count_)
+        latest_features = self._transform_windows(latest_transform.latest_features.detach().cpu().numpy())
+        forecast_vector = self.head_.predict(latest_features).reshape(self.forecast_horizon, self.channel_count_)
         forecast = forecast_vector[:horizon, 0]
         self.last_prediction_diagnostics_ = {
-            'latest_projected_shape': tuple(int(value) for value in latest_projected.shape),
+            'latest_feature_shape': tuple(int(value) for value in latest_transform.latest_features.shape),
+            'topological_feature_shape': tuple(int(value) for value in latest_features.shape),
             'forecast_shape': tuple(int(value) for value in forecast_vector.shape),
         }
         return forecast.detach().cpu().numpy()
@@ -152,35 +174,31 @@ class LowRankLaggedRidgeForecaster:
         }
 
 
-class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
+class TopologicalAR(ModelImplementation):
+    """Topological lagged forecaster aligned with the `lagged_ridge_forecaster` runtime contract."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
         params = params or OperationParameters()
         super().__init__(params)
+        self.channel_model = str(self.params.get('channel_model', 'ridge'))
         self.window_size = self.params.get('window_size')
         self.has_explicit_window_percent_ = 'window_size_percent' in self.params
         self.window_size_percent = self.params.get('window_size_percent')
+        self.patch_len = int(self.params.get('patch_len', 10))
         self.stride = int(self.params.get('stride', 1))
         self.alpha = float(self.params.get('alpha', 1.0))
-        self.rank = self.params.get('rank')
-        self.explained_variance = float(self.params.get('explained_variance', 0.95))
-        self.decomposition_strategy = str(self.params.get('decomposition_strategy', 'full'))
-        self.rank_truncation_policy = str(self.params.get('rank_truncation_policy', 'explained_variance'))
-        self.unfolding_strategy = str(self.params.get('unfolding_strategy', 'channels_last'))
         self.device = str(self.params.get('device', 'auto'))
-        self.model_: LowRankLaggedRidgeForecaster | None = None
+        self.model_: TopologicalRidgeForecaster | None = None
 
     def fit(self, input_data: InputData):
-        self.model_ = LowRankLaggedRidgeForecaster(
+        self.model_ = TopologicalRidgeForecaster(
             forecast_horizon=input_data.task.task_params.forecast_length,
             window_size=None if self.has_explicit_window_percent_ else self.window_size,
             window_size_percent=self.window_size_percent if self.has_explicit_window_percent_ else None,
+            patch_len=self.patch_len,
             stride=self.stride,
             alpha=self.alpha,
-            rank=self.rank,
-            explained_variance=self.explained_variance,
-            decomposition_strategy=self.decomposition_strategy,
-            rank_truncation_policy=self.rank_truncation_policy,
-            unfolding_strategy=self.unfolding_strategy,
+            channel_model=self.channel_model,
             device=self.device,
         )
         self.model_.fit(np.asarray(input_data.features, dtype=float))
@@ -197,7 +215,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
     def predict_for_fit(self, input_data: InputData):
         if self.model_ is None:
             self.fit(input_data)
-        return np.asarray(self.model_.rank_result_.projected_features.detach().cpu().numpy(), dtype=float)
+        return np.asarray(self.model_.topological_features_, dtype=float)
 
     def get_diagnostics(self) -> dict[str, object]:
         if self.model_ is None:
@@ -206,76 +224,59 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
         base_params = {
+            'channel_model': self.channel_model,
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'patch_len': self.patch_len,
             'stride': self.stride,
             'alpha': self.alpha,
-            'rank': self.rank,
-            'explained_variance': self.explained_variance,
-            'decomposition_strategy': self.decomposition_strategy,
-            'rank_truncation_policy': self.rank_truncation_policy,
-            'unfolding_strategy': self.unfolding_strategy,
             'device': self.device,
         }
-        return build_forecasting_stage_tuning_plan(
-            'low_rank_lagged_ridge_forecaster',
-            base_params,
-        ).to_dict()
+        return build_forecasting_stage_tuning_plan('topo_forecaster', base_params).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
         base_params = {
+            'channel_model': self.channel_model,
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'patch_len': self.patch_len,
             'stride': self.stride,
             'alpha': self.alpha,
-            'rank': self.rank,
-            'explained_variance': self.explained_variance,
-            'decomposition_strategy': self.decomposition_strategy,
-            'rank_truncation_policy': self.rank_truncation_policy,
-            'unfolding_strategy': self.unfolding_strategy,
             'device': self.device,
         }
         return tuple(
-            stage.to_dict() for stage in build_forecasting_stage_search_spaces(
-                'low_rank_lagged_ridge_forecaster',
-                base_params,
-            )
+            stage.to_dict()
+            for stage in build_forecasting_stage_search_spaces('topo_forecaster', base_params)
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
         base_params = {
+            'channel_model': self.channel_model,
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'patch_len': self.patch_len,
             'stride': self.stride,
             'alpha': self.alpha,
-            'rank': self.rank,
-            'explained_variance': self.explained_variance,
-            'decomposition_strategy': self.decomposition_strategy,
-            'rank_truncation_policy': self.rank_truncation_policy,
-            'unfolding_strategy': self.unfolding_strategy,
             'device': self.device,
         }
         return build_forecasting_stage_tuning_execution(
-            'low_rank_lagged_ridge_forecaster',
+            'topo_forecaster',
             base_params=base_params,
             stage_updates=stage_updates,
         ).to_dict()
 
     def run_stage_tuning(self, objective, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
         base_params = {
+            'channel_model': self.channel_model,
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+            'patch_len': self.patch_len,
             'stride': self.stride,
             'alpha': self.alpha,
-            'rank': self.rank,
-            'explained_variance': self.explained_variance,
-            'decomposition_strategy': self.decomposition_strategy,
-            'rank_truncation_policy': self.rank_truncation_policy,
-            'unfolding_strategy': self.unfolding_strategy,
             'device': self.device,
         }
         return run_sequential_stage_tuning(
-            'low_rank_lagged_ridge_forecaster',
+            'topo_forecaster',
             objective=objective,
             base_params=base_params,
             stage_updates=stage_updates,
@@ -294,19 +295,16 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
         return run_forecasting_stage_tuning_on_series(
-            'low_rank_lagged_ridge_forecaster',
+            'topo_forecaster',
             time_series=np.asarray(time_series, dtype=float),
             forecast_horizon=int(forecast_horizon),
             base_params={
+                'channel_model': self.channel_model,
                 'window_size': self.window_size,
                 'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
+                'patch_len': self.patch_len,
                 'stride': self.stride,
                 'alpha': self.alpha,
-                'rank': self.rank,
-                'explained_variance': self.explained_variance,
-                'decomposition_strategy': self.decomposition_strategy,
-                'rank_truncation_policy': self.rank_truncation_policy,
-                'unfolding_strategy': self.unfolding_strategy,
                 'device': self.device,
             },
             stage_updates=stage_updates,

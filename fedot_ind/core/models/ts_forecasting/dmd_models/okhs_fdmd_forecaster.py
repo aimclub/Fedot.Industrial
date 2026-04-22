@@ -33,15 +33,17 @@ except Exception:  # pragma: no cover
 
 from fedot_ind.core.models.kernel.okhs_forecasting import OKHSForecaster
 from fedot_ind.core.models.kernel.okhs_runtime import build_okhs_stage_diagnostics
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_execution import (
     build_forecasting_stage_tuning_execution,
     run_sequential_stage_tuning,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime import (
+    run_forecasting_stage_tuning_on_series,
+)
 
 OKHS_FDMD_DEFAULT_PARAMS: dict[str, Any] = {
     'q': 0.7,

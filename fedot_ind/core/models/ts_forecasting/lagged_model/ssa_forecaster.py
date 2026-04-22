@@ -8,13 +8,17 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import build_forecasting_stage_tuning_execution
-from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_execution import (
+    build_forecasting_stage_tuning_execution,
+)
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime import (
+    run_forecasting_stage_tuning_on_series,
+)
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecaster
 
 
 class SSAForecasterImplementation(ModelImplementation):

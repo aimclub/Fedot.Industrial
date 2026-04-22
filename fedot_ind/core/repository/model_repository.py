@@ -57,24 +57,26 @@ from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifie
 from fedot_ind.core.models.regression.freq_domain_regressor import FrequencyRegressor
 from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldRegressor
 from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
+from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import \
+    HybridEnsembleForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
-from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import \
+    LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
+    LowRankLaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.topo_forecaster import TopologicalAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
-from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
-from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import \
-    LowRankLaggedRidgeForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
+from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head import (
     DeepARForecastHeadImplementation,
     NBeatsForecastHeadImplementation,
     PatchTSTForecastHeadImplementation,
     TCNForecastHeadImplementation,
 )
-from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation

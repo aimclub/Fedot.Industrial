@@ -1,6 +1,6 @@
 import numpy as np
 
-from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
+from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head import (
     DeepARForecastHeadImplementation,
     NEURAL_FORECASTING_MODEL_REGISTRY,
     NBeatsForecastHeadImplementation,
@@ -13,7 +13,7 @@ from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
     build_neural_forecasting_stage_diagnostics,
     run_neural_forecast_head_on_series,
 )
-from fedot_ind.core.models.ts_forecasting.neural_forecast_head_bridge import (
+from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head_bridge import (
     NeuralForecastHeadBridge,
 )
 

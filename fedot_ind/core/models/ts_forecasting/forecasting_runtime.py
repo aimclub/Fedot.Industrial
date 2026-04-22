@@ -811,6 +811,14 @@ def _resolve_min_train_length(batch: ForecastTensorBatch,
     return int(spec.min_train_length or max(batch.forecast_horizon + 2, validation_horizon * 2))
 
 
+def _resolve_target_fold_count(max_possible_folds: int, requested_splits: int | None) -> int:
+    if max_possible_folds < 2:
+        return 0
+    requested = int(requested_splits) if requested_splits is not None else 10
+    target = max(10, requested)
+    return int(min(max_possible_folds, target))
+
+
 def _build_fold_split(
         batch: ForecastTensorBatch,
         *,
@@ -888,10 +896,9 @@ def _build_time_series_split_folds(batch: ForecastTensorBatch,
     gap = int(max(0, spec.gap))
     remaining = batch.series_length - min_train - gap
     max_possible_splits = remaining // validation_horizon
-    if max_possible_splits < 1:
+    n_splits = _resolve_target_fold_count(max_possible_splits, spec.n_splits)
+    if n_splits < 1:
         return ()
-    requested_splits = int(spec.n_splits or 3)
-    n_splits = max(1, min(requested_splits, max_possible_splits))
     initial_test_start = batch.series_length - n_splits * validation_horizon
     folds: list[ForecastingFoldSplit] = []
     for fold_index in range(n_splits):
@@ -945,8 +952,11 @@ def _build_expanding_window_folds(batch: ForecastTensorBatch,
             )
             fold_index += 1
         train_end += step_length
-    if spec.n_splits is not None and len(folds) > int(spec.n_splits):
-        folds = folds[-int(spec.n_splits):]
+    target_fold_count = _resolve_target_fold_count(len(folds), spec.n_splits)
+    if target_fold_count < 1:
+        return ()
+    if len(folds) > target_fold_count:
+        folds = folds[-target_fold_count:]
     return tuple(folds)
 
 
@@ -980,8 +990,11 @@ def _build_rolling_window_folds(batch: ForecastTensorBatch,
             )
             fold_index += 1
         start += step_length
-    if spec.n_splits is not None and len(folds) > int(spec.n_splits):
-        folds = folds[-int(spec.n_splits):]
+    target_fold_count = _resolve_target_fold_count(len(folds), spec.n_splits)
+    if target_fold_count < 1:
+        return ()
+    if len(folds) > target_fold_count:
+        folds = folds[-target_fold_count:]
     return tuple(folds)
 
 

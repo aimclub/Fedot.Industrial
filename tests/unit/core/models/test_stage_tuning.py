@@ -1,15 +1,17 @@
-from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import (
-    LowRankLaggedRidgeForecasterImplementation,
-)
-from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import \
+    HybridEnsembleForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     ForecastingStageName,
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
+from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import \
+    LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import (
+    LowRankLaggedRidgeForecasterImplementation,
+)
+from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
 from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
     build_forecasting_stage_tuning_execution,
     run_sequential_stage_tuning,

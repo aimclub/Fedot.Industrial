@@ -1,7 +1,7 @@
 import numpy as np
 
-from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
+from fedot_ind.core.models.ts_forecasting.regime_utils.regime_diagnostics import analyze_regime_diagnostics
 
 
 def test_regime_routing_prefers_periodic_models_for_periodic_series():

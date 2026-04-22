@@ -78,7 +78,7 @@ def test_iter_forecasting_splits_supports_time_series_split():
         ),
     )
 
-    assert len(folds) == 3
+    assert len(folds) == 9
     assert folds[-1].train_end == folds[-1].test_start - 2
     assert all(len(fold.validation_target) == 6 for fold in folds)
 
@@ -98,7 +98,7 @@ def test_iter_forecasting_splits_supports_expanding_window():
         ),
     )
 
-    assert len(folds) == 3
+    assert len(folds) == 8
     assert folds[0].train_start == 0
     assert all(fold.train_start == 0 for fold in folds)
     assert folds[0].train_end < folds[-1].train_end
@@ -119,9 +119,25 @@ def test_iter_forecasting_splits_supports_rolling_window():
         ),
     )
 
-    assert len(folds) == 4
+    assert len(folds) == 9
     assert all(fold.train_end - fold.train_start == 30 for fold in folds)
     assert folds[0].train_start < folds[-1].train_start
+
+
+def test_iter_forecasting_splits_enforces_minimum_ten_folds_when_possible():
+    series = np.linspace(1.0, 180.0, num=180)
+    batch = series_to_forecast_tensor_batch(series, forecast_horizon=10)
+
+    folds = iter_forecasting_splits(
+        batch,
+        ForecastingSplitSpec(
+            kind=ForecastingSplitKind.TIME_SERIES_SPLIT,
+            validation_horizon=10,
+            n_splits=3,
+        ),
+    )
+
+    assert len(folds) == 10
 
 
 def test_mlp_forecasting_head_uses_tqdm_progress(monkeypatch):

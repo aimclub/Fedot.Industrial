@@ -1,6 +1,6 @@
 import numpy as np
 
-from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
+from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecaster
 
 
 def _switching_series(length: int = 96) -> np.ndarray:

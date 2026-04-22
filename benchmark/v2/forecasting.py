@@ -16,13 +16,13 @@ except Exception:  # pragma: no cover
     torch = None
 
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
-from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
+from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecaster
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecaster
 from fedot_ind.core.models.ts_forecasting.progress_policy import (
     ForecastingProgressPolicy,
     resolve_forecasting_progress_policy,
 )
-from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
+from fedot_ind.core.models.ts_forecasting.regime_utils.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
@@ -35,11 +35,13 @@ try:  # pragma: no cover - DMD runtime may require torch stack
 except Exception:  # pragma: no cover
     DMDForecaster = None
 try:  # pragma: no cover - tensor-native composites require torch
-    from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
-    from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
-    from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
-    from fedot_ind.core.models.ts_forecasting.neural_forecast_head import run_neural_forecast_head_on_series
-    from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import (
+    from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import HybridEnsembleForecaster
+    from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import LaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
+        LowRankLaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head import \
+        run_neural_forecast_head_on_series
+    from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import (
         OKHSFDMDForecaster,
         build_okhs_fdmd_spec,
         run_okhs_fdmd_forecaster_on_series,
@@ -1072,7 +1074,7 @@ class SSACompatModel(ForecastingModelAdapter):
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
+        from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
 
         input_data = _build_fedot_forecasting_input(series_record)
         model = SSAForecasterImplementation(
@@ -1483,6 +1485,7 @@ def _instantiate_model_adapter(adapter_cls, spec: ModelSpec, default_tags: tuple
 def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_forecasting_model_name(raw_adapter_name)
+    params = dict(spec.params)
     if raw_adapter_name == 'okhs':
         return _instantiate_model_adapter(OKHSModel, spec, ('okhs', 'forecasting'))
     if adapter_name == 'okhs_fdmd_forecaster':
@@ -1521,11 +1524,11 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     if adapter_name == 'naive_drift':
         return NaiveDriftModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'moving_average':
-        return MovingAverageModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'), **params)
+        return _instantiate_model_adapter(MovingAverageModel, spec, ('baseline', 'forecasting'))
     if adapter_name == 'linear_trend':
         return LinearTrendModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'classical_dmd':
-        return ClassicalDMDModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'dmd'), **params)
+        return _instantiate_model_adapter(ClassicalDMDModel, spec, ('baseline', 'forecasting', 'dmd'))
     if adapter_name == 'autogluon':
         return OptionalExternalModel(
             dependency_name='autogluon',
@@ -1680,6 +1683,296 @@ def _append_event_interval_metrics(
     return event_metrics
 
 
+@dataclass
+class ForecastingSeriesArtifactsRecorder:
+    run_id: str
+    metric_names: tuple[str, ...]
+    metric_records: list[MetricRecord]
+    prediction_records: list[PredictionRecord]
+
+    def validate_forecast_length(
+            self,
+            series_record: ForecastingSeriesRecord,
+            prediction: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        actual = np.asarray(series_record.test_values, dtype=float)
+        forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
+        if len(forecast) != len(actual):
+            raise ModelExecutionError(
+                RunStatus.FAILED,
+                f'Model returned {len(forecast)} predictions for horizon {len(actual)}.',
+            )
+        return actual, forecast
+
+    def record_metric_bundle(
+            self,
+            *,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast: np.ndarray,
+            metadata: dict[str, Any],
+            metric_name_suffix: str = '',
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        metrics_summary: dict[str, float] = {}
+        train = np.asarray(series_record.train_values, dtype=float)
+        for metric_name in self.metric_names:
+            metric_value = compute_forecasting_metric(
+                metric_name,
+                actual,
+                forecast,
+                train,
+                series_record.seasonal_period,
+            )
+            metrics_summary[metric_name] = metric_value
+            self.metric_records.append(
+                MetricRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model_name,
+                    metric_name=f'{metric_name}{metric_name_suffix}',
+                    metric_value=metric_value,
+                    status=RunStatus.SUCCESS,
+                )
+            )
+            pointwise = compute_pointwise_metric(
+                metric_name,
+                actual,
+                forecast,
+                train,
+                series_record.seasonal_period,
+            )
+            for horizon_index, pointwise_value in enumerate(pointwise, start=1):
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name=f'{metric_name}{metric_name_suffix}',
+                        metric_value=float(pointwise_value),
+                        status=RunStatus.SUCCESS,
+                        horizon_index=horizon_index,
+                    )
+                )
+
+        event_metrics = _append_event_interval_metrics(
+            self.metric_records,
+            run_id=self.run_id,
+            series_record=series_record,
+            model_name=model_name,
+            actual=actual,
+            forecast=forecast,
+            metadata=metadata,
+            metric_name_suffix=metric_name_suffix,
+        )
+        metrics_summary.update({key: value for key, value in event_metrics.items() if key.startswith('mae_')})
+        return metrics_summary, event_metrics
+
+    def record_predictions(
+            self,
+            *,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast: np.ndarray,
+    ) -> None:
+        for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
+            self.prediction_records.append(
+                PredictionRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model_name,
+                    horizon_index=horizon_index,
+                    y_true=float(actual_value),
+                    y_pred=float(forecast_value),
+                    status=RunStatus.SUCCESS,
+                )
+            )
+
+
+@dataclass
+class ForecastingPostFitTuningCoordinator:
+    config: BenchmarkSuiteConfig
+    verbosity_policy: ForecastingVerbosityPolicy
+    artifacts_recorder: ForecastingSeriesArtifactsRecorder
+
+    def _build_tuned_model_spec(self, model_spec: ModelSpec, best_parameters: dict[str, Any]) -> ModelSpec:
+        tuned_params = {
+            **dict(model_spec.params),
+            **dict(best_parameters),
+        }
+        tuned_params.pop('stage_tuning_runtime', None)
+        return ModelSpec(
+            adapter_name=model_spec.adapter_name,
+            display_name=model_spec.display_name,
+            tags=model_spec.tags,
+            optional=model_spec.optional,
+            params=tuned_params,
+        )
+
+    def _resolve_runtime_config(
+            self,
+            model_spec: ModelSpec,
+            baseline_metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
+        metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
+        raw_progress_policy = raw_config.get('progress_policy', metadata_runtime.get('progress_policy'))
+        raw_verbosity_policy = raw_config.get('verbosity_policy', self.verbosity_policy.to_dict())
+        if raw_progress_policy is None:
+            resolved_progress_policy = resolve_forecasting_progress_policy(
+                None,
+                show_progress=self.config.run_spec.show_progress,
+            )
+        else:
+            resolved_progress_policy = resolve_forecasting_progress_policy(raw_progress_policy)
+        resolved_verbosity_policy = (
+            raw_verbosity_policy
+            if isinstance(raw_verbosity_policy, ForecastingVerbosityPolicy)
+            else resolve_forecasting_verbosity_policy(
+                (raw_verbosity_policy or {}).get('level') if isinstance(raw_verbosity_policy, dict)
+                else raw_verbosity_policy,
+                options=raw_verbosity_policy if isinstance(raw_verbosity_policy, dict) else None,
+            )
+        )
+        return {
+            'metric_name': str(raw_config.get('metric_name', metadata_runtime.get('metric_name',
+                                                                                  self.config.run_spec.primary_metric))),
+            'stage_updates': raw_config.get('stage_updates'),
+            'max_values_per_parameter': int(raw_config.get('max_values_per_parameter', 3)),
+            'max_stage_candidates': int(raw_config.get('max_stage_candidates', 16)),
+            'split_spec': _resolve_stage_tuning_split_spec(raw_config),
+            'progress_policy': resolved_progress_policy,
+            'verbosity_policy': resolved_verbosity_policy,
+        }
+
+    def run(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            series_record: ForecastingSeriesRecord,
+            baseline_metadata: dict[str, Any],
+            baseline_metrics_summary: dict[str, float],
+            regime_diagnostics,
+            routing_recommendation,
+    ) -> dict[str, Any]:
+        runtime_config = self._resolve_runtime_config(model_spec, baseline_metadata)
+        if run_forecasting_stage_tuning_on_series is None:
+            return {
+                **baseline_metadata,
+                'stage_tuning_report_error': 'stage_tuning_runtime is unavailable in the current environment.',
+            }
+
+        try:
+            report = run_forecasting_stage_tuning_on_series(
+                model_spec.adapter_name,
+                time_series=np.asarray(series_record.train_values, dtype=float),
+                forecast_horizon=series_record.forecast_horizon,
+                base_params={
+                    key: value
+                    for key, value in dict(model_spec.params).items()
+                    if key != 'stage_tuning_runtime'
+                },
+                stage_updates=runtime_config.get('stage_updates'),
+                metric_name=str(runtime_config['metric_name']),
+                split_spec=runtime_config.get('split_spec'),
+                seasonal_period=series_record.seasonal_period,
+                max_values_per_parameter=int(runtime_config['max_values_per_parameter']),
+                max_stage_candidates=int(runtime_config['max_stage_candidates']),
+                progress_policy=runtime_config.get('progress_policy'),
+            )
+            verbosity_policy = runtime_config.get('verbosity_policy', self.verbosity_policy)
+            report_dict = verbosity_policy.prune_stage_tuning_report(report.to_dict()) or {}
+            sequential_result = dict(report_dict.get('sequential_result') or {})
+            best_parameters = dict(sequential_result.get('best_parameters') or {})
+            enriched_baseline_metadata = {
+                **baseline_metadata,
+                'stage_tuning_report': report_dict,
+                'stage_tuning_runtime': verbosity_policy.prune_stage_tuning_runtime({
+                    'enabled': True,
+                    'metric_name': str(runtime_config['metric_name']),
+                    'max_values_per_parameter': int(runtime_config['max_values_per_parameter']),
+                    'max_stage_candidates': int(runtime_config['max_stage_candidates']),
+                    'improved': report.metadata.get('improved'),
+                    'baseline_score': report.metadata.get('baseline_score'),
+                    'best_score': report.metadata.get('best_score'),
+                    'progress_policy': resolve_forecasting_progress_policy(
+                        runtime_config.get('progress_policy'),
+                        show_progress=self.config.run_spec.show_progress,
+                    ).to_dict(),
+                }) or {},
+            }
+            if not best_parameters:
+                return enriched_baseline_metadata
+
+            tuned_model_spec = self._build_tuned_model_spec(model_spec, best_parameters)
+            tuned_model = build_model_adapter(tuned_model_spec)
+            tuned_status, tuned_message = tuned_model.availability()
+            if tuned_status is not RunStatus.SUCCESS:
+                return {
+                    **enriched_baseline_metadata,
+                    'stage_tuning_comparison_error': tuned_message,
+                }
+
+            tuned_prediction, tuned_metadata = tuned_model.forecast(series_record)
+            actual, tuned_forecast = self.artifacts_recorder.validate_forecast_length(series_record, tuned_prediction)
+            tuned_metrics_summary, tuned_event_metrics = self.artifacts_recorder.record_metric_bundle(
+                series_record=series_record,
+                model_name=model.name,
+                actual=actual,
+                forecast=tuned_forecast,
+                metadata=tuned_metadata,
+                metric_name_suffix='_tuned',
+            )
+            tuned_metrics_summary.update(
+                {key: value for key, value in tuned_event_metrics.items() if key.startswith('mae_')}
+            )
+            comparison_payload = verbosity_policy.prune_stage_tuning_comparison(
+                {
+                    'best_parameters': best_parameters,
+                    'baseline_metrics': baseline_metrics_summary,
+                    'tuned_metrics': tuned_metrics_summary,
+                    'improved_metrics': {
+                        metric_name: bool(
+                            tuned_metrics_summary.get(metric_name, math.inf)
+                            <= baseline_metrics_summary.get(metric_name, math.inf)
+                        )
+                        for metric_name in baseline_metrics_summary
+                        if metric_name in tuned_metrics_summary
+                    },
+                    'absolute_gain': {
+                        metric_name: float(baseline_metrics_summary[metric_name] - tuned_metrics_summary[metric_name])
+                        for metric_name in baseline_metrics_summary
+                        if metric_name in tuned_metrics_summary
+                    },
+                    'tuned_metadata': dict(tuned_metadata),
+                    'tuned_forecast': [float(value) for value in tuned_forecast.tolist()],
+                    'tuned_adapter_family': adapter_name_to_family(tuned_model_spec.adapter_name),
+                    'regime_diagnostics': regime_diagnostics.to_dict(),
+                    'routing_recommendation': routing_recommendation.to_dict(),
+                }
+            )
+            return {
+                **enriched_baseline_metadata,
+                **({'stage_tuning_comparison': comparison_payload} if comparison_payload is not None else {}),
+            }
+        except Exception as exc:
+            return {
+                **baseline_metadata,
+                'stage_tuning_comparison_error': str(exc),
+            }
+
+
 def build_leaderboard(
         run_records: tuple[BenchmarkRunRecord, ...],
         primary_metric: str,
@@ -1738,10 +2031,22 @@ class ForecastingSuiteRunner:
                 stage_tuning_enabled=bool(config.run_spec.show_progress),
                 head_training_enabled=bool(config.run_spec.show_progress),
             ),
+            show_progress=config.run_spec.show_progress,
         )
         self.verbosity_policy = resolve_forecasting_verbosity_policy(
             config.run_spec.verbosity,
             options=config.run_spec.verbosity_options,
+        )
+        self.artifacts_recorder = ForecastingSeriesArtifactsRecorder(
+            run_id=self.run_id,
+            metric_names=tuple(self.config.metrics),
+            metric_records=self.metric_records,
+            prediction_records=self.prediction_records,
+        )
+        self.post_fit_tuning = ForecastingPostFitTuningCoordinator(
+            config=self.config,
+            verbosity_policy=self.verbosity_policy,
+            artifacts_recorder=self.artifacts_recorder,
         )
         self.progress = BenchmarkProgressMonitor(
             enabled=config.run_spec.show_progress,
@@ -1936,14 +2241,7 @@ class ForecastingSuiteRunner:
             series_record: ForecastingSeriesRecord,
             prediction: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        actual = np.asarray(series_record.test_values, dtype=float)
-        forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
-        if len(forecast) != len(actual):
-            raise ModelExecutionError(
-                RunStatus.FAILED,
-                f'Model returned {len(forecast)} predictions for horizon {len(actual)}.',
-            )
-        return actual, forecast
+        return self.artifacts_recorder.validate_forecast_length(series_record, prediction)
 
     def _record_metric_bundle(
             self,
@@ -1955,56 +2253,7 @@ class ForecastingSuiteRunner:
             metadata: dict[str, Any],
             metric_name_suffix: str = '',
     ) -> tuple[dict[str, float], dict[str, float]]:
-        metrics_summary: dict[str, float] = {}
-        train = np.asarray(series_record.train_values, dtype=float)
-        for metric_name in self.config.metrics:
-            metric_value = compute_forecasting_metric(
-                metric_name,
-                actual,
-                forecast,
-                train,
-                series_record.seasonal_period,
-            )
-            metrics_summary[metric_name] = metric_value
-            self.metric_records.append(
-                MetricRecord(
-                    run_id=self.run_id,
-                    benchmark=series_record.benchmark,
-                    dataset_name=series_record.dataset_name,
-                    subset=series_record.subset,
-                    series_id=series_record.series_id,
-                    model_name=model_name,
-                    metric_name=f'{metric_name}{metric_name_suffix}',
-                    metric_value=metric_value,
-                    status=RunStatus.SUCCESS,
-                )
-            )
-            pointwise = compute_pointwise_metric(
-                metric_name,
-                actual,
-                forecast,
-                train,
-                series_record.seasonal_period,
-            )
-            for horizon_index, pointwise_value in enumerate(pointwise, start=1):
-                self.metric_records.append(
-                    MetricRecord(
-                        run_id=self.run_id,
-                        benchmark=series_record.benchmark,
-                        dataset_name=series_record.dataset_name,
-                        subset=series_record.subset,
-                        series_id=series_record.series_id,
-                        model_name=model_name,
-                        metric_name=f'{metric_name}{metric_name_suffix}',
-                        metric_value=float(pointwise_value),
-                        status=RunStatus.SUCCESS,
-                        horizon_index=horizon_index,
-                    )
-                )
-
-        event_metrics = _append_event_interval_metrics(
-            self.metric_records,
-            run_id=self.run_id,
+        return self.artifacts_recorder.record_metric_bundle(
             series_record=series_record,
             model_name=model_name,
             actual=actual,
@@ -2012,8 +2261,6 @@ class ForecastingSuiteRunner:
             metadata=metadata,
             metric_name_suffix=metric_name_suffix,
         )
-        metrics_summary.update({key: value for key, value in event_metrics.items() if key.startswith('mae_')})
-        return metrics_summary, event_metrics
 
     def _record_predictions(
             self,
@@ -2023,71 +2270,22 @@ class ForecastingSuiteRunner:
             actual: np.ndarray,
             forecast: np.ndarray,
     ) -> None:
-        for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
-            self.prediction_records.append(
-                PredictionRecord(
-                    run_id=self.run_id,
-                    benchmark=series_record.benchmark,
-                    dataset_name=series_record.dataset_name,
-                    subset=series_record.subset,
-                    series_id=series_record.series_id,
-                    model_name=model_name,
-                    horizon_index=horizon_index,
-                    y_true=float(actual_value),
-                    y_pred=float(forecast_value),
-                    status=RunStatus.SUCCESS,
-                )
-            )
+        self.artifacts_recorder.record_predictions(
+            series_record=series_record,
+            model_name=model_name,
+            actual=actual,
+            forecast=forecast,
+        )
 
     def _build_tuned_model_spec(self, model_spec: ModelSpec, best_parameters: dict[str, Any]) -> ModelSpec:
-        tuned_params = {
-            **dict(model_spec.params),
-            **dict(best_parameters),
-        }
-        tuned_params.pop('stage_tuning_runtime', None)
-        return ModelSpec(
-            adapter_name=model_spec.adapter_name,
-            display_name=model_spec.display_name,
-            tags=model_spec.tags,
-            optional=model_spec.optional,
-            params=tuned_params,
-        )
+        return self.post_fit_tuning._build_tuned_model_spec(model_spec, best_parameters)
 
     def _resolve_post_fit_tuning_runtime_config(
             self,
             model_spec: ModelSpec,
             baseline_metadata: dict[str, Any],
     ) -> dict[str, Any]:
-        raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
-        metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
-        raw_progress_policy = raw_config.get('progress_policy', metadata_runtime.get('progress_policy'))
-        raw_verbosity_policy = raw_config.get('verbosity_policy', self.verbosity_policy.to_dict())
-        if raw_progress_policy is None:
-            resolved_progress_policy = resolve_forecasting_progress_policy(
-                None,
-                show_progress=self.config.run_spec.show_progress,
-            )
-        else:
-            resolved_progress_policy = resolve_forecasting_progress_policy(raw_progress_policy)
-        resolved_verbosity_policy = (
-            raw_verbosity_policy
-            if isinstance(raw_verbosity_policy, ForecastingVerbosityPolicy)
-            else resolve_forecasting_verbosity_policy(
-                (raw_verbosity_policy or {}).get('level') if isinstance(raw_verbosity_policy, dict)
-                else raw_verbosity_policy,
-                options=raw_verbosity_policy if isinstance(raw_verbosity_policy, dict) else None,
-            )
-        )
-        return {
-            'metric_name': str(raw_config.get('metric_name', metadata_runtime.get('metric_name',
-                                                                                  self.config.run_spec.primary_metric))),
-            'stage_updates': raw_config.get('stage_updates'),
-            'max_values_per_parameter': int(raw_config.get('max_values_per_parameter', 3)),
-            'max_stage_candidates': int(raw_config.get('max_stage_candidates', 16)),
-            'split_spec': _resolve_stage_tuning_split_spec(raw_config),
-            'progress_policy': resolved_progress_policy,
-            'verbosity_policy': resolved_verbosity_policy,
-        }
+        return self.post_fit_tuning._resolve_runtime_config(model_spec, baseline_metadata)
 
     def _maybe_run_post_fit_tuning_comparison(
             self,
@@ -2100,111 +2298,15 @@ class ForecastingSuiteRunner:
             regime_diagnostics,
             routing_recommendation,
     ) -> dict[str, Any]:
-        runtime_config = self._resolve_post_fit_tuning_runtime_config(model_spec, baseline_metadata)
-        if run_forecasting_stage_tuning_on_series is None:
-            return {
-                **baseline_metadata,
-                'stage_tuning_report_error': 'stage_tuning_runtime is unavailable in the current environment.',
-            }
-
-        try:
-            report = run_forecasting_stage_tuning_on_series(
-                model_spec.adapter_name,
-                time_series=np.asarray(series_record.train_values, dtype=float),
-                forecast_horizon=series_record.forecast_horizon,
-                base_params={
-                    key: value
-                    for key, value in dict(model_spec.params).items()
-                    if key != 'stage_tuning_runtime'
-                },
-                stage_updates=runtime_config.get('stage_updates'),
-                metric_name=str(runtime_config['metric_name']),
-                split_spec=runtime_config.get('split_spec'),
-                seasonal_period=series_record.seasonal_period,
-                max_values_per_parameter=int(runtime_config['max_values_per_parameter']),
-                max_stage_candidates=int(runtime_config['max_stage_candidates']),
-                progress_policy=runtime_config.get('progress_policy'),
-            )
-            verbosity_policy = runtime_config.get('verbosity_policy', self.verbosity_policy)
-            report_dict = verbosity_policy.prune_stage_tuning_report(report.to_dict()) or {}
-            sequential_result = dict(report_dict.get('sequential_result') or {})
-            best_parameters = dict(sequential_result.get('best_parameters') or {})
-            enriched_baseline_metadata = {
-                **baseline_metadata,
-                'stage_tuning_report': report_dict,
-                'stage_tuning_runtime': verbosity_policy.prune_stage_tuning_runtime({
-                    'enabled': True,
-                    'metric_name': str(runtime_config['metric_name']),
-                    'max_values_per_parameter': int(runtime_config['max_values_per_parameter']),
-                    'max_stage_candidates': int(runtime_config['max_stage_candidates']),
-                    'improved': report.metadata.get('improved'),
-                    'baseline_score': report.metadata.get('baseline_score'),
-                    'best_score': report.metadata.get('best_score'),
-                    'progress_policy': resolve_forecasting_progress_policy(
-                        runtime_config.get('progress_policy'),
-                        show_progress=self.config.run_spec.show_progress,
-                    ).to_dict(),
-                }) or {},
-            }
-            if not best_parameters:
-                return enriched_baseline_metadata
-
-            tuned_model_spec = self._build_tuned_model_spec(model_spec, best_parameters)
-            tuned_model = build_model_adapter(tuned_model_spec)
-            tuned_status, tuned_message = tuned_model.availability()
-            if tuned_status is not RunStatus.SUCCESS:
-                return {
-                    **enriched_baseline_metadata,
-                    'stage_tuning_comparison_error': tuned_message,
-                }
-
-            tuned_prediction, tuned_metadata = tuned_model.forecast(series_record)
-            actual, tuned_forecast = self._validate_forecast_length(series_record, tuned_prediction)
-            tuned_metrics_summary, tuned_event_metrics = self._record_metric_bundle(
-                series_record=series_record,
-                model_name=model.name,
-                actual=actual,
-                forecast=tuned_forecast,
-                metadata=tuned_metadata,
-                metric_name_suffix='_tuned',
-            )
-            tuned_metrics_summary.update(
-                {key: value for key, value in tuned_event_metrics.items() if key.startswith('mae_')}
-            )
-            comparison_payload = verbosity_policy.prune_stage_tuning_comparison(
-                {
-                    'best_parameters': best_parameters,
-                    'baseline_metrics': baseline_metrics_summary,
-                    'tuned_metrics': tuned_metrics_summary,
-                    'improved_metrics': {
-                        metric_name: bool(
-                            tuned_metrics_summary.get(metric_name, math.inf)
-                            <= baseline_metrics_summary.get(metric_name, math.inf)
-                        )
-                        for metric_name in baseline_metrics_summary
-                        if metric_name in tuned_metrics_summary
-                    },
-                    'absolute_gain': {
-                        metric_name: float(baseline_metrics_summary[metric_name] - tuned_metrics_summary[metric_name])
-                        for metric_name in baseline_metrics_summary
-                        if metric_name in tuned_metrics_summary
-                    },
-                    'tuned_metadata': dict(tuned_metadata),
-                    'tuned_forecast': [float(value) for value in tuned_forecast.tolist()],
-                    'tuned_adapter_family': adapter_name_to_family(tuned_model_spec.adapter_name),
-                    'regime_diagnostics': regime_diagnostics.to_dict(),
-                    'routing_recommendation': routing_recommendation.to_dict(),
-                }
-            )
-            return {
-                **enriched_baseline_metadata,
-                **({'stage_tuning_comparison': comparison_payload} if comparison_payload is not None else {}),
-            }
-        except Exception as exc:
-            return {
-                **baseline_metadata,
-                'stage_tuning_comparison_error': str(exc),
-            }
+        return self.post_fit_tuning.run(
+            model_spec=model_spec,
+            model=model,
+            series_record=series_record,
+            baseline_metadata=baseline_metadata,
+            baseline_metrics_summary=baseline_metrics_summary,
+            regime_diagnostics=regime_diagnostics,
+            routing_recommendation=routing_recommendation,
+        )
 
     def _append_failed_run_record(
             self,

@@ -35,7 +35,10 @@
   "topo_forecaster": {
     "channel_model": "ridge",
     "patch_len": 10,
-    "window_size": 10
+    "window_size": 10,
+    "stride": 1,
+    "alpha": 1.0,
+    "device": "auto"
   },
   "lagged_forecaster": {
     "channel_model": "ridge",
