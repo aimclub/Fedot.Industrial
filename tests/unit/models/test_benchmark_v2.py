@@ -306,6 +306,178 @@ def test_run_forecasting_suite_compact_verbosity_trims_stage_tuning_payload(monk
     assert 'tuned_metadata' not in comparison
 
 
+def test_run_forecasting_suite_persists_incremental_item_artifacts(tmp_path: Path, monkeypatch) -> None:
+    class FakeDatasetAdapter:
+        def load_series(self, spec):
+            del spec
+            return (
+                ForecastingSeriesRecord(
+                    benchmark='in_memory',
+                    dataset_name='incremental_suite',
+                    subset='monthly',
+                    series_id='series_success',
+                    frequency='monthly',
+                    forecast_horizon=3,
+                    seasonal_period=1,
+                    train_values=(1.0, 2.0, 3.0, 4.0, 5.0),
+                    test_values=(6.0, 7.0, 8.0),
+                ),
+                ForecastingSeriesRecord(
+                    benchmark='in_memory',
+                    dataset_name='incremental_suite',
+                    subset='monthly',
+                    series_id='series_failed',
+                    frequency='monthly',
+                    forecast_horizon=3,
+                    seasonal_period=1,
+                    train_values=(2.0, 3.0, 4.0, 5.0, 6.0),
+                    test_values=(7.0, 8.0, 9.0),
+                ),
+            )
+
+    class FakeForecastModel:
+        name = 'FakeForecastModel'
+        tags = ('baseline', 'forecasting')
+        optional = False
+
+        def availability(self):
+            return RunStatus.SUCCESS, 'ready'
+
+        def forecast(self, series_record):
+            if series_record.series_id == 'series_failed':
+                raise RuntimeError('forced benchmark failure')
+            target = np.asarray(series_record.test_values, dtype=float)
+            return target.copy(), {'source': 'success'}
+
+    monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.build_model_adapter',
+        lambda spec: FakeForecastModel(),
+    )
+
+    result = run_forecasting_suite(
+        BenchmarkSuiteConfig(
+            task_type=TaskType.FORECASTING,
+            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='incremental_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(run_name='incremental_suite_runner', show_progress=False),
+            metrics=('mae', 'rmse'),
+        )
+    )
+
+    progress_dir = tmp_path / result.run_id / 'progress'
+    items_dir = progress_dir / 'items'
+    progress_index = json.loads((progress_dir / 'run_progress.json').read_text(encoding='utf-8'))
+    item_paths = sorted(items_dir.glob('*.json'))
+
+    assert (progress_dir / 'run_context.json').exists()
+    assert (progress_dir / 'series_records.json').exists()
+    assert (progress_dir / 'run_progress.json').exists()
+    assert len(item_paths) == 2
+    assert progress_index['completed_items'] == 2
+    assert progress_index['status_counts']['success'] == 1
+    assert progress_index['status_counts']['failed'] == 1
+
+    success_payload = json.loads(item_paths[0].read_text(encoding='utf-8'))
+    failure_payload = json.loads(item_paths[1].read_text(encoding='utf-8'))
+    payloads = {
+        success_payload['run_record']['series_id']: success_payload,
+        failure_payload['run_record']['series_id']: failure_payload,
+    }
+
+    assert payloads['series_success']['metric_records']
+    assert payloads['series_success']['prediction_records']
+    assert payloads['series_failed']['metric_records'] == []
+    assert payloads['series_failed']['prediction_records'] == []
+    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    assert 'run_context.json' in artifact_names
+    assert 'series_records.json' in artifact_names
+    assert 'run_progress.json' in artifact_names
+
+
+def test_run_forecasting_suite_resume_mode_skips_previously_persisted_items(tmp_path: Path, monkeypatch) -> None:
+    forecast_calls = {'count': 0, 'fail_on_forecast': False}
+
+    class FakeDatasetAdapter:
+        def load_series(self, spec):
+            del spec
+            return (
+                ForecastingSeriesRecord(
+                    benchmark='in_memory',
+                    dataset_name='resume_suite',
+                    subset='monthly',
+                    series_id='series_1',
+                    frequency='monthly',
+                    forecast_horizon=3,
+                    seasonal_period=1,
+                    train_values=(1.0, 2.0, 3.0, 4.0, 5.0),
+                    test_values=(6.0, 7.0, 8.0),
+                ),
+            )
+
+    class FakeForecastModel:
+        name = 'FakeForecastModel'
+        tags = ('baseline', 'forecasting')
+        optional = False
+
+        def availability(self):
+            return RunStatus.SUCCESS, 'ready'
+
+        def forecast(self, series_record):
+            del series_record
+            if forecast_calls['fail_on_forecast']:
+                raise RuntimeError('resume mode should not recompute persisted items')
+            forecast_calls['count'] += 1
+            return np.asarray([6.0, 7.0, 8.0], dtype=float), {'source': 'fresh'}
+
+    monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.v2.forecasting.build_model_adapter',
+        lambda spec: FakeForecastModel(),
+    )
+
+    initial_result = run_forecasting_suite(
+        BenchmarkSuiteConfig(
+            task_type=TaskType.FORECASTING,
+            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='resume_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(run_name='resume_suite_runner', show_progress=False),
+            metrics=('mae', 'rmse'),
+        )
+    )
+
+    assert forecast_calls['count'] == 1
+
+    forecast_calls['fail_on_forecast'] = True
+    resumed_result = run_forecasting_suite(
+        BenchmarkSuiteConfig(
+            task_type=TaskType.FORECASTING,
+            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='resume_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(
+                run_name='resume_suite_runner',
+                show_progress=False,
+                resume_enabled=True,
+                resume_run_id=initial_result.run_id,
+            ),
+            metrics=('mae', 'rmse'),
+        )
+    )
+
+    progress_dir = tmp_path / initial_result.run_id / 'progress'
+    progress_index = json.loads((progress_dir / 'run_progress.json').read_text(encoding='utf-8'))
+
+    assert resumed_result.run_id == initial_result.run_id
+    assert forecast_calls['count'] == 1
+    assert len(resumed_result.run_records) == 1
+    assert len(resumed_result.metric_records) == len(initial_result.metric_records)
+    assert len(resumed_result.prediction_records) == len(initial_result.prediction_records)
+    assert progress_index['completed_items'] == 1
+
+
 def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_path: Path, monkeypatch) -> None:
     class FakeDatasetAdapter:
         def load_series(self, spec):

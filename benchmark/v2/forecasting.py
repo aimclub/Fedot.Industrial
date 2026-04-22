@@ -87,6 +87,7 @@ from benchmark.v2.verbosity import (
     resolve_forecasting_verbosity_policy,
 )
 from benchmark.v2.progress import BenchmarkProgressMonitor
+from benchmark.v2.incremental_persistence import ForecastingIncrementalPersistenceCoordinator
 
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -2028,11 +2029,16 @@ class ForecastingSuiteRunner:
     def __init__(self, config: BenchmarkSuiteConfig):
         validate_forecasting_suite_config(config)
         self.config = config
-        self.run_id = new_run_id(config.run_spec.run_name)
+        self.run_id = (
+                ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
+                or new_run_id(config.run_spec.run_name)
+        )
         self.series_records: list[ForecastingSeriesRecord] = []
         self.run_records: list[BenchmarkRunRecord] = []
         self.prediction_records: list[PredictionRecord] = []
         self.metric_records: list[MetricRecord] = []
+        self.known_series_keys: set[tuple[str, str, str, str]] = set()
+        self.resumed_item_keys: set[str] = set()
         self.progress_policy = resolve_forecasting_progress_policy(
             ForecastingProgressPolicy(
                 enabled=bool(config.run_spec.show_progress),
@@ -2064,6 +2070,34 @@ class ForecastingSuiteRunner:
             leave=config.run_spec.progress_leave,
             log_errors=config.run_spec.progress_log_errors,
             log_summaries=config.run_spec.progress_log_summaries,
+        )
+        self.incremental_persistence = ForecastingIncrementalPersistenceCoordinator(
+            config=self.config,
+            run_id=self.run_id,
+        )
+        self._load_resume_state()
+
+    def _series_key(self, series_record: ForecastingSeriesRecord) -> tuple[str, str, str, str]:
+        return (
+            str(series_record.benchmark),
+            str(series_record.dataset_name),
+            str(series_record.subset),
+            str(series_record.series_id),
+        )
+
+    def _load_resume_state(self) -> None:
+        resume_state = self.incremental_persistence.load_resume_state()
+        if resume_state is None:
+            return
+        self.series_records = list(resume_state.series_records)
+        self.run_records = list(resume_state.run_records)
+        self.metric_records = list(resume_state.metric_records)
+        self.prediction_records = list(resume_state.prediction_records)
+        self.known_series_keys = {self._series_key(record) for record in self.series_records}
+        self.resumed_item_keys = set(resume_state.item_artifact_paths)
+        self.progress.seed_resume_state(
+            completed_items=resume_state.completed_items,
+            status_counts=resume_state.status_counts,
         )
 
     def _augment_model_spec_with_progress_policy(self, model_spec: ModelSpec) -> ModelSpec:
@@ -2112,6 +2146,7 @@ class ForecastingSuiteRunner:
             prediction_records=tuple(self.prediction_records),
             metric_records=tuple(self.metric_records),
             aggregate_report=aggregate_report,
+            artifact_manifest=self.incremental_persistence.build_artifact_manifest(),
         )
 
     def _iter_over_datasets(self) -> None:
@@ -2123,7 +2158,12 @@ class ForecastingSuiteRunner:
     def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
         dataset_adapter = build_dataset_adapter(dataset_spec)
         dataset_series = dataset_adapter.load_series(dataset_spec)
-        self.series_records.extend(dataset_series)
+        for record in dataset_series:
+            record_key = self._series_key(record)
+            if record_key not in self.known_series_keys:
+                self.series_records.append(record)
+                self.known_series_keys.add(record_key)
+        self.incremental_persistence.persist_series_catalog(self.series_records)
         self.progress.extend_total(len(dataset_series) * len(self.config.models))
         self.progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
         return dataset_series
@@ -2159,6 +2199,26 @@ class ForecastingSuiteRunner:
             dataset_series: tuple[ForecastingSeriesRecord, ...],
     ) -> None:
         for series_record in dataset_series:
+            item_key = self.incremental_persistence.item_key(series_record, model.name)
+            if item_key in self.resumed_item_keys:
+                existing_record = next(
+                    (
+                        record for record in self.run_records
+                        if record.benchmark == series_record.benchmark
+                           and record.dataset_name == series_record.dataset_name
+                           and record.subset == series_record.subset
+                           and record.series_id == series_record.series_id
+                           and record.model_name == model.name
+                    ),
+                    None,
+                )
+                self.progress.item_resumed(
+                    series_record.dataset_name,
+                    model.name,
+                    series_record.series_id,
+                    existing_record.status.value if existing_record is not None else 'success',
+                )
+                continue
             self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
             regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
             try:
@@ -2197,6 +2257,26 @@ class ForecastingSuiteRunner:
             availability_message: str,
     ) -> None:
         for series_record in dataset_series:
+            item_key = self.incremental_persistence.item_key(series_record, model.name)
+            if item_key in self.resumed_item_keys:
+                existing_record = next(
+                    (
+                        record for record in self.run_records
+                        if record.benchmark == series_record.benchmark
+                           and record.dataset_name == series_record.dataset_name
+                           and record.subset == series_record.subset
+                           and record.series_id == series_record.series_id
+                           and record.model_name == model.name
+                    ),
+                    None,
+                )
+                self.progress.item_resumed(
+                    series_record.dataset_name,
+                    model.name,
+                    series_record.series_id,
+                    existing_record.status.value if existing_record is not None else availability_status.value,
+                )
+                continue
             self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
             regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
             self.run_records.append(
@@ -2218,6 +2298,10 @@ class ForecastingSuiteRunner:
                         extra={'optional': model.optional},
                     ),
                 )
+            )
+            self.incremental_persistence.persist_item_result(
+                series_record=series_record,
+                run_record=self.run_records[-1],
             )
             self.progress.advance(availability_status.value, availability_message)
 
@@ -2327,27 +2411,31 @@ class ForecastingSuiteRunner:
             message: str,
             regime_diagnostics,
             routing_recommendation,
-    ) -> None:
-        self.run_records.append(
-            BenchmarkRunRecord(
-                run_id=self.run_id,
-                benchmark=series_record.benchmark,
-                dataset_name=series_record.dataset_name,
-                subset=series_record.subset,
-                series_id=series_record.series_id,
-                model_name=model.name,
-                status=status,
-                tags=model.tags,
-                message=message,
-                metadata=self._build_common_metadata(
-                    model_spec=model_spec,
-                    model=model,
-                    regime_diagnostics=regime_diagnostics,
-                    routing_recommendation=routing_recommendation,
-                    extra={'optional': model.optional},
-                ),
-            )
+    ) -> BenchmarkRunRecord:
+        run_record = BenchmarkRunRecord(
+            run_id=self.run_id,
+            benchmark=series_record.benchmark,
+            dataset_name=series_record.dataset_name,
+            subset=series_record.subset,
+            series_id=series_record.series_id,
+            model_name=model.name,
+            status=status,
+            tags=model.tags,
+            message=message,
+            metadata=self._build_common_metadata(
+                model_spec=model_spec,
+                model=model,
+                regime_diagnostics=regime_diagnostics,
+                routing_recommendation=routing_recommendation,
+                extra={'optional': model.optional},
+            ),
         )
+        self.run_records.append(run_record)
+        self.incremental_persistence.persist_item_result(
+            series_record=series_record,
+            run_record=run_record,
+        )
+        return run_record
 
     def _evaluate_series(
             self,
@@ -2357,6 +2445,8 @@ class ForecastingSuiteRunner:
             regime_diagnostics,
             routing_recommendation,
     ) -> None:
+        metric_count_before = len(self.metric_records)
+        prediction_count_before = len(self.prediction_records)
         prediction, metadata = model.forecast(series_record)
         actual, forecast = self._validate_forecast_length(series_record, prediction)
         metrics_summary, event_metrics = self._record_metric_bundle(
@@ -2381,29 +2471,34 @@ class ForecastingSuiteRunner:
             regime_diagnostics=regime_diagnostics,
             routing_recommendation=routing_recommendation,
         )
-        self.run_records.append(
-            BenchmarkRunRecord(
-                run_id=self.run_id,
-                benchmark=series_record.benchmark,
-                dataset_name=series_record.dataset_name,
-                subset=series_record.subset,
-                series_id=series_record.series_id,
-                model_name=model.name,
-                status=RunStatus.SUCCESS,
-                tags=model.tags,
-                metrics_summary=metrics_summary,
-                metadata=self._build_common_metadata(
-                    model_spec=model_spec,
-                    model=model,
-                    regime_diagnostics=regime_diagnostics,
-                    routing_recommendation=routing_recommendation,
-                    extra={
-                        **metadata,
-                        'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
-                        'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
-                    },
-                ),
-            )
+        run_record = BenchmarkRunRecord(
+            run_id=self.run_id,
+            benchmark=series_record.benchmark,
+            dataset_name=series_record.dataset_name,
+            subset=series_record.subset,
+            series_id=series_record.series_id,
+            model_name=model.name,
+            status=RunStatus.SUCCESS,
+            tags=model.tags,
+            metrics_summary=metrics_summary,
+            metadata=self._build_common_metadata(
+                model_spec=model_spec,
+                model=model,
+                regime_diagnostics=regime_diagnostics,
+                routing_recommendation=routing_recommendation,
+                extra={
+                    **metadata,
+                    'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
+                    'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
+                },
+            ),
+        )
+        self.run_records.append(run_record)
+        self.incremental_persistence.persist_item_result(
+            series_record=series_record,
+            run_record=run_record,
+            metric_records=tuple(self.metric_records[metric_count_before:]),
+            prediction_records=tuple(self.prediction_records[prediction_count_before:]),
         )
 
 

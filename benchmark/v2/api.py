@@ -76,7 +76,8 @@ def run_forecasting_benchmark_suite(config: BenchmarkSuiteConfig) -> Forecasting
     result = run_forecasting_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
-        manifest = list(
+        manifest = list(result.artifact_manifest)
+        manifest.extend(
             render_publication_pack(
                 result,
                 output_dir=output_dir,
