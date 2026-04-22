@@ -1,0 +1,412 @@
+# Визуальная Архитектурная Схема Forecasting Stack
+
+## Назначение
+
+Этот документ дополняет [forecasting_developer_onboarding.md](./forecasting_developer_onboarding.md) и даёт быстрый
+визуальный вход в forecasting-архитектуру `Fedot.Industrial`.
+
+Его удобно использовать:
+
+- как первую карту при onboarding;
+- как краткую шпаргалку во время рефакторинга;
+- как reference при обсуждении новых моделей, tuning-flow и benchmark integration.
+
+## 1. Общая Архитектура Forecasting Stack
+
+```mermaid
+flowchart TD
+    A["Raw series / FEDOT InputData"] --> B["ForecastingBoundaryAdapter"]
+    B --> C["ForecastTensorBatch"]
+
+    C --> D["trajectory_transform"]
+    D --> E["decomposition"]
+    E --> F["rank_truncation"]
+    F --> G["forecast_head"]
+
+    G --> H["ForecastHeadResult / forecast"]
+    H --> I["model diagnostics"]
+    H --> J["stage tuning runtime"]
+    H --> K["benchmark/v2"]
+
+    L["regime diagnostics"] --> M["routing decision"]
+    M --> K
+    I --> K
+    J --> K
+```
+
+### Что важно помнить
+
+- `InputData/OutputData` — это boundary-layer, а не внутренний forecasting runtime.
+- Внутри runtime canonical transport object — `ForecastTensorBatch`.
+- Внутренний stage-first vocabulary:
+    - `trajectory_transform`
+    - `decomposition`
+    - `rank_truncation`
+    - `forecast_head`
+
+## 2. Слои Системы
+
+```mermaid
+flowchart LR
+    A["Boundary layer"] --> B["Runtime contracts"]
+    B --> C["Model families"]
+    C --> D["Tuning layer"]
+    C --> E["Regime-aware layer"]
+    C --> F["Benchmark layer"]
+
+    A1["InputData / OutputData"] -.-> A
+    B1["ForecastTensorBatch"] -.-> B
+    B2["ForecastingSplitSpec"] -.-> B
+    B3["ForecastingEvaluationResult"] -.-> B
+
+    C1["lagged_model"] -.-> C
+    C2["dmd_models"] -.-> C
+    C3["ensemble_models"] -.-> C
+    C4["neural_models"] -.-> C
+
+    D1["stage_tuning"] -.-> D
+    D2["stage_tuning_execution"] -.-> D
+    D3["stage_tuning_runtime"] -.-> D
+
+    E1["regime_diagnostics"] -.-> E
+    E2["regime_routing"] -.-> E
+
+    F1["benchmark/v2/core.py"] -.-> F
+    F2["benchmark/v2/forecasting.py"] -.-> F
+    F3["benchmark/v2/analytics.py"] -.-> F
+```
+
+## 3. Карта Model Families
+
+```mermaid
+flowchart TD
+    A["ts_forecasting"] --> B["lagged_model"]
+    A --> C["dmd_models"]
+    A --> D["ensemble_models"]
+    A --> E["neural_models"]
+    A --> F["forecast_tuning"]
+    A --> G["regime_utils"]
+    A --> H["lagged_strategy (compat)"]
+
+    B --> B1["lagged_ridge_forecaster"]
+    B --> B2["low_rank_lagged_ridge_forecaster"]
+    B --> B3["ssa_forecaster"]
+    B --> B4["mssa_forecaster"]
+    B --> B5["topo_forecaster"]
+
+    C --> C1["havok_forecaster"]
+    C --> C2["okhs_fdmd_forecaster"]
+
+    D --> D1["hybrid_ensemble_forecaster"]
+
+    E --> E1["neural_forecast_head"]
+    E --> E2["neural_forecast_head_bridge"]
+
+    F --> F1["stage plans"]
+    F --> F2["sequential tuning"]
+    F --> F3["series evaluation"]
+
+    G --> G1["regime diagnostics"]
+    G --> G2["routing decision"]
+```
+
+### Семейства и смысл
+
+```mermaid
+flowchart LR
+    A["lagged_linear"] --> A1["lagged_forecaster"]
+    A --> A2["lagged_ridge_forecaster"]
+    A --> A3["topo_forecaster"]
+
+    B["low_rank_linear"] --> B1["low_rank_lagged_ridge_forecaster"]
+    B --> B2["ssa_forecaster"]
+    B --> B3["mssa_forecaster"]
+
+    C["operator_model"] --> C1["havok_forecaster"]
+    C --> C2["okhs_fdmd_forecaster"]
+    C --> C3["hybrid_ensemble_forecaster"]
+
+    D["neural_forecaster"] --> D1["patch_tst_model"]
+    D --> D2["tcn_model"]
+    D --> D3["deepar_model"]
+    D --> D4["nbeats_model"]
+```
+
+## 4. Runtime Contracts
+
+```mermaid
+classDiagram
+    class TensorDevicePolicy {
+        +device: str
+        +dtype: str
+        +resolve_device()
+        +resolve_dtype()
+    }
+
+    class ForecastTensorBatch {
+        +history
+        +target
+        +forecast_horizon
+        +idx
+        +metadata
+        +to()
+        +to_dict()
+    }
+
+    class ForecastingSplitSpec {
+        +kind
+        +validation_horizon
+        +n_splits
+        +gap
+        +max_train_size
+        +initial_window
+        +step_length
+    }
+
+    class ForecastingFoldSplit {
+        +train_batch
+        +validation_target
+        +fold_index
+        +train_start
+        +train_end
+        +test_start
+        +test_end
+        +metadata
+    }
+
+    class ForecastingEvaluationResult {
+        +metric_name
+        +metric_value
+        +per_horizon_metrics
+        +metadata
+    }
+
+    class TrajectoryTransformResult
+    class DecompositionResult
+    class RankTruncationResult
+    class ForecastHeadResult
+
+    TensorDevicePolicy --> ForecastTensorBatch
+    ForecastTensorBatch --> ForecastingFoldSplit
+    ForecastingSplitSpec --> ForecastingFoldSplit
+    ForecastingFoldSplit --> ForecastingEvaluationResult
+    ForecastTensorBatch --> TrajectoryTransformResult
+    TrajectoryTransformResult --> DecompositionResult
+    DecompositionResult --> RankTruncationResult
+    RankTruncationResult --> ForecastHeadResult
+```
+
+### Ключевая идея
+
+Если новый forecasting path нельзя описать через эти runtime contracts, значит он пока плохо встраивается в текущую
+архитектуру.
+
+## 5. Stage-Tuning Архитектура
+
+```mermaid
+flowchart TD
+    A["model_name + base_params"] --> B["ForecastingStageTuningPlan"]
+    A --> C["ForecastingStageSearchSpace"]
+
+    B --> D["SequentialStageTuningRunner"]
+    C --> D
+
+    D --> E["ForecastingStageTuningExecution"]
+    D --> F["best_parameters"]
+
+    F --> G["ForecastingSeriesEvaluator"]
+    G --> H["baseline evaluation"]
+    G --> I["tuned evaluation"]
+
+    H --> J["ForecastingSeriesStageTuningResult"]
+    I --> J
+```
+
+### Типовой порядок стадий
+
+```mermaid
+flowchart LR
+    A["trajectory_transform"] --> B["decomposition_rank"]
+    B --> C["forecast_head"]
+    C --> D["ensemble"]
+```
+
+### Для чего это нужно
+
+- tuning идёт не по одному неразборчивому `param blob`;
+- можно дебажить, на какой стадии качество реально меняется;
+- benchmark может публиковать `baseline vs tuned` не как магию, а как stage-aware процесс.
+
+## 6. Regime-Aware Слой
+
+```mermaid
+flowchart LR
+    A["train series"] --> B["analyze_regime_diagnostics(...)"]
+    B --> C["RegimeDiagnosticsResult"]
+    C --> D["recommend_forecasting_model(...)"]
+    D --> E["RegimeRoutingDecision"]
+    E --> F["model family recommendation"]
+    E --> G["benchmark metadata"]
+    E --> H["routing evaluation"]
+```
+
+### Практический смысл
+
+- routing — это отдельный доменный слой, а не часть конкретной forecasting-модели;
+- benchmark сравнивает не только “кто лучше предсказал”, но и “насколько routing вообще попал в правильную family”.
+
+## 7. Архитектура `benchmark/v2`
+
+```mermaid
+flowchart TD
+    A["BenchmarkSuiteConfig"] --> B["DatasetSpec[]"]
+    A --> C["ModelSpec[]"]
+    A --> D["RunSpec"]
+    A --> E["ArtifactSpec"]
+
+    B --> F["dataset adapter"]
+    F --> G["ForecastingSeriesRecord[]"]
+
+    C --> H["model adapter"]
+    G --> I["ForecastingSuiteRunner"]
+    H --> I
+
+    I --> J["baseline forecast"]
+    I --> K["post-fit stage tuning"]
+    J --> L["MetricRecord / PredictionRecord"]
+    K --> M["stage_tuning_report"]
+    L --> N["BenchmarkRunRecord"]
+    M --> N
+
+    N --> O["ForecastingBenchmarkResult"]
+    O --> P["analytics.py"]
+    P --> Q["publication artifacts"]
+```
+
+### Основные benchmark contracts
+
+```mermaid
+classDiagram
+    class DatasetSpec
+    class ModelSpec
+    class RunSpec
+    class ArtifactSpec
+    class BenchmarkSuiteConfig
+    class ForecastingSeriesRecord
+    class PredictionRecord
+    class MetricRecord
+    class BenchmarkRunRecord
+    class ForecastingBenchmarkResult
+
+    BenchmarkSuiteConfig --> DatasetSpec
+    BenchmarkSuiteConfig --> ModelSpec
+    BenchmarkSuiteConfig --> RunSpec
+    BenchmarkSuiteConfig --> ArtifactSpec
+    DatasetSpec --> ForecastingSeriesRecord
+    ModelSpec --> BenchmarkRunRecord
+    ForecastingSeriesRecord --> PredictionRecord
+    ForecastingSeriesRecord --> MetricRecord
+    BenchmarkRunRecord --> ForecastingBenchmarkResult
+    PredictionRecord --> ForecastingBenchmarkResult
+    MetricRecord --> ForecastingBenchmarkResult
+```
+
+## 8. Как Новая Модель Встраивается В Систему
+
+```mermaid
+flowchart TD
+    A["Новая forecasting-модель"] --> B["Определить family"]
+    B --> C["Определить stage graph"]
+    C --> D["Определить runtime contract"]
+    D --> E["Добавить defaults"]
+    E --> F["Добавить search space"]
+    F --> G["Добавить stage tuning plan"]
+    G --> H["Подключить benchmark adapter"]
+    H --> I["Добавить diagnostics"]
+    I --> J["Добавить tests"]
+```
+
+### Минимальный integration checklist
+
+- модель имеет canonical name;
+- есть defaults;
+- есть stage-tuning contract;
+- есть benchmark adapter path;
+- есть diagnostics и family mapping;
+- есть mirrored tests.
+
+## 9. Как Дебажить Forecasting Stack По Слоям
+
+```mermaid
+flowchart TD
+    A["Есть bug"] --> B{"Где он проявился?"}
+
+    B -->|"constructor / params"| C["registry + defaults + search space"]
+    B -->|"training / tuning"| D["stage_tuning + split contracts"]
+    B -->|"forecast shape / device"| E["forecasting_runtime contracts"]
+    B -->|"routing mismatch"| F["regime_utils"]
+    B -->|"suite / artifacts"| G["benchmark/v2"]
+
+    C --> H["forecasting_registry.py"]
+    C --> I["default_operation_params.json"]
+    C --> J["search_space.py"]
+
+    D --> K["stage_tuning.py"]
+    D --> L["stage_tuning_execution.py"]
+    D --> M["stage_tuning_runtime.py"]
+
+    E --> N["ForecastTensorBatch"]
+    E --> O["ForecastingSplitSpec"]
+    E --> P["TensorDevicePolicy"]
+
+    F --> Q["regime_diagnostics.py"]
+    F --> R["regime_routing.py"]
+
+    G --> S["benchmark/v2/forecasting.py"]
+    G --> T["benchmark/v2/analytics.py"]
+```
+
+## 10. Практический Use Case: Что Открывать Первым
+
+### Если баг в модели
+
+```mermaid
+flowchart LR
+    A["model shell"] --> B["runtime contracts"]
+    B --> C["stage tuning contract"]
+    C --> D["benchmark adapter"]
+```
+
+### Если баг в benchmark suite
+
+```mermaid
+flowchart LR
+    A["ModelSpec"] --> B["build_model_adapter(...)"]
+    B --> C["ForecastingSuiteRunner"]
+    C --> D["BenchmarkRunRecord.metadata"]
+    D --> E["analytics.py artifacts"]
+```
+
+### Если нужно быстро понять архитектуру
+
+```mermaid
+flowchart LR
+    A["forecasting_runtime.py"] --> B["stage_tuning_runtime.py"]
+    B --> C["regime_routing.py"]
+    C --> D["benchmark/v2/forecasting.py"]
+    D --> E["analytics.py"]
+```
+
+---
+
+## Краткий Итог
+
+Forecasting stack в Industrial лучше всего понимать так:
+
+- **runtime contracts** задают язык;
+- **model families** реализуют разные forecasting-подходы;
+- **stage tuning** управляет оптимизацией по этапам;
+- **regime-aware layer** отвечает за диагностику и routing;
+- **benchmark/v2** превращает всё это в records, artifacts и сравнимые результаты.
+
+Если разработчик видит эту систему именно в таком порядке, вход в forecasting-слой становится заметно проще.
