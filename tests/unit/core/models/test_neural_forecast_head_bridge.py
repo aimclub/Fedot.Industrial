@@ -9,6 +9,7 @@ from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head imp
     NeuralForecastHeadSpec,
     PatchTSTForecastHeadImplementation,
     TCNForecastHeadImplementation,
+    TSTForecastHeadImplementation,
     build_neural_forecast_head,
     build_neural_forecasting_stage_diagnostics,
     run_neural_forecast_head_on_series,
@@ -67,6 +68,14 @@ def test_neural_forecast_head_wraps_native_model_contract(monkeypatch):
             horizon = int(input_data.task.task_params.forecast_length)
             return FakePrediction(np.linspace(1.0, float(horizon), num=horizon))
 
+        def get_diagnostics(self):
+            return {
+                'device': 'cuda',
+                'resolved_patch_len': int(self.params.get('patch_len', 0)),
+                'training': {'best_epoch': 2, 'best_loss': 0.123},
+                'architecture': {'activation': self.params.get('activation', 'GELU')},
+            }
+
     monkeypatch.setitem(NEURAL_FORECASTING_MODEL_REGISTRY, 'patch_tst_model', FakeModel)
 
     head = build_neural_forecast_head(
@@ -81,6 +90,8 @@ def test_neural_forecast_head_wraps_native_model_contract(monkeypatch):
     assert prediction.tolist() == [1.0, 2.0, 3.0, 4.0]
     assert diagnostics['model_family'] == 'neural_forecaster'
     assert diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
+    assert diagnostics['forecast_head']['runtime']['training']['best_epoch'] == 2
+    assert diagnostics['trajectory_transform']['resolved_context_length'] == 12
     assert diagnostics['last_prediction_diagnostics']['forecast_shape'] == (4,)
 
 
@@ -131,9 +142,25 @@ def test_run_neural_forecast_head_on_series_returns_typed_result(monkeypatch):
 
 def test_neural_forecast_head_implementations_publish_model_specific_entrypoints():
     assert PatchTSTForecastHeadImplementation.model_name == 'patch_tst_model'
+    assert TSTForecastHeadImplementation.model_name == 'tst_model'
     assert TCNForecastHeadImplementation.model_name == 'tcn_model'
     assert DeepARForecastHeadImplementation.model_name == 'deepar_model'
     assert NBeatsForecastHeadImplementation.model_name == 'nbeats_model'
+
+
+def test_tst_neural_forecast_head_diagnostics_use_context_length_when_runtime_reports_it():
+    diagnostics = build_neural_forecasting_stage_diagnostics(
+        'tst_model',
+        forecast_horizon=5,
+        params={'model_dim': 128, 'n_layers': 3},
+        training_history_length=64,
+        runtime_diagnostics={'resolved_context_length': 64, 'training': {'best_epoch': 7}},
+    )
+
+    assert diagnostics['trajectory_transform']['window_size'] == 64
+    assert diagnostics['trajectory_transform']['resolved_context_length'] == 64
+    assert diagnostics['forecast_head']['head_type'] == 'tst_model'
+    assert diagnostics['forecast_head']['runtime']['training']['best_epoch'] == 7
 
 
 def test_neural_forecast_head_bridge_remains_compatibility_shell(monkeypatch):

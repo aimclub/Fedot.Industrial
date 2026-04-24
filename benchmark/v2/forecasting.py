@@ -1391,6 +1391,10 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     patch_len: int | None = None
     forecast_mode: str | None = None
     use_amp: bool | None = None
+    model_dim: int | None = None
+    n_layers: int | None = None
+    number_heads: int | None = None
+    d_ff: int | None = None
     kernel_size: int | None = None
     num_filters: int | None = None
     num_layers: int | None = None
@@ -1515,7 +1519,7 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
         return _instantiate_model_adapter(MSSAModel, spec, ('baseline', 'forecasting', 'mssa'))
     if adapter_name in {'havok', 'havok_forecaster'}:
         return _instantiate_model_adapter(HAVOKModel, spec, ('baseline', 'forecasting', 'havok'))
-    if adapter_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+    if adapter_name in {'patch_tst_model', 'tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
         filtered_params = {
             key: value
             for key, value in dict(spec.params).items()

@@ -50,6 +50,10 @@ NEURAL_FORECASTING_MODEL_REGISTRY: dict[str, Any] = {
         'fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst',
         'PatchTSTModel',
     ),
+    'tst_model': (
+        'fedot_ind.core.models.nn.network_impl.forecasting_model.tst',
+        'TSTModel',
+    ),
     'tcn_model': (
         'fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn',
         'TCNModel',
@@ -119,15 +123,25 @@ def build_neural_forecasting_stage_diagnostics(
         forecast_horizon: int,
         params: dict[str, Any] | None = None,
         training_history_length: int | None = None,
+        runtime_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     canonical_name = canonical_forecasting_model_name(model_name)
     resolved_params = normalize_neural_forecasting_params(params)
+    resolved_runtime = dict(runtime_diagnostics or {})
+    resolved_context_length = (
+            resolved_runtime.get('resolved_context_length')
+            or resolved_runtime.get('resolved_patch_len')
+    )
 
     trajectory_transform = {
         'kind': 'native_context_window',
-        'window_size': resolved_params.get('window_size', resolved_params.get('patch_len')),
+        'window_size': (
+                resolved_context_length
+                or resolved_params.get('window_size', resolved_params.get('patch_len', training_history_length))
+        ),
         'stride': resolved_params.get('stride'),
         'history_length': training_history_length,
+        'resolved_context_length': resolved_context_length,
     }
 
     forecast_head = {
@@ -144,6 +158,7 @@ def build_neural_forecasting_stage_diagnostics(
 
     model_specific_fields = {
         'patch_tst_model': ('patch_len', 'forecast_mode', 'use_amp'),
+        'tst_model': ('activation', 'model_dim', 'n_layers', 'number_heads', 'd_ff', 'dropout'),
         'tcn_model': ('patch_len', 'kernel_size', 'num_filters', 'num_layers', 'dilation_base', 'dropout'),
         'deepar_model': ('cell_type', 'hidden_size', 'rnn_layers', 'expected_distribution', 'dropout'),
         'nbeats_model': (
@@ -157,6 +172,8 @@ def build_neural_forecasting_stage_diagnostics(
     }
     for key in model_specific_fields.get(canonical_name, ()):
         forecast_head[key] = resolved_params.get(key)
+    if resolved_runtime:
+        forecast_head['runtime'] = resolved_runtime
 
     return {
         'model_family': 'neural_forecaster',
@@ -277,11 +294,18 @@ class NeuralForecastHead:
         self.training_history_ = history
         self.model_ = self.model_cls_(model_params)
         self.model_.fit(build_neural_forecasting_input_data(history, forecast_horizon=self.forecast_horizon))
+        runtime_diagnostics = {}
+        if hasattr(self.model_, 'get_diagnostics'):
+            try:
+                runtime_diagnostics = dict(self.model_.get_diagnostics() or {})
+            except Exception:  # pragma: no cover - diagnostics should not break runtime
+                runtime_diagnostics = {}
         self.diagnostics_ = build_neural_forecasting_stage_diagnostics(
             self.canonical_model_name,
             forecast_horizon=self.forecast_horizon,
             params=self.params,
             training_history_length=len(history),
+            runtime_diagnostics=runtime_diagnostics,
         )
         return self
 
@@ -349,6 +373,10 @@ class NeuralForecastHeadImplementation(ModelImplementation):
 
 class PatchTSTForecastHeadImplementation(NeuralForecastHeadImplementation):
     model_name = 'patch_tst_model'
+
+
+class TSTForecastHeadImplementation(NeuralForecastHeadImplementation):
+    model_name = 'tst_model'
 
 
 class TCNForecastHeadImplementation(NeuralForecastHeadImplementation):

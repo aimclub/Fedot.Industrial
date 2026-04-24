@@ -451,3 +451,28 @@ class PatchTSTModel(BaseNeuralModel):
         test_loader = torch.utils.data.DataLoader(data.TensorDataset(
             features, target), batch_size=self.batch_size, shuffle=False)
         return self._predict(model, test_loader)
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(self.test_patch_len or self.patch_len or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'best_epoch': int(getattr(self, 'best_epoch_', 0) or 0),
+                'best_loss': float(getattr(self, 'best_loss_', 0.0) or 0.0),
+                'scheduler': 'ReduceLROnPlateau',
+                'scheduler_patience': int(self.scheduler_patience),
+                'scheduler_factor': float(self.scheduler_factor),
+                'scheduler_min_lr': float(self.scheduler_min_lr),
+                'early_stopping_patience': int(self.early_stopping_patience),
+                'early_stopping_min_delta': float(self.early_stopping_min_delta),
+            },
+            'architecture': {
+                'activation': str(self.activation),
+                'forecast_horizon': int(self.horizon or 0),
+                'use_amp': bool(self.use_amp),
+                'preprocess_to_lagged': bool(self.preprocess_to_lagged),
+            },
+        }

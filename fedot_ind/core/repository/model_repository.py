@@ -76,6 +76,7 @@ from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head imp
     NBeatsForecastHeadImplementation,
     PatchTSTForecastHeadImplementation,
     TCNForecastHeadImplementation,
+    TSTForecastHeadImplementation,
 )
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
@@ -219,6 +220,7 @@ class AtomizedModel(Enum):
         'havok_forecaster': HAVOKForecasterImplementation,
         # primitive neural forecast heads
         'patch_tst_model': PatchTSTForecastHeadImplementation,
+        'tst_model': TSTForecastHeadImplementation,
         'deepar_model': DeepARForecastHeadImplementation,
         'tcn_model': TCNForecastHeadImplementation,
         'nbeats_model': NBeatsForecastHeadImplementation,

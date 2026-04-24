@@ -321,12 +321,17 @@
       ]
     },
     "tst_model": {
-      "meta": "fedot_NN_classification",
+      "meta": "ts_model",
       "presets": [
-        "best_quality"
+        "fast_train",
+        "best_quality",
+        "ts"
       ],
       "tags": [
-      ]
+        "deep",
+        "ts_model"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
     },
     "sst": {
       "meta": "fedot_anomaly_detection",

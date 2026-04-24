@@ -9,6 +9,7 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn import TCN
 from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.tst import TSTModel
 
 
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
@@ -16,6 +17,7 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
 
     __operations_by_types = {
         'patch_tst_model': PatchTSTModel,
+        'tst_model': TSTModel,
         'nbeats_model': NBeatsModel,
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,

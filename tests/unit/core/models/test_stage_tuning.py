@@ -131,6 +131,10 @@ def test_build_stage_tuning_plan_for_neural_forecasters_marks_them_as_stage_citi
         'patch_tst_model',
         {'patch_len': 16, 'activation': 'GELU'},
     )
+    tst_plan = build_forecasting_stage_tuning_plan(
+        'tst_model',
+        {'activation': 'GELU', 'model_dim': 128},
+    )
     tcn_plan = build_forecasting_stage_tuning_plan(
         'tcn_model',
         {'patch_len': 16, 'kernel_size': 3},
@@ -149,6 +153,10 @@ def test_build_stage_tuning_plan_for_neural_forecasters_marks_them_as_stage_citi
     assert patch_tst_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert patch_tst_plan.groups[-1].parameters == ('activation',)
     assert patch_tst_plan.metadata['head_runtime'] == 'neural'
+    assert tst_plan.family == 'neural_forecaster'
+    assert len(tst_plan.groups) == 1
+    assert tst_plan.groups[0].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'model_dim' in tst_plan.groups[0].parameters
     assert tcn_plan.family == 'neural_forecaster'
     assert tcn_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
     assert tcn_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
@@ -180,6 +188,10 @@ def test_build_stage_search_spaces_supports_neural_forecasters():
         'patch_tst_model',
         {'patch_len': 16, 'activation': 'GELU'},
     )
+    tst_spaces = build_forecasting_stage_search_spaces(
+        'tst_model',
+        {'activation': 'GELU', 'model_dim': 128},
+    )
     tcn_spaces = build_forecasting_stage_search_spaces(
         'tcn_model',
         {'patch_len': 16, 'kernel_size': 3},
@@ -197,6 +209,10 @@ def test_build_stage_search_spaces_supports_neural_forecasters():
     assert 'patch_len' in patch_spaces[0].parameter_space
     assert patch_spaces[1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert set(patch_spaces[1].parameter_space) == {'activation'}
+    assert len(tst_spaces) == 1
+    assert tst_spaces[0].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'model_dim' in tst_spaces[0].parameter_space
+    assert 'n_layers' in tst_spaces[0].parameter_space
     assert tcn_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
     assert 'kernel_size' in tcn_spaces[1].parameter_space
     assert len(deepar_spaces) == 2

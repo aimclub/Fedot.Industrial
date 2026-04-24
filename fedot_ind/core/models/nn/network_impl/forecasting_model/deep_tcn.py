@@ -307,6 +307,7 @@ class TCNModel(BaseNeuralModel):
         scheduler = self._build_scheduler(optimizer)
         best_state_dict = copy.deepcopy(model.state_dict())
         best_loss = float('inf')
+        best_epoch = 0
         patience_counter = 0
         for epoch in tqdm(range(self.epochs)):
             train_loss_values = []
@@ -331,6 +332,7 @@ class TCNModel(BaseNeuralModel):
                         scheduler.get_last_lr()[0]))
             if train_loss + self.early_stopping_min_delta < best_loss:
                 best_loss = train_loss
+                best_epoch = int(epoch) + 1
                 patience_counter = 0
                 best_state_dict = copy.deepcopy(model.state_dict())
             else:
@@ -338,6 +340,8 @@ class TCNModel(BaseNeuralModel):
             if patience_counter >= self.early_stopping_patience:
                 break
         model.load_state_dict(best_state_dict)
+        self.best_epoch_ = int(best_epoch)
+        self.best_loss_ = float(best_loss)
         return model
 
     def _predict(self, model: TCNModule, test_loader: DataLoader):
@@ -409,3 +413,31 @@ class TCNModel(BaseNeuralModel):
             pin_memory=False,
             drop_last=False)
         return self._predict(model, test_loader)
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(self.test_patch_len or self.patch_len or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'best_epoch': int(getattr(self, 'best_epoch_', 0) or 0),
+                'best_loss': float(getattr(self, 'best_loss_', 0.0) or 0.0),
+                'scheduler': 'ReduceLROnPlateau',
+                'scheduler_patience': int(self.scheduler_patience),
+                'scheduler_factor': float(self.scheduler_factor),
+                'scheduler_min_lr': float(self.scheduler_min_lr),
+                'early_stopping_patience': int(self.early_stopping_patience),
+                'early_stopping_min_delta': float(self.early_stopping_min_delta),
+            },
+            'architecture': {
+                'activation': str(self.activation),
+                'kernel_size': int(self.kernel_size),
+                'num_filters': int(self.num_filters),
+                'num_layers': int(self.num_layers),
+                'dilation_base': int(self.dilation_base),
+                'dropout': float(self.dropout),
+                'weight_norm': bool(self.weight_norm),
+            },
+        }

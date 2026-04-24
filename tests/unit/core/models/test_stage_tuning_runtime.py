@@ -278,3 +278,49 @@ def test_neural_runtime_bridge_supports_stubbed_head_bridge(monkeypatch):
 
     assert evaluation.family == 'neural_forecaster'
     assert evaluation.diagnostics['forecast_head']['head_type'] == 'patch_tst_model'
+
+
+def test_tst_runtime_bridge_supports_stubbed_head_bridge(monkeypatch):
+    class FakeNeuralBridge:
+        def __init__(self, model_name, forecast_horizon, params=None):
+            self.model_name = model_name
+            self.forecast_horizon = forecast_horizon
+            self.params = dict(params or {})
+
+        def fit(self, time_series):
+            self.series = np.asarray(time_series, dtype=float)
+            return self
+
+        def predict(self, time_series=None, forecast_horizon=None):
+            del time_series, forecast_horizon
+            return np.linspace(1.5, 1.5 + self.forecast_horizon - 1, num=self.forecast_horizon)
+
+        def get_diagnostics(self):
+            return {
+                'model_family': 'neural_forecaster',
+                'trajectory_transform': {'window_size': len(self.series)},
+                'decomposition': {},
+                'rank_truncation': {},
+                'forecast_head': {'head_type': self.model_name, 'model_dim': self.params.get('model_dim')},
+            }
+
+    monkeypatch.setattr(
+        'fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime.build_neural_forecast_head',
+        lambda model_name, forecast_horizon, params=None: FakeNeuralBridge(
+            model_name=model_name,
+            forecast_horizon=forecast_horizon,
+            params=params,
+        ),
+        raising=False,
+    )
+
+    evaluation = evaluate_forecasting_model_on_series(
+        'tst_model',
+        time_series=_trend_with_oscillation(96),
+        forecast_horizon=6,
+        params={'model_dim': 128, 'n_layers': 3},
+        metric_name='rmse',
+    )
+
+    assert evaluation.family == 'neural_forecaster'
+    assert evaluation.diagnostics['forecast_head']['head_type'] == 'tst_model'

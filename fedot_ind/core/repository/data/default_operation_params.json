@@ -486,8 +486,16 @@
     "with_tuning": true
   },
   "tst_model": {
-    "epochs": 100,
-    "batch_size": 32
+    "epochs": 150,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "device": "cuda",
+    "activation": "GELU",
+    "model_dim": 128,
+    "n_layers": 3,
+    "number_heads": 16,
+    "d_ff": 256,
+    "dropout": 0.1
   },
   "xcm_model": {
     "epochs": 100,

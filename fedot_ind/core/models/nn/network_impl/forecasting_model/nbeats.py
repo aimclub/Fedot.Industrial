@@ -148,6 +148,29 @@ class NBeatsModel(BaseNeuralModel):
         forecast = x_predict_lagged[-1:, :].flatten()
         return forecast
 
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(getattr(self, 'backcast_length', 0) or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'optimizer': str(self.optimizer),
+                'loss': str(self.loss),
+            },
+            'architecture': {
+                'is_generic_architecture': bool(self.is_generic_architecture),
+                'n_stacks': int(self.n_stacks),
+                'layers': int(self.layers),
+                'layer_size': int(self.layer_size),
+                'n_trend_blocks': int(self.n_trend_blocks),
+                'n_seasonality_blocks': int(self.n_seasonality_blocks),
+                'n_of_harmonics': int(self.n_of_harmonics),
+                'degree_of_polynomial': int(self.degree_of_polynomial),
+            },
+        }
+
 
 class NBeats(nn.Module):
     """

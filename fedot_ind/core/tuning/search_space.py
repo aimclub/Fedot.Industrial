@@ -72,6 +72,14 @@ industrial_search_space = {
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'ELU', 'SwishBeta', 'ReLU', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+    'tst_model':
+        {'activation': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [['GELU', 'ReLU', 'LeakyReLU', 'ELU', 'Tanh']]},
+         'model_dim': {'hyperopt-dist': hp.choice, 'sampling-scope': [[64, 128, 256]]},
+         'n_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3, 4, 5]]},
+         'number_heads': {'hyperopt-dist': hp.choice, 'sampling-scope': [[4, 8, 16]]},
+         'd_ff': {'hyperopt-dist': hp.choice, 'sampling-scope': [[128, 256, 512]]},
+         'dropout': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.05, 0.1, 0.2, 0.3]]}},
     'deepar_model':
         {'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 12, 16, 20, 24, 32]]},
          'cell_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['GRU', 'LSTM', 'RNN']]},

@@ -46,7 +46,7 @@ def adapter_name_to_family(adapter_name: str) -> str:
         'classical_dmd',
     }:
         return 'operator_model'
-    if normalized in {'deepar_model', 'nbeats_model', 'patch_tst_model', 'tcn_model', 'tft'}:
+    if normalized in {'deepar_model', 'nbeats_model', 'patch_tst_model', 'tst_model', 'tcn_model', 'tft'}:
         return 'neural_forecaster'
     return 'simple_baseline'
 

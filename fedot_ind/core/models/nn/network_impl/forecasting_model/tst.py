@@ -7,8 +7,15 @@ from fastai.torch_core import Module
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim, Tensor
 
-from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
+    DEFAULT_FORECASTING_NN_BATCH_SIZE,
+    DEFAULT_FORECASTING_NN_DEVICE,
+    DEFAULT_FORECASTING_NN_EPOCHS,
+    DEFAULT_FORECASTING_NN_LEARNING_RATE,
+    normalize_neural_forecasting_params,
+    resolve_neural_forecasting_device,
+)
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.attention_layers import \
     MultiHeadAttention
@@ -118,7 +125,9 @@ class TST(Module):
                  activation: str = "GELU",
                  fc_dropout: float = 0.,
                  y_range: Optional[tuple] = None,
-                 verbose: bool = False, **kwargs):
+                 verbose: bool = False,
+                 device: torch.device | None = None,
+                 **kwargs):
         """TST (Time Series Transformer) is a Transformer that takes continuous time series as inputs.
         As mentioned in the paper, the input must be standardized by_var based on the entire training set.
 
@@ -146,6 +155,7 @@ class TST(Module):
 
         """
         self.output_dim, self.seq_len = output_dim, seq_len
+        self.device = device or resolve_neural_forecasting_device()
 
         # Input encoding
         q_len = seq_len
@@ -180,7 +190,7 @@ class TST(Module):
             self.W_P = nn.Linear(input_dim, model_dim)
 
         # Positional encoding
-        W_pos = torch.empty((q_len, model_dim), device=default_device())
+        W_pos = torch.empty((q_len, model_dim), device=self.device)
         nn.init.uniform_(W_pos, -0.02, 0.02)
         self.W_pos = nn.Parameter(W_pos, requires_grad=True)
 
@@ -273,15 +283,63 @@ class TSTModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
+        normalized_params = normalize_neural_forecasting_params(dict(params or {}))
+        super().__init__(normalized_params)
         self.num_classes = self.params.get('num_classes', 1)
-        self.epochs = self.params.get('epochs', 100)
-        self.batch_size = self.params.get('batch_size', 32)
+        self.epochs = self.params.get('epochs', DEFAULT_FORECASTING_NN_EPOCHS)
+        self.batch_size = self.params.get('batch_size', DEFAULT_FORECASTING_NN_BATCH_SIZE)
+        self.learning_rate = self.params.get('learning_rate', DEFAULT_FORECASTING_NN_LEARNING_RATE)
+        self.device_name = str(self.params.get('device', DEFAULT_FORECASTING_NN_DEVICE))
+        self.device = resolve_neural_forecasting_device(self.device_name)
+        self.activation = self.params.get('activation', 'GELU')
+        self.model_dim = int(self.params.get('model_dim', 128))
+        self.n_layers = int(self.params.get('n_layers', 3))
+        self.number_heads = int(self.params.get('number_heads', 16))
+        self.d_ff = int(self.params.get('d_ff', 256))
+        self.dropout = float(self.params.get('dropout', 0.1))
+
+    def _build_model(self, ts):
+        self.context_length = int(ts.features.shape[2])
+        return TST(
+            input_dim=ts.features.shape[1],
+            output_dim=self.num_classes,
+            seq_len=self.context_length,
+            n_layers=self.n_layers,
+            model_dim=self.model_dim,
+            number_heads=self.number_heads,
+            d_ff=self.d_ff,
+            dropout=self.dropout,
+            activation=self.activation,
+            device=self.device,
+        ).to(self.device)
+
+    def _build_optimizer(self):
+        return optim.Adam(self.model.parameters(), lr=self.learning_rate)
+
+    def _build_loss_fn(self, ts):
+        return self._get_loss_metric(ts)
 
     def _init_model(self, ts):
-        self.model = TST(input_dim=ts.features.shape[1],
-                         output_dim=self.num_classes,
-                         seq_len=ts.features.shape[2]).to(default_device())
-        optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        loss_fn = self._get_loss_metric(ts)
+        self.model = self._build_model(ts)
+        optimizer = self._build_optimizer()
+        loss_fn = self._build_loss_fn(ts)
         return loss_fn, optimizer
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_context_length': int(getattr(self, 'context_length', 0) or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+            },
+            'architecture': {
+                'activation': str(self.activation),
+                'model_dim': int(self.model_dim),
+                'n_layers': int(self.n_layers),
+                'number_heads': int(self.number_heads),
+                'd_ff': int(self.d_ff),
+                'dropout': float(self.dropout),
+            },
+        }

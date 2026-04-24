@@ -93,6 +93,16 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
         ForecastingStageName.TRAJECTORY.value: ('patch_len',),
         ForecastingStageName.FORECAST_HEAD.value: ('activation',),
     },
+    'tst_model': {
+        ForecastingStageName.FORECAST_HEAD.value: (
+            'activation',
+            'model_dim',
+            'n_layers',
+            'number_heads',
+            'd_ff',
+            'dropout',
+        ),
+    },
     'tcn_model': {
         ForecastingStageName.TRAJECTORY.value: ('patch_len',),
         ForecastingStageName.FORECAST_HEAD.value: (
@@ -421,6 +431,28 @@ def build_forecasting_stage_tuning_plan(model_name: str,
                 ForecastingStageName.FORECAST_HEAD,
                 ('activation',),
                 depends_on=(ForecastingStageName.TRAJECTORY.value,),
+            ),
+        )
+        return ForecastingStageTuningPlan(
+            model_name=model_name,
+            canonical_model_name=canonical_name,
+            family='neural_forecaster',
+            groups=groups,
+            metadata={'supports_simultaneous_tuning': False, 'head_runtime': 'neural'},
+        )
+
+    if canonical_name == 'tst_model':
+        groups = (
+            _group(
+                ForecastingStageName.FORECAST_HEAD,
+                (
+                    'activation',
+                    'model_dim',
+                    'n_layers',
+                    'number_heads',
+                    'd_ff',
+                    'dropout',
+                ),
             ),
         )
         return ForecastingStageTuningPlan(

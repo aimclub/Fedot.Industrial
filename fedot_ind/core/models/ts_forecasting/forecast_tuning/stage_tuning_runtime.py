@@ -131,7 +131,7 @@ def _normalize_base_params(params: dict[str, Any] | None, *, model_name: str | N
         normalized.setdefault('head_epochs', 120)
         normalized.setdefault('head_learning_rate', 1e-3)
         normalized.setdefault('device', 'auto')
-    elif canonical_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+    elif canonical_name in {'patch_tst_model', 'tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
         normalized = normalize_neural_forecasting_params(normalized)
     return normalized
 
@@ -344,7 +344,7 @@ def _instantiate_runtime_model(
         from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import \
             HybridEnsembleForecaster
         model_cls = HybridEnsembleForecaster
-    elif canonical_model_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+    elif canonical_model_name in {'patch_tst_model', 'tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
         if build_neural_forecast_head is None:
             raise ValueError('Neural forecast head runtime is unavailable in the current environment.')
         return build_neural_forecast_head(

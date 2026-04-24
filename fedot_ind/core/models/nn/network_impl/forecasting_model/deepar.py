@@ -401,6 +401,7 @@ class DeepAR(BaseNeuralModel):
         )
         best_model = deepcopy(model)
         best_loss = float('inf')
+        best_epoch = 0
         patience_counter = 0
 
         for epoch in tqdm(range(self.epochs), desc='DeepAR fit', unit='epoch'):
@@ -439,6 +440,7 @@ class DeepAR(BaseNeuralModel):
 
             if monitored_loss + self.early_stopping_min_delta < best_loss:
                 best_loss = monitored_loss
+                best_epoch = int(epoch) + 1
                 patience_counter = 0
                 best_model = deepcopy(model)
             else:
@@ -446,6 +448,8 @@ class DeepAR(BaseNeuralModel):
             if patience_counter >= self.early_stopping_patience:
                 break
 
+        self.best_epoch_ = int(best_epoch)
+        self.best_loss_ = float(best_loss)
         return best_model
 
     def _get_train_val_loaders(self,
@@ -517,3 +521,30 @@ class DeepAR(BaseNeuralModel):
         train_loader = torch.utils.data.DataLoader(data.TensorDataset(
             features, target), batch_size=batch_size, shuffle=False)
         return train_loader
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(self.test_patch_len or self.patch_len or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'best_epoch': int(getattr(self, 'best_epoch_', 0) or 0),
+                'best_loss': float(getattr(self, 'best_loss_', 0.0) or 0.0),
+                'scheduler': 'ReduceLROnPlateau',
+                'scheduler_patience': int(self.scheduler_patience),
+                'scheduler_factor': float(self.scheduler_factor),
+                'scheduler_min_lr': float(self.scheduler_min_lr),
+                'early_stopping_patience': int(self.early_stopping_patience),
+                'early_stopping_min_delta': float(self.early_stopping_min_delta),
+            },
+            'architecture': {
+                'cell_type': str(self.cell_type),
+                'hidden_size': int(self.hidden_size),
+                'rnn_layers': int(self.rnn_layers),
+                'dropout': float(self.dropout),
+                'expected_distribution': str(self.expected_distribution),
+                'prediction_averaging_factor': int(self._prediction_averaging_factor),
+            },
+        }

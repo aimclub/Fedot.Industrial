@@ -677,6 +677,7 @@ def test_build_model_adapter_supports_havok_mlp_head_runtime_parameters() -> Non
     ('adapter_name', 'display_name'),
     (
             ('patch_tst_model', 'PatchTST'),
+            ('tst_model', 'TST'),
             ('tcn_model', 'TCN'),
             ('deepar_model', 'DeepAR'),
             ('nbeats_model', 'NBEATS'),
