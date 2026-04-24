@@ -32,6 +32,20 @@ def test_build_neural_forecasting_stage_diagnostics_returns_stage_vocabulary():
     assert diagnostics['forecast_head']['forecast_horizon'] == 6
 
 
+def test_neural_forecast_head_defaults_are_normalized_in_diagnostics():
+    diagnostics = build_neural_forecasting_stage_diagnostics(
+        'patch_tst_model',
+        forecast_horizon=4,
+        params={'patch_len': 12},
+        training_history_length=48,
+    )
+
+    assert diagnostics['forecast_head']['epochs'] == 150
+    assert diagnostics['forecast_head']['batch_size'] == 16
+    assert diagnostics['forecast_head']['learning_rate'] == 1e-3
+    assert diagnostics['forecast_head']['device'] == 'cuda'
+
+
 def test_neural_forecast_head_wraps_native_model_contract(monkeypatch):
     class FakePrediction:
         def __init__(self, values):

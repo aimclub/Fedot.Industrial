@@ -7,6 +7,13 @@ from typing import Any
 
 import numpy as np
 
+from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
+    DEFAULT_FORECASTING_NN_BATCH_SIZE,
+    DEFAULT_FORECASTING_NN_DEVICE,
+    DEFAULT_FORECASTING_NN_EPOCHS,
+    DEFAULT_FORECASTING_NN_LEARNING_RATE,
+    normalize_neural_forecasting_params,
+)
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
@@ -70,7 +77,7 @@ class NeuralForecastHeadSpec:
             raise ValueError(f'Unsupported neural forecasting head: {self.model_name}')
         object.__setattr__(self, 'model_name', canonical_name)
         object.__setattr__(self, 'forecast_horizon', int(self.forecast_horizon))
-        object.__setattr__(self, 'params', dict(self.params or {}))
+        object.__setattr__(self, 'params', normalize_neural_forecasting_params(self.params))
 
     @property
     def family(self) -> str:
@@ -114,7 +121,7 @@ def build_neural_forecasting_stage_diagnostics(
         training_history_length: int | None = None,
 ) -> dict[str, Any]:
     canonical_name = canonical_forecasting_model_name(model_name)
-    resolved_params = dict(params or {})
+    resolved_params = normalize_neural_forecasting_params(params)
 
     trajectory_transform = {
         'kind': 'native_context_window',
@@ -125,12 +132,14 @@ def build_neural_forecasting_stage_diagnostics(
 
     forecast_head = {
         'head_type': canonical_name,
-        'epochs': resolved_params.get('epochs'),
-        'batch_size': resolved_params.get('batch_size'),
-        'learning_rate': resolved_params.get('learning_rate'),
+        'epochs': resolved_params.get('epochs', DEFAULT_FORECASTING_NN_EPOCHS),
+        'batch_size': resolved_params.get('batch_size', DEFAULT_FORECASTING_NN_BATCH_SIZE),
+        'learning_rate': resolved_params.get('learning_rate', DEFAULT_FORECASTING_NN_LEARNING_RATE),
         'activation': resolved_params.get('activation'),
         'forecast_horizon': int(forecast_horizon),
-        'device': resolved_params.get('device', 'auto'),
+        'device': resolved_params.get('device', DEFAULT_FORECASTING_NN_DEVICE),
+        'scheduler': 'ReduceLROnPlateau',
+        'early_stopping': 'enabled',
     }
 
     model_specific_fields = {

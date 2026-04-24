@@ -6,6 +6,9 @@ from typing import Any, Callable
 
 import numpy as np
 
+from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
+    normalize_neural_forecasting_params,
+)
 from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_execution import (
     ForecastingSequentialStageTuningResult,
     run_sequential_stage_tuning,
@@ -128,6 +131,8 @@ def _normalize_base_params(params: dict[str, Any] | None, *, model_name: str | N
         normalized.setdefault('head_epochs', 120)
         normalized.setdefault('head_learning_rate', 1e-3)
         normalized.setdefault('device', 'auto')
+    elif canonical_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+        normalized = normalize_neural_forecasting_params(normalized)
     return normalized
 
 

@@ -214,7 +214,7 @@ def test_okhs_runtime_bridge_supports_stubbed_backend(monkeypatch):
             }
 
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.stage_tuning_runtime.build_okhs_fdmd_forecaster',
+        'fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime.build_okhs_fdmd_forecaster',
         lambda forecast_horizon, params=None, series_length=None: FakeOKHSRuntimeModel(
             forecast_horizon=forecast_horizon,
             params={**dict(params or {}), 'series_length': series_length},
@@ -259,7 +259,7 @@ def test_neural_runtime_bridge_supports_stubbed_head_bridge(monkeypatch):
             }
 
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.stage_tuning_runtime.build_neural_forecast_head',
+        'fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime.build_neural_forecast_head',
         lambda model_name, forecast_horizon, params=None: FakeNeuralBridge(
             model_name=model_name,
             forecast_horizon=forecast_horizon,
@@ -272,7 +272,7 @@ def test_neural_runtime_bridge_supports_stubbed_head_bridge(monkeypatch):
         'patch_tst_model',
         time_series=_trend_with_oscillation(96),
         forecast_horizon=6,
-        params={'patch_len': 12, 'epochs': 2},
+        params={'patch_len': 12},
         metric_name='rmse',
     )
 

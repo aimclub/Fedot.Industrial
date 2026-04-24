@@ -129,31 +129,33 @@ def test_build_stage_tuning_plan_for_hybrid_ensemble_exposes_branch_and_ensemble
 def test_build_stage_tuning_plan_for_neural_forecasters_marks_them_as_stage_citizens():
     patch_tst_plan = build_forecasting_stage_tuning_plan(
         'patch_tst_model',
-        {'patch_len': 16, 'epochs': 20},
+        {'patch_len': 16, 'activation': 'GELU'},
     )
     tcn_plan = build_forecasting_stage_tuning_plan(
         'tcn_model',
-        {'patch_len': 16, 'kernel_size': 3, 'epochs': 20},
+        {'patch_len': 16, 'kernel_size': 3},
     )
     deepar_plan = build_forecasting_stage_tuning_plan(
         'deepar_model',
-        {'hidden_size': 32, 'epochs': 20},
+        {'patch_len': 16, 'hidden_size': 32},
     )
     nbeats_plan = build_forecasting_stage_tuning_plan(
         'nbeats_model',
-        {'n_stacks': 2, 'epochs': 20},
+        {'n_stacks': 2},
     )
 
     assert patch_tst_plan.family == 'neural_forecaster'
     assert patch_tst_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
     assert patch_tst_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert patch_tst_plan.groups[-1].parameters == ('activation',)
     assert patch_tst_plan.metadata['head_runtime'] == 'neural'
     assert tcn_plan.family == 'neural_forecaster'
     assert tcn_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
     assert tcn_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert deepar_plan.family == 'neural_forecaster'
-    assert len(deepar_plan.groups) == 1
-    assert deepar_plan.groups[0].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert len(deepar_plan.groups) == 2
+    assert deepar_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
+    assert deepar_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert nbeats_plan.family == 'neural_forecaster'
     assert len(nbeats_plan.groups) == 1
     assert nbeats_plan.groups[0].stage == ForecastingStageName.FORECAST_HEAD.value
@@ -176,29 +178,31 @@ def test_build_stage_search_spaces_filters_search_space_per_stage():
 def test_build_stage_search_spaces_supports_neural_forecasters():
     patch_spaces = build_forecasting_stage_search_spaces(
         'patch_tst_model',
-        {'patch_len': 16, 'epochs': 20},
+        {'patch_len': 16, 'activation': 'GELU'},
     )
     tcn_spaces = build_forecasting_stage_search_spaces(
         'tcn_model',
-        {'patch_len': 16, 'epochs': 20, 'kernel_size': 3},
+        {'patch_len': 16, 'kernel_size': 3},
     )
     deepar_spaces = build_forecasting_stage_search_spaces(
         'deepar_model',
-        {'hidden_size': 32, 'epochs': 20},
+        {'patch_len': 16, 'hidden_size': 32},
     )
     nbeats_spaces = build_forecasting_stage_search_spaces(
         'nbeats_model',
-        {'n_stacks': 2, 'epochs': 20},
+        {'n_stacks': 2},
     )
 
     assert patch_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
     assert 'patch_len' in patch_spaces[0].parameter_space
     assert patch_spaces[1].stage == ForecastingStageName.FORECAST_HEAD.value
-    assert 'epochs' in patch_spaces[1].parameter_space
+    assert set(patch_spaces[1].parameter_space) == {'activation'}
     assert tcn_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
     assert 'kernel_size' in tcn_spaces[1].parameter_space
-    assert len(deepar_spaces) == 1
-    assert 'hidden_size' in deepar_spaces[0].parameter_space
+    assert len(deepar_spaces) == 2
+    assert deepar_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
+    assert 'patch_len' in deepar_spaces[0].parameter_space
+    assert 'hidden_size' in deepar_spaces[1].parameter_space
     assert len(nbeats_spaces) == 1
     assert 'n_stacks' in nbeats_spaces[0].parameter_space
 

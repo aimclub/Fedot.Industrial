@@ -91,14 +91,11 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
     },
     'patch_tst_model': {
         ForecastingStageName.TRAJECTORY.value: ('patch_len',),
-        ForecastingStageName.FORECAST_HEAD.value: ('epochs', 'batch_size', 'learning_rate', 'activation'),
+        ForecastingStageName.FORECAST_HEAD.value: ('activation',),
     },
     'tcn_model': {
         ForecastingStageName.TRAJECTORY.value: ('patch_len',),
         ForecastingStageName.FORECAST_HEAD.value: (
-            'epochs',
-            'batch_size',
-            'learning_rate',
             'activation',
             'kernel_size',
             'num_filters',
@@ -109,10 +106,8 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
         ),
     },
     'deepar_model': {
+        ForecastingStageName.TRAJECTORY.value: ('patch_len',),
         ForecastingStageName.FORECAST_HEAD.value: (
-            'epochs',
-            'batch_size',
-            'learning_rate',
             'cell_type',
             'rnn_layers',
             'hidden_size',
@@ -122,8 +117,6 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
     },
     'nbeats_model': {
         ForecastingStageName.FORECAST_HEAD.value: (
-            'epochs',
-            'batch_size',
             'n_stacks',
             'n_trend_blocks',
             'n_seasonality_blocks',
@@ -426,7 +419,7 @@ def build_forecasting_stage_tuning_plan(model_name: str,
             _group(ForecastingStageName.TRAJECTORY, ('patch_len',)),
             _group(
                 ForecastingStageName.FORECAST_HEAD,
-                ('epochs', 'batch_size', 'learning_rate', 'activation'),
+                ('activation',),
                 depends_on=(ForecastingStageName.TRAJECTORY.value,),
             ),
         )
@@ -444,9 +437,6 @@ def build_forecasting_stage_tuning_plan(model_name: str,
             _group(
                 ForecastingStageName.FORECAST_HEAD,
                 (
-                    'epochs',
-                    'batch_size',
-                    'learning_rate',
                     'activation',
                     'kernel_size',
                     'num_filters',
@@ -468,18 +458,17 @@ def build_forecasting_stage_tuning_plan(model_name: str,
 
     if canonical_name == 'deepar_model':
         groups = (
+            _group(ForecastingStageName.TRAJECTORY, ('patch_len',)),
             _group(
                 ForecastingStageName.FORECAST_HEAD,
                 (
-                    'epochs',
-                    'batch_size',
-                    'learning_rate',
                     'cell_type',
                     'rnn_layers',
                     'hidden_size',
                     'expected_distribution',
                     'dropout',
                 ),
+                depends_on=(ForecastingStageName.TRAJECTORY.value,),
             ),
         )
         return ForecastingStageTuningPlan(
@@ -495,8 +484,6 @@ def build_forecasting_stage_tuning_plan(model_name: str,
             _group(
                 ForecastingStageName.FORECAST_HEAD,
                 (
-                    'epochs',
-                    'batch_size',
                     'n_stacks',
                     'n_trend_blocks',
                     'n_seasonality_blocks',
