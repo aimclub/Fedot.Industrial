@@ -1,0 +1,176 @@
+# Benchmark/V2 Forecasting Guide
+
+## Назначение
+
+Этот документ объясняет, как устроен forecasting path в `benchmark/v2`: от `BenchmarkSuiteConfig` до item-level checkpoints, analytics и visualizer-а.
+
+Главные файлы:
+
+- [`core.py`](../../benchmark/v2/core.py)
+- [`forecasting.py`](../../benchmark/v2/forecasting.py)
+- [`incremental_persistence.py`](../../benchmark/v2/incremental_persistence.py)
+- [`analytics.py`](../../benchmark/v2/analytics.py)
+- [`result_visualization.py`](../../benchmark/v2/result_visualization.py)
+
+## Основной запуск
+
+Публичный entrypoint:
+
+```python
+from benchmark.v2 import run_forecasting_benchmark_suite
+
+result = run_forecasting_benchmark_suite(config)
+```
+
+Внутри forecasting path выполняет `ForecastingSuiteRunner`.
+
+Runner отвечает за:
+
+- загрузку dataset specs;
+- построение model adapters;
+- итерацию по моделям и рядам;
+- baseline forecast;
+- расчёт метрик;
+- post-fit stage tuning comparison;
+- item-level persistence;
+- resume mode;
+- сбор итогового `ForecastingBenchmarkResult`.
+
+## `ForecastingSuiteRunner`
+
+`ForecastingSuiteRunner` должен оставаться orchestration shell. Детали вынесены в coordinator-объекты:
+
+- запись predictions/metrics;
+- post-fit tuning comparison;
+- incremental persistence;
+- progress/verbosity policy.
+
+Если в runner снова начинает расти процедурная логика, её лучше выносить в отдельный coordinator или pure helper.
+
+## Model adapter lifecycle
+
+Стандартный путь:
+
+1. `ModelSpec`
+2. `build_model_adapter(...)`
+3. `model.fit(train_values, horizon)`
+4. `model.forecast(horizon)`
+5. `metadata = model.get_diagnostics()`
+6. metrics + artifacts
+
+Важно: adapter constructor должен принимать только свои параметры. Служебные поля вроде `progress_policy`, `stage_tuning_runtime`, `verbosity_policy` должны фильтроваться или обрабатываться явно.
+
+## Post-fit tuning comparison
+
+После baseline fit/evaluation runner запускает stage tuning comparison.
+
+Результаты сохраняются в metadata:
+
+- `stage_tuning_report`
+- `stage_tuning_runtime`
+- `stage_tuning_comparison`
+- `stage_tuning_report_error`, если runtime недоступен
+
+Comparison payload показывает:
+
+- baseline metrics;
+- tuned metrics;
+- абсолютный gain;
+- relative gain;
+- best parameters;
+- tuned forecast, если verbosity policy его сохраняет.
+
+## Incremental persistence
+
+Benchmark сохраняет результат после каждого item:
+
+- `progress/run_context.json`
+- `progress/series_records.json`
+- `progress/run_progress.json`
+- `progress/items/<dataset>__<subset>__<series>__<model>.json`
+
+Это защищает длинные запуски от потери уже посчитанных рядов.
+
+## Resume mode
+
+Чтобы продолжить запуск:
+
+```python
+RunSpec(
+    resume_enabled=True,
+    resume_run_id="existing_run_id",
+)
+```
+
+В resume mode runner:
+
+- загружает item checkpoints;
+- восстанавливает records;
+- пропускает уже завершённые item-ы;
+- продолжает progress counters.
+
+Текущий режим не является `retry_failed_only`: он пропускает уже сохранённые item-ы целиком.
+
+## Analytics/publication artifacts
+
+`analytics.py` строит publication pack:
+
+- aggregate metrics;
+- regime diagnostics;
+- stage diagnostics;
+- stage tuning reports;
+- family-level summaries;
+- hybrid ensemble diagnostics;
+- OKHS/HAVOK diagnostics.
+
+Payload pruning управляется `ForecastingVerbosityPolicy`.
+
+## Result visualizer
+
+`result_visualization.py` работает не с итоговым `ForecastingBenchmarkResult`, а с `progress/items/*.json`. Это удобно для отладки частично завершённых запусков.
+
+Поддерживаемые артефакты:
+
+- `series_history_forecast`: история, forecast-zone zoom, baseline/tuned/actual;
+- `series_fold_diagnostics`: fold timeline, fold forecasts, fold metrics;
+- `series_relative_gain`: per-series relative gain;
+- `aggregate/baseline_vs_tuned_metric_scatter`;
+- `aggregate/improvement_case_summary`;
+- `aggregate/regime_diagnostics`;
+- `aggregate/regime_improvement_summary`;
+- `aggregate/visualization_summary.html`.
+
+Если `regime_diagnostics` отсутствуют в item JSON, visualizer пересчитывает их по `train_values`.
+
+Пример:
+
+```powershell
+python benchmark\v2\examples\benchmark\visualize_m4_lagged_results_240426.py --series-ids D1 --plot-formats png
+```
+
+Отрисовать все доступные series:
+
+```powershell
+python benchmark\v2\examples\benchmark\visualize_m4_lagged_results_240426.py --max-series-plots all --plot-formats png
+```
+
+## Что не коммитить
+
+Не включать в PR:
+
+- `benchmark/v2/examples/benchmark/results/`;
+- `progress/items/*.json`;
+- generated plots;
+- local datasets;
+- checkpoint-файлы.
+
+Политика описана в [`forecasting_merge_artifact_policy.md`](./forecasting_merge_artifact_policy.md).
+
+## Проверки
+
+Минимум для benchmark/v2 forecasting changes:
+
+```powershell
+python -m py_compile benchmark\v2\forecasting.py benchmark\v2\analytics.py benchmark\v2\result_visualization.py
+python -m pytest -q tests\unit\models\test_benchmark_v2.py tests\unit\models\test_benchmark_v2_result_visualization.py
+```

@@ -1,0 +1,179 @@
+# Forecasting Runtime API Reference
+
+## Назначение
+
+Этот документ фиксирует текущее состояние forecasting runtime после рефакторинга ветки. Это не roadmap, а справочник по тем публичным контрактам, через которые разработчик должен подключать новые модели, tuning и benchmark-инструменты.
+
+Основные entrypoints:
+
+- [`forecasting_runtime.py`](../../fedot_ind/core/models/ts_forecasting/forecasting_runtime.py)
+- [`forecast_tuning/stage_tuning.py`](../../fedot_ind/core/models/ts_forecasting/forecast_tuning/stage_tuning.py)
+- [`forecast_tuning/stage_tuning_execution.py`](../../fedot_ind/core/models/ts_forecasting/forecast_tuning/stage_tuning_execution.py)
+- [`forecast_tuning/stage_tuning_runtime.py`](../../fedot_ind/core/models/ts_forecasting/forecast_tuning/stage_tuning_runtime.py)
+- [`progress_policy.py`](../../fedot_ind/core/models/ts_forecasting/progress_policy.py)
+- [`benchmark/v2/verbosity.py`](../../benchmark/v2/verbosity.py)
+
+## Runtime contracts
+
+### `ForecastTensorBatch`
+
+Канонический внутренний контейнер forecasting runtime. Он нужен, чтобы не протаскивать по моделям сырой `InputData`, `np.ndarray` и служебные dict-структуры.
+
+Содержит:
+
+- `history`: исторические значения ряда в tensor-формате;
+- `target`: целевые значения, если они доступны;
+- `forecast_horizon`: горизонт прогноза;
+- `idx`: индексы наблюдений;
+- `metadata`: служебный контекст;
+- `device`: выбранное устройство исполнения.
+
+Минимальный путь использования:
+
+```python
+from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
+    TensorDevicePolicy,
+    series_to_forecast_tensor_batch,
+)
+
+batch = series_to_forecast_tensor_batch(
+    series,
+    forecast_horizon=14,
+    device_policy=TensorDevicePolicy(device="auto"),
+    metadata={"model_name": "lagged_ridge_forecaster"},
+)
+```
+
+### `ForecastingSplitSpec`
+
+Описание временного разбиения для tuning/evaluation. Ветка отказалась от одного хвостового holdout как дефолтного способа оценки stage tuning.
+
+Поддерживаемые режимы:
+
+- `time_series_split`
+- `expanding_window`
+- `rolling_window`
+- `holdout` как compatibility fallback
+
+Ключевые параметры:
+
+- `validation_horizon`
+- `n_splits`
+- `gap`
+- `max_train_size`
+- `initial_window`
+- `step_length`
+
+Правило ветки: если возможно, runtime стремится построить не меньше 10 фолдов; если ряд короткий, используется максимально возможное число, но не меньше 2.
+
+## Stage tuning contracts
+
+### Stage plan
+
+`build_forecasting_stage_tuning_plan(...)` описывает, какие параметры относятся к каким стадиям модели.
+
+Стадии:
+
+- `trajectory_transform`
+- `decomposition_rank`
+- `forecast_head`
+- `ensemble`
+
+Пример:
+
+```python
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
+    build_forecasting_stage_tuning_plan,
+)
+
+plan = build_forecasting_stage_tuning_plan(
+    "havok_forecaster",
+    params={"window_size": 32, "head_policy": "mlp"},
+)
+```
+
+### Search spaces
+
+`build_forecasting_stage_search_spaces(...)` возвращает search-space, сгруппированный по стадиям. Runtime-параметры вроде `device`, `epochs`, `batch_size`, `learning_rate` не должны быть частью search space для neural heads: ими управляют runtime defaults, scheduler и early stopping.
+
+### Execution
+
+`run_sequential_stage_tuning(...)` выполняется через `SequentialStageTuningRunner`. Runner:
+
+- идёт по стадиям в стабильном порядке;
+- строит кандидатов из search space;
+- вызывает objective;
+- сохраняет history по стадиям;
+- возвращает лучшие параметры и отчёт по кандидатам.
+
+### Runtime bridge
+
+`run_forecasting_stage_tuning_on_series(...)` связывает stage tuning с реальной временной серией. Он:
+
+- строит `ForecastTensorBatch`;
+- применяет `ForecastingSplitSpec`;
+- оценивает baseline;
+- запускает sequential tuning;
+- оценивает tuned-вариант;
+- возвращает baseline vs tuned report.
+
+## Progress и verbosity
+
+Progress policy живёт в forecasting runtime и управляет `tqdm`-индикаторами для MLP head и stage tuning.
+
+Verbosity policy живёт в `benchmark/v2` и управляет размером metadata/artifact payload:
+
+- `compact`: режет тяжёлые fold/candidate payload;
+- `standard`: сохраняет рабочий набор диагностики;
+- `debug`: добавляет runner context и подробные отчёты.
+
+## Incremental persistence и resume
+
+`benchmark/v2` сохраняет item-level checkpoints после каждой пары `model + series`. Это защищает длинные M4-прогоны от потери уже посчитанных результатов.
+
+Ключевой контракт:
+
+- `RunSpec.resume_enabled=True`
+- `RunSpec.resume_run_id="<existing_run_id>"`
+
+При resume runner:
+
+- загружает `progress/items/*.json`;
+- восстанавливает records в память;
+- пропускает уже посчитанные item-ы;
+- продолжает progress/status counters.
+
+## Result visualization module
+
+[`result_visualization.py`](../../benchmark/v2/result_visualization.py) читает item-level checkpoints из `progress/items` и строит отладочный отчёт.
+
+Поддерживает:
+
+- history + forecast plot с zoom на forecast zone;
+- fold diagnostics;
+- per-series relative gain;
+- aggregate `baseline vs tuned` scatter;
+- regime diagnostics fallback из `train_values`;
+- HTML summary с gallery history-графиков.
+
+Минимальный запуск:
+
+```powershell
+python benchmark\v2\examples\benchmark\visualize_m4_lagged_results_240426.py --series-ids D1 --plot-formats png
+```
+
+Чтобы отрисовать все доступные ряды:
+
+```powershell
+python benchmark\v2\examples\benchmark\visualize_m4_lagged_results_240426.py --max-series-plots all --plot-formats png
+```
+
+## Проверки
+
+Минимальный набор перед изменениями runtime contracts:
+
+- `tests/unit/core/models/test_forecasting_runtime.py`
+- `tests/unit/core/models/test_stage_tuning.py`
+- `tests/unit/core/models/test_stage_tuning_runtime.py`
+- `tests/unit/models/test_benchmark_v2.py`
+- `tests/unit/models/test_benchmark_v2_result_visualization.py`
