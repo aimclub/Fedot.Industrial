@@ -1,13 +1,12 @@
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecaster
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
+    LowRankLaggedRidgeForecaster
+from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import LaggedRidgeForecaster
+from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import HybridEnsembleForecaster
 import numpy as np
 import pytest
 
 pytest.importorskip('torch')
-
-from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import HybridEnsembleForecaster
-from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import LaggedRidgeForecaster
-from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
-    LowRankLaggedRidgeForecaster
-from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecaster
 
 
 def _trend_with_oscillation(length: int = 96) -> np.ndarray:

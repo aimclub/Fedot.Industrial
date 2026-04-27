@@ -1,10 +1,3 @@
-from importlib.util import find_spec
-
-import numpy as np
-import pytest
-
-pytest.importorskip('fedot.core.data.data')
-
 from fedot_ind.core.models.detection.modern_detectors import (
     ConvAutoencoderDetector,
     FeatureIsolationForestDetector,
@@ -12,6 +5,12 @@ from fedot_ind.core.models.detection.modern_detectors import (
     TCNAutoencoderDetector,
     build_detection_input_data,
 )
+from importlib.util import find_spec
+
+import numpy as np
+import pytest
+
+pytest.importorskip('fedot.core.data.data')
 
 
 def _series(length: int = 96) -> np.ndarray:

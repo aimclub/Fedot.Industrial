@@ -22,7 +22,6 @@ try:  # pragma: no cover - optional FEDOT runtime in lightweight envs
 except Exception:  # pragma: no cover
     InputData = OutputData = None
 
-
     class DataTypesEnum:  # type: ignore[override]
         table = 'table'
         ts = 'ts'
@@ -542,7 +541,7 @@ class MLPForecastingHead:
         return values * self.target_std_ + self.target_mean_
 
     def _initialize_data_statistics(self, features: torch.Tensor, target: torch.Tensor) -> tuple[
-        torch.Tensor, torch.Tensor]:
+            torch.Tensor, torch.Tensor]:
         self.input_dim_ = int(features.shape[1])
         self.output_dim_ = int(target.shape[1])
         self.feature_mean_, self.feature_std_ = self._compute_tensor_statistics(features)
@@ -615,9 +614,9 @@ class MLPForecastingHead:
     def _should_update_epoch_postfix(self, epoch_index: int) -> bool:
         resolved_epochs = int(max(1, self.epochs))
         return (
-                epoch_index == 0
-                or (epoch_index + 1) % max(1, resolved_epochs // 10) == 0
-                or epoch_index + 1 == resolved_epochs
+            epoch_index == 0
+            or (epoch_index + 1) % max(1, resolved_epochs // 10) == 0
+            or epoch_index + 1 == resolved_epochs
         )
 
     def _run_training_epoch(

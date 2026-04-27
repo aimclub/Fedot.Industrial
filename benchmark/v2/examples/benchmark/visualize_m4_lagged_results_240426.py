@@ -44,7 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Визуализация и аналитика результатов lagged_forecaster на M4 Daily benchmark.'
     )
-    parser.add_argument('--items-dir', type=Path, default=DEFAULT_ITEMS_DIR, help='Папка progress/items с checkpoint JSON.')
+    parser.add_argument('--items-dir', type=Path, default=DEFAULT_ITEMS_DIR,
+                        help='Папка progress/items с checkpoint JSON.')
     parser.add_argument(
         '--output-dir',
         type=Path,

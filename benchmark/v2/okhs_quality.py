@@ -245,14 +245,9 @@ def render_okhs_smoothing_acceptance_pack(
     else:
         markdown_lines.append('- acceptance passed')
     markdown_lines.extend(
-        [
-            '',
-            '## Series',
-            '',
-            '| series_id | status | collapse_detected | correction_applied | collapse_resolved | mae | envelope_ratio_before | envelope_ratio_after |',
-            '|---|---|---:|---:|---:|---:|---:|---:|',
-        ]
-    )
+        ['', '## Series', '',
+         '| series_id | status | collapse_detected | correction_applied | collapse_resolved | mae | envelope_ratio_before | envelope_ratio_after |',
+         '|---|---|---:|---:|---:|---:|---:|---:|',])
     for row in summary.rows:
         markdown_lines.append(
             f'| {row.series_id} | {row.status} | {row.collapse_detected} | {row.correction_applied} | '

@@ -3,9 +3,9 @@ import torch
 import numpy as np
 
 try:
-    from pymittagleffler import mittag_leffler
+    pass
 except ImportError:  # pragma: no cover - fallback for local environments without pymittagleffler
-    from fedot_ind.core.operation.transformation.representation.kernel.utils import mittag_leffler
+    pass
 
 try:
     from pycaputo.controller import make_fixed_controller
@@ -20,6 +20,7 @@ except ImportError:  # pragma: no cover - optional runtime dependency for exampl
     caputo = None
     evolve = None
 
+
 class RBFKernel:
     def __init__(self, gamma: float = 1.0):
         self.gamma = gamma
@@ -32,8 +33,9 @@ class RBFKernel:
         x_tensor = torch.as_tensor(x)
         y_tensor = torch.as_tensor(y)
         dist_sq = torch.sum((x_tensor - y_tensor) ** 2)
-        
+
         return torch.exp(-self.gamma * dist_sq).item()
+
 
 def generate_trajectories_pycaputo(
         f,

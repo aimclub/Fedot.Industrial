@@ -721,7 +721,7 @@ def _resolve_q_selection_trace(
         n_modes: int,
         method: str | OKHSMethod,
 ) -> QDecisionTrace:
-    policy = str(q_selection.policy)
+    str(q_selection.policy)
     normalized_series = np.asarray(series, dtype=float).reshape(-1)
 
     if q_selection.policy == QPolicy.FIXED or str(q_selection.policy) == QPolicy.FIXED.value:

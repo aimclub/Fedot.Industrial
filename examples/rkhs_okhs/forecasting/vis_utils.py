@@ -30,15 +30,15 @@ class OKHSForecasterWithVisualization:
 
         # 3. Сезонный ряд с множественными частотами
         self.seasonal_series = (
-                np.sin(self.time_points) +
-                0.5 * np.sin(2 * self.time_points) +
-                0.2 * np.sin(4 * self.time_points) +
-                0.1 * np.random.normal(size=len(self.time_points))
+            np.sin(self.time_points) +
+            0.5 * np.sin(2 * self.time_points) +
+            0.2 * np.sin(4 * self.time_points) +
+            0.1 * np.random.normal(size=len(self.time_points))
         )
 
         # 4. Нестационарный ряд с изменяющейся волатильностью
         self.volatile_series = np.sin(self.time_points) * (
-                1 + 0.3 * np.sin(0.3 * self.time_points)) + 0.1 * np.random.normal(size=len(self.time_points))
+            1 + 0.3 * np.sin(0.3 * self.time_points)) + 0.1 * np.random.normal(size=len(self.time_points))
         ts_monash = pd.read_csv('examples/rkhs_okhs/forecasting/MonashBitcoin_30.csv')
         self.monash_series = ts_monash[ts_monash['label'] == 'price']['value'].values
         self.series_dict = {

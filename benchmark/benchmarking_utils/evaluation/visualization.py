@@ -26,7 +26,7 @@ class ResultVisualizer:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10))
 
         # График 1: Полный ряд с прогнозами
-        full_length = len(y_true) + horizon
+        len(y_true) + horizon
         train_length = len(y_true) - horizon
 
         # Обучающая часть

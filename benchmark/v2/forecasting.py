@@ -98,8 +98,6 @@ DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'f
 class BenchmarkConfigurationError(ValueError):
     """Raised when a forecasting benchmark configuration is invalid."""
 
-    pass
-
 
 class ModelExecutionError(RuntimeError):
     """Raised when a model run produces a benchmark-level failure status."""
@@ -1582,7 +1580,7 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     """Create a forecasting model adapter from a benchmark model spec."""
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_forecasting_model_name(raw_adapter_name)
-    params = dict(spec.params)
+    dict(spec.params)
     if raw_adapter_name == 'okhs':
         return _instantiate_model_adapter(OKHSModel, spec, ('okhs', 'forecasting'))
     if adapter_name == 'okhs_fdmd_forecaster':
@@ -1951,11 +1949,21 @@ class ForecastingPostFitTuningCoordinator:
             )
         )
         return {
-            'metric_name': str(raw_config.get('metric_name', metadata_runtime.get('metric_name',
-                                                                                  self.config.run_spec.primary_metric))),
+            'metric_name': str(
+                raw_config.get(
+                    'metric_name',
+                    metadata_runtime.get(
+                        'metric_name',
+                        self.config.run_spec.primary_metric))),
             'stage_updates': raw_config.get('stage_updates'),
-            'max_values_per_parameter': int(raw_config.get('max_values_per_parameter', 3)),
-            'max_stage_candidates': int(raw_config.get('max_stage_candidates', 16)),
+            'max_values_per_parameter': int(
+                raw_config.get(
+                    'max_values_per_parameter',
+                    3)),
+            'max_stage_candidates': int(
+                raw_config.get(
+                    'max_stage_candidates',
+                    16)),
             'split_spec': _resolve_stage_tuning_split_spec(raw_config),
             'progress_policy': resolved_progress_policy,
             'verbosity_policy': resolved_verbosity_policy,
@@ -2131,8 +2139,8 @@ class ForecastingSuiteRunner:
         validate_forecasting_suite_config(config)
         self.config = config
         self.run_id = (
-                ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
-                or new_run_id(config.run_spec.run_name)
+            ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
+            or new_run_id(config.run_spec.run_name)
         )
         self.series_records: list[ForecastingSeriesRecord] = []
         self.run_records: list[BenchmarkRunRecord] = []
@@ -2307,10 +2315,10 @@ class ForecastingSuiteRunner:
                     (
                         record for record in self.run_records
                         if record.benchmark == series_record.benchmark
-                           and record.dataset_name == series_record.dataset_name
-                           and record.subset == series_record.subset
-                           and record.series_id == series_record.series_id
-                           and record.model_name == model.name
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
                     ),
                     None,
                 )
@@ -2365,10 +2373,10 @@ class ForecastingSuiteRunner:
                     (
                         record for record in self.run_records
                         if record.benchmark == series_record.benchmark
-                           and record.dataset_name == series_record.dataset_name
-                           and record.subset == series_record.subset
-                           and record.series_id == series_record.series_id
-                           and record.model_name == model.name
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
                     ),
                     None,
                 )

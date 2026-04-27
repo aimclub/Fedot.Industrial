@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import List, Tuple
 
+
 class DeepFDMDAutoencoder(nn.Module):
     def __init__(self, input_dim: int, latent_dim: int, hidden_layers: List[int] = [64, 64], dtype=torch.float64):
         super().__init__()
@@ -23,7 +24,7 @@ class DeepFDMDAutoencoder(nn.Module):
         curr_in = in_features
         for h_dim in hidden_dims:
             modules.append(nn.Linear(curr_in, h_dim, dtype=self.dtype))
-            modules.append(nn.ELU()) 
+            modules.append(nn.ELU())
             curr_in = h_dim
         modules.append(nn.Linear(curr_in, out_features, dtype=self.dtype))
         return nn.Sequential(*modules)
@@ -40,17 +41,17 @@ class DeepFDMDAutoencoder(nn.Module):
                 nn.init.xavier_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-                    
+
         nn.init.zeros_(self.encoder_net[-1].weight)
         nn.init.zeros_(self.encoder_net[-1].bias)
         nn.init.zeros_(self.decoder_net[-1].weight)
         nn.init.zeros_(self.decoder_net[-1].bias)
-        
+
         # Для энкодера: R^d -> R^m
         enc_eye = torch.eye(self.latent_dim, self.input_dim, dtype=self.dtype)
         with torch.no_grad():
             self.enc_skip.weight.copy_(enc_eye)
-            
+
         # Для декодера: R^m -> R^d
         dec_eye = torch.eye(self.input_dim, self.latent_dim, dtype=self.dtype)
         with torch.no_grad():
@@ -60,7 +61,7 @@ class DeepFDMDAutoencoder(nn.Module):
         # Композиция: нелинейный путь + линейная "тождественная" проекция
         z = self.encoder_net(x) + self.enc_skip(x)
         x_recon = self.decoder_net(z) + self.dec_skip(z)
-        
+
         return z, x_recon
 
     def encode_trajectory(self, x: torch.Tensor) -> torch.Tensor:

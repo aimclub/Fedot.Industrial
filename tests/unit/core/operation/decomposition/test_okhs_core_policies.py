@@ -83,8 +83,8 @@ def _reference_liouville_entry(transformer, trajectory_i, trajectory_j):
     integral_sum = 0.0
     for k in range(transformer.n_quad_points):
         integral_sum += weights[k] * (
-                transformer.kernel._compute_single_kernel(xi_j_vals[k], xi_i_T)
-                - transformer.kernel._compute_single_kernel(xi_j_vals[k], xi_i_0)
+            transformer.kernel._compute_single_kernel(xi_j_vals[k], xi_i_T)
+            - transformer.kernel._compute_single_kernel(xi_j_vals[k], xi_i_0)
         )
     return transformer.C_q * ((T_j / 2.0) ** transformer.q) * integral_sum
 

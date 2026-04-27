@@ -484,7 +484,11 @@ def build_improvement_case_summary(gain_frame: pd.DataFrame) -> pd.DataFrame:
             }
         )
     order = {'all': -1, **{name: index for index, name in enumerate(LOWER_IS_BETTER_METRICS)}}
-    return pd.DataFrame(rows).sort_values('metric_name', key=lambda series: series.map(order.get)).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values(
+        'metric_name',
+        key=lambda series: series.map(
+            order.get)).reset_index(
+        drop=True)
 
 
 def build_regime_diagnostics_frame(items: tuple[ForecastingProgressItemPayload, ...]) -> pd.DataFrame:
@@ -529,19 +533,15 @@ def build_regime_diagnostics_summary(regime_frame: pd.DataFrame) -> pd.DataFrame
         return pd.DataFrame(columns=columns)
     rows: list[dict[str, Any]] = []
     for regime_hint, frame in regime_frame.groupby('regime_hint', dropna=False, sort=False):
-        rows.append(
-            {
-                'regime_hint': regime_hint,
-                'series_count': int(len(frame)),
-                'mean_series_length': float(frame['series_length'].astype(float).mean()),
-                'median_dominant_period': float(frame['dominant_period'].astype(float).median()) if frame['dominant_period'].notna().any() else np.nan,
-                'mean_acf_decay_rate': float(frame['acf_decay_rate'].astype(float).mean()),
-                'mean_spectral_concentration': float(frame['spectral_concentration'].astype(float).mean()),
-                'mean_spectral_flatness': float(frame['spectral_flatness'].astype(float).mean()),
-                'mean_local_linearity_score': float(frame['local_linearity_score'].astype(float).mean()),
-                'mean_switching_score': float(frame['switching_score'].astype(float).mean()),
-            }
-        )
+        rows.append({'regime_hint': regime_hint, 'series_count': int(len(frame)),
+                     'mean_series_length': float(frame['series_length'].astype(float).mean()),
+                     'median_dominant_period': float(frame['dominant_period'].astype(float).median())
+                     if frame['dominant_period'].notna().any() else np.nan,
+                     'mean_acf_decay_rate': float(frame['acf_decay_rate'].astype(float).mean()),
+                     'mean_spectral_concentration': float(frame['spectral_concentration'].astype(float).mean()),
+                     'mean_spectral_flatness': float(frame['spectral_flatness'].astype(float).mean()),
+                     'mean_local_linearity_score': float(frame['local_linearity_score'].astype(float).mean()),
+                     'mean_switching_score': float(frame['switching_score'].astype(float).mean()), })
     return pd.DataFrame(rows).sort_values('series_count', ascending=False).reset_index(drop=True)
 
 
@@ -575,25 +575,21 @@ def build_regime_improvement_summary(
     rows: list[dict[str, Any]] = []
     for (metric_name, regime_hint), frame in merged.groupby(['metric_name', 'regime_hint'], dropna=False, sort=False):
         rows.append(
-            {
-                'metric_name': metric_name,
-                'regime_hint': regime_hint,
-                'case_count': int(len(frame)),
-                'improved_case_count': int(frame['improved'].sum()),
-                'not_improved_case_count': int((~frame['improved']).sum()),
-                'improvement_rate_pct': float(100.0 * frame['improved'].mean()),
-                'no_improvement_rate_pct': float(100.0 * (1.0 - frame['improved'].mean())),
-                'mean_relative_gain_pct': float(frame['relative_gain_pct'].astype(float).mean()),
-                'median_relative_gain_pct': float(frame['relative_gain_pct'].astype(float).median()),
-                'mean_series_length': float(frame['series_length'].astype(float).mean()),
-                'mean_dominant_period': float(frame['dominant_period'].astype(float).mean()) if frame['dominant_period'].notna().any() else np.nan,
-                'mean_acf_decay_rate': float(frame['acf_decay_rate'].astype(float).mean()),
-                'mean_spectral_concentration': float(frame['spectral_concentration'].astype(float).mean()),
-                'mean_spectral_flatness': float(frame['spectral_flatness'].astype(float).mean()),
-                'mean_local_linearity_score': float(frame['local_linearity_score'].astype(float).mean()),
-                'mean_switching_score': float(frame['switching_score'].astype(float).mean()),
-            }
-        )
+            {'metric_name': metric_name, 'regime_hint': regime_hint, 'case_count': int(len(frame)),
+             'improved_case_count': int(frame['improved'].sum()),
+             'not_improved_case_count': int((~frame['improved']).sum()),
+             'improvement_rate_pct': float(100.0 * frame['improved'].mean()),
+             'no_improvement_rate_pct': float(100.0 * (1.0 - frame['improved'].mean())),
+             'mean_relative_gain_pct': float(frame['relative_gain_pct'].astype(float).mean()),
+             'median_relative_gain_pct': float(frame['relative_gain_pct'].astype(float).median()),
+             'mean_series_length': float(frame['series_length'].astype(float).mean()),
+             'mean_dominant_period': float(frame['dominant_period'].astype(float).mean())
+             if frame['dominant_period'].notna().any() else np.nan,
+             'mean_acf_decay_rate': float(frame['acf_decay_rate'].astype(float).mean()),
+             'mean_spectral_concentration': float(frame['spectral_concentration'].astype(float).mean()),
+             'mean_spectral_flatness': float(frame['spectral_flatness'].astype(float).mean()),
+             'mean_local_linearity_score': float(frame['local_linearity_score'].astype(float).mean()),
+             'mean_switching_score': float(frame['switching_score'].astype(float).mean()), })
     order = {name: index for index, name in enumerate(LOWER_IS_BETTER_METRICS)}
     return pd.DataFrame(rows).sort_values(
         ['metric_name', 'case_count'],
@@ -646,7 +642,8 @@ class ForecastingProgressItemsVisualizer:
             )
         return pd.DataFrame(rows)
 
-    def _select_series_items(self, items: tuple[ForecastingProgressItemPayload, ...]) -> tuple[ForecastingProgressItemPayload, ...]:
+    def _select_series_items(self, items: tuple[ForecastingProgressItemPayload, ...]
+                             ) -> tuple[ForecastingProgressItemPayload, ...]:
         if self.series_ids:
             requested = {str(series_id) for series_id in self.series_ids}
             return tuple(item for item in items if item.series_id in requested)
@@ -719,9 +716,10 @@ class ForecastingProgressItemsVisualizer:
         zoom_context = max(30, int(max(1, len(actual)) * 5))
         zoom_start = max(0, len(history) - zoom_context)
         zoom_end = len(history) + len(actual)
-        zoom_index = np.arange(zoom_start, zoom_end)
+        np.arange(zoom_start, zoom_end)
         zoom_series = np.concatenate([history[zoom_start:], actual])
-        zoom_axis.plot(history_index[zoom_start:], history[zoom_start:], color='tab:blue', linewidth=1.5, label='История')
+        zoom_axis.plot(history_index[zoom_start:], history[zoom_start:],
+                       color='tab:blue', linewidth=1.5, label='История')
         zoom_axis.plot(forecast_index, actual, color='black', linewidth=2.0, label='Актуальные данные')
         if len(baseline_forecast) == len(actual):
             zoom_axis.plot(
@@ -818,7 +816,8 @@ class ForecastingProgressItemsVisualizer:
         timeline_axis.plot(np.arange(len(series)), series, color='lightgray', linewidth=1.2, label='История для CV')
         train_legend_added = False
         test_legend_added = False
-        gain_values = fold_frame['relative_gain_pct'].dropna().astype(float).to_numpy() if not fold_frame.empty else np.asarray([])
+        gain_values = fold_frame['relative_gain_pct'].dropna().astype(
+            float).to_numpy() if not fold_frame.empty else np.asarray([])
         max_abs_gain = _resolve_symmetric_gain_span(gain_values)
         norm = mcolors.TwoSlopeNorm(vmin=-max_abs_gain, vcenter=0.0, vmax=max_abs_gain)
         cmap = matplotlib.colormaps.get_cmap('RdYlGn')
@@ -831,9 +830,9 @@ class ForecastingProgressItemsVisualizer:
                 train_start,
                 train_end,
                 color='tab:blue',
-                  alpha=0.08,
-                  label='Train fold' if not train_legend_added else None,
-              )
+                alpha=0.08,
+                label='Train fold' if not train_legend_added else None,
+            )
             fold_gain = None
             if not fold_frame.empty:
                 match = fold_frame[fold_frame['fold_index'] == int(fold.get('fold_index', 0))]
@@ -966,14 +965,24 @@ class ForecastingProgressItemsVisualizer:
         axis.text(
             0.01,
             0.02,
-            'Baseline params: ' + '; '.join(f'{key}={_stringify_param_value(value)}' for key, value in baseline_params.items())
-            + '\n'
-            + 'Tuned params: ' + '; '.join(f'{key}={_stringify_param_value(value)}' for key, value in tuned_params.items()),
+            'Baseline params: ' +
+            '; '.join(
+                f'{key}={_stringify_param_value(value)}' for key,
+                value in baseline_params.items()) +
+            '\n' +
+            'Tuned params: ' +
+            '; '.join(
+                f'{key}={_stringify_param_value(value)}' for key,
+                value in tuned_params.items()),
             transform=axis.transAxes,
             fontsize=9,
             va='bottom',
             ha='left',
-            bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.85, 'edgecolor': 'lightgray'},
+            bbox={
+                'boxstyle': 'round',
+                'facecolor': 'white',
+                'alpha': 0.85,
+                'edgecolor': 'lightgray'},
         )
 
         target_dir = ensure_directory(self.output_dir / 'series_relative_gain')
@@ -1045,7 +1054,8 @@ class ForecastingProgressItemsVisualizer:
             )
             diagonal_min = float(np.nanmin(np.concatenate([baseline, tuned])))
             diagonal_max = float(np.nanmax(np.concatenate([baseline, tuned])))
-            margin = max(1e-6, 0.05 * (diagonal_max - diagonal_min if diagonal_max > diagonal_min else abs(diagonal_max) + 1.0))
+            margin = max(1e-6, 0.05 * (diagonal_max - diagonal_min if diagonal_max >
+                         diagonal_min else abs(diagonal_max) + 1.0))
             axis.plot(
                 [diagonal_min - margin, diagonal_max + margin],
                 [diagonal_min - margin, diagonal_max + margin],
@@ -1131,33 +1141,17 @@ class ForecastingProgressItemsVisualizer:
         html_path = aggregate_dir / 'visualization_summary.html'
 
         markdown_sections = [
-            '# Отчёт по визуализации benchmark-результатов',
-            '',
-            '## Общая сводка',
-            '',
-            f"- Items: {summary_context['item_count']}",
-            f"- Уникальных рядов: {summary_context['series_count']}",
-            f"- Датасетов: {summary_context['dataset_count']}",
-            '',
-            '## Сводка по метрикам',
-            '',
-            dataframe_to_markdown(gain_summary, index=False) if not gain_summary.empty else 'Нет данных',
-            '',
-            '## Процент случаев, где тюнинг помог',
-            '',
-            dataframe_to_markdown(improvement_case_summary, index=False) if not improvement_case_summary.empty else 'Нет данных',
-            '',
-            '## Агрегаты regime diagnostics',
-            '',
-            dataframe_to_markdown(regime_diagnostics_summary, index=False) if not regime_diagnostics_summary.empty else 'Нет данных',
-            '',
-            '## Связка regime diagnostics и эффекта тюнинга',
-            '',
-            dataframe_to_markdown(regime_improvement_summary, index=False) if not regime_improvement_summary.empty else 'Нет данных',
-            '',
-            '## Артефакты',
-            '',
-        ]
+            '# Отчёт по визуализации benchmark-результатов', '', '## Общая сводка', '',
+            f"- Items: {summary_context['item_count']}", f"- Уникальных рядов: {summary_context['series_count']}",
+            f"- Датасетов: {summary_context['dataset_count']}", '', '## Сводка по метрикам', '',
+            dataframe_to_markdown(gain_summary, index=False) if not gain_summary.empty else 'Нет данных', '',
+            '## Процент случаев, где тюнинг помог', '', dataframe_to_markdown(
+                improvement_case_summary, index=False) if not improvement_case_summary.empty else 'Нет данных', '',
+            '## Агрегаты regime diagnostics', '', dataframe_to_markdown(regime_diagnostics_summary, index=False)
+            if not regime_diagnostics_summary.empty else 'Нет данных', '',
+            '## Связка regime diagnostics и эффекта тюнинга', '',
+            dataframe_to_markdown(regime_improvement_summary, index=False)
+            if not regime_improvement_summary.empty else 'Нет данных', '', '## Артефакты', '',]
         for artifact in summary_context['artifacts']:
             markdown_sections.append(f"- `{artifact['kind']}` [{artifact['path']}]({artifact['path']})")
         markdown_path.write_text('\n'.join(markdown_sections), encoding='utf-8')
@@ -1169,13 +1163,11 @@ class ForecastingProgressItemsVisualizer:
 
         artifact_links = '\n'.join(
             f"<li><code>{escape(artifact['kind'])}</code> <a href=\"{escape(artifact['path'])}\">{escape(artifact['path'])}</a></li>"
-            for artifact in summary_context['artifacts']
-        )
+            for artifact in summary_context['artifacts'])
         history_plots = [
-            artifact['path']
-            for artifact in summary_context['artifacts']
-            if artifact['kind'] == 'plot' and artifact['path'].startswith('series_history_forecast/') and artifact['path'].endswith('.png')
-        ]
+            artifact['path'] for artifact in summary_context['artifacts']
+            if artifact['kind'] == 'plot' and artifact['path'].startswith('series_history_forecast/') and
+            artifact['path'].endswith('.png')]
         history_gallery = '\n'.join(
             f"""
             <div class="history-card">
@@ -1259,13 +1251,29 @@ class ForecastingProgressItemsVisualizer:
 
         artifact_manifest: list[ArtifactRecord] = []
         if not items_frame.empty:
-            artifact_manifest.extend(self._write_frame_bundle(items_frame, self.output_dir / 'aggregate' / 'items_overview'))
+            artifact_manifest.extend(
+                self._write_frame_bundle(
+                    items_frame,
+                    self.output_dir /
+                    'aggregate' /
+                    'items_overview'))
         if not gain_frame.empty:
-            artifact_manifest.extend(self._write_frame_bundle(gain_frame.drop(columns=['baseline_params', 'tuned_params']),
-                                                             self.output_dir / 'aggregate' / 'relative_metric_gains'))
+            artifact_manifest.extend(
+                self._write_frame_bundle(
+                    gain_frame.drop(
+                        columns=[
+                            'baseline_params',
+                            'tuned_params']),
+                    self.output_dir /
+                    'aggregate' /
+                    'relative_metric_gains'))
         if not gain_summary.empty:
-            artifact_manifest.extend(self._write_frame_bundle(gain_summary,
-                                                             self.output_dir / 'aggregate' / 'relative_metric_gain_summary'))
+            artifact_manifest.extend(
+                self._write_frame_bundle(
+                    gain_summary,
+                    self.output_dir /
+                    'aggregate' /
+                    'relative_metric_gain_summary'))
             artifact_manifest.extend(self._render_metric_pair_scatter(gain_frame))
         if not improvement_case_summary.empty:
             artifact_manifest.extend(

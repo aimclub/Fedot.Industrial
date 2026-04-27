@@ -107,9 +107,9 @@ def recommend_forecasting_model(
         )
 
     periodic_signature_detected = (
-            diagnostics.acf_decay_rate >= resolved.periodic_acf_min
-            and diagnostics.spectral_flatness <= resolved.periodic_flatness_max
-            and diagnostics.switching_score < resolved.switching_score_min
+        diagnostics.acf_decay_rate >= resolved.periodic_acf_min
+        and diagnostics.spectral_flatness <= resolved.periodic_flatness_max
+        and diagnostics.switching_score < resolved.switching_score_min
     )
 
     if regime_hint == 'periodic' or (

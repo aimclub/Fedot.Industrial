@@ -5,10 +5,10 @@ import sys
 from pathlib import Path
 
 MODULE_PATH = (
-        Path(__file__).resolve().parents[5]
-        / "docs"
-        / "okhs_dmd"
-        / "okhs_development_reference.py"
+    Path(__file__).resolve().parents[5]
+    / "docs"
+    / "okhs_dmd"
+    / "okhs_development_reference.py"
 )
 
 

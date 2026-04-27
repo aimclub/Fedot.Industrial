@@ -1,3 +1,26 @@
+from fedot_ind.core.operation.interfaces.neural_forecasting_strategy import (
+    FedotNNTimeSeriesStrategy as ExtractedFedotNNTimeSeriesStrategy,
+)
+from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
+    IndustrialCustomPreprocessingStrategy,
+    IndustrialForecastingPreprocessingStrategy,
+    IndustrialPreprocessingStrategy,
+)
+from fedot_ind.core.operation.interfaces.industrial_model_strategy import (
+    FedotNNTimeSeriesStrategy as LegacyFedotNNTimeSeriesStrategy,
+    IndustrialCustomRegressionStrategy,
+    IndustrialSkLearnEvaluationStrategy,
+    IndustrialSkLearnForecastingStrategy,
+    IndustrialSkLearnRegressionStrategy,
+)
+from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
+    IndustrialForecastingModelRuntimeStrategy,
+    IndustrialForecastingPreprocessingRuntimeStrategy,
+    LegacyForecastingModelRedirectMixin,
+    LegacyForecastingPreprocessingRedirectMixin,
+    should_redirect_legacy_model_strategy,
+    should_redirect_legacy_preprocessing_strategy,
+)
 import numpy as np
 import pytest
 
@@ -10,30 +33,6 @@ tasks_module = pytest.importorskip('fedot.core.repository.tasks')
 Task = tasks_module.Task
 TaskTypesEnum = tasks_module.TaskTypesEnum
 TsForecastingParams = tasks_module.TsForecastingParams
-
-from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
-    IndustrialForecastingModelRuntimeStrategy,
-    IndustrialForecastingPreprocessingRuntimeStrategy,
-    LegacyForecastingModelRedirectMixin,
-    LegacyForecastingPreprocessingRedirectMixin,
-    should_redirect_legacy_model_strategy,
-    should_redirect_legacy_preprocessing_strategy,
-)
-from fedot_ind.core.operation.interfaces.industrial_model_strategy import (
-    FedotNNTimeSeriesStrategy as LegacyFedotNNTimeSeriesStrategy,
-    IndustrialCustomRegressionStrategy,
-    IndustrialSkLearnEvaluationStrategy,
-    IndustrialSkLearnForecastingStrategy,
-    IndustrialSkLearnRegressionStrategy,
-)
-from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
-    IndustrialCustomPreprocessingStrategy,
-    IndustrialForecastingPreprocessingStrategy,
-    IndustrialPreprocessingStrategy,
-)
-from fedot_ind.core.operation.interfaces.neural_forecasting_strategy import (
-    FedotNNTimeSeriesStrategy as ExtractedFedotNNTimeSeriesStrategy,
-)
 
 
 def _build_ts_input(horizon: int = 4, length: int = 64) -> InputData:

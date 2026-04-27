@@ -1,8 +1,4 @@
-import numpy as np
-import pytest
-
-pytest.importorskip('torch')
-
+from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
 from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     ForecastingSplitKind,
     ForecastingSplitSpec,
@@ -14,7 +10,10 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     series_to_forecast_tensor_batch,
     truncate_decomposition_rank,
 )
-from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
+import numpy as np
+import pytest
+
+pytest.importorskip('torch')
 
 
 def test_forecast_tensor_batch_keeps_tensor_native_contract():

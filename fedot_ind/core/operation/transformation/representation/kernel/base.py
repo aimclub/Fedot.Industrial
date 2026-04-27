@@ -125,7 +125,7 @@ class SpectralMixtureKernel(KernelBase):
 
             # Спектральное ядро для смеси
             mixture_kernel = weight * torch.exp(-2 * torch.pi ** 2 * variance * delta_sq) * \
-                             torch.cos(2 * torch.pi * mean * torch.sqrt(delta_sq + 1e-8))
+                torch.cos(2 * torch.pi * mean * torch.sqrt(delta_sq + 1e-8))
 
             total_kernel += mixture_kernel
 
@@ -176,7 +176,7 @@ class FractionalMittagLefflerKernel(KernelBase):
                 if torch.max(torch.abs(term)) < 1e-10:
                     break
 
-            except:
+            except BaseException:
                 break
 
         return result

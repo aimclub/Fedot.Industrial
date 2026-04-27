@@ -14,7 +14,6 @@ try:  # pragma: no cover - benchmark/lightweight envs may not have fedot install
 except Exception:  # pragma: no cover
     InputData = OutputData = None
 
-
     class ModelImplementation:  # type: ignore[override]
         def __init__(self, params=None):
             self.params = params or {}
@@ -23,11 +22,9 @@ except Exception:  # pragma: no cover
             return type('OutputData', (),
                         {'predict': predict, 'data_type': data_type, 'idx': getattr(input_data, 'idx', None)})
 
-
     class OperationParameters(dict):  # type: ignore[override]
         def get(self, key, default=None):
             return super().get(key, default)
-
 
     class DataTypesEnum:  # pragma: no cover - only used in full FEDOT runtime
         table = 'table'

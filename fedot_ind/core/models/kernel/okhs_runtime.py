@@ -290,10 +290,10 @@ def resolve_okhs_last_trajectory(
 def uses_projected_okhs_representation(projection_metadata: dict[str, Any] | None,
                                        projection_runtime: dict[str, Any] | None) -> bool:
     return (
-            projection_metadata is not None
-            and projection_metadata.get('representation_policy') == 'projected'
-            and projection_metadata.get('decode_supported') is True
-            and projection_runtime is not None
+        projection_metadata is not None
+        and projection_metadata.get('representation_policy') == 'projected'
+        and projection_metadata.get('decode_supported') is True
+        and projection_runtime is not None
     )
 
 
@@ -370,7 +370,7 @@ def resolve_projected_okhs_initial_state(
 
 
 def run_okhs_dmd_prediction(model: Any, initial_trajectory: np.ndarray, forecast_horizon: int) -> tuple[
-    np.ndarray, dict[str, Any]]:
+        np.ndarray, dict[str, Any]]:
     time_step = float(getattr(model, 'dt', 1.0))
     future_times = resolve_okhs_prediction_time_grid(
         initial_trajectory_length=len(initial_trajectory),
@@ -590,9 +590,9 @@ def analyze_okhs_smoothing_collapse(
     envelope_ratio = float(forecast_amplitude / max(train_tail_amplitude, 1e-8))
     forecast_monotone_ratio = _monotone_ratio(forecast_slice)
     collapse_detected = (
-            oscillation_score >= float(oscillation_floor)
-            and forecast_monotone_ratio >= float(monotone_ratio_threshold)
-            and envelope_ratio <= float(amplitude_ratio_threshold)
+        oscillation_score >= float(oscillation_floor)
+        and forecast_monotone_ratio >= float(monotone_ratio_threshold)
+        and envelope_ratio <= float(amplitude_ratio_threshold)
     )
     return {
         'tail_window': int(resolved_tail_window),

@@ -24,7 +24,6 @@ try:  # pragma: no cover - benchmark/lightweight envs may not have fedot install
 except Exception:  # pragma: no cover
     InputData = OutputData = None
 
-
     class ModelImplementation:  # type: ignore[override]
         def __init__(self, params=None):
             self.params = params or {}
@@ -36,11 +35,9 @@ except Exception:  # pragma: no cover
                 {'predict': predict, 'data_type': data_type, 'idx': getattr(input_data, 'idx', None)},
             )
 
-
     class OperationParameters(dict):  # type: ignore[override]
         def get(self, key, default=None):
             return super().get(key, default)
-
 
     class DataTypesEnum:  # pragma: no cover
         table = 'table'
@@ -137,8 +134,8 @@ def build_neural_forecasting_stage_diagnostics(
     resolved_params = normalize_neural_forecasting_params(params)
     resolved_runtime = dict(runtime_diagnostics or {})
     resolved_context_length = (
-            resolved_runtime.get('resolved_context_length')
-            or resolved_runtime.get('resolved_patch_len')
+        resolved_runtime.get('resolved_context_length')
+        or resolved_runtime.get('resolved_patch_len')
     )
 
     trajectory_transform = {
