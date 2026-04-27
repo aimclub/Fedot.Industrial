@@ -680,3 +680,13 @@ orchestration/framework layer со своими contracts.
 
 **В `Fedot.Industrial` мы стараемся превращать неявную procedural-логику в typed, testable и composable contracts,
 сохраняя public shells тонкими, а domain-логику — явной, локализованной и проверяемой.**
+
+## 14. Release-ready forecasting documentation
+
+Перед публикацией forecasting-ветки и при дальнейшем onboarding стоит читать общий guide вместе с отдельными forecasting-документами:
+
+- [forecasting_runtime_api_reference.md](./forecasting_runtime_api_reference.md) — текущие runtime contracts, stage tuning, policies, persistence/resume и visualizer API.
+- [forecasting_models_reference.md](./forecasting_models_reference.md) — model families, stage decomposition, tuning/non-tuning параметры и diagnostics.
+- [benchmark_v2_forecasting_guide.md](./benchmark_v2_forecasting_guide.md) — `ForecastingSuiteRunner`, item-level persistence, resume mode, post-fit tuning comparison и публикационные artifacts.
+- [forecasting_branch_development_history.md](./forecasting_branch_development_history.md) — история решений ветки и сознательные ограничения перед merge.
+- [forecasting_merge_artifact_policy.md](./forecasting_merge_artifact_policy.md) — что нельзя тащить в PR: benchmark outputs, `progress/items`, datasets, checkpoints, archives и визуализации.
