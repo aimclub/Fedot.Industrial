@@ -2,21 +2,51 @@ import gc
 import logging
 import os
 import shutil
+import warnings
 from abc import ABC
 from copy import deepcopy
 from typing import Union
 
 import pandas as pd
 
-from benchmark.abstract_bench import AbstractBenchmark
-from fedot_ind import __version__
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
-from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.metrics.metrics_implementation import Accuracy
-from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
-from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH, BENCHMARK_RESULTS_PATH
+from benchmark.v2.api import run_tsc_benchmark_from_legacy_config
+
+LEGACY_IMPORT_ERROR = None
+
+try:
+    from benchmark.abstract_bench import AbstractBenchmark
+    from fedot_ind import __version__
+    from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+    from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+    from fedot_ind.core.architecture.settings.computational import backend_methods as np
+    from fedot_ind.core.metrics.metrics_implementation import Accuracy
+    from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
+    from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
+    from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH, BENCHMARK_RESULTS_PATH
+except Exception as exc:  # pragma: no cover - legacy-only fallback
+    LEGACY_IMPORT_ERROR = exc
+
+    class AbstractBenchmark:
+        def __init__(self, output_dir=None):
+            self.output_dir = output_dir
+
+    __version__ = 'unknown'
+
+    class ResultsPicker:
+        def __init__(self, path=None):
+            self.path = path
+
+        def run(self, *args, **kwargs):
+            return pd.DataFrame()
+
+    ApiTemplate = None
+    np = None
+    Accuracy = None
+    DEFAULT_COMPUTE_CONFIG = {'output_folder': './benchmark/results'}
+    MULTI_CLF_BENCH = []
+    UNI_CLF_BENCH = []
+    PROJECT_PATH = os.getcwd()
+    BENCHMARK_RESULTS_PATH = os.path.join(PROJECT_PATH, 'benchmark', 'results')
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
@@ -61,7 +91,16 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.result_dir = os.path.join(output_folder, self.result_dir_name)
         self.results_picker = ResultsPicker(path=os.path.abspath(output_folder))
 
+    @staticmethod
+    def _ensure_legacy_dependencies():
+        if LEGACY_IMPORT_ERROR is not None:
+            raise ImportError(
+                'Legacy BenchmarkTSC dependencies are unavailable in this environment. '
+                'Use `use_benchmark_v2=True` or install the legacy stack.'
+            ) from LEGACY_IMPORT_ERROR
+
     def _run_model_versus_model(self, dataset_name, comparison_dict: dict):
+        self._ensure_legacy_dependencies()
         approach_dict = {}
         metric_name = self.learning_config.get('optimisation_loss', {}).get('quality_loss', 'accuracy')
         for approach, node_dict in comparison_dict.items():
@@ -75,11 +114,22 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         return approach_dict
 
     def _run_industrial_versus_sota(self, dataset_name):
+        self._ensure_legacy_dependencies()
         experiment_setup = deepcopy(self.experiment_setup)
         prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
         return Accuracy(target, prediction).metric()
 
     def run(self):
+        if self.experiment_setup.get('use_benchmark_v2'):
+            warnings.warn(
+                'BenchmarkTSC.run is delegating to benchmark.v2. '
+                'Use benchmark.v2.run_tsc_benchmark_suite directly for new code.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return run_tsc_benchmark_from_legacy_config(self.experiment_setup)
+
+        self._ensure_legacy_dependencies()
         self.logger.info('Benchmark run started')
         basic_results = self.load_local_basic_results()
         for dataset_name in self.custom_datasets:
@@ -101,6 +151,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.logger.info('Benchmark run finished')
 
     def finetune(self):
+        self._ensure_legacy_dependencies()
         # TODO: fix finetune method, set valid paths and refactor
         self.logger.info('Benchmark finetune started')
         dataset_result = {}
@@ -157,6 +208,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.logger.info("Benchmark finetune finished")
 
     def load_local_basic_results(self):
+        self._ensure_legacy_dependencies()
         try:
             results = pd.read_csv(self.comparison_file_path, index_col=0)
         except Exception as e:
@@ -165,6 +217,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         return results
 
     def create_report(self):
+        self._ensure_legacy_dependencies()
         # TODO: fix create_report method, set valid paths and refactor
         _ = []
         names = []

@@ -118,4 +118,34 @@ venv.bak/
 
 .local/
 
-*.lock
+.vscode/
+
+# Benchmark and experiment outputs
+benchmark/results/
+benchmark/results*.7z
+benchmark/v2/examples/benchmark/results/
+benchmark/v2/examples/**/results/
+benchmark/v2/examples/**/visualizations/
+results_of_experiments/
+
+# Local datasets and generated demo assets
+data/
+fedot_ind/data/
+examples/data/
+examples/**/data/
+examples/**/dataset/
+examples/**/composition_results/
+examples/**/benchmark_results/
+examples/**/model_checkpoint/
+examples/**/plots_archive/
+examples/**/predict_on_train/
+examples/**/predict_on_val/
+examples/**/predict_on_test/
+
+# Heavy generated artifacts
+*.7z
+*.zip
+*.pth
+*.stl
+*.ply
+*.gif

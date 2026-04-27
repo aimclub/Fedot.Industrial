@@ -4,7 +4,6 @@ from typing import Optional, Tuple, Union
 import pandas as pd
 import torch
 import torch.optim as optim
-import torch.optim.lr_scheduler as lr_scheduler
 import torch.utils.data as data
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -17,12 +16,19 @@ from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from fedot_ind.core.models.nn.network_modules.layers.special import EarlyStopping
+from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
+    DEFAULT_FORECASTING_NN_BATCH_SIZE,
+    DEFAULT_FORECASTING_NN_DEVICE,
+    DEFAULT_FORECASTING_NN_EPOCHS,
+    DEFAULT_FORECASTING_NN_LEARNING_RATE,
+    build_plateau_scheduler,
+    normalize_neural_forecasting_params,
+    resolve_neural_forecasting_device,
+    resolve_neural_patch_length,
+)
 from fedot_ind.core.models.nn.network_modules.losses import (
     NormalDistributionLoss, CauchyDistributionLoss)
-from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 
 __all__ = ['DeepAR']
 
@@ -211,13 +217,14 @@ class DeepAR(BaseNeuralModel):
     Variational Inference + Probable Anomaly detection"""
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
+        normalized_params = normalize_neural_forecasting_params(dict(params or {}))
+        super().__init__(normalized_params)
         # training settings
-        self.epochs = self.params.get('epochs', 150)
-        self.learning_rate = self.params.get('learning_rate', 0.001)
-        self.batch_size = self.params.get('batch_size', 16)
-        self.device = self.params.get('device', 'cpu')
-        self.device = default_device(self.device)
+        self.epochs = self.params.get('epochs', DEFAULT_FORECASTING_NN_EPOCHS)
+        self.learning_rate = self.params.get('learning_rate', DEFAULT_FORECASTING_NN_LEARNING_RATE)
+        self.batch_size = self.params.get('batch_size', DEFAULT_FORECASTING_NN_BATCH_SIZE)
+        self.device_name = str(self.params.get('device', DEFAULT_FORECASTING_NN_DEVICE))
+        self.device = resolve_neural_forecasting_device(self.device_name)
         # architecture settings
         self.activation = self.params.get('activation', 'tanh')
         self.cell_type = self.params.get('cell_type', 'GRU')  # LSTM is unstable?
@@ -239,6 +246,11 @@ class DeepAR(BaseNeuralModel):
 
         # additional
         self._prediction_averaging_factor = self.params.get('prediction_averaging_factor', 17)
+        self.scheduler_patience = int(self.params.get('scheduler_patience', 8))
+        self.scheduler_factor = float(self.params.get('scheduler_factor', 0.5))
+        self.scheduler_min_lr = float(self.params.get('scheduler_min_lr', 1e-5))
+        self.early_stopping_patience = int(self.params.get('early_stopping_patience', 12))
+        self.early_stopping_min_delta = float(self.params.get('early_stopping_min_delta', 1e-5))
 
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
@@ -253,7 +265,6 @@ class DeepAR(BaseNeuralModel):
             distribution=self.expected_distribution,
             prediction_averaging_factor=self._prediction_averaging_factor).to(
             self.device)
-        self._evaluate_num_of_epochs(ts)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         return self.loss_fn, self.optimizer
@@ -261,6 +272,13 @@ class DeepAR(BaseNeuralModel):
     def fit(self, input_data: InputData):
         if len(input_data.target.shape) >= 2:
             self.preprocess_to_lagged = True
+        if not self.preprocess_to_lagged:
+            self.patch_len = resolve_neural_patch_length(
+                input_data.features,
+                forecast_horizon=int(max(1, self.horizon)),
+                requested_patch_len=self.patch_len,
+                multiplier=2.0,
+            )
         train_loader, val_loader = self._prepare_data(input_data,
                                                       split_data=False,
                                                       horizon=1,
@@ -286,10 +304,6 @@ class DeepAR(BaseNeuralModel):
             self.patch_len = input_data.features.shape[-1]
             train_loader = self._create_torch_loader(input_data, is_train)
         else:
-            if self.patch_len is None:
-                dominant_window_size = WindowSizeSelector(
-                    method='dff').get_window_size(input_data.features)
-                self.patch_len = 2 * dominant_window_size
             train_loader, val_loader = self._get_train_val_loaders(input_data.features,
                                                                    self.patch_len,
                                                                    split_data,
@@ -379,55 +393,64 @@ class DeepAR(BaseNeuralModel):
                     val_loader,
                     optimizer,
                     val_interval=10):
-        def train_one_batch(iter, batch):
-            batch_x, batch_y = batch[0], batch[1]
-            iter += 1
-            optimizer.zero_grad()
-            batch_x = (batch_x.float()).to(self.device)
-            batch_y = batch_y[:, ..., [0]].float().to(self.device)  # only first entrance
-            outputs, *hidden_state = model(batch_x)
-            loss = loss_fn(outputs, batch_y, self.model.scaler)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-            optimizer.step()
-            scheduler.step()
-            return loss.item()
+        scheduler = build_plateau_scheduler(
+            optimizer,
+            factor=self.scheduler_factor,
+            patience=self.scheduler_patience,
+            min_lr=self.scheduler_min_lr,
+        )
+        best_model = deepcopy(model)
+        best_loss = float('inf')
+        best_epoch = 0
+        patience_counter = 0
 
-        def val_one_epoch(iter, batch):
-            model.eval()
-            val_loss = 0.0
-            total = 0
-            inputs, targets = batch
-            output = model(inputs)
-            loss = loss_fn(output, targets.float())
-            val_loss += loss.data.item() * inputs.size(0)
-            total += inputs.size(0)
-            val_loss /= total
-            if val_loss < val_loss:
-                deepcopy(model)
-
-        train_steps, early_stopping, best_model, best_val_loss = max(1, len(train_loader)), EarlyStopping(), \
-            None, float('inf')
-        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                            steps_per_epoch=train_steps,
-                                            epochs=self.epochs,
-                                            max_lr=self.learning_rate)
-        for epoch in tqdm(range(self.epochs)):
-            iter_count = 0
+        for epoch in tqdm(range(self.epochs), desc='DeepAR fit', unit='epoch'):
             model.train()
-            train_loss = list(map(lambda batch_tuple: train_one_batch(iter_count, batch_tuple), train_loader))
-            train_loss = np.average(train_loss)
-            if val_loader is not None and epoch % val_interval == 0:
-                valid_loss = list(map(lambda batch_tuple: val_one_epoch(iter_count, batch_tuple), val_loader))
-            last_lr = scheduler.get_last_lr()[0]
+            batch_losses = []
+            for batch_x, batch_y in train_loader:
+                optimizer.zero_grad(set_to_none=True)
+                batch_x = batch_x.float().to(self.device)
+                batch_y = batch_y[:, ..., [0]].float().to(self.device)
+                outputs, *hidden_state = model(batch_x)
+                loss = loss_fn(outputs, batch_y, self.model.scaler)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                optimizer.step()
+                batch_losses.append(float(loss.detach().cpu().item()))
+
+            train_loss = float(np.average(batch_losses)) if batch_losses else 0.0
+            monitored_loss = train_loss
+            if val_loader is not None and epoch % max(1, val_interval) == 0:
+                model.eval()
+                val_losses = []
+                with torch.no_grad():
+                    for batch_x, batch_y in val_loader:
+                        batch_x = batch_x.float().to(self.device)
+                        batch_y = batch_y[:, ..., [0]].float().to(self.device)
+                        outputs, *hidden_state = model(batch_x)
+                        val_loss = loss_fn(outputs, batch_y, self.model.scaler)
+                        val_losses.append(float(val_loss.detach().cpu().item()))
+                if val_losses:
+                    monitored_loss = float(np.average(val_losses))
+
+            scheduler.step(monitored_loss)
             if epoch % 25 == 0:
-                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(epoch + 1, train_steps, train_loss))
-                print('Updating learning rate to {}'.format(last_lr))
-            if early_stopping.early_stop:
-                print("Early stopping")
+                print(f"Epoch: {epoch + 1}, Train Loss: {train_loss:.7f}")
+                print(f'Updating learning rate to {optimizer.param_groups[0]["lr"]}')
+
+            if monitored_loss + self.early_stopping_min_delta < best_loss:
+                best_loss = monitored_loss
+                best_epoch = int(epoch) + 1
+                patience_counter = 0
+                best_model = deepcopy(model)
+            else:
+                patience_counter += 1
+            if patience_counter >= self.early_stopping_patience:
                 break
 
-        return model
+        self.best_epoch_ = int(best_epoch)
+        self.best_loss_ = float(best_loss)
+        return best_model
 
     def _get_train_val_loaders(self,
                                ts,
@@ -470,7 +493,7 @@ class DeepAR(BaseNeuralModel):
                 idx = pd.to_datetime(time_series['datetime'].values)
             else:
                 idx = np.arange(len(time_series.values.flatten()))
-            time_series = time_series.value
+            time_series = time_series.values
         else:
             time_series = input_data
             idx = np.arange(len(time_series.flatten()))
@@ -498,3 +521,30 @@ class DeepAR(BaseNeuralModel):
         train_loader = torch.utils.data.DataLoader(data.TensorDataset(
             features, target), batch_size=batch_size, shuffle=False)
         return train_loader
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(self.test_patch_len or self.patch_len or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'best_epoch': int(getattr(self, 'best_epoch_', 0) or 0),
+                'best_loss': float(getattr(self, 'best_loss_', 0.0) or 0.0),
+                'scheduler': 'ReduceLROnPlateau',
+                'scheduler_patience': int(self.scheduler_patience),
+                'scheduler_factor': float(self.scheduler_factor),
+                'scheduler_min_lr': float(self.scheduler_min_lr),
+                'early_stopping_patience': int(self.early_stopping_patience),
+                'early_stopping_min_delta': float(self.early_stopping_min_delta),
+            },
+            'architecture': {
+                'cell_type': str(self.cell_type),
+                'hidden_size': int(self.hidden_size),
+                'rnn_layers': int(self.rnn_layers),
+                'dropout': float(self.dropout),
+                'expected_distribution': str(self.expected_distribution),
+                'prediction_averaging_factor': int(self._prediction_averaging_factor),
+            },
+        }

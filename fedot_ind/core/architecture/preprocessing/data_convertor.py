@@ -298,7 +298,7 @@ class NumpyConverter:
         if isinstance(data, np.ndarray):
             return data
         elif isinstance(data, torch.Tensor):
-            return data.detach().numpy()
+            return data.detach().cpu().numpy()
         elif isinstance(data, pd.DataFrame):
             return data.values
         elif isinstance(data, InputData):

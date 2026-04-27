@@ -229,12 +229,22 @@ def update_column_types_industrial(self, output_data: OutputData):
     """Update column types after lagged transformation. All features becomes ``float``
     """
 
-    _, features_n_cols, _ = output_data.predict.shape
+    predict_shape = output_data.predict.shape
+    if len(predict_shape) == 1:
+        features_n_cols = 1
+    elif len(predict_shape) == 2:
+        _, features_n_cols = predict_shape
+    else:
+        _, features_n_cols = predict_shape[:2]
     feature_type_ids = np.array([TYPE_TO_ID[float]] * features_n_cols)
     col_type_ids = {'features': feature_type_ids}
 
     if output_data.target is not None and len(output_data.target.shape) > 1:
-        _, target_n_cols = output_data.target.shape
+        target_shape = output_data.target.shape
+        if len(target_shape) == 2:
+            _, target_n_cols = target_shape
+        else:
+            _, target_n_cols = target_shape[:2]
         target_type_ids = np.array([TYPE_TO_ID[float]] * target_n_cols)
         col_type_ids['target'] = target_type_ids
     output_data.supplementary_data.col_type_ids = col_type_ids
@@ -388,7 +398,7 @@ def predict_operation_industrial(
             predict_data=data,
             output_mode=output_mode)
     try:
-        prediction.predict = prediction.predict.detach().numpy()
+        prediction.predict = prediction.predict.detach().cpu().numpy()
     except Exception:
         _ = 1
     prediction = self.assign_tabular_column_types(prediction, output_mode)

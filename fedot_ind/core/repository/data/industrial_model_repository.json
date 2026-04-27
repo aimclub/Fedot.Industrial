@@ -96,8 +96,8 @@
       "input_type": "[DataTypesEnum.ts]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
-        "IndustrialSkLearnForecastingStrategy"
+        "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+        "IndustrialForecastingModelRuntimeStrategy"
       ],
       "tags": [
         "time_series"
@@ -221,7 +221,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "fedot_ind.core.operation.interfaces.neural_forecasting_strategy",
         "FedotNNTimeSeriesStrategy"
       ],
       "tags": [
@@ -254,6 +254,28 @@
       "tags": [
         "decomposition"
       ]
+    },
+    "mssa_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "decomposition",
+        "low_rank"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "havok_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "operator_model",
+        "decomposition"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
     },
      "fedot_cls": {
       "meta": "fedot_automl_classification",
@@ -299,12 +321,17 @@
       ]
     },
     "tst_model": {
-      "meta": "fedot_NN_classification",
+      "meta": "ts_model",
       "presets": [
-        "best_quality"
+        "fast_train",
+        "best_quality",
+        "ts"
       ],
       "tags": [
-      ]
+        "deep",
+        "ts_model"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
     },
     "sst": {
       "meta": "fedot_anomaly_detection",
@@ -381,7 +408,7 @@
       ]
     },
     "patch_tst_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": ["fast_train", "best_quality", "ts"],
       "tags": [
         "deep", "ts_model"
@@ -389,7 +416,7 @@
 	  "input_type": "[DataTypesEnum.ts]"
     },
     "tcn_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": [
         "fast_train",
         "best_quality",
@@ -402,7 +429,7 @@
       "input_type": "[DataTypesEnum.ts]"
     },
     "deepar_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": [
         "ts"
       ],
@@ -431,6 +458,54 @@
         "ts"
       ],
       "tags": [],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "lagged_ridge_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "linear",
+        "lagged",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "low_rank_lagged_ridge_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "linear",
+        "low_rank",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "hybrid_ensemble_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "ensemble",
+        "operator_model",
+        "tensor_native"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "okhs_fdmd_forecaster": {
+      "meta": "ts_model",
+      "presets": [
+        "ts"
+      ],
+      "tags": [
+        "operator_model",
+        "okhs",
+        "tensor_native"
+      ],
       "input_type": "[DataTypesEnum.ts]"
     },
     "adareg": {
@@ -631,7 +706,7 @@
       ]
     },
     "nbeats_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": ["fast_train", "best_quality", "ts"],
       "tags": [
         "deep", "ts_model"

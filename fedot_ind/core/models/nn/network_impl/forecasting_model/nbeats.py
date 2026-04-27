@@ -9,8 +9,15 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn
 
-from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
+    DEFAULT_FORECASTING_NN_BATCH_SIZE,
+    DEFAULT_FORECASTING_NN_DEVICE,
+    DEFAULT_FORECASTING_NN_EPOCHS,
+    DEFAULT_FORECASTING_NN_LEARNING_RATE,
+    normalize_neural_forecasting_params,
+    resolve_neural_forecasting_device,
+)
 from fedot_ind.core.models.nn.network_modules.layers.forecasting.nbeats import _NBeatsStack, NBeatsNet
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
@@ -38,10 +45,14 @@ class NBeatsModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
+        normalized_params = normalize_neural_forecasting_params(dict(params or {}))
+        super().__init__(normalized_params)
         self.is_generic_architecture = self.params.get("is_generic_architecture", True)
-        self.epochs = self.params.get("epochs", 10)
-        self.batch_size = self.params.get("batch_size", 16)
+        self.epochs = self.params.get("epochs", DEFAULT_FORECASTING_NN_EPOCHS)
+        self.batch_size = self.params.get("batch_size", DEFAULT_FORECASTING_NN_BATCH_SIZE)
+        self.learning_rate = self.params.get("learning_rate", DEFAULT_FORECASTING_NN_LEARNING_RATE)
+        self.device_name = str(self.params.get('device', DEFAULT_FORECASTING_NN_DEVICE))
+        self.device = resolve_neural_forecasting_device(self.device_name)
         self.loss = self.params.get("loss", 'mse')
         self.optimizer = self.params.get("optimizer", 'adam')
         self.activation = 'None'
@@ -65,14 +76,23 @@ class NBeatsModel(BaseNeuralModel):
         self.backcast_length = 3 * ts.task.task_params.forecast_length
         self.model = NBeatsNet(
             stack_types=(NBeatsNet.GENERIC_BLOCK, NBeatsNet.GENERIC_BLOCK),
-            device=default_device(),
+            device=self.device,
             forecast_length=self.forecast_length,
             backcast_length=self.backcast_length,
             hidden_layer_units=128,
         )
-        self.model.compile(optimizer=self.optimizer, loss=self.loss)
+        optimizer = self._build_optimizer()
+        self.model.compile(optimizer=optimizer, loss=self.loss)
         self.is_training = True
         self.split_ratio = int(len(ts.features) * 0.8)
+
+    def _build_optimizer(self):
+        optimizer_name = str(self.optimizer).lower()
+        if optimizer_name == 'sgd':
+            return torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+        if optimizer_name == 'rmsprop':
+            return torch.optim.RMSprop(self.model.parameters(), lr=self.learning_rate)
+        return torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def data_generator(self, x, y, size):
         assert len(x) == len(y)
@@ -91,12 +111,10 @@ class NBeatsModel(BaseNeuralModel):
                                     strides=1)
         return x_trajectory.trajectory_matrix.swapaxes(0, 1)
 
-    def _fit_model(self, ts: InputData):
-
+    def _prepare_training_data(self, ts: InputData):
         self._init_model(ts)
         ts_val = deepcopy(ts)
 
-        # data backcast/forecast generation.
         ts.features[:self.split_ratio], ts_val.features[:self.split_ratio] = \
             ts.features[:self.split_ratio], ts_val.features[:self.split_ratio]
         self.norm_constant = np.max(ts.features)
@@ -111,18 +129,47 @@ class NBeatsModel(BaseNeuralModel):
             self.norm_constant, val_target / self.norm_constant
 
         self.is_training = False
+        return x_train, y_train, val_transformed, val_target
 
+    def _fit_network(self, x_train, y_train, val_transformed, val_target):
         self.model.fit(x_train=x_train,
                        y_train=y_train,
                        validation_data=(val_transformed, val_target),
                        epochs=self.epochs,
                        batch_size=self.batch_size)
 
+    def _fit_model(self, ts: InputData):
+        x_train, y_train, val_transformed, val_target = self._prepare_training_data(ts)
+        self._fit_network(x_train, y_train, val_transformed, val_target)
+
     def _predict_model(self, x_test, output_mode: str = 'default'):
         x_test_lagged = self._create_predict_data(x_test)
         x_predict_lagged = self.model.predict(x_test_lagged)
         forecast = x_predict_lagged[-1:, :].flatten()
         return forecast
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(getattr(self, 'backcast_length', 0) or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'optimizer': str(self.optimizer),
+                'loss': str(self.loss),
+            },
+            'architecture': {
+                'is_generic_architecture': bool(self.is_generic_architecture),
+                'n_stacks': int(self.n_stacks),
+                'layers': int(self.layers),
+                'layer_size': int(self.layer_size),
+                'n_trend_blocks': int(self.n_trend_blocks),
+                'n_seasonality_blocks': int(self.n_seasonality_blocks),
+                'n_of_harmonics': int(self.n_of_harmonics),
+                'degree_of_polynomial': int(self.degree_of_polynomial),
+            },
+        }
 
 
 class NBeats(nn.Module):

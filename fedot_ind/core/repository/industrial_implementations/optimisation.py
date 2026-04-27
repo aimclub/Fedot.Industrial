@@ -113,7 +113,7 @@ class IndustrialMutations:
         node_mutation_probability = get_mutation_prob(mut_id=parameters.mutation_strength,
                                                       node=pipeline.root_node)
         for node in pipeline.nodes:
-            lagged = node.operation.metadata.id in ('lagged', 'sparse_lagged', 'exog_ts')
+            lagged = node.operation.metadata.id in ('lagged', 'hankelisation', 'sparse_lagged', 'exog_ts')
             do_mutation = random() < (node_mutation_probability * (0.5 if lagged else 1))
             if do_mutation:
                 operation_name = node.operation.operation_type
@@ -673,7 +673,7 @@ def has_no_lagged_conflicts_in_ts_pipeline(pipeline: Pipeline):
         if len(parent_nodes) == 0:
             return True
         for parent in parent_nodes:
-            is_lagged = parent.name == 'lagged'
+            is_lagged = parent.name in ('lagged', 'hankelisation')
             check_condition = all([current_operation in non_lagged_models, is_lagged])
             if check_condition:
                 return False

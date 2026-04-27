@@ -1,5 +1,6 @@
 from typing import Tuple, Union, Optional
 
+import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -94,6 +95,9 @@ class CURDecomposition:
         return np.linalg.norm(original_tensor - C @ U @ R)
 
     def _balance_target(self, target):
+        if target is None:
+            self.classes_idx = None
+            return
         classes = np.unique(target)
         self.classes_idx = [np.where(target == cls)[0] for cls in classes]
 

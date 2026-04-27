@@ -1,23 +1,53 @@
 import logging
 import os
+import warnings
 from abc import ABC
 from copy import deepcopy
 
-import matplotlib
 import pandas as pd
-from fedot.core.pipelines.node import PipelineNode
-from fedot.core.pipelines.pipeline import Pipeline
 
-from benchmark.abstract_bench import AbstractBenchmark
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
-from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
-from fedot_ind.core.metrics.metrics_implementation import RMSE
-from fedot_ind.core.repository.constanst_repository import MULTI_REG_BENCH
-from fedot_ind.tools.loader import DataLoader
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from benchmark.v2.api import run_tser_benchmark_from_legacy_config
 
-matplotlib.use('TkAgg')
+LEGACY_IMPORT_ERROR = None
+
+try:
+    import matplotlib
+    from fedot.core.pipelines.node import PipelineNode
+    from fedot.core.pipelines.pipeline import Pipeline
+
+    from benchmark.abstract_bench import AbstractBenchmark
+    from fedot_ind.api.main import FedotIndustrial
+    from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+    from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+    from fedot_ind.core.metrics.metrics_implementation import RMSE
+    from fedot_ind.core.repository.constanst_repository import MULTI_REG_BENCH
+    from fedot_ind.tools.loader import DataLoader
+    from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+
+    matplotlib.use('TkAgg')
+except Exception as exc:  # pragma: no cover - legacy-only fallback
+    LEGACY_IMPORT_ERROR = exc
+
+    class AbstractBenchmark:
+        def __init__(self, output_dir=None):
+            self.output_dir = output_dir
+
+    class ResultsPicker:
+        def __init__(self, path=None):
+            self.path = path
+
+        def run(self, *args, **kwargs):
+            return pd.DataFrame()
+
+    matplotlib = None
+    PipelineNode = None
+    Pipeline = None
+    FedotIndustrial = None
+    ApiTemplate = None
+    RMSE = None
+    MULTI_REG_BENCH = []
+    DataLoader = None
+    PROJECT_PATH = os.getcwd()
 
 
 class BenchmarkTSER(AbstractBenchmark, ABC):
@@ -42,7 +72,16 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         self.results_picker = ResultsPicker(
             path=os.path.abspath(self.output_dir))
 
+    @staticmethod
+    def _ensure_legacy_dependencies():
+        if LEGACY_IMPORT_ERROR is not None:
+            raise ImportError(
+                'Legacy BenchmarkTSER dependencies are unavailable in this environment. '
+                'Use `use_benchmark_v2=True` or install the legacy stack.'
+            ) from LEGACY_IMPORT_ERROR
+
     def _run_model_versus_model(self, dataset_name, comparasion_dict):
+        self._ensure_legacy_dependencies()
         approach_dict = {}
         for approach in comparasion_dict.keys():
             result_dict = ApiTemplate(api_config=self.experiment_setup,
@@ -55,11 +94,22 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         return approach_dict
 
     def _run_industrial_versus_sota(self, dataset_name):
+        self._ensure_legacy_dependencies()
         experiment_setup = deepcopy(self.experiment_setup)
         prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
         return RMSE(target, prediction).metric()
 
     def run(self):
+        if self.experiment_setup.get('use_benchmark_v2'):
+            warnings.warn(
+                'BenchmarkTSER.run is delegating to benchmark.v2. '
+                'Use benchmark.v2.run_tser_benchmark_suite directly for new code.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return run_tser_benchmark_from_legacy_config(self.experiment_setup)
+
+        self._ensure_legacy_dependencies()
         self.logger.info('Benchmark test started')
         basic_results = self.load_local_basic_results()
         metric_dict = {}
@@ -82,6 +132,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         self.logger.info("Benchmark test finished")
 
     def load_local_basic_results(self, path: str = None):
+        self._ensure_legacy_dependencies()
         if path is None:
             path = PROJECT_PATH + '/benchmark/results/time_series_multi_reg_comparasion.csv'
             results = pd.read_csv(path, sep=';', index_col=0)
@@ -94,6 +145,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
             return self.results_picker.run(get_metrics_df=True, add_info=True)
 
     def finetune(self):
+        self._ensure_legacy_dependencies()
         for dataset_name in self.custom_datasets:
             experiment_setup = deepcopy(self.experiment_setup)
             path_to_results = PROJECT_PATH + \
@@ -116,6 +168,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         self.logger.info("Benchmark finetune finished")
 
     def finetune_loop(self, dataset, experiment_setup, composed_model_path):
+        self._ensure_legacy_dependencies()
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
         if 'tuning_params' in experiment_setup.keys():
             tuning_params = experiment_setup['tuning_params']
@@ -130,6 +183,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         return prediction, model
 
     def show_composite_pipeline(self):
+        self._ensure_legacy_dependencies()
         for dataset_name in self.custom_datasets:
             composed_model_path = PROJECT_PATH + '/benchmark/results/ts_regression' + \
                 f'/{dataset_name}' + '/0_pipeline_saved'

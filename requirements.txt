@@ -16,3 +16,6 @@ datasets==2.0.0
 spectrum==0.8.1
 optuna-integration==4.1.0
 pytest-cov==6.0.0
+
+pycaputo >= 0.10.1
+pymittagleffler>=0.1.3

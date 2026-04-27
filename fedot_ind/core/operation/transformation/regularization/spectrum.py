@@ -2,7 +2,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_BETA_THR, SINGULAR_VALUE_MEDIAN_THR
 
 
-def sv_to_explained_variance_ratio(singular_values):
+def sv_to_explained_variance_ratio(singular_values, explained_var=95.0):
     """Calculate the explained variance ratio of the singular values.
 
     Args:
@@ -16,8 +16,14 @@ def sv_to_explained_variance_ratio(singular_values):
     """
     singular_values = [abs(x) for x in singular_values]
     variance = [x / sum(singular_values) * 100 for x in singular_values]
-    variance_selected = [x for x in variance if x > 3]
-    return variance_selected if len(variance_selected) != 0 else variance[:2]
+    current, rank = 0, 0
+    for comp in variance:
+        current = current + comp
+        if current > explained_var:
+            break
+        else:
+            rank = rank + 1
+    return rank
 
 
 def transform_eigen_to_ts(X_elem):

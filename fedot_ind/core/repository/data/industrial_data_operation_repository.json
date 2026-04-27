@@ -77,14 +77,31 @@
 			],
 			"forbidden_node_types": "[]",
 			"strategies": [
-				"fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
-				"IndustrialForecastingPreprocessingStrategy"
+              "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+              "IndustrialForecastingPreprocessingRuntimeStrategy"
 			],
 			"tags": [
 				"time_series"
 			],
 			"description": "Preprocessing for converting uni-variate time-series into table form or transform it"
 		},
+      "hankelisation_transformation": {
+        "tasks": "[TaskTypesEnum.ts_forecasting, TaskTypesEnum.regression]",
+        "input_type": "[DataTypesEnum.ts, DataTypesEnum.multi_ts]",
+        "output_type": "[DataTypesEnum.table]",
+        "accepted_node_types": [
+          "any"
+        ],
+        "forbidden_node_types": "[]",
+        "strategies": [
+          "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+          "IndustrialForecastingPreprocessingRuntimeStrategy"
+        ],
+        "tags": [
+          "time_series"
+        ],
+        "description": "Hankelisation for converting time series into tabular lagged trajectories in forecasting and regression tuning flows"
+      },
 		"text_preprocessing": {
 			"tasks": "[TaskTypesEnum.classification]",
 			"input_type": "[DataTypesEnum.text]",
@@ -162,8 +179,8 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
-        "IndustrialPreprocessingStrategy"
+        "fedot_ind.core.operation.interfaces.forecasting_runtime_strategy",
+        "IndustrialForecastingPreprocessingRuntimeStrategy"
       ],
       "tags": [
       ],
@@ -411,11 +428,103 @@
 			"tags": [
 				"affects_target",
 				"dimensionality_transforming",
+              "non_lagged",
+              "ts_to_table"
+            ],
+          "input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
+        },
+    "hankelisation": {
+      "meta": "hankelisation_transformation",
+      "presets": [
+        "fast_train",
+        "ts"
+      ],
+      "tags": [
+        "affects_target",
+        "dimensionality_transforming",
 				"non_lagged",
 				"ts_to_table"
 			],
 			"input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
 		},
+	  "svd_decomposition": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "decomposition",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "randomized_svd_decomposition": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "decomposition",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "tensor_decomposition": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "decomposition",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "explained_variance_truncation": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "rank_truncation",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "statistical_rank_truncation": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "rank_truncation",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
+	  "expert_rank_truncation": {
+		  "meta": "industrial_preprocessing_forecasting",
+		  "presets": [
+			  "fast_train",
+			  "ts"
+		  ],
+		  "tags": [
+			  "rank_truncation",
+			  "table_to_table",
+			  "forecasting_primitive"
+		  ],
+		  "input_type": "[DataTypesEnum.table]"
+	  },
 		"sparse_lagged": {
 			"meta": "custom_time_series_transformation",
 			"presets": ["fast_train", "ts"],

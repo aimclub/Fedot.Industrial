@@ -1,3 +1,4 @@
+import copy
 import warnings
 from typing import Optional
 
@@ -12,17 +13,29 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch import nn, optim
-from torch.optim import lr_scheduler
+
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover
+    def tqdm(iterable=None, *args, **kwargs):
+        return iterable if iterable is not None else []
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
+    DEFAULT_FORECASTING_NN_BATCH_SIZE,
+    DEFAULT_FORECASTING_NN_DEVICE,
+    DEFAULT_FORECASTING_NN_EPOCHS,
+    DEFAULT_FORECASTING_NN_LEARNING_RATE,
+    build_plateau_scheduler,
+    normalize_neural_forecasting_params,
+    resolve_neural_forecasting_device,
+    resolve_neural_patch_length,
+)
 from fedot_ind.core.models.nn.network_modules.layers.backbone import _PatchTST_backbone
-from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 from fedot_ind.core.repository.constanst_repository import EXPONENTIAL_WEIGHTED_LOSS
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -137,11 +150,14 @@ class PatchTSTModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
-        self.epochs = self.params.get('epochs', 10)
-        self.batch_size = self.params.get('batch_size', 16)
+        normalized_params = normalize_neural_forecasting_params(dict(params or {}))
+        super().__init__(normalized_params)
+        self.epochs = self.params.get('epochs', DEFAULT_FORECASTING_NN_EPOCHS)
+        self.batch_size = self.params.get('batch_size', DEFAULT_FORECASTING_NN_BATCH_SIZE)
         self.activation = self.params.get('activation', 'GELU')
-        self.learning_rate = self.params.get('learning_rate', 0.001)
+        self.learning_rate = self.params.get('learning_rate', DEFAULT_FORECASTING_NN_LEARNING_RATE)
+        self.device_name = str(self.params.get('device', DEFAULT_FORECASTING_NN_DEVICE))
+        self.device = resolve_neural_forecasting_device(self.device_name)
         self.use_amp = self.params.get('use_amp', False)
         self.horizon = self.params.get('forecast_length', None)
         self.patch_len = self.params.get('patch_len', None)
@@ -149,34 +165,109 @@ class PatchTSTModel(BaseNeuralModel):
         self.test_patch_len = self.patch_len
         self.preprocess_to_lagged = False
         self.forecast_mode = self.params.get('forecast_mode', 'out_of_sample')
+        self.scheduler_patience = int(self.params.get('scheduler_patience', 8))
+        self.scheduler_factor = float(self.params.get('scheduler_factor', 0.5))
+        self.scheduler_min_lr = float(self.params.get('scheduler_min_lr', 1e-5))
+        self.early_stopping_patience = int(self.params.get('early_stopping_patience', 12))
+        self.early_stopping_min_delta = float(self.params.get('early_stopping_min_delta', 1e-5))
         self.model_list = []
 
-    def _init_model(self, ts):
-        model = PatchTST(input_dim=ts.features.shape[0],
-                         output_dim=None,
-                         seq_len=self.seq_len,
-                         pred_dim=self.horizon,
-                         patch_len=self.patch_len,
-                         preprocess_to_lagged=self.preprocess_to_lagged,
-                         activation=self.activation).to(default_device())
-        optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
+    def _resolve_patch_len(self, input_data: InputData) -> int:
+        if self.preprocess_to_lagged:
+            return int(input_data.features.shape[1])
+        return resolve_neural_patch_length(
+            input_data.features,
+            forecast_horizon=int(max(1, self.horizon)),
+            requested_patch_len=self.patch_len,
+            multiplier=2.0,
+        )
+
+    def _prepare_fit_loader(self, input_data: InputData):
+        self.patch_len = self._resolve_patch_len(input_data)
+        self.test_patch_len = self.patch_len
+        if self.preprocess_to_lagged:
+            return self.__create_torch_loader(input_data)
+        return self._prepare_data(input_data.features, self.patch_len, False)
+
+    def _build_model(self, ts: InputData):
+        return PatchTST(
+            input_dim=ts.features.shape[0],
+            output_dim=None,
+            seq_len=self.seq_len,
+            pred_dim=self.horizon,
+            patch_len=self.patch_len,
+            preprocess_to_lagged=self.preprocess_to_lagged,
+            activation=self.activation,
+        ).to(self.device)
+
+    def _build_optimizer(self, model: PatchTST):
+        return optim.Adam(model.parameters(), lr=self.learning_rate)
+
+    def _build_scheduler(self, optimizer: torch.optim.Optimizer):
+        return build_plateau_scheduler(
+            optimizer,
+            factor=self.scheduler_factor,
+            patience=self.scheduler_patience,
+            min_lr=self.scheduler_min_lr,
+        )
+
+    def _build_loss_fn(self):
         patch_pred_len = round(self.horizon / 4)
-        loss_fn = EXPONENTIAL_WEIGHTED_LOSS(time_steps=patch_pred_len, tolerance=0.3)
-        return model, loss_fn, optimizer
+        return EXPONENTIAL_WEIGHTED_LOSS(time_steps=patch_pred_len, tolerance=0.3)
+
+    def _build_epoch_iterator(self):
+        return tqdm(range(int(max(1, self.epochs))), desc='PatchTST fit', unit='epoch')
+
+    def _run_training_epoch(self, model, train_loader, loss_fn, optimizer) -> float:
+        model.train()
+        epoch_losses: list[float] = []
+        for batch_x, batch_y in train_loader:
+            optimizer.zero_grad(set_to_none=True)
+            batch_x = batch_x.float().to(self.device)
+            batch_y = batch_y.float().to(self.device)
+            outputs = model(batch_x)
+            loss = loss_fn(outputs, batch_y)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            epoch_losses.append(float(loss.detach().cpu().item()))
+        return float(np.mean(epoch_losses)) if epoch_losses else 0.0
+
+    def _train_loop(self, model, train_loader, loss_fn, optimizer):
+        scheduler = self._build_scheduler(optimizer)
+        best_state_dict = copy.deepcopy(model.state_dict())
+        best_loss = float('inf')
+        best_epoch = 0
+        patience_counter = 0
+
+        for epoch_index in self._build_epoch_iterator():
+            train_loss = self._run_training_epoch(model, train_loader, loss_fn, optimizer)
+            scheduler.step(train_loss)
+            if train_loss + self.early_stopping_min_delta < best_loss:
+                best_loss = train_loss
+                best_epoch = int(epoch_index) + 1
+                patience_counter = 0
+                best_state_dict = copy.deepcopy(model.state_dict())
+            else:
+                patience_counter += 1
+            if hasattr(self, 'train_log') and self.train_log and (epoch_index == 0 or (epoch_index + 1) % 25 == 0):
+                print(
+                    f'Epoch: {epoch_index + 1}, Train Loss: {train_loss:.7f}, '
+                    f"LR: {optimizer.param_groups[0]['lr']:.2e}"
+                )
+            if patience_counter >= self.early_stopping_patience:
+                break
+
+        model.load_state_dict(best_state_dict)
+        self.best_epoch_ = best_epoch
+        self.best_loss_ = float(best_loss)
+        return model
 
     def _fit_model(self, input_data: InputData, split_data: bool = True):
-        if self.preprocess_to_lagged:
-            self.patch_len = input_data.features.shape[1]
-            train_loader = self.__create_torch_loader(input_data)
-        else:
-            if self.patch_len is None:
-                dominant_window_size = WindowSizeSelector(
-                    method='dff').get_window_size(input_data.features)
-                self.patch_len = 2 * dominant_window_size
-                train_loader = self._prepare_data(
-                    input_data.features, self.patch_len, False)
-        self.test_patch_len = self.patch_len
-        model, loss_fn, optimizer = self._init_model(input_data)
+        train_loader = self._prepare_fit_loader(input_data)
+        model = self._build_model(input_data)
+        loss_fn = self._build_loss_fn()
+        optimizer = self._build_optimizer(model)
         model = self._train_loop(model, train_loader, loss_fn, optimizer)
         self.model_list.append(model)
 
@@ -261,77 +352,20 @@ class PatchTSTModel(BaseNeuralModel):
         train_loader = self.__create_torch_loader(train_data)
         return train_loader
 
-    def _train_loop(self, model,
-                    train_loader,
-                    loss_fn,
-                    optimizer):
-        train_steps = max(1, len(train_loader))
-        early_stopping = EarlyStopping()
-        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                            steps_per_epoch=train_steps,
-                                            epochs=self.epochs,
-                                            max_lr=self.learning_rate)
-
-        for epoch in range(self.epochs):
-            iter_count = 0
-            train_loss = []
-
-            model.train()
-            for i, (batch_x, batch_y) in enumerate(train_loader):
-                iter_count += 1
-                optimizer.zero_grad()
-                batch_x = batch_x.float().to(default_device())
-
-                batch_y = batch_y.float().to(default_device())
-
-                # decoder input
-                dec_inp = torch.zeros_like(batch_y).float()
-                dec_inp = torch.cat([batch_y, dec_inp],
-                                    dim=1).float().to(default_device())
-                outputs = model(batch_x)
-                loss = loss_fn(outputs, batch_y)
-                train_loss.append(loss.item())
-                loss.backward()
-                model.float()
-                optimizer.step()
-
-                adjust_learning_rate(optimizer=optimizer,
-                                     scheduler=scheduler,
-                                     epoch=epoch + 1,
-                                     lradj='type2',
-                                     printout=False,
-                                     learning_rate=self.learning_rate)
-                scheduler.step()
-            train_loss = np.average(train_loss)
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
-                epoch + 1, train_steps, train_loss))
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
-            print('Updating learning rate to {}'.format(
-                scheduler.get_last_lr()[0]))
-
-        return model
-
     def _predict(self, model, test_loader):
         model.eval()
         with torch.no_grad():
             if self.forecast_mode == 'in_sample':
                 outputs = []
                 for i, (batch_x, batch_y) in enumerate(test_loader):
-                    batch_x = batch_x.float().to(default_device())
-                    batch_y = batch_y.float().to(default_device())
-                    # decoder input
-                    dec_inp = torch.zeros_like(batch_y[:, :, :]).float()
-                    dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(
-                        default_device())
-                    # encoder - decoder
+                    batch_x = batch_x.float().to(self.device)
+                    batch_y = batch_y.float().to(self.device)
                     outputs.append(model(batch_x))
                 return torch.cat(outputs).cpu().numpy()
             else:
                 last_patch = test_loader.dataset[0][-1]
                 c, s = last_patch.size()
-                last_patch = last_patch.reshape(1, c, s).to(default_device())
+                last_patch = last_patch.reshape(1, c, s).to(self.device)
                 outputs = model(last_patch)
                 return outputs.flatten().cpu().numpy()
 
@@ -417,3 +451,28 @@ class PatchTSTModel(BaseNeuralModel):
         test_loader = torch.utils.data.DataLoader(data.TensorDataset(
             features, target), batch_size=self.batch_size, shuffle=False)
         return self._predict(model, test_loader)
+
+    def get_diagnostics(self):
+        return {
+            'device': str(self.device),
+            'resolved_patch_len': int(self.test_patch_len or self.patch_len or 0),
+            'training': {
+                'epochs': int(self.epochs),
+                'batch_size': int(self.batch_size),
+                'learning_rate': float(self.learning_rate),
+                'best_epoch': int(getattr(self, 'best_epoch_', 0) or 0),
+                'best_loss': float(getattr(self, 'best_loss_', 0.0) or 0.0),
+                'scheduler': 'ReduceLROnPlateau',
+                'scheduler_patience': int(self.scheduler_patience),
+                'scheduler_factor': float(self.scheduler_factor),
+                'scheduler_min_lr': float(self.scheduler_min_lr),
+                'early_stopping_patience': int(self.early_stopping_patience),
+                'early_stopping_min_delta': float(self.early_stopping_min_delta),
+            },
+            'architecture': {
+                'activation': str(self.activation),
+                'forecast_horizon': int(self.horizon or 0),
+                'use_amp': bool(self.use_amp),
+                'preprocess_to_lagged': bool(self.preprocess_to_lagged),
+            },
+        }

@@ -10,7 +10,8 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
-    ExogDataTransformationImplementation, GaussianFilterImplementation, TsSmoothingImplementation
+    ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
+    TsSmoothingImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
     FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
@@ -56,15 +57,41 @@ from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifie
 from fedot_ind.core.models.regression.freq_domain_regressor import FrequencyRegressor
 from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldRegressor
 from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
+from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import \
+    HybridEnsembleForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
+from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import \
+    LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
+    LowRankLaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.topo_forecaster import TopologicalAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
-from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
+from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head import (
+    DeepARForecastHeadImplementation,
+    NBeatsForecastHeadImplementation,
+    PatchTSTForecastHeadImplementation,
+    TCNForecastHeadImplementation,
+    TSTForecastHeadImplementation,
+)
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
+from fedot_ind.core.operation.transformation.data.forecasting_primitives import (
+    ExpertRankTruncationImplementation,
+    ExplainedVarianceRankTruncationImplementation,
+    RandomizedSVDDecompositionImplementation,
+    StatisticalRankTruncationImplementation,
+    SVDDecompositionImplementation,
+    TensorDecompositionImplementation,
+)
+from fedot_ind.core.operation.transformation.data.hankelisation import HankelisationImplementation
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
@@ -73,6 +100,7 @@ from fedot_ind.core.operation.transformation.representation.topological.topologi
     TopologicalExtractor
 from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
+from fedot_ind.core.repository.forecasting_registry import CANONICAL_STAGE_FORECASTING_MODELS
 
 
 class AtomizedModel(Enum):
@@ -185,15 +213,32 @@ class AtomizedModel(Enum):
         'eigen_forecaster': EigenAR,
         'topo_forecaster': TopologicalAR,
         'lagged_forecaster': LaggedAR,
-        # variational
-        'deepar_model': DeepAR,
-        'tcn_model': TCNModel,
+        'lagged_ridge_forecaster': LaggedRidgeForecasterImplementation,
+        'low_rank_lagged_ridge_forecaster': LowRankLaggedRidgeForecasterImplementation,
+        'hybrid_ensemble_forecaster': HybridEnsembleForecasterImplementation,
+        'okhs_fdmd_forecaster': OKHSFDMDForecasterImplementation,
+        'ssa_forecaster': SSAForecasterImplementation,
+        'mssa_forecaster': MSSAForecasterImplementation,
+        'havok_forecaster': HAVOKForecasterImplementation,
+        # primitive neural forecast heads
+        'patch_tst_model': PatchTSTForecastHeadImplementation,
+        'tst_model': TSTForecastHeadImplementation,
+        'deepar_model': DeepARForecastHeadImplementation,
+        'tcn_model': TCNForecastHeadImplementation,
+        'nbeats_model': NBeatsForecastHeadImplementation,
         'glm': GLMIndustrial
         # 'locf': RepeatLastValueImplementation
     }
 
     FORECASTING_PREPROC = {
-        # 'lagged': LaggedTransformationImplementation,
+        'hankelisation': HankelisationImplementation,
+        'svd_decomposition': SVDDecompositionImplementation,
+        'randomized_svd_decomposition': RandomizedSVDDecompositionImplementation,
+        'tensor_decomposition': TensorDecompositionImplementation,
+        'explained_variance_truncation': ExplainedVarianceRankTruncationImplementation,
+        'statistical_rank_truncation': StatisticalRankTruncationImplementation,
+        'expert_rank_truncation': ExpertRankTruncationImplementation,
+        'lagged': LaggedTransformationImplementation,
         # 'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
@@ -202,10 +247,9 @@ class AtomizedModel(Enum):
 
     PRIMARY_FORECASTING_MODELS = [
         'ar',
-        # 'deepar_model',
-        # 'topo_forecaster',
-        'lagged_forecaster',
-        'eigen_forecaster'
+        'ets',
+        'stl_arima',
+        *CANONICAL_STAGE_FORECASTING_MODELS,
     ]
 
     ANOMALY_DETECTION_MODELS = {

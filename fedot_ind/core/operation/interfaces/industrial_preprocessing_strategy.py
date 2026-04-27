@@ -6,7 +6,6 @@ from typing import Optional, Union, Callable
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy
-from fedot.core.utils import is_multi_output_target
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import get_operation_type_from_id, OperationTypesRepository
@@ -15,12 +14,40 @@ from pymonad.either import Either
 from pymonad.tools import curry
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionConverter, FedotConverter, NumpyConverter
+from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
+    IndustrialForecastingPreprocessingRuntimeStrategy,
+    LegacyForecastingPreprocessingRedirectMixin,
+)
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, FORECASTING_PREPROC, \
     INDUSTRIAL_CLF_PREPROC_MODEL, INDUSTRIAL_PREPROC_MODEL
 
-# from fedot_ind.core.architecture.preprocessing.data_convertor import TensorConverter
-import torch
+try:  # pragma: no cover - depends on FEDOT version
+    from fedot.core.utils import is_multi_output_target as _fedot_is_multi_output_target
+except ImportError:  # pragma: no cover
+    _fedot_is_multi_output_target = None
+
+
+def is_multi_output_target(data: InputData) -> bool:
+    """Compatibility shim for FEDOT versions without ``fedot.core.utils.is_multi_output_target``."""
+    if _fedot_is_multi_output_target is not None:
+        return _fedot_is_multi_output_target(data)
+
+    target = getattr(data, 'target', None)
+    if target is None:
+        return False
+
+    target_array = np.asarray(target)
+    if target_array.ndim > 1 and target_array.shape[-1] > 1:
+        return True
+
+    if target_array.dtype == object and target_array.size:
+        first_value = target_array.reshape(-1)[0]
+        if isinstance(first_value, (list, tuple, np.ndarray)):
+            nested = np.asarray(first_value)
+            return nested.ndim > 0 and nested.shape[-1] > 1
+
+    return False
 
 
 class MultiDimPreprocessingStrategy(EvaluationStrategy):
@@ -273,7 +300,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         return converted
 
 
-class IndustrialCustomPreprocessingStrategy:
+class IndustrialCustomPreprocessingStrategy(LegacyForecastingPreprocessingRedirectMixin):
     _operations_by_types = FEDOT_PREPROC_MODEL
 
     def __init__(
@@ -376,51 +403,10 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
         return converted
 
 
-class IndustrialForecastingPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+class IndustrialForecastingPreprocessingStrategy(IndustrialForecastingPreprocessingRuntimeStrategy):
+    """Legacy compatibility wrapper over the forecasting preprocessing runtime strategy."""
+
     _operations_by_types = FORECASTING_PREPROC
-
-    def __init__(
-            self,
-            operation_type: str,
-            params: Optional[OperationParameters] = None):
-        params = IndustrialOperationParameters().from_params(operation_type, params) if params \
-            else IndustrialOperationParameters().from_operation_type(operation_type)
-        super().__init__(operation_type, params)
-        self.multi_dim_dispatcher.concat_func = np.vstack
-        self.ensemble_func = np.sum
-
-    def _check_exog_params(self, fit_output):
-        if self.operation_type == 'exog_ts':
-            for output in fit_output:
-                output.supplementary_data.is_main_target = False
-        return fit_output
-
-    def fit(self, train_data: InputData):
-        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
-        fit_output = self.multi_dim_dispatcher.fit(train_data)
-        fit_output = self._check_exog_params(fit_output)
-        return fit_output
-
-    def predict(self, trained_operation,
-                predict_data: InputData,
-                output_mode: str = 'default'):
-        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
-        predict_output = self.multi_dim_dispatcher.predict(
-            trained_operation, converted_predict_data, output_mode=output_mode)
-        predict_output.predict = predict_output.predict.squeeze()
-        return predict_output
-
-    def predict_for_fit(self, trained_operation,
-                        predict_data: InputData,
-                        output_mode: str = 'default') -> OutputData:
-        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
-        predict_output = self.multi_dim_dispatcher.predict_for_fit(
-            trained_operation, converted_predict_data, output_mode='transform_fit_stage')
-        predict_output.predict = predict_output.predict.squeeze()
-        return predict_output
 
 
 class IndustrialClassificationPreprocessingStrategy(
