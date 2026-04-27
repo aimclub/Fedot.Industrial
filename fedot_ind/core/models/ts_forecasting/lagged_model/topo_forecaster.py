@@ -188,7 +188,7 @@ class TopologicalAR(ModelImplementation):
         super().__init__(params)
         self.channel_model = str(self.params.get('channel_model', 'ridge'))
         self.window_size = self.params.get('window_size')
-        self.has_explicit_window_percent_ = 'window_size_percent' in self.params
+        self.has_explicit_window_percent_ = 'window_size_percent' in self.params.keys()
         self.window_size_percent = self.params.get('window_size_percent')
         self.patch_len = int(self.params.get('patch_len', 10))
         self.stride = int(self.params.get('stride', 1))

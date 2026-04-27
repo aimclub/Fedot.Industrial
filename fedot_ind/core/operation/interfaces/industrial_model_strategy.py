@@ -2,16 +2,19 @@ from typing import Optional
 
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
+from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
+from fedot_ind.core.operation.interfaces.detection_runtime_strategy import IndustrialDetectionModelRuntimeStrategy
 from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
     IndustrialForecastingModelRuntimeStrategy,
     LegacyForecastingModelRedirectMixin,
 )
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
     IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
+from fedot_ind.core.repository.forecasting_registry import CANONICAL_STAGE_FORECASTING_MODELS
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
-    SKLEARN_REG_MODELS, ANOMALY_DETECTION_MODELS
+    SKLEARN_REG_MODELS
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -107,6 +110,21 @@ class IndustrialSkLearnForecastingStrategy(IndustrialForecastingModelRuntimeStra
     """Legacy compatibility wrapper over the forecasting runtime strategy."""
 
     _operations_by_types = FORECASTING_MODELS
+    _runtime_operations = set(CANONICAL_STAGE_FORECASTING_MODELS) | {
+        'eigen_forecaster',
+        'glm',
+        'lagged_forecaster',
+        'patch_tst_model',
+        'tst_model',
+        'deepar_model',
+        'tcn_model',
+        'nbeats_model',
+    }
+
+    def __new__(cls, operation_type: str, params: Optional[OperationParameters] = None):
+        if cls is IndustrialSkLearnForecastingStrategy and operation_type not in cls._runtime_operations:
+            return FedotTsForecastingStrategy(operation_type, params)
+        return super().__new__(cls)
 
 
 class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
@@ -120,9 +138,5 @@ class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         return self.multi_dim_dispatcher.fit(train_data)
 
 
-class IndustrialAnomalyDetectionStrategy(IndustrialSkLearnClassificationStrategy):
-    """ Strategy for applying classification algorithms from Sklearn library """
-    _operations_by_types = ANOMALY_DETECTION_MODELS
-
-    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
-        super().__init__(operation_type, params)
+class IndustrialAnomalyDetectionStrategy(IndustrialDetectionModelRuntimeStrategy):
+    """Legacy compatibility wrapper over the detection runtime strategy."""

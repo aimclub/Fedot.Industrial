@@ -145,7 +145,7 @@ class LaggedRidgeForecasterImplementation(ModelImplementation):
         params = params or OperationParameters()
         super().__init__(params)
         self.window_size = self.params.get('window_size')
-        self.has_explicit_window_percent_ = 'window_size_percent' in self.params
+        self.has_explicit_window_percent_ = 'window_size_percent' in self.params.keys()
         self.window_size_percent = self.params.get('window_size_percent')
         self.stride = int(self.params.get('stride', 1))
         self.alpha = float(self.params.get('alpha', 1.0))

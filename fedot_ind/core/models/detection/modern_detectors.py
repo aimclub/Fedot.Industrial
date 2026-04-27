@@ -52,6 +52,15 @@ def _regime_labels_from_segments(segments, length: int) -> np.ndarray:
     return labels
 
 
+def _operation_params_to_dict(params) -> dict[str, Any]:
+    """Convert FEDOT OperationParameters or plain mappings into a safe dict."""
+    if params is None:
+        return {}
+    if hasattr(params, 'to_dict'):
+        return dict(params.to_dict())
+    return dict(params)
+
+
 class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
     canonical_name: str = 'runtime_detection_model'
     default_representation_mode: str = 'statistical'
@@ -184,7 +193,7 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         )
 
     def get_stage_tuning_plan(self) -> dict[str, Any]:
-        return build_detection_stage_tuning_plan(self.canonical_name, dict(self.params)).to_dict()
+        return build_detection_stage_tuning_plan(self.canonical_name, _operation_params_to_dict(self.params)).to_dict()
 
     def get_risk_feature_frame(self) -> RiskFeatureFrame:
         return self.risk_feature_frame_

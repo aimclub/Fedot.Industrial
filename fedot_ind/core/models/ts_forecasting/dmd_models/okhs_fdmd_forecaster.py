@@ -375,6 +375,15 @@ def build_okhs_fdmd_forecaster(
     )
 
 
+def _operation_params_to_dict(params) -> dict[str, Any]:
+    """Convert FEDOT OperationParameters or plain mappings into a safe dict."""
+    if params is None:
+        return {}
+    if hasattr(params, 'to_dict'):
+        return dict(params.to_dict())
+    return dict(params)
+
+
 def run_okhs_fdmd_forecaster_on_series(
         *,
         time_series: np.ndarray,
@@ -420,9 +429,10 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
     def fit(self, input_data: InputData):
         """Build and fit the wrapped OKHS fDMD forecaster from InputData."""
         features = np.asarray(input_data.features, dtype=float)
+        params = _operation_params_to_dict(self.params)
         self.spec_ = build_okhs_fdmd_spec(
             forecast_horizon=input_data.task.task_params.forecast_length,
-            params=dict(self.params),
+            params=params,
             series_length=int(np.asarray(features).reshape(-1).shape[0]),
         )
         self.model_ = build_okhs_fdmd_forecaster(spec=self.spec_)
@@ -457,7 +467,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         """Return the stage-aware tuning plan for OKHS fDMD."""
         return build_forecasting_stage_tuning_plan(
             'okhs_fdmd_forecaster',
-            dict(self.params),
+            _operation_params_to_dict(self.params),
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
@@ -465,7 +475,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'okhs_fdmd_forecaster',
-                dict(self.params),
+                _operation_params_to_dict(self.params),
             )
         )
 
@@ -473,7 +483,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         """Resolve proposed OKHS fDMD updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'okhs_fdmd_forecaster',
-            base_params=dict(self.params),
+            base_params=_operation_params_to_dict(self.params),
             stage_updates=stage_updates,
         ).to_dict()
 
@@ -482,7 +492,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         return run_sequential_stage_tuning(
             'okhs_fdmd_forecaster',
             objective=objective,
-            base_params=dict(self.params),
+            base_params=_operation_params_to_dict(self.params),
             stage_updates=stage_updates,
         ).to_dict()
 
@@ -503,7 +513,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
             'okhs_fdmd_forecaster',
             time_series=np.asarray(time_series, dtype=float),
             forecast_horizon=int(forecast_horizon),
-            base_params=dict(self.params),
+            base_params=_operation_params_to_dict(self.params),
             stage_updates=stage_updates,
             metric_name=metric_name,
             split_spec=split_spec,

@@ -254,6 +254,15 @@ def build_neural_forecast_head(
     )
 
 
+def _operation_params_to_dict(params) -> dict[str, Any]:
+    """Convert FEDOT OperationParameters or plain mappings into a safe dict."""
+    if params is None:
+        return {}
+    if hasattr(params, 'to_dict'):
+        return dict(params.to_dict())
+    return dict(params)
+
+
 def run_neural_forecast_head_on_series(
         model_name: str,
         *,
@@ -300,12 +309,7 @@ class NeuralForecastHead:
 
     def fit(self, time_series: np.ndarray):
         """Fit the wrapped neural forecasting implementation on a series."""
-        try:
-            from fedot.core.operations.operation_parameters import OperationParameters
-            model_params = OperationParameters(**self.params)
-        except Exception:
-            model_params = dict(self.params)
-
+        model_params = _operation_params_to_dict(self.params)
         history = np.asarray(time_series, dtype=float).reshape(-1)
         self.training_history_ = history
         self.model_ = self.model_cls_(model_params)
@@ -369,7 +373,7 @@ class NeuralForecastHeadImplementation(ModelImplementation):
         self.model_ = build_neural_forecast_head(
             self.model_name,
             forecast_horizon=int(input_data.task.task_params.forecast_length),
-            params=dict(self.params),
+            params=_operation_params_to_dict(self.params),
         )
         self.model_.fit(np.asarray(input_data.features, dtype=float))
         return self
