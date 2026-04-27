@@ -109,6 +109,8 @@ def _prediction_record_from_payload(payload: dict[str, Any]) -> PredictionRecord
 
 @dataclass(frozen=True)
 class ForecastingResumeState:
+    """Recovered benchmark records loaded from incremental progress artifacts."""
+
     series_records: tuple[ForecastingSeriesRecord, ...]
     run_records: tuple[BenchmarkRunRecord, ...]
     metric_records: tuple[MetricRecord, ...]
@@ -119,7 +121,10 @@ class ForecastingResumeState:
 
 
 class ForecastingIncrementalPersistenceCoordinator:
+    """Persist forecasting benchmark progress item-by-item and support resume."""
+
     def __init__(self, config: BenchmarkSuiteConfig, run_id: str):
+        """Prepare run, progress and item directories for incremental persistence."""
         self.config = config
         self.run_id = run_id
         self.enabled = bool(config.artifact_spec.persist_on_run)
@@ -152,6 +157,7 @@ class ForecastingIncrementalPersistenceCoordinator:
 
     @staticmethod
     def resolve_run_id(config: BenchmarkSuiteConfig) -> str | None:
+        """Find an explicit or latest resumable run id for a benchmark config."""
         if not bool(config.artifact_spec.persist_on_run):
             return None
         run_spec = config.run_spec
@@ -203,6 +209,7 @@ class ForecastingIncrementalPersistenceCoordinator:
         )
 
     def persist_series_catalog(self, series_records: list[ForecastingSeriesRecord]) -> None:
+        """Persist the full series catalog used by a forecasting run."""
         if not self.enabled:
             return
         _write_json_atomic(
@@ -222,6 +229,7 @@ class ForecastingIncrementalPersistenceCoordinator:
 
     @staticmethod
     def item_key(series_record: ForecastingSeriesRecord, model_name: str) -> str:
+        """Build a stable resume key for a series/model benchmark item."""
         return '::'.join(
             (
                 str(series_record.benchmark),
@@ -240,6 +248,7 @@ class ForecastingIncrementalPersistenceCoordinator:
             metric_records: tuple[MetricRecord, ...] = (),
             prediction_records: tuple[PredictionRecord, ...] = (),
     ) -> None:
+        """Atomically persist one completed series/model item result."""
         if not self.enabled:
             return
         artifact_name = self._item_artifact_name(series_record, run_record)
@@ -272,6 +281,7 @@ class ForecastingIncrementalPersistenceCoordinator:
         self._write_progress_index()
 
     def load_resume_state(self) -> ForecastingResumeState | None:
+        """Load previously persisted item records when resume mode is enabled."""
         if not self.enabled or not bool(getattr(self.config.run_spec, 'resume_enabled', False)):
             return None
         if not self.progress_dir.exists() or not self.progress_index_path.exists():
@@ -337,6 +347,7 @@ class ForecastingIncrementalPersistenceCoordinator:
         )
 
     def build_artifact_manifest(self) -> tuple[ArtifactRecord, ...]:
+        """Return manifest entries for progress-level persistence artifacts."""
         if not self.enabled:
             return ()
         return (

@@ -59,6 +59,8 @@ from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime i
 
 @dataclass
 class LowRankLaggedRidgeForecaster:
+    """Lagged ridge forecaster that learns in a truncated SVD feature space."""
+
     forecast_horizon: int
     window_size: int | None = None
     window_size_percent: float | None = 10.0
@@ -93,6 +95,7 @@ class LowRankLaggedRidgeForecaster:
         return compute_svd_decomposition(features, strategy='full')
 
     def fit(self, time_series: np.ndarray) -> 'LowRankLaggedRidgeForecaster':
+        """Fit hankelisation, decomposition, rank truncation and ridge head."""
         batch = self.runtime_.make_batch(time_series, forecast_horizon=self.forecast_horizon)
         self.resolved_window_size_ = self._resolve_window_size(batch)
         self.transform_result_ = build_hankel_trajectory_transform(
@@ -124,6 +127,7 @@ class LowRankLaggedRidgeForecaster:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Project the latest lagged window and forecast with the fitted head."""
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
@@ -148,6 +152,7 @@ class LowRankLaggedRidgeForecaster:
         return forecast.detach().cpu().numpy()
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Return trajectory, decomposition, rank and head diagnostics."""
         return {
             **self.diagnostics_,
             **getattr(self, 'last_prediction_diagnostics_', {}),
@@ -155,7 +160,10 @@ class LowRankLaggedRidgeForecaster:
 
 
 class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
+    """FEDOT-compatible wrapper for LowRankLaggedRidgeForecaster."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read low-rank lagged ridge parameters from FEDOT operation params."""
         params = params or OperationParameters()
         super().__init__(params)
         self.window_size = self.params.get('window_size')
@@ -172,6 +180,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         self.model_: LowRankLaggedRidgeForecaster | None = None
 
     def fit(self, input_data: InputData):
+        """Fit the wrapped low-rank lagged ridge model from InputData."""
         self.model_ = LowRankLaggedRidgeForecaster(
             forecast_horizon=input_data.task.task_params.forecast_length,
             window_size=None if self.has_explicit_window_percent_ else self.window_size,
@@ -189,6 +198,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the low-rank lagged forecast."""
         prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
@@ -197,16 +207,19 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData):
+        """Return projected low-rank features for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.rank_result_.projected_features.detach().cpu().numpy(), dtype=float)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Expose diagnostics from the fitted wrapped model."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for this operation."""
         base_params = {
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
@@ -225,6 +238,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return search-space slices grouped by forecasting stage."""
         base_params = {
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
@@ -245,6 +259,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed updates into a concrete stage tuning execution."""
         base_params = {
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
@@ -264,6 +279,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def run_stage_tuning(self, objective, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Run sequential stage tuning with an externally supplied objective."""
         base_params = {
             'window_size': self.window_size,
             'window_size_percent': self.window_size_percent if self.has_explicit_window_percent_ else None,
@@ -295,6 +311,7 @@ class LowRankLaggedRidgeForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning directly on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'low_rank_lagged_ridge_forecaster',
             time_series=np.asarray(time_series, dtype=float),

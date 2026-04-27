@@ -69,6 +69,8 @@ def _resolve_lag_order(series_length: int, forecast_horizon: int, lag_order: int
 
 @dataclass
 class MSSAForecaster:
+    """Multichannel SSA forecaster with low-rank denoising and linear/MLP head."""
+
     forecast_horizon: int
     window_size: int | None = None
     rank: int | None = None
@@ -229,6 +231,7 @@ class MSSAForecaster:
         }
 
     def fit(self, time_series: np.ndarray) -> 'MSSAForecaster':
+        """Fit Page embedding, rank truncation and autoregressive forecast head."""
         normalized, series_length, channel_count, resolved_window = self._prepare_series(time_series)
         page_results = self._build_page_results(normalized, resolved_window)
         reconstructed_by_channel, selected_ranks, retained_variances = self._truncate_page_embeddings(
@@ -261,6 +264,7 @@ class MSSAForecaster:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Roll the fitted head forward autoregressively for the requested horizon."""
         horizon = int(forecast_horizon or self.forecast_horizon)
         history = self.denoised_series_ if time_series is None else normalize_multivariate_series(time_series)
         state = history[-self.lag_order_:].copy()
@@ -276,11 +280,15 @@ class MSSAForecaster:
         return forecast[:, 0] if self.channel_count_ == 1 else forecast
 
     def get_diagnostics(self) -> dict[str, float | int | bool]:
+        """Return stage diagnostics collected during fit."""
         return dict(self.diagnostics_)
 
 
 class MSSAForecasterImplementation(ModelImplementation):
+    """FEDOT-compatible wrapper for MSSAForecaster."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read mSSA stage and head parameters from operation params."""
         params = params or OperationParameters()
         super().__init__(params)
         self.window_size = self.params.get('window_size')
@@ -298,6 +306,7 @@ class MSSAForecasterImplementation(ModelImplementation):
         self.model_: MSSAForecaster | None = None
 
     def fit(self, input_data: InputData):
+        """Fit the wrapped mSSA model from FEDOT InputData."""
         forecast_horizon = input_data.task.task_params.forecast_length
         self.model_ = MSSAForecaster(
             forecast_horizon=forecast_horizon,
@@ -318,6 +327,7 @@ class MSSAForecasterImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the mSSA forecast."""
         prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
@@ -326,6 +336,7 @@ class MSSAForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData) -> np.ndarray:
+        """Return denoised series features for fit-time compatibility paths."""
         if self.model_ is None:
             forecast_horizon = input_data.task.task_params.forecast_length
             self.model_ = MSSAForecaster(
@@ -347,11 +358,13 @@ class MSSAForecasterImplementation(ModelImplementation):
         return denoised.T if denoised.ndim > 1 else denoised.reshape(1, -1)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Expose diagnostics from the fitted wrapped model."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for mSSA."""
         return build_forecasting_stage_tuning_plan(
             'mssa_forecaster',
             {
@@ -370,6 +383,7 @@ class MSSAForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return search-space slices grouped by mSSA stages."""
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'mssa_forecaster',
@@ -390,6 +404,7 @@ class MSSAForecasterImplementation(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed mSSA updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'mssa_forecaster',
             base_params={
@@ -420,6 +435,7 @@ class MSSAForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for mSSA on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'mssa_forecaster',
             time_series=np.asarray(time_series, dtype=float),

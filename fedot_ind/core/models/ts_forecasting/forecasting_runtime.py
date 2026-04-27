@@ -29,6 +29,8 @@ except Exception:  # pragma: no cover
 
 
 class ForecastingSplitKind(str, Enum):
+    """Supported temporal validation split strategies for forecasting runtime."""
+
     HOLDOUT = 'holdout'
     TIME_SERIES_SPLIT = 'time_series_split'
     EXPANDING_WINDOW = 'expanding_window'
@@ -39,10 +41,13 @@ class ForecastingSplitKind(str, Enum):
 
 @dataclass(frozen=True)
 class TensorDevicePolicy:
+    """Resolve tensor device and dtype for forecasting runtime operations."""
+
     device: str = 'auto'
     dtype: str = 'float32'
 
     def resolve_device(self) -> torch.device:
+        """Return the concrete torch device, preferring CUDA when policy is auto."""
         requested = str(self.device).lower()
         if requested == 'auto':
             return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
@@ -51,6 +56,7 @@ class TensorDevicePolicy:
         return torch.device('cpu')
 
     def resolve_dtype(self) -> torch.dtype:
+        """Return the torch dtype requested by the policy with float32 fallback."""
         try:
             return getattr(torch, str(self.dtype))
         except AttributeError:  # pragma: no cover - defensive fallback
@@ -59,6 +65,8 @@ class TensorDevicePolicy:
 
 @dataclass(frozen=True)
 class ForecastTensorBatch:
+    """Canonical tensor-native payload passed through forecasting primitives."""
+
     history: torch.Tensor
     target: torch.Tensor | None
     forecast_horizon: int
@@ -67,17 +75,21 @@ class ForecastTensorBatch:
 
     @property
     def device(self) -> torch.device:
+        """Return the device where historical values are stored."""
         return self.history.device
 
     @property
     def channel_count(self) -> int:
+        """Return the number of channels in the canonical history tensor."""
         return int(self.history.shape[1])
 
     @property
     def series_length(self) -> int:
+        """Return the temporal length of the canonical history tensor."""
         return int(self.history.shape[0])
 
     def to(self, device_policy: TensorDevicePolicy) -> 'ForecastTensorBatch':
+        """Move history, target and index tensors according to a device policy."""
         device = device_policy.resolve_device()
         dtype = device_policy.resolve_dtype()
         return ForecastTensorBatch(
@@ -89,6 +101,7 @@ class ForecastTensorBatch:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize lightweight batch metadata for diagnostics and artifacts."""
         return {
             'history_shape': tuple(int(value) for value in self.history.shape),
             'target_shape': None if self.target is None else tuple(int(value) for value in self.target.shape),
@@ -102,6 +115,8 @@ class ForecastTensorBatch:
 
 @dataclass(frozen=True)
 class ForecastingOperationCapability:
+    """Describe runtime capabilities exposed by a forecasting primitive or adapter."""
+
     name: str
     stage: str
     tensor_native: bool = True
@@ -112,6 +127,8 @@ class ForecastingOperationCapability:
 
 @dataclass(frozen=True)
 class ForecastingSplitSpec:
+    """Configuration for explicit temporal validation splits."""
+
     kind: ForecastingSplitKind = ForecastingSplitKind.HOLDOUT
     validation_horizon: int | None = None
     min_train_length: int | None = None
@@ -125,6 +142,8 @@ class ForecastingSplitSpec:
 
 @dataclass(frozen=True)
 class ForecastingFoldSplit:
+    """One temporal validation fold with a train batch and horizon target."""
+
     train_batch: ForecastTensorBatch
     validation_target: torch.Tensor
     fold_index: int
@@ -135,6 +154,7 @@ class ForecastingFoldSplit:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize fold boundaries and split metadata for benchmark artifacts."""
         return {
             'fold_index': int(self.fold_index),
             'train_start': int(self.train_start),
@@ -149,12 +169,15 @@ class ForecastingFoldSplit:
 
 @dataclass(frozen=True)
 class ForecastingEvaluationResult:
+    """Metric value with per-horizon diagnostics for a forecast vector."""
+
     metric_name: str
     metric_value: float
     per_horizon_metrics: tuple[float, ...]
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize metric data in a JSON-friendly format."""
         return {
             'metric_name': self.metric_name,
             'metric_value': float(self.metric_value),
@@ -165,6 +188,8 @@ class ForecastingEvaluationResult:
 
 @dataclass(frozen=True)
 class TrajectoryTransformResult:
+    """Output of a trajectory transform such as hankelisation."""
+
     features: torch.Tensor
     target: torch.Tensor | None
     latest_features: torch.Tensor
@@ -175,6 +200,7 @@ class TrajectoryTransformResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize trajectory shapes and transform parameters."""
         return {
             'features_shape': tuple(int(value) for value in self.features.shape),
             'target_shape': None if self.target is None else tuple(int(value) for value in self.target.shape),
@@ -189,6 +215,8 @@ class TrajectoryTransformResult:
 
 @dataclass(frozen=True)
 class DecompositionResult:
+    """Low-rank decomposition payload shared by SVD-like primitives."""
+
     projected_features: torch.Tensor
     basis: torch.Tensor
     singular_values: torch.Tensor
@@ -197,6 +225,7 @@ class DecompositionResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize decomposition shapes and strategy metadata."""
         return {
             'projected_shape': tuple(int(value) for value in self.projected_features.shape),
             'basis_shape': tuple(int(value) for value in self.basis.shape),
@@ -208,6 +237,8 @@ class DecompositionResult:
 
 @dataclass(frozen=True)
 class RankTruncationResult:
+    """Rank-truncated representation plus reconstruction diagnostics."""
+
     projected_features: torch.Tensor
     basis: torch.Tensor
     reconstructed_features: torch.Tensor
@@ -218,6 +249,7 @@ class RankTruncationResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize selected-rank diagnostics and output shapes."""
         return {
             'projected_shape': tuple(int(value) for value in self.projected_features.shape),
             'basis_shape': tuple(int(value) for value in self.basis.shape),
@@ -230,10 +262,13 @@ class RankTruncationResult:
 
 @dataclass(frozen=True)
 class ForecastHeadResult:
+    """Forecast head output payload for primitive graph execution."""
+
     forecast: torch.Tensor
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize forecast tensor shape and head metadata."""
         return {
             'forecast_shape': tuple(int(value) for value in self.forecast.shape),
             **self.metadata,
@@ -241,6 +276,8 @@ class ForecastHeadResult:
 
 
 class ForecastingBoundaryAdapter:
+    """Convert FEDOT boundary objects to and from tensor-native runtime payloads."""
+
     @staticmethod
     def from_input_data(
             input_data: InputData,
@@ -249,6 +286,7 @@ class ForecastingBoundaryAdapter:
             device_policy: TensorDevicePolicy | None = None,
             metadata: dict[str, Any] | None = None,
     ) -> ForecastTensorBatch:
+        """Build a ForecastTensorBatch from FEDOT InputData."""
         resolved_horizon = (
             int(forecast_horizon)
             if forecast_horizon is not None
@@ -267,6 +305,7 @@ class ForecastingBoundaryAdapter:
             input_data: InputData,
             forecast: Sequence[float] | np.ndarray | torch.Tensor,
     ) -> OutputData:
+        """Wrap a forecast vector back into FEDOT OutputData."""
         if OutputData is None:  # pragma: no cover - lightweight test envs
             return type('OutputData', (), {'predict': forecast, 'data_type': DataTypesEnum.table})()
         prediction = np.asarray(
@@ -285,6 +324,8 @@ class ForecastingBoundaryAdapter:
 
 
 class ForecastingRuntimeAdapter:
+    """Small convenience adapter for creating runtime batches from raw series."""
+
     capability = ForecastingOperationCapability(
         name='forecasting_runtime',
         stage='runtime',
@@ -295,6 +336,7 @@ class ForecastingRuntimeAdapter:
     )
 
     def __init__(self, device_policy: TensorDevicePolicy | None = None):
+        """Store the device policy used by all batches produced by this adapter."""
         self.device_policy = device_policy or TensorDevicePolicy()
 
     def make_batch(
@@ -305,6 +347,7 @@ class ForecastingRuntimeAdapter:
             idx: Sequence[int] | np.ndarray | torch.Tensor | None = None,
             metadata: dict[str, Any] | None = None,
     ) -> ForecastTensorBatch:
+        """Convert a raw time series into a ForecastTensorBatch."""
         return series_to_forecast_tensor_batch(
             time_series,
             forecast_horizon=forecast_horizon,
@@ -316,6 +359,8 @@ class ForecastingRuntimeAdapter:
 
 @dataclass
 class RidgeForecastingHead:
+    """Closed-form ridge regression head for lagged forecasting features."""
+
     alpha: float = 1.0
     device_policy: TensorDevicePolicy = field(default_factory=TensorDevicePolicy)
     weights_: torch.Tensor | None = None
@@ -324,6 +369,7 @@ class RidgeForecastingHead:
     output_dim_: int | None = None
 
     def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'RidgeForecastingHead':
+        """Fit ridge weights from supervised trajectory features to horizon targets."""
         X = ensure_tensor_2d(features, self.device_policy)
         Y = ensure_tensor_2d(target, self.device_policy)
         design = torch.cat(
@@ -345,12 +391,14 @@ class RidgeForecastingHead:
         return self
 
     def predict(self, features: torch.Tensor) -> torch.Tensor:
+        """Predict horizon vectors for trajectory features using fitted weights."""
         if self.weights_ is None or self.intercept_ is None:
             raise ValueError('RidgeForecastingHead is not fitted.')
         X = ensure_tensor_2d(features, self.device_policy).to(device=self.weights_.device, dtype=self.weights_.dtype)
         return X @ self.weights_ + self.intercept_
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Return fitted ridge dimensions and runtime device metadata."""
         return {
             'alpha': float(self.alpha),
             'input_dim': self.input_dim_,
@@ -365,6 +413,7 @@ class _ForecastingMLP(torch.nn.Module):
                  output_dim: int,
                  hidden_dims: Sequence[int],
                  activation: str = 'relu'):
+        """Create a feed-forward network used by MLPForecastingHead."""
         super().__init__()
         layers: list[torch.nn.Module] = []
         current_dim = int(input_dim)
@@ -384,6 +433,7 @@ class _ForecastingMLP(torch.nn.Module):
         self.network = torch.nn.Sequential(*layers)
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
+        """Run a forward pass through the internal sequential network."""
         return self.network(values)
 
 
@@ -393,6 +443,7 @@ def build_scaled_mlp_hidden_dims(
         base_hidden_dim: int = 512,
         min_hidden_dim: int = 8,
 ) -> tuple[int, ...]:
+    """Build monotonically shrinking hidden dimensions for an MLP depth."""
     resolved_depth = int(max(1, depth))
     current_dim = int(max(min_hidden_dim, base_hidden_dim))
     resolved_dims: list[int] = []
@@ -404,6 +455,8 @@ def build_scaled_mlp_hidden_dims(
 
 @dataclass
 class MLPForecastingHead:
+    """Trainable MLP forecast head with normalization, scheduler and early stopping."""
+
     hidden_dims: tuple[int, ...] | None = None
     depth: int = 2
     base_hidden_dim: int = 512
@@ -665,6 +718,7 @@ class MLPForecastingHead:
         self.final_learning_rate_ = float(optimizer.param_groups[0]['lr'])
 
     def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'MLPForecastingHead':
+        """Fit the MLP head on supervised features and horizon targets."""
         resolved_progress_policy = resolve_forecasting_progress_policy(
             self.progress_policy,
             show_progress=self.show_progress,
@@ -696,6 +750,7 @@ class MLPForecastingHead:
         return self
 
     def predict(self, features: torch.Tensor) -> torch.Tensor:
+        """Predict denormalized horizon vectors with the fitted MLP network."""
         if self.network_ is None:
             raise ValueError('MLPForecastingHead is not fitted.')
         X = ensure_tensor_2d(features, self.device_policy).to(
@@ -708,6 +763,7 @@ class MLPForecastingHead:
         return self._denormalize_target(normalized_prediction)
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Return training, architecture and device diagnostics for the MLP head."""
         return {
             'head_policy': 'mlp',
             'hidden_dims': tuple(int(value) for value in self.resolved_hidden_dims_),
@@ -742,10 +798,13 @@ class MLPForecastingHead:
 
 @dataclass
 class WeightedAverageHead:
+    """Constrained non-negative ensemble head for branch forecast weighting."""
+
     device_policy: TensorDevicePolicy = field(default_factory=TensorDevicePolicy)
     weights_: torch.Tensor | None = None
 
     def fit(self, branch_forecasts: torch.Tensor, target: torch.Tensor) -> 'WeightedAverageHead':
+        """Fit branch weights against a validation horizon target."""
         forecasts = ensure_tensor_2d(branch_forecasts, self.device_policy)
         if forecasts.shape[0] < forecasts.shape[1]:
             design = forecasts.T
@@ -767,6 +826,7 @@ class WeightedAverageHead:
         return self
 
     def predict(self, branch_forecasts: torch.Tensor) -> torch.Tensor:
+        """Combine branch forecasts using the fitted normalized weights."""
         if self.weights_ is None:
             raise ValueError('WeightedAverageHead is not fitted.')
         forecasts = ensure_tensor_2d(branch_forecasts, self.device_policy)
@@ -775,6 +835,7 @@ class WeightedAverageHead:
         return forecasts @ self.weights_
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Return learned branch weights in a JSON-friendly form."""
         return {
             'weights': [] if self.weights_ is None else [float(value) for value in
                                                          self.weights_.detach().cpu().tolist()]
@@ -799,6 +860,7 @@ def ensure_tensor_2d(
         values: Sequence[float] | np.ndarray | torch.Tensor,
         device_policy: TensorDevicePolicy | None = None,
 ) -> torch.Tensor:
+    """Normalize array-like values to a 2D tensor on the requested device."""
     resolved_policy = device_policy or TensorDevicePolicy()
     if isinstance(values, torch.Tensor):
         tensor = values
@@ -819,6 +881,7 @@ def series_to_forecast_tensor_batch(
         idx: Sequence[int] | np.ndarray | torch.Tensor | None = None,
         metadata: dict[str, Any] | None = None,
 ) -> ForecastTensorBatch:
+    """Create the canonical ForecastTensorBatch from raw series values."""
     resolved_policy = device_policy or TensorDevicePolicy()
     normalized = _normalize_series_array(time_series)
     history = torch.as_tensor(
@@ -847,6 +910,7 @@ def resolve_window_size(
         min_ratio: float = 0.10,
         max_ratio: float = 0.35,
 ) -> int:
+    """Resolve and validate a trajectory window size for a series length."""
     max_window = max(2, series_length - forecast_horizon)
     if window_size is not None:
         return int(max(2, min(int(window_size), max_window)))
@@ -858,6 +922,7 @@ def resolve_window_size(
 
 
 def resolve_stride(window_size: int, stride: int | None = None) -> int:
+    """Clamp trajectory stride to a safe positive value for the window size."""
     requested = 1 if stride is None else int(stride)
     return int(max(1, min(requested, max(1, window_size // 2))))
 
@@ -868,6 +933,7 @@ def build_hankel_trajectory_transform(
         window_size: int,
         stride: int = 1,
 ) -> TrajectoryTransformResult:
+    """Build supervised Hankel windows and horizon targets from a tensor batch."""
     history = batch.history
     series_length, channel_count = history.shape
     resolved_window = resolve_window_size(
@@ -919,6 +985,7 @@ def compute_svd_decomposition(
         *,
         strategy: str = 'full',
 ) -> DecompositionResult:
+    """Compute an exact SVD-based feature decomposition."""
     matrix = ensure_tensor_2d(features)
     U, singular_values, Vh = torch.linalg.svd(matrix, full_matrices=False)
     projected = U * singular_values
@@ -938,6 +1005,7 @@ def compute_randomized_svd_decomposition(
         *,
         n_oversamples: int = 5,
 ) -> DecompositionResult:
+    """Compute the randomized-SVD compatible decomposition payload."""
     result = compute_svd_decomposition(features, strategy='randomized')
     metadata = dict(result.metadata)
     metadata['n_oversamples'] = int(n_oversamples)
@@ -956,6 +1024,7 @@ def compute_tensor_decomposition(
         *,
         unfolding_strategy: str = 'channels_last',
 ) -> DecompositionResult:
+    """Compute a tensor-compatible decomposition through an explicit unfolding policy."""
     matrix = ensure_tensor_2d(features)
     result = compute_svd_decomposition(matrix, strategy='tensor_compat')
     metadata = dict(result.metadata)
@@ -979,6 +1048,7 @@ def truncate_decomposition_rank(
         expert_rank: int | None = None,
         min_rank: int = 1,
 ) -> RankTruncationResult:
+    """Select a low-rank approximation according to rank or variance policy."""
     singular_values = decomposition.singular_values
     min_dim = min(int(decomposition.projected_features.shape[0]), int(decomposition.projected_features.shape[1]))
     if policy == 'expert':
@@ -1019,11 +1089,13 @@ def truncate_decomposition_rank(
 
 
 def project_features(features: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:
+    """Project feature rows into a decomposition basis."""
     X = ensure_tensor_2d(features)
     return X @ basis
 
 
 def inverse_project_features(projected_features: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:
+    """Reconstruct feature rows from projected coordinates and a basis."""
     Z = ensure_tensor_2d(projected_features)
     return Z @ basis.T
 
@@ -1229,6 +1301,7 @@ def iter_forecasting_splits(
         batch: ForecastTensorBatch,
         split_spec: ForecastingSplitSpec | None = None,
 ) -> tuple[ForecastingFoldSplit, ...]:
+    """Build deterministic temporal validation folds for a forecasting batch."""
     spec = split_spec or ForecastingSplitSpec(validation_horizon=batch.forecast_horizon)
     validation_horizon = _resolve_split_horizon(batch, spec)
     min_train = _resolve_min_train_length(batch, spec, validation_horizon)
@@ -1253,6 +1326,7 @@ def split_forecasting_batch(
         batch: ForecastTensorBatch,
         split_spec: ForecastingSplitSpec | None = None,
 ) -> tuple[ForecastTensorBatch, torch.Tensor]:
+    """Return the last train/validation split for compatibility callers."""
     folds = iter_forecasting_splits(batch, split_spec)
     last_fold = folds[-1]
     return last_fold.train_batch, last_fold.validation_target
@@ -1264,6 +1338,7 @@ def evaluate_forecast(
         *,
         metric_name: str = 'rmse',
 ) -> ForecastingEvaluationResult:
+    """Evaluate a forecast vector with horizon-wise MAE or RMSE diagnostics."""
     truth = torch.as_tensor(y_true, dtype=torch.float32).reshape(-1)
     pred = torch.as_tensor(y_pred, dtype=torch.float32).reshape(-1)
     if truth.shape[0] != pred.shape[0]:
@@ -1285,4 +1360,5 @@ def evaluate_forecast(
 
 
 def capability_to_dict(capability: ForecastingOperationCapability) -> dict[str, Any]:
+    """Serialize a ForecastingOperationCapability dataclass."""
     return asdict(capability)

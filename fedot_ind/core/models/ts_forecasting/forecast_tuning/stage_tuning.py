@@ -8,6 +8,8 @@ from fedot_ind.core.repository.forecasting_registry import canonical_forecasting
 
 
 class ForecastingStageName(str, Enum):
+    """Named stages used by forecasting stage-aware tuning."""
+
     TRAJECTORY = 'trajectory_transform'
     DECOMPOSITION_RANK = 'decomposition_rank'
     FORECAST_HEAD = 'forecast_head'
@@ -140,6 +142,8 @@ FALLBACK_STAGE_SEARCH_SPACE_PARAMETERS: dict[str, dict[str, tuple[str, ...]]] = 
 
 @dataclass(frozen=True)
 class StageTuningGroup:
+    """One stage of a sequential tuning plan and its allowed parameters."""
+
     stage: str
     parameters: tuple[str, ...]
     recommended_tuner: str = 'SequentialTuner'
@@ -147,11 +151,14 @@ class StageTuningGroup:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the stage group for diagnostics and benchmark artifacts."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class ForecastingStageTuningPlan:
+    """Stage decomposition used to tune a forecasting model."""
+
     model_name: str
     canonical_model_name: str
     family: str
@@ -159,6 +166,7 @@ class ForecastingStageTuningPlan:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize a tuning plan with nested stage groups."""
         return {
             'model_name': self.model_name,
             'canonical_model_name': self.canonical_model_name,
@@ -170,6 +178,8 @@ class ForecastingStageTuningPlan:
 
 @dataclass(frozen=True)
 class ForecastingStageSearchSpace:
+    """Search-space slice assigned to a single forecasting stage."""
+
     model_name: str
     canonical_model_name: str
     family: str
@@ -179,6 +189,7 @@ class ForecastingStageSearchSpace:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the stage-specific search space."""
         return {
             'model_name': self.model_name,
             'canonical_model_name': self.canonical_model_name,
@@ -202,6 +213,7 @@ def _group(stage: ForecastingStageName, parameters: tuple[str, ...], *, depends_
 
 def build_forecasting_stage_tuning_plan(model_name: str,
                                         params: dict[str, Any] | None = None) -> ForecastingStageTuningPlan:
+    """Build the default stage tuning plan for a forecasting model name."""
     canonical_name = canonical_forecasting_model_name(model_name)
     resolved_params = dict(params or {})
 
@@ -545,6 +557,7 @@ def build_forecasting_stage_tuning_plan(model_name: str,
 def build_forecasting_stage_search_spaces(model_name: str,
                                           params: dict[str, Any] | None = None) -> tuple[
     ForecastingStageSearchSpace, ...]:
+    """Split a model search space into stage-specific parameter groups."""
     plan = build_forecasting_stage_tuning_plan(model_name, params=params)
     search_space_name = canonical_forecasting_model_name(model_name)
     try:

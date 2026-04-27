@@ -41,6 +41,8 @@ except Exception:  # pragma: no cover - lightweight envs may miss operator runti
 
 @dataclass(frozen=True)
 class ForecastingSeriesEvaluation:
+    """Evaluation result for one forecasting model on one time series."""
+
     model_name: str
     canonical_model_name: str
     family: str
@@ -54,6 +56,7 @@ class ForecastingSeriesEvaluation:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the series-level evaluation payload."""
         return {
             'model_name': self.model_name,
             'canonical_model_name': self.canonical_model_name,
@@ -71,6 +74,8 @@ class ForecastingSeriesEvaluation:
 
 @dataclass(frozen=True)
 class ForecastingSeriesStageTuningResult:
+    """Baseline-vs-tuned evaluation result for one time series."""
+
     model_name: str
     canonical_model_name: str
     family: str
@@ -80,6 +85,7 @@ class ForecastingSeriesStageTuningResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize baseline, tuning and best-evaluation details."""
         return {
             'model_name': self.model_name,
             'canonical_model_name': self.canonical_model_name,
@@ -173,12 +179,15 @@ def _mase_scale(train: np.ndarray, seasonal_period: int) -> float:
 
 @dataclass(frozen=True)
 class ForecastMetricEvaluator:
+    """Evaluate forecasting metrics with access to train-series context."""
+
     y_true: np.ndarray
     y_pred: np.ndarray
     y_train: np.ndarray
     seasonal_period: int
 
     def __post_init__(self):
+        """Validate metric vectors and store normalized arrays."""
         actual = np.asarray(self.y_true, dtype=float).reshape(-1)
         predicted = np.asarray(self.y_pred, dtype=float).reshape(-1)
         train = np.asarray(self.y_train, dtype=float).reshape(-1)
@@ -253,6 +262,7 @@ class ForecastMetricEvaluator:
         )
 
     def evaluate(self, metric_name: str) -> ForecastingEvaluationResult:
+        """Dispatch a metric name to the corresponding evaluator."""
         metric = str(metric_name).lower()
         metric_mapping = {
             'rmse': self._evaluate_rmse,
@@ -374,6 +384,8 @@ def _instantiate_runtime_model(
 
 @dataclass
 class ForecastingSeriesEvaluator:
+    """Fit, forecast and score a model across temporal CV folds."""
+
     model_name: str
     time_series: np.ndarray
     forecast_horizon: int
@@ -385,6 +397,7 @@ class ForecastingSeriesEvaluator:
     progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None
 
     def __post_init__(self):
+        """Resolve model name, parameters, progress policy and split spec."""
         self.canonical_model_name = canonical_forecasting_model_name(self.model_name)
         self.resolved_params = _normalize_base_params(self.params, model_name=self.canonical_model_name)
         self.resolved_progress_policy = resolve_forecasting_progress_policy(
@@ -475,6 +488,7 @@ class ForecastingSeriesEvaluator:
         }
 
     def run(self) -> ForecastingSeriesEvaluation:
+        """Execute all folds and aggregate the resulting forecast metrics."""
         folds = self._iter_over_folds()
         fold_evaluations: list[ForecastingEvaluationResult] = []
         fold_forecasts: list[np.ndarray] = []
@@ -513,6 +527,8 @@ class ForecastingSeriesEvaluator:
 
 @dataclass
 class ForecastingSeriesStageTuningRunner:
+    """Run baseline evaluation, sequential tuning and best-model evaluation."""
+
     model_name: str
     time_series: np.ndarray
     forecast_horizon: int
@@ -527,6 +543,7 @@ class ForecastingSeriesStageTuningRunner:
     progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None
 
     def __post_init__(self):
+        """Resolve base parameters and progress policy before tuning."""
         self.resolved_progress_policy = resolve_forecasting_progress_policy(
             self.progress_policy,
             show_progress=self.show_progress,
@@ -569,6 +586,7 @@ class ForecastingSeriesStageTuningRunner:
         )
 
     def run(self) -> ForecastingSeriesStageTuningResult:
+        """Compare baseline parameters with stage-tuned parameters on a series."""
         baseline_evaluation = self._evaluate(self.resolved_params)
         sequential_result = self._run_sequential()
         best_evaluation = self._evaluate(sequential_result.best_parameters)
@@ -601,6 +619,7 @@ def evaluate_forecasting_model_on_series(
         show_progress: bool | None = None,
         progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> ForecastingSeriesEvaluation:
+    """Evaluate a forecasting model on a single series with temporal splits."""
     return ForecastingSeriesEvaluator(
         model_name,
         time_series=time_series,
@@ -625,6 +644,7 @@ def build_forecasting_stage_objective_from_series(
         show_progress: bool | None = None,
         progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> Callable[[dict[str, Any]], float]:
+    """Create a stage-tuning objective that scores candidates on a series."""
     runner = ForecastingSeriesStageTuningRunner(
         model_name,
         time_series=time_series,
@@ -653,6 +673,7 @@ def run_forecasting_stage_tuning_on_series(
         show_progress: bool | None = None,
         progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> ForecastingSeriesStageTuningResult:
+    """Run full stage tuning for one model and one time series."""
     return ForecastingSeriesStageTuningRunner(
         model_name,
         time_series=time_series,

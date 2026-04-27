@@ -8,6 +8,8 @@ from .regime_diagnostics import RegimeDiagnosticsResult
 
 
 class RoutingAdapterName(str, Enum):
+    """Known adapter names that can be recommended by regime routing."""
+
     MSSA = 'mssa'
     SSA_COMPAT = 'ssa_compat'
     HAVOK = 'havok'
@@ -21,6 +23,7 @@ class RoutingAdapterName(str, Enum):
 
 
 def adapter_name_to_family(adapter_name: str) -> str:
+    """Map a concrete adapter/model name to a coarse forecasting family."""
     normalized = canonical_forecasting_model_name(adapter_name)
     if normalized in {
         RoutingAdapterName.LAGGED_RIDGE.value,
@@ -53,6 +56,8 @@ def adapter_name_to_family(adapter_name: str) -> str:
 
 @dataclass(frozen=True)
 class RegimeRoutingPolicy:
+    """Thresholds that convert regime diagnostics into routing decisions."""
+
     periodic_concentration_min: float = 0.25
     periodic_flatness_max: float = 0.25
     periodic_acf_min: float = 0.5
@@ -64,6 +69,8 @@ class RegimeRoutingPolicy:
 
 @dataclass(frozen=True)
 class RegimeRoutingDecision:
+    """Recommended forecasting adapter set with confidence and rationale."""
+
     regime_hint: str
     primary_adapter: str
     candidate_adapters: tuple[str, ...]
@@ -72,6 +79,7 @@ class RegimeRoutingDecision:
     rationale: tuple[str, ...]
 
     def to_dict(self) -> dict[str, object]:
+        """Serialize the routing decision for benchmark artifacts."""
         return asdict(self)
 
 
@@ -79,6 +87,7 @@ def recommend_forecasting_model(
         diagnostics: RegimeDiagnosticsResult,
         policy: RegimeRoutingPolicy | None = None,
 ) -> RegimeRoutingDecision:
+    """Recommend a forecasting adapter family from regime diagnostics."""
     resolved = policy or RegimeRoutingPolicy()
     regime_hint = diagnostics.regime_hint
     rationale: list[str] = [f'regime_hint={regime_hint}']

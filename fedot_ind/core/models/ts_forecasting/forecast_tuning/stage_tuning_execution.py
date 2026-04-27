@@ -21,6 +21,8 @@ from .stage_tuning import (
 
 @dataclass(frozen=True)
 class StageTuningExecutionStep:
+    """Resolved execution record for one stage tuning update."""
+
     stage: str
     depends_on: tuple[str, ...]
     allowed_parameters: tuple[str, ...]
@@ -32,11 +34,14 @@ class StageTuningExecutionStep:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this execution step for diagnostics."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class ForecastingStageTuningExecution:
+    """Full resolved stage tuning execution plan for a model."""
+
     model_name: str
     canonical_model_name: str
     family: str
@@ -46,6 +51,7 @@ class ForecastingStageTuningExecution:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the execution plan and all resolved steps."""
         return {
             'model_name': self.model_name,
             'canonical_model_name': self.canonical_model_name,
@@ -59,17 +65,22 @@ class ForecastingStageTuningExecution:
 
 @dataclass(frozen=True)
 class StageCandidateEvaluation:
+    """Score produced by evaluating one candidate parameter set for a stage."""
+
     stage: str
     parameters: dict[str, Any]
     score: float
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the candidate score and metadata."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class ForecastingSequentialStageTuningResult:
+    """Result of sequentially optimizing forecasting stages."""
+
     model_name: str
     canonical_model_name: str
     family: str
@@ -80,6 +91,7 @@ class ForecastingSequentialStageTuningResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize best parameters and per-stage tuning history."""
         return {
             'model_name': self.model_name,
             'canonical_model_name': self.canonical_model_name,
@@ -200,6 +212,7 @@ def build_forecasting_stage_tuning_execution(
         base_params: dict[str, Any] | None = None,
         stage_updates: dict[str, Any] | None = None,
 ) -> ForecastingStageTuningExecution:
+    """Resolve stage updates into an executable tuning plan."""
     resolved_base_params = dict(base_params or {})
     plan = build_forecasting_stage_tuning_plan(model_name, params=resolved_base_params)
     search_spaces = {
@@ -236,6 +249,8 @@ def build_forecasting_stage_tuning_execution(
 
 @dataclass
 class SequentialStageTuningRunner:
+    """Coordinate stage-wise candidate enumeration and objective evaluation."""
+
     model_name: str
     objective: Callable[[dict[str, Any]], float]
     base_params: dict[str, Any] | None = None
@@ -246,6 +261,7 @@ class SequentialStageTuningRunner:
     progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None
 
     def __post_init__(self):
+        """Resolve progress policy, execution plan and search spaces."""
         self.resolved_progress_policy = resolve_forecasting_progress_policy(
             self.progress_policy,
             show_progress=self.show_progress,
@@ -373,6 +389,7 @@ class SequentialStageTuningRunner:
         return current_best_params, current_best_score, history_entry
 
     def run(self) -> ForecastingSequentialStageTuningResult:
+        """Run sequential stage tuning and return the best parameter set."""
         current_best_params = dict(self.execution.base_parameters)
         current_best_score = float(self.objective(current_best_params))
         stage_history: list[dict[str, Any]] = []
@@ -416,6 +433,7 @@ def run_sequential_stage_tuning(
         show_progress: bool | None = None,
         progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> ForecastingSequentialStageTuningResult:
+    """Convenience entrypoint for sequential forecasting stage tuning."""
     return SequentialStageTuningRunner(
         model_name=model_name,
         objective=objective,

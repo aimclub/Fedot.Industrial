@@ -70,6 +70,8 @@ def _intervals_from_mask(mask: np.ndarray, offset: int = 0) -> list[tuple[int, i
 
 @dataclass
 class HAVOKForecaster:
+    """HAVOK-style operator forecaster with linear or MLP transition heads."""
+
     forecast_horizon: int
     window_size: int | None = None
     rank: int | None = None
@@ -212,6 +214,7 @@ class HAVOKForecaster:
         }
 
     def fit(self, time_series: np.ndarray) -> 'HAVOKForecaster':
+        """Fit Hankel embedding, low-rank states and transition heads."""
         series, resolved_window = self._prepare_series(time_series)
         hankel, truncated, latent = self._build_latent_embedding(series, resolved_window)
         forcing = latent[:-1, -1]
@@ -237,6 +240,7 @@ class HAVOKForecaster:
         return latest_window @ self.basis_
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Roll latent HAVOK dynamics forward and decode a forecast horizon."""
         horizon = int(forecast_horizon or self.forecast_horizon)
         current_latent = self._project_latest_window(time_series)
         current_state = current_latent[:-1]
@@ -280,6 +284,7 @@ class HAVOKForecaster:
         return np.asarray(forecast, dtype=float)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Return operator, forcing and forecast-head diagnostics."""
         forcing_intervals = [[int(start), int(stop)] for start, stop in _intervals_from_mask(self.forcing_mask_)]
         diagnostics = {
             'model_family': 'operator_model',
@@ -303,7 +308,10 @@ class HAVOKForecaster:
 
 
 class HAVOKForecasterImplementation(ModelImplementation):
+    """FEDOT-compatible wrapper for HAVOKForecaster."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read HAVOK stage and head parameters from operation params."""
         params = params or OperationParameters()
         super().__init__(params)
         self.window_size = self.params.get('window_size')
@@ -326,6 +334,7 @@ class HAVOKForecasterImplementation(ModelImplementation):
         self.model_: HAVOKForecaster | None = None
 
     def fit(self, input_data: InputData):
+        """Fit the wrapped HAVOK forecaster from FEDOT InputData."""
         self.model_ = HAVOKForecaster(
             forecast_horizon=input_data.task.task_params.forecast_length,
             window_size=self.window_size,
@@ -347,6 +356,7 @@ class HAVOKForecasterImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the HAVOK forecast."""
         prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
@@ -355,16 +365,19 @@ class HAVOKForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData):
+        """Return latent states for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.latent_states_, dtype=float).T
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Expose diagnostics from the fitted wrapped model."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for HAVOK."""
         return build_forecasting_stage_tuning_plan(
             'havok_forecaster',
             {
@@ -385,6 +398,7 @@ class HAVOKForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return HAVOK search-space slices grouped by stage."""
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'havok_forecaster',
@@ -407,6 +421,7 @@ class HAVOKForecasterImplementation(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed HAVOK updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'havok_forecaster',
             base_params={
@@ -439,6 +454,7 @@ class HAVOKForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for HAVOK on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'havok_forecaster',
             time_series=np.asarray(time_series, dtype=float),

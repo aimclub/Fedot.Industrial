@@ -9,6 +9,8 @@ from fedot_ind.core.operation.transformation.data.trajectory_embedding import es
 
 @dataclass(frozen=True)
 class RegimeDiagnosticsResult:
+    """Compact statistical description used by forecasting regime routing."""
+
     series_length: int
     dominant_period: int | None
     acf_decay_rate: float
@@ -19,6 +21,7 @@ class RegimeDiagnosticsResult:
     regime_hint: str
 
     def to_dict(self) -> dict[str, float | int | str | None]:
+        """Serialize regime diagnostics into primitive Python values."""
         return asdict(self)
 
 
@@ -46,6 +49,7 @@ def _dominant_period(values: np.ndarray) -> int | None:
 
 
 def analyze_regime_diagnostics(time_series: np.ndarray, window_size: int | None = None) -> RegimeDiagnosticsResult:
+    """Compute coarse regime indicators from a raw time series."""
     values = np.asarray(time_series, dtype=float).reshape(-1)
     if values.size < 6:
         return RegimeDiagnosticsResult(

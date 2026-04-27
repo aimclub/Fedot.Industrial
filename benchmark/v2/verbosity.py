@@ -6,6 +6,8 @@ from typing import Any
 
 
 class ForecastingVerbosityLevel(str, Enum):
+    """Supported verbosity presets for forecasting benchmark artifacts."""
+
     COMPACT = 'compact'
     STANDARD = 'standard'
     DEBUG = 'debug'
@@ -13,6 +15,8 @@ class ForecastingVerbosityLevel(str, Enum):
 
 @dataclass(frozen=True)
 class ForecastingVerbosityPolicy:
+    """Policy that prunes heavy benchmark metadata before serialization."""
+
     level: str = ForecastingVerbosityLevel.STANDARD.value
     include_stage_tuning_report: bool = True
     include_stage_tuning_comparison: bool = True
@@ -24,9 +28,11 @@ class ForecastingVerbosityPolicy:
     include_runner_context: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize verbosity settings for run metadata."""
         return asdict(self)
 
     def prune_stage_tuning_report(self, report: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Remove heavy stage tuning report fields according to policy."""
         if not self.include_stage_tuning_report or not isinstance(report, dict):
             return None
         payload = dict(report)
@@ -70,6 +76,7 @@ class ForecastingVerbosityPolicy:
         return payload
 
     def prune_stage_tuning_runtime(self, runtime_payload: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Remove heavy runtime fields according to policy."""
         if runtime_payload is None:
             return None
         payload = dict(runtime_payload)
@@ -78,6 +85,7 @@ class ForecastingVerbosityPolicy:
         return payload
 
     def prune_stage_tuning_comparison(self, comparison: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Remove heavy post-fit tuning comparison fields according to policy."""
         if not self.include_stage_tuning_comparison or not isinstance(comparison, dict):
             return None
         payload = dict(comparison)
@@ -93,6 +101,7 @@ def resolve_forecasting_verbosity_policy(
         *,
         options: dict[str, Any] | None = None,
 ) -> ForecastingVerbosityPolicy:
+    """Resolve a verbosity preset plus overrides into a concrete policy."""
     resolved_level = ForecastingVerbosityLevel(str(level or ForecastingVerbosityLevel.STANDARD.value).lower())
     defaults = {
         ForecastingVerbosityLevel.COMPACT: dict(

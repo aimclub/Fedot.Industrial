@@ -6,6 +6,8 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ForecastingProgressPolicy:
+    """Central policy for tqdm usage in forecasting runtime and model heads."""
+
     enabled: bool = False
     leave: bool = False
     show_postfix: bool = True
@@ -18,12 +20,15 @@ class ForecastingProgressPolicy:
         return bool(scoped_flag)
 
     def is_stage_tuning_enabled(self) -> bool:
+        """Return whether stage tuning progress bars should be shown."""
         return self._resolve_scope_enabled(self.stage_tuning_enabled)
 
     def is_head_training_enabled(self) -> bool:
+        """Return whether neural/MLP head training progress bars should be shown."""
         return self._resolve_scope_enabled(self.head_training_enabled)
 
     def tqdm_kwargs(self, *, scope: str, desc: str, unit: str) -> dict[str, Any]:
+        """Build tqdm keyword arguments for a named progress scope."""
         if scope == 'stage_tuning':
             enabled = self.is_stage_tuning_enabled()
         elif scope == 'head_training':
@@ -38,6 +43,7 @@ class ForecastingProgressPolicy:
         }
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize progress settings for diagnostics and benchmark artifacts."""
         return asdict(self)
 
 
@@ -46,6 +52,7 @@ def resolve_forecasting_progress_policy(
         *,
         show_progress: bool | None = True,
 ) -> ForecastingProgressPolicy:
+    """Normalize bool, dict or policy input into ForecastingProgressPolicy."""
     if isinstance(policy, ForecastingProgressPolicy):
         resolved = policy
     elif isinstance(policy, dict):

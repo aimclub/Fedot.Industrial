@@ -25,6 +25,7 @@ class SSAForecasterImplementation(ModelImplementation):
     """Compatibility SSA wrapper over the shared Page-embedding forecasting backend."""
 
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read SSA compatibility parameters and shared head settings."""
         params = params or OperationParameters()
         super().__init__(params)
         self.window_size = params.get('window_size')
@@ -49,6 +50,7 @@ class SSAForecasterImplementation(ModelImplementation):
         return series
 
     def fit(self, input_data: InputData):
+        """Fit the SSA compatibility wrapper through the MSSA backend."""
         forecast_horizon = input_data.task.task_params.forecast_length
         self.model_ = MSSAForecaster(
             forecast_horizon=forecast_horizon,
@@ -68,6 +70,7 @@ class SSAForecasterImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the SSA forecast."""
         series = self._prepare_series(input_data)
         prediction = self.model_.predict(series)
         return self._convert_to_output(
@@ -77,11 +80,13 @@ class SSAForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData) -> np.ndarray:
+        """Return denoised series features for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.denoised_series_, dtype=float).reshape(1, -1)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Return compatibility metadata and wrapped mSSA diagnostics."""
         diagnostics = {
             'compatibility_status': self.compatibility_status_,
             'history_lookback': int(self.history_lookback),
@@ -92,6 +97,7 @@ class SSAForecasterImplementation(ModelImplementation):
         return diagnostics
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for SSA."""
         return build_forecasting_stage_tuning_plan(
             'ssa_forecaster',
             {
@@ -111,6 +117,7 @@ class SSAForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return SSA search-space slices grouped by stage."""
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'ssa_forecaster',
@@ -132,6 +139,7 @@ class SSAForecasterImplementation(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed SSA updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'ssa_forecaster',
             base_params={
@@ -163,6 +171,7 @@ class SSAForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for SSA on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'ssa_forecaster',
             time_series=np.asarray(time_series, dtype=float),

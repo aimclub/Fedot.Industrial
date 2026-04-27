@@ -25,6 +25,7 @@ class NeuralForecastHeadBridge(NeuralForecastHead):
     """
 
     def __init__(self, model_name: str, forecast_horizon: int, params: dict | None = None):
+        """Create the compatibility bridge from legacy constructor arguments."""
         super().__init__(
             spec=NeuralForecastHeadSpec(
                 model_name=model_name,

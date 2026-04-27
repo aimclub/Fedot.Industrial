@@ -78,6 +78,8 @@ def _extract_topological_window_features(window: np.ndarray, *, patch_len: int, 
 
 @dataclass
 class TopologicalRidgeForecaster:
+    """Lagged ridge forecaster that uses topological window descriptors."""
+
     forecast_horizon: int
     window_size: int | None = None
     window_size_percent: float | None = 10.0
@@ -115,6 +117,7 @@ class TopologicalRidgeForecaster:
         return np.asarray(feature_rows, dtype=float)
 
     def fit(self, time_series: np.ndarray) -> 'TopologicalRidgeForecaster':
+        """Fit topological Hankel features and a ridge forecast head."""
         batch = self.runtime_.make_batch(time_series, forecast_horizon=self.forecast_horizon)
         self.resolved_window_size_ = self._resolve_window_size(batch)
         self.transform_result_ = build_hankel_trajectory_transform(
@@ -142,6 +145,7 @@ class TopologicalRidgeForecaster:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Forecast from the latest topological lag window."""
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
@@ -168,6 +172,7 @@ class TopologicalRidgeForecaster:
         return forecast.detach().cpu().numpy()
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Return topological transform, head and last-prediction diagnostics."""
         return {
             **self.diagnostics_,
             **getattr(self, 'last_prediction_diagnostics_', {}),
@@ -178,6 +183,7 @@ class TopologicalAR(ModelImplementation):
     """Topological lagged forecaster aligned with the `lagged_ridge_forecaster` runtime contract."""
 
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read topological lagged forecaster parameters from operation params."""
         params = params or OperationParameters()
         super().__init__(params)
         self.channel_model = str(self.params.get('channel_model', 'ridge'))
@@ -191,6 +197,7 @@ class TopologicalAR(ModelImplementation):
         self.model_: TopologicalRidgeForecaster | None = None
 
     def fit(self, input_data: InputData):
+        """Fit the wrapped topological ridge forecaster from FEDOT InputData."""
         self.model_ = TopologicalRidgeForecaster(
             forecast_horizon=input_data.task.task_params.forecast_length,
             window_size=None if self.has_explicit_window_percent_ else self.window_size,
@@ -205,6 +212,7 @@ class TopologicalAR(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the topological forecast."""
         prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
@@ -213,16 +221,19 @@ class TopologicalAR(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData):
+        """Return topological features for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.topological_features_, dtype=float)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Expose diagnostics from the fitted wrapped model."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for topo_forecaster."""
         base_params = {
             'channel_model': self.channel_model,
             'window_size': self.window_size,
@@ -235,6 +246,7 @@ class TopologicalAR(ModelImplementation):
         return build_forecasting_stage_tuning_plan('topo_forecaster', base_params).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return topological forecaster search-space slices by stage."""
         base_params = {
             'channel_model': self.channel_model,
             'window_size': self.window_size,
@@ -250,6 +262,7 @@ class TopologicalAR(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed topological updates into a stage tuning execution."""
         base_params = {
             'channel_model': self.channel_model,
             'window_size': self.window_size,
@@ -266,6 +279,7 @@ class TopologicalAR(ModelImplementation):
         ).to_dict()
 
     def run_stage_tuning(self, objective, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Run sequential stage tuning with an externally supplied objective."""
         base_params = {
             'channel_model': self.channel_model,
             'window_size': self.window_size,
@@ -294,6 +308,7 @@ class TopologicalAR(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for topo_forecaster on a raw series."""
         return run_forecasting_stage_tuning_on_series(
             'topo_forecaster',
             time_series=np.asarray(time_series, dtype=float),

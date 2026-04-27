@@ -71,6 +71,8 @@ NEURAL_FORECASTING_MODEL_REGISTRY: dict[str, Any] = {
 
 @dataclass(frozen=True)
 class NeuralForecastHeadSpec:
+    """Validated construction spec for a neural forecasting head."""
+
     model_name: str
     forecast_horizon: int
     params: dict[str, Any] | None = None
@@ -85,17 +87,21 @@ class NeuralForecastHeadSpec:
 
     @property
     def family(self) -> str:
+        """Return the model family used by routing and benchmark summaries."""
         return 'neural_forecaster'
 
 
 @dataclass(frozen=True)
 class NeuralForecastHeadRunResult:
+    """Serializable run result for one neural forecast head execution."""
+
     spec: NeuralForecastHeadSpec
     forecast: tuple[float, ...]
     diagnostics: dict[str, Any]
     metadata: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize spec, forecast, diagnostics and metadata."""
         return {
             'spec': {
                 'model_name': self.spec.model_name,
@@ -110,6 +116,7 @@ class NeuralForecastHeadRunResult:
 
 
 def resolve_neural_forecasting_model_cls(model_name: str):
+    """Resolve a canonical neural head name to its implementation class."""
     entry = NEURAL_FORECASTING_MODEL_REGISTRY[model_name]
     if isinstance(entry, tuple):
         module = importlib.import_module(entry[0])
@@ -125,6 +132,7 @@ def build_neural_forecasting_stage_diagnostics(
         training_history_length: int | None = None,
         runtime_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Build stage-aware diagnostics for a native neural forecasting model."""
     canonical_name = canonical_forecasting_model_name(model_name)
     resolved_params = normalize_neural_forecasting_params(params)
     resolved_runtime = dict(runtime_diagnostics or {})
@@ -186,6 +194,7 @@ def build_neural_forecasting_stage_diagnostics(
 
 
 def build_neural_forecasting_input_data(series: np.ndarray, *, forecast_horizon: int):
+    """Build FEDOT-compatible InputData for neural forecasting backends."""
     try:
         from fedot.core.data.data import InputData
         from fedot.core.repository.dataset_types import DataTypesEnum
@@ -224,6 +233,7 @@ def build_neural_forecasting_input_data(series: np.ndarray, *, forecast_horizon:
 
 
 def normalize_neural_forecast_prediction(prediction: Any, forecast_horizon: int) -> np.ndarray:
+    """Convert a raw neural model output into a fixed-length forecast vector."""
     values = np.asarray(getattr(prediction, 'predict', prediction), dtype=float).reshape(-1)
     return values[:int(forecast_horizon)]
 
@@ -234,6 +244,7 @@ def build_neural_forecast_head(
         forecast_horizon: int,
         params: dict[str, Any] | None = None,
 ) -> 'NeuralForecastHead':
+    """Instantiate a NeuralForecastHead from a model name and params."""
     return NeuralForecastHead(
         spec=NeuralForecastHeadSpec(
             model_name=model_name,
@@ -250,6 +261,7 @@ def run_neural_forecast_head_on_series(
         forecast_horizon: int,
         params: dict[str, Any] | None = None,
 ) -> NeuralForecastHeadRunResult:
+    """Fit and forecast one series with a neural head and return diagnostics."""
     spec = NeuralForecastHeadSpec(
         model_name=model_name,
         forecast_horizon=int(forecast_horizon),
@@ -272,9 +284,12 @@ def run_neural_forecast_head_on_series(
 
 @dataclass
 class NeuralForecastHead:
+    """Thin runtime wrapper that makes native neural forecasters stage-aware."""
+
     spec: NeuralForecastHeadSpec
 
     def __post_init__(self):
+        """Resolve implementation class and normalized runtime parameters."""
         self.canonical_model_name = self.spec.model_name
         self.params = dict(self.spec.params)
         self.forecast_horizon = int(self.spec.forecast_horizon)
@@ -284,6 +299,7 @@ class NeuralForecastHead:
         self.diagnostics_ = {}
 
     def fit(self, time_series: np.ndarray):
+        """Fit the wrapped neural forecasting implementation on a series."""
         try:
             from fedot.core.operations.operation_parameters import OperationParameters
             model_params = OperationParameters(**self.params)
@@ -310,6 +326,7 @@ class NeuralForecastHead:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Run the fitted neural model and normalize its forecast vector."""
         if self.model_ is None:
             raise RuntimeError('NeuralForecastHead must be fitted before predict().')
         horizon = int(forecast_horizon or self.forecast_horizon)
@@ -332,18 +349,23 @@ class NeuralForecastHead:
         return values
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Return stage-aware neural runtime diagnostics."""
         return dict(self.diagnostics_)
 
 
 class NeuralForecastHeadImplementation(ModelImplementation):
+    """Base FEDOT implementation wrapper for neural forecasting heads."""
+
     model_name: str = ''
 
     def __init__(self, params: OperationParameters | None = None):
+        """Store neural head operation parameters for deferred construction."""
         params = params or OperationParameters()
         super().__init__(params)
         self.model_: NeuralForecastHead | None = None
 
     def fit(self, input_data: InputData):
+        """Fit the wrapped neural head from FEDOT InputData."""
         self.model_ = build_neural_forecast_head(
             self.model_name,
             forecast_horizon=int(input_data.task.task_params.forecast_length),
@@ -353,6 +375,7 @@ class NeuralForecastHeadImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the neural forecast."""
         prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
@@ -361,31 +384,43 @@ class NeuralForecastHeadImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData):
+        """Reuse neural prediction output for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return self.predict(input_data)
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Expose diagnostics from the fitted wrapped neural head."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
 
 class PatchTSTForecastHeadImplementation(NeuralForecastHeadImplementation):
+    """FEDOT implementation wrapper for the PatchTST neural head."""
+
     model_name = 'patch_tst_model'
 
 
 class TSTForecastHeadImplementation(NeuralForecastHeadImplementation):
+    """FEDOT implementation wrapper for the Transformer time-series head."""
+
     model_name = 'tst_model'
 
 
 class TCNForecastHeadImplementation(NeuralForecastHeadImplementation):
+    """FEDOT implementation wrapper for the TCN neural head."""
+
     model_name = 'tcn_model'
 
 
 class DeepARForecastHeadImplementation(NeuralForecastHeadImplementation):
+    """FEDOT implementation wrapper for the DeepAR neural head."""
+
     model_name = 'deepar_model'
 
 
 class NBeatsForecastHeadImplementation(NeuralForecastHeadImplementation):
+    """FEDOT implementation wrapper for the N-BEATS neural head."""
+
     model_name = 'nbeats_model'

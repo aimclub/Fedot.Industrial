@@ -94,6 +94,7 @@ def normalize_okhs_fdmd_params(
         forecast_horizon: int,
         series_length: int | None = None,
 ) -> dict[str, Any]:
+    """Merge OKHS/fDMD defaults with user params and validate core sizes."""
     resolved = {
         key: value
         for key, value in OKHS_FDMD_DEFAULT_PARAMS.items()
@@ -158,6 +159,7 @@ def normalize_okhs_fdmd_prediction(
         *,
         forecast_horizon: int,
 ) -> np.ndarray:
+    """Convert raw OKHS predictions to a fixed-length numpy horizon vector."""
     if hasattr(prediction, 'cpu'):
         prediction = prediction.cpu()
     return np.asarray(prediction, dtype=float).reshape(-1)[: int(forecast_horizon)]
@@ -170,6 +172,7 @@ def build_okhs_fdmd_runtime_diagnostics(
         model_family: str = 'operator_model',
         prediction_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Build stage-aware diagnostics from the underlying OKHS optimization info."""
     stage_diagnostics = build_okhs_stage_diagnostics(dict(optimization_info))
     runtime_diagnostics = {
         'model_family': model_family,
@@ -184,6 +187,8 @@ def build_okhs_fdmd_runtime_diagnostics(
 
 @dataclass
 class OKHSFDMDForecaster:
+    """Thin stage-aware wrapper around the OKHS fDMD forecaster backend."""
+
     forecast_horizon: int
     q: float = 0.7
     n_modes: int = 5
@@ -252,6 +257,7 @@ class OKHSFDMDForecaster:
         self.diagnostics_ = build_okhs_fdmd_runtime_diagnostics(optimization_info)
 
     def fit(self, time_series: np.ndarray) -> 'OKHSFDMDForecaster':
+        """Fit the inner OKHS fDMD model on a univariate time series."""
         series = np.asarray(time_series, dtype=float).reshape(-1)
         self.inner_model_ = self._build_inner_model()
         self.inner_model_.fit(series, window_size=self.window_size)
@@ -260,6 +266,7 @@ class OKHSFDMDForecaster:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Forecast with the fitted OKHS fDMD backend and normalize the horizon."""
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
@@ -280,6 +287,7 @@ class OKHSFDMDForecaster:
         return values
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Return stage-aware OKHS diagnostics plus last prediction metadata."""
         return {
             **self.diagnostics_,
             **getattr(self, 'last_prediction_diagnostics_', {}),
@@ -288,26 +296,33 @@ class OKHSFDMDForecaster:
 
 @dataclass(frozen=True)
 class OKHSFDMDForecasterSpec:
+    """Immutable construction spec for an OKHS fDMD forecaster."""
+
     forecast_horizon: int
     params: dict[str, Any]
 
     @property
     def family(self) -> str:
+        """Return the model family used by routing and benchmark summaries."""
         return 'operator_model'
 
     @property
     def model_name(self) -> str:
+        """Return the public registry name for this named forecaster."""
         return 'okhs_fdmd_forecaster'
 
 
 @dataclass(frozen=True)
 class OKHSFDMDForecasterRunResult:
+    """Serializable run result for one OKHS fDMD forecast execution."""
+
     spec: OKHSFDMDForecasterSpec
     forecast: tuple[float, ...]
     diagnostics: dict[str, Any]
     metadata: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize run result, diagnostics and resolved spec metadata."""
         return {
             'spec': {
                 'forecast_horizon': int(self.spec.forecast_horizon),
@@ -327,6 +342,7 @@ def build_okhs_fdmd_spec(
         params: dict[str, Any] | None = None,
         series_length: int | None = None,
 ) -> OKHSFDMDForecasterSpec:
+    """Build a validated OKHS fDMD construction spec."""
     normalized_params = normalize_okhs_fdmd_params(
         params,
         forecast_horizon=int(forecast_horizon),
@@ -347,6 +363,7 @@ def build_okhs_fdmd_forecaster(
         series_length: int | None = None,
         spec: OKHSFDMDForecasterSpec | None = None,
 ) -> OKHSFDMDForecaster:
+    """Instantiate an OKHS fDMD forecaster from params or a prebuilt spec."""
     resolved_spec = spec or build_okhs_fdmd_spec(
         forecast_horizon=int(forecast_horizon),
         params=params,
@@ -364,6 +381,7 @@ def run_okhs_fdmd_forecaster_on_series(
         forecast_horizon: int,
         params: dict[str, Any] | None = None,
 ) -> OKHSFDMDForecasterRunResult:
+    """Fit and forecast one series with OKHS fDMD and return diagnostics."""
     history = np.asarray(time_series, dtype=float).reshape(-1)
     spec = build_okhs_fdmd_spec(
         forecast_horizon=int(forecast_horizon),
@@ -391,12 +409,16 @@ def run_okhs_fdmd_forecaster_on_series(
 
 
 class OKHSFDMDForecasterImplementation(ModelImplementation):
+    """FEDOT-compatible implementation wrapper for OKHSFDMDForecaster."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Store operation parameters for deferred OKHS fDMD construction."""
         params = params or OperationParameters()
         super().__init__(params)
         self.model_: OKHSFDMDForecaster | None = None
 
     def fit(self, input_data: InputData):
+        """Build and fit the wrapped OKHS fDMD forecaster from InputData."""
         features = np.asarray(input_data.features, dtype=float)
         self.spec_ = build_okhs_fdmd_spec(
             forecast_horizon=input_data.task.task_params.forecast_length,
@@ -408,6 +430,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the normalized OKHS fDMD forecast."""
         prediction = normalize_okhs_fdmd_prediction(
             self.model_.predict(np.asarray(input_data.features, dtype=float)),
             forecast_horizon=int(self.model_.forecast_horizon),
@@ -419,22 +442,26 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData):
+        """Reuse prediction output for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return self.predict(input_data)
 
     def get_diagnostics(self) -> dict[str, Any]:
+        """Expose diagnostics from the fitted wrapped model."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for OKHS fDMD."""
         return build_forecasting_stage_tuning_plan(
             'okhs_fdmd_forecaster',
             dict(self.params),
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return OKHS fDMD search-space slices grouped by stage."""
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'okhs_fdmd_forecaster',
@@ -443,6 +470,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed OKHS fDMD updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'okhs_fdmd_forecaster',
             base_params=dict(self.params),
@@ -450,6 +478,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def run_stage_tuning(self, objective, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Run sequential stage tuning with an externally supplied objective."""
         return run_sequential_stage_tuning(
             'okhs_fdmd_forecaster',
             objective=objective,
@@ -469,6 +498,7 @@ class OKHSFDMDForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for OKHS fDMD on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'okhs_fdmd_forecaster',
             time_series=np.asarray(time_series, dtype=float),

@@ -66,9 +66,9 @@
 
 Если вы впервые открыли Industrial, рекомендуемый порядок чтения такой:
 
-1. [industrial_development_guide.md](./industrial_development_guide.md)
-2. [radical_forecasting_refactor_plan.md](./radical_forecasting_refactor_plan.md)
-3. [forecasting_phase_2_roadmap.md](./forecasting_phase_2_roadmap.md)
+1. [industrial_development_guide.md](industrial_development_guide.md)
+2. [radical_forecasting_refactor_plan.md](../pr_plans/radical_forecasting_refactor_plan.md)
+3. [forecasting_phase_2_roadmap.md](../pr_plans/forecasting_phase_2_roadmap.md)
 4. [forecasting_suite_workflow.md](../benchmark_v2/forecasting_suite_workflow.md)
 5. [benchmark_v2_overview.md](../benchmark_v2/benchmark_v2_overview.md)
 

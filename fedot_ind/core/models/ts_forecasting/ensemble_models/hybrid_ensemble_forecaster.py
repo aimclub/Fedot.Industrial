@@ -74,6 +74,8 @@ def _safe_forecast(model, series: np.ndarray, horizon: int) -> tuple[np.ndarray,
 
 @dataclass
 class HybridEnsembleForecaster:
+    """Named composite forecaster that ensembles lagged, low-rank and complex branches."""
+
     forecast_horizon: int
     complex_branch: str = 'okhs'
     calibration_horizon: int | None = None
@@ -160,6 +162,7 @@ class HybridEnsembleForecaster:
         }
 
     def fit(self, time_series: np.ndarray) -> 'HybridEnsembleForecaster':
+        """Fit branch models and calibrate the weighted ensemble head."""
         series = np.asarray(time_series, dtype=float).reshape(-1)
         minimum_length = max(self.forecast_horizon * 3, self.forecast_horizon + 12)
         if len(series) > minimum_length:
@@ -198,6 +201,7 @@ class HybridEnsembleForecaster:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
+        """Forecast with each branch and combine predictions with learned weights."""
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
@@ -221,6 +225,7 @@ class HybridEnsembleForecaster:
         return ensemble_forecast[:horizon]
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Return branch diagnostics, weights and last branch predictions."""
         return {
             **self.diagnostics_,
             **getattr(self, 'last_prediction_diagnostics_', {}),
@@ -228,7 +233,10 @@ class HybridEnsembleForecaster:
 
 
 class HybridEnsembleForecasterImplementation(ModelImplementation):
+    """FEDOT-compatible wrapper for HybridEnsembleForecaster."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read ensemble branch and calibration parameters from operation params."""
         params = params or OperationParameters()
         super().__init__(params)
         self.complex_branch = str(self.params.get('complex_branch', 'okhs'))
@@ -240,6 +248,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         self.model_: HybridEnsembleForecaster | None = None
 
     def fit(self, input_data: InputData):
+        """Fit the wrapped hybrid ensemble from FEDOT InputData."""
         self.model_ = HybridEnsembleForecaster(
             forecast_horizon=input_data.task.task_params.forecast_length,
             complex_branch=self.complex_branch,
@@ -253,6 +262,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the ensemble forecast."""
         prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
@@ -261,16 +271,19 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData):
+        """Return ensemble predictions for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.predict(np.asarray(input_data.features, dtype=float)), dtype=float)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Expose diagnostics from the fitted wrapped model."""
         if self.model_ is None:
             return {}
         return self.model_.get_diagnostics()
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for the hybrid ensemble."""
         return build_forecasting_stage_tuning_plan(
             'hybrid_ensemble_forecaster',
             {
@@ -283,6 +296,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return hybrid ensemble search-space slices grouped by stage."""
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'hybrid_ensemble_forecaster',
@@ -297,6 +311,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed ensemble updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'hybrid_ensemble_forecaster',
             base_params={
@@ -321,6 +336,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for the ensemble on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'hybrid_ensemble_forecaster',
             time_series=np.asarray(time_series, dtype=float),
