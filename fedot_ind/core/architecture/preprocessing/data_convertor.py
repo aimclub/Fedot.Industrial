@@ -244,10 +244,14 @@ class TensorConverter:
                 return torch.from_numpy(data.values)
         elif isinstance(data, InputData) and isinstance(data.features, np.ndarray):
             return torch.from_numpy(data.features)
+        elif isinstance(data, InputData) and isinstance(data.features, np.ndarray):
+            return torch.from_numpy(data.features)
         elif isinstance(data, InputData) and isinstance(data.features, pd.DataFrame):
             return torch.from_numpy(data.features.values)
+        elif isinstance(data, InputData) and isinstance(data.features, torch.Tensor):
+            return data.features.values
         else:
-            print(f"Can't convert {type(data)} to torch.Tensor", Warning)
+            raise ValueError(f"Can't convert {type(data)} to torch.Tensor")
 
     def convert_to_1d_tensor(self):
         if self.tensor_data.ndim == 1:
