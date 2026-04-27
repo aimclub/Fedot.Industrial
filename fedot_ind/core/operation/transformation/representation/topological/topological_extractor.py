@@ -57,9 +57,6 @@ class TopologicalExtractor(BaseExtractor):
         self.data_transformer = None
         self.save_pcd = False
 
-    def __repr__(self):
-        return 'Topological Class for TS representation'
-
     def __evaluate_persistence_params(self, ts_data: np.array):
         if self.feature_extractor is None:
             te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)

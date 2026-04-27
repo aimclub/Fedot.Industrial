@@ -395,8 +395,8 @@ def build_forecasting_stage_frame(result: ForecastingBenchmarkResult) -> pd.Data
 
 def _is_hybrid_ensemble_record(metadata: dict[str, Any]) -> bool:
     return (
-            str(metadata.get('model_family', '')).lower() == 'hybrid_ensemble'
-            or str(metadata.get('adapter_name', '')).lower() == 'hybrid_ensemble_forecaster'
+        str(metadata.get('model_family', '')).lower() == 'hybrid_ensemble'
+        or str(metadata.get('adapter_name', '')).lower() == 'hybrid_ensemble_forecaster'
     )
 
 
@@ -500,8 +500,8 @@ def build_stage_tuning_family_frame(result: ForecastingBenchmarkResult) -> pd.Da
     denominator = frame['baseline_score'].replace(0.0, np.nan).abs()
     frame['relative_gain'] = frame['absolute_gain'] / denominator
     frame['routing_family_match'] = (
-            frame['model_adapter_family'].fillna('').astype(str)
-            == frame['routing_recommendation_family'].fillna('').astype(str)
+        frame['model_adapter_family'].fillna('').astype(str)
+        == frame['routing_recommendation_family'].fillna('').astype(str)
     )
     frame['improved'] = frame['improved'].fillna(False).astype(bool)
 
@@ -692,7 +692,7 @@ def compare_models_on_series(
             (metrics['series_id'] == series_id)
             & (metrics['metric_name'] == result.aggregate_report.primary_metric)
             & (metrics['horizon_index'].notna())
-            ].copy()
+        ].copy()
         if not horizon_metrics.empty:
             horizon_figure, horizon_axis = plt.subplots(figsize=(9, 5))
             for model_name, group in horizon_metrics.groupby('model_name'):
@@ -777,9 +777,9 @@ def compare_models_on_series(
                     'model_adapter_family': record.metadata.get('model_adapter_family'),
                     'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
                     **(
-                            verbosity_policy.prune_stage_tuning_report(
-                                _extract_stage_tuning_report(record.metadata) or {}
-                            ) or {}
+                        verbosity_policy.prune_stage_tuning_report(
+                            _extract_stage_tuning_report(record.metadata) or {}
+                        ) or {}
                     ),
                 }
                 for record in stage_tuning_records
@@ -791,7 +791,7 @@ def compare_models_on_series(
         okhs_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
-               and 'okhs' in record.model_name.lower()
+            and 'okhs' in record.model_name.lower()
         ]
         if okhs_records:
             diagnostics_payload = {
@@ -866,7 +866,7 @@ def compare_models_on_series(
         havok_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
-               and 'havok' in record.model_name.lower()
+            and 'havok' in record.model_name.lower()
         ]
         if havok_records:
             diagnostics_payload = {
@@ -1089,7 +1089,7 @@ def render_publication_pack(
 
         horizon_metrics = metrics_frame[
             (metrics_frame['metric_name'] == primary_metric) & (metrics_frame['horizon_index'].notna())
-            ].copy()
+        ].copy()
         if not horizon_metrics.empty:
             horizon_plot = (
                 horizon_metrics.groupby(['model_name', 'horizon_index'])['metric_value']
@@ -1159,7 +1159,7 @@ def render_publication_pack(
                     (metrics_frame['dataset_name'] == dataset_name)
                     & (metrics_frame['metric_name'] == metric_name)
                     & (metrics_frame['horizon_index'].notna())
-                    ].copy()
+                ].copy()
                 if not horizon_frame.empty:
                     horizon_summary = (
                         horizon_frame.groupby(['model_name', 'horizon_index'])['metric_value']
@@ -1195,7 +1195,7 @@ def render_publication_pack(
                     (baseline_rows['benchmark'] == okhs_row['benchmark'])
                     & (baseline_rows['dataset_name'] == okhs_row['dataset_name'])
                     & (baseline_rows['series_id'] == okhs_row['series_id'])
-                    ]
+                ]
                 for _, baseline_row in comparable.iterrows():
                     pairwise_rows.append(
                         {

@@ -166,7 +166,7 @@ class OKHSForecasterTorch(BaseNeuralModel):
         x_trajectories, y_targets = self._from_trajectory_to_features(self.hankel_matrix.trajectory_matrix.T)
         self.train_traj, self.targets = x_trajectories[:-1, :], y_targets[:-1, :]
         weight_shape = (
-        len(self.train_traj), self.forecast_horizon) if self.forecasting_strategy == 'multioutput' else len(
+            len(self.train_traj), self.forecast_horizon) if self.forecasting_strategy == 'multioutput' else len(
             self.train_traj)
         self.weights_ = nn.Parameter(torch.randn(weight_shape, device=self.device) * 0.01)
         self.gram_matrix = torch.tensor(
@@ -182,10 +182,10 @@ class OKHSForecasterTorch(BaseNeuralModel):
 
     def _uses_projected_representation(self):
         return (
-                self.projection_metadata_ is not None
-                and self.projection_metadata_.get('representation_policy') == 'projected'
-                and self.projection_metadata_.get('decode_supported') is True
-                and self._projection_runtime_ is not None
+            self.projection_metadata_ is not None
+            and self.projection_metadata_.get('representation_policy') == 'projected'
+            and self.projection_metadata_.get('decode_supported') is True
+            and self._projection_runtime_ is not None
         )
 
     def _resolve_projected_initial_trajectory(self, input_data: InputData = None):

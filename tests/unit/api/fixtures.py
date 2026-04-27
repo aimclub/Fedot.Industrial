@@ -4,6 +4,8 @@ from threading import Thread
 import numpy as np
 import pandas as pd
 import pytest
+import torch
+from tqdm import tqdm
 
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
@@ -159,3 +161,19 @@ def test_example(
     assert len(multi_classification_labels_df) == NUM_SAMPLES
     assert len(regression_target_np) == NUM_SAMPLES
     assert len(regression_target_df) == NUM_SAMPLES
+
+
+@torch.no_grad()
+def warm_up_cuda_computations(n_iters=5, size=2048, device=None):
+    """ Function for CUDA warming. It is used before time measuring.
+    """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    A = torch.randn(size, size, device=device)
+    B = torch.randn(size, size, device=device)
+    for _ in tqdm(range(n_iters)):
+        C = A @ B
+        C = torch.sin(C) * torch.exp(C)
+        _ = C.sum()
+    if device == "cuda":
+        torch.cuda.synchronize()

@@ -676,11 +676,11 @@ def test_build_model_adapter_supports_havok_mlp_head_runtime_parameters() -> Non
 @pytest.mark.parametrize(
     ('adapter_name', 'display_name'),
     (
-            ('patch_tst_model', 'PatchTST'),
-            ('tst_model', 'TST'),
-            ('tcn_model', 'TCN'),
-            ('deepar_model', 'DeepAR'),
-            ('nbeats_model', 'NBEATS'),
+        ('patch_tst_model', 'PatchTST'),
+        ('tst_model', 'TST'),
+        ('tcn_model', 'TCN'),
+        ('deepar_model', 'DeepAR'),
+        ('nbeats_model', 'NBEATS'),
     ),
 )
 def test_build_model_adapter_supports_native_neural_forecasting_heads(

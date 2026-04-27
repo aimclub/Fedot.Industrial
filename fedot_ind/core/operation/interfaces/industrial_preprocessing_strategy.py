@@ -379,12 +379,16 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
     def fit(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
         operation_implementation = self.operation_impl(self.params_for_fit)
+        if "torch" in self.operation_type:
+            train_data.features = torch.Tensor(train_data.features)
         with ImplementationRandomStateHandler(implementation=operation_implementation):
             operation_implementation.fit(train_data)
         return operation_implementation
 
     def predict(self, trained_operation, predict_data: InputData,
                 output_mode: str = 'default') -> OutputData:
+        if "torch" in self.operation_type:
+            predict_data.features = torch.Tensor(predict_data.features)
         prediction = trained_operation.transform(predict_data)
         converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
         return converted

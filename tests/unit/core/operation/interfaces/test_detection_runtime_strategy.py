@@ -1,3 +1,8 @@
+from fedot_ind.core.operation.interfaces.industrial_model_strategy import IndustrialAnomalyDetectionStrategy
+from fedot_ind.core.operation.interfaces.detection_runtime_strategy import (
+    IndustrialDetectionModelRuntimeStrategy,
+    build_detection_boundary_batch,
+)
 import numpy as np
 import pytest
 
@@ -9,12 +14,6 @@ DataTypesEnum = pytest.importorskip('fedot.core.repository.dataset_types').DataT
 tasks_module = pytest.importorskip('fedot.core.repository.tasks')
 Task = tasks_module.Task
 TaskTypesEnum = tasks_module.TaskTypesEnum
-
-from fedot_ind.core.operation.interfaces.detection_runtime_strategy import (
-    IndustrialDetectionModelRuntimeStrategy,
-    build_detection_boundary_batch,
-)
-from fedot_ind.core.operation.interfaces.industrial_model_strategy import IndustrialAnomalyDetectionStrategy
 
 
 def _build_detection_input(length: int = 80) -> InputData:

@@ -95,6 +95,12 @@ class SinWave(DefaultTimeSeries):
         noise = np.random.normal(0, 1, self.ts_length)
         return np.array(sine_wave + noise)
 
+    def get_only_sin_ts(self):
+        time_index = np.arange(0, self.ts_length)
+        sine_wave = self.amplitude * \
+            np.sin(2 * np.pi / self.period * time_index)
+        return np.array(sine_wave)
+
 
 class RandomWalk(DefaultTimeSeries):
     def __init__(self, params: dict):

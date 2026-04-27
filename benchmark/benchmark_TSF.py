@@ -29,11 +29,9 @@ try:
 except Exception as exc:  # pragma: no cover - legacy-only fallback for lightweight envs
     LEGACY_IMPORT_ERROR = exc
 
-
     class AbstractBenchmark:
         def __init__(self, output_dir=None):
             self.output_dir = output_dir
-
 
     class DatasetFormatting:
         def format_univariate_forecasting_data(self, *args, **kwargs):
@@ -42,11 +40,9 @@ except Exception as exc:  # pragma: no cover - legacy-only fallback for lightwei
         def format_global_forecasting_data(self, *args, **kwargs):
             raise ImportError('Legacy forecasting dependencies are unavailable.') from LEGACY_IMPORT_ERROR
 
-
     class ResultsPicker:
         def __init__(self, path=None):
             self.path = path
-
 
     TsForecastingParams = None
     FedotIndustrial = None

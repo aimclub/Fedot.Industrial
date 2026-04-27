@@ -1,14 +1,3 @@
-import numpy as np
-import pytest
-
-pytest.importorskip('torch')
-
-from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
-from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import (
-    LowRankLaggedRidgeForecasterImplementation,
-)
-from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
-from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import ForecastingStageName
 from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import (
     ForecastingSeriesEvaluator,
     ForecastingSeriesStageTuningRunner,
@@ -16,6 +5,16 @@ from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import (
     evaluate_forecasting_model_on_series,
     run_forecasting_stage_tuning_on_series,
 )
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import ForecastingStageName
+from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import (
+    LowRankLaggedRidgeForecasterImplementation,
+)
+from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
+import numpy as np
+import pytest
+
+pytest.importorskip('torch')
 
 
 def _trend_with_oscillation(length: int = 120) -> np.ndarray:

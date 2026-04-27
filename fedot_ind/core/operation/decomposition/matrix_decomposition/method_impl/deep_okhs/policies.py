@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class RegularizationPolicy:
     base_jitter: float = 1e-8

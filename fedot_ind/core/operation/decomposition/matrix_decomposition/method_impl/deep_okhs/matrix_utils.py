@@ -6,6 +6,7 @@ from tqdm import tqdm
 TQDM_FACTORY = tqdm
 TQDM_WRITE = tqdm.write
 
+
 def _sync_perf_counter() -> float:
     """
     Вычисляет время с принудительной синхронизацией CUDA.
@@ -14,7 +15,6 @@ def _sync_perf_counter() -> float:
         torch.cuda.synchronize()
     return time.perf_counter()
 
-import torch
 
 def validate_square_matrix_shape(matrix, label):
     """
@@ -82,8 +82,9 @@ def sort_eigendecomposition(eigenvalues, eigenvectors, sorting_strategy):
     else:
         # У комплексных тензоров метод .abs() возвращает модуль
         order = torch.argsort(eigenvalues.abs(), descending=True)
-        
+
     return eigenvalues[order], eigenvectors[:, order]
+
 
 @dataclass
 class MatrixComputationProgress:

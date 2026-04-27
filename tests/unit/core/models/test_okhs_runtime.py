@@ -370,7 +370,7 @@ def test_build_okhs_optimization_info_collects_stage_diagnostics_and_optional_fi
     assert info['weights_norm'] > 0
     assert info['head_runtime'] == 'fdmd'
     assert info['stage_diagnostics']['forecast_head']['prediction_diagnostics'][
-               'boundary_discontinuity_abs_mean'] == 0.1
+        'boundary_discontinuity_abs_mean'] == 0.1
 
 
 def test_build_okhs_optimization_info_supports_direct_runtime_diagnostics():

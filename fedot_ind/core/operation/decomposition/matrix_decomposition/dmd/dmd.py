@@ -30,7 +30,7 @@ class _DefaultRBFKernel:
         x_tensor = torch.as_tensor(x)
         y_tensor = torch.as_tensor(y)
         dist_sq = torch.sum((x_tensor - y_tensor) ** 2)
-        
+
         return torch.exp(-self.gamma * dist_sq).item()
 
 
@@ -67,8 +67,8 @@ class FractionalDMD:
         self.boundary_alignment_policy = boundary_alignment_policy
         self.boundary_alignment_decay = boundary_alignment_decay
         self.prediction_stability_threshold = prediction_stability_threshold
-        # self.kernel = kernel 
-        self.kernel =  _DefaultRBFKernel()
+        # self.kernel = kernel
+        self.kernel = _DefaultRBFKernel()
         self.n_quad_points = n_quad_points
         self.dt = dt
         self.regularization = regularization

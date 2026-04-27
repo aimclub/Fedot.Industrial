@@ -556,7 +556,7 @@ def build_forecasting_stage_tuning_plan(model_name: str,
 
 def build_forecasting_stage_search_spaces(model_name: str,
                                           params: dict[str, Any] | None = None) -> tuple[
-    ForecastingStageSearchSpace, ...]:
+        ForecastingStageSearchSpace, ...]:
     """Split a model search space into stage-specific parameter groups."""
     plan = build_forecasting_stage_tuning_plan(model_name, params=params)
     search_space_name = canonical_forecasting_model_name(model_name)

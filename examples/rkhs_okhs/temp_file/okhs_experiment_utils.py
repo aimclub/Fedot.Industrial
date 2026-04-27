@@ -16,6 +16,7 @@ from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.dee
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.gram_transform import OKHSTransformer
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_liouville import FractionalLiouvilleOperator
 
+
 @dataclass(frozen=True)
 class ExperimentConfig:
     name: str

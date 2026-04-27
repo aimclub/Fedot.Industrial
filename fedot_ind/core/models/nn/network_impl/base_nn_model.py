@@ -73,6 +73,7 @@ class BaseNeuralModel:
         X_torch = torch.tensor(np.array(X_list), dtype=torch.float32, device=self.device)
         Y_torch = torch.tensor(np.array(Y_list), dtype=torch.float32, device=self.device)
         return X_torch, Y_torch
+
     def _get_loss_metric(self, ts: InputData):
         if ts.task.task_type.value == 'classification':
             loss_fn = CROSS_ENTROPY() if ts.num_classes == 2 else MULTI_CLASS_CROSS_ENTROPY()

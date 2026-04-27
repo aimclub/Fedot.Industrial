@@ -179,7 +179,11 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         return groups
 
     @staticmethod
-    def _resolve_prediction_mode_budget(available_equations, horizon, max_prediction_modes=None, min_prediction_modes=4):
+    def _resolve_prediction_mode_budget(
+            available_equations,
+            horizon,
+            max_prediction_modes=None,
+            min_prediction_modes=4):
         if max_prediction_modes is not None:
             requested_budget = int(max_prediction_modes)
         else:
@@ -319,14 +323,14 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
             local_eig = preselected_eig.index_select(0, local_positions)
 
             tail_component = (
-                    tail_ml.index_select(1, local_positions).unsqueeze(2)
-                    * local_coefficients.unsqueeze(0).unsqueeze(2)
-                    * local_modes.unsqueeze(0)
+                tail_ml.index_select(1, local_positions).unsqueeze(2)
+                * local_coefficients.unsqueeze(0).unsqueeze(2)
+                * local_modes.unsqueeze(0)
             ).real
             future_component = (
-                    future_ml.index_select(1, local_positions).unsqueeze(2)
-                    * local_coefficients.unsqueeze(0).unsqueeze(2)
-                    * local_modes.unsqueeze(0)
+                future_ml.index_select(1, local_positions).unsqueeze(2)
+                * local_coefficients.unsqueeze(0).unsqueeze(2)
+                * local_modes.unsqueeze(0)
             ).real
 
             tail_energy = float(torch.mean(torch.abs(tail_component)).item())

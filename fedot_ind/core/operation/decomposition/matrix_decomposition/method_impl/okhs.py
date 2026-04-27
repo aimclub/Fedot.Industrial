@@ -173,10 +173,10 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
     """
     Трансформер для OKHS признаков с использованием физического времени
     и квадратур Гаусса-Якоби для учета сингулярностей.
-    
+
     Матрица Грама вычисляется как:
     G_{i,j} = C_q^2 * ∫∫_{[0,T]²} (T - τ)^{q-1} (T - t)^{q-1} K(ξ_j(t), ξ_i(τ)) dt dτ
-    
+
     С использованием квадратур Якоби сингулярный вес (T-t)^{q-1} учитывается
     в весах квадратуры w_k, что дает точное интегрирование для полиномиальных ядер.
     """
@@ -198,13 +198,13 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         -----------
         kernel : KernelBase
             Ядро (например, RBFKernel). Должно иметь метод _compute_single_kernel(x, y).
-        
+
         q : float (0 < q ≤ 1)
             Порядок дробной производной.
-        
+
         n_quad_points : int
             Количество точек для метода 'jacobi'.
-            
+
         dt : float
             Шаг дискретизации времени траекторий. Используется для вычисления T.
             Если данные не имеют временной метки, dt=1.0 означает, что T = n_steps.
@@ -219,7 +219,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         self.show_progress = show_progress
         self.progress_leave = progress_leave
         self.verbose = verbose
-        
+
         # Кэш для узлов и весов квадратуры
         self._quad_cache = None
 
@@ -236,19 +236,19 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         """
         Интерполяция траектории в физический момент времени t ∈ [0, T].
         """
-        if T <= 1e-14: # Защита от деления на ноль для вырожденных траекторий
+        if T <= 1e-14:  # Защита от деления на ноль для вырожденных траекторий
             return trajectory[0]
-            
+
         # Нормализуем время к индексу массива
         # t / T дает долю пути (0..1), умножаем на (N-1) чтобы получить индекс
         n_steps = len(trajectory)
         t_idx = (t / T) * (n_steps - 1)
-        
+
         idx = int(np.floor(t_idx))
         idx = np.clip(idx, 0, n_steps - 2)
-        
+
         alpha = t_idx - idx
-        
+
         # Линейная интерполяция
         value = (1 - alpha) * trajectory[idx] + alpha * trajectory[idx + 1]
         return value
@@ -257,13 +257,13 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         """
         Возвращает узлы (x) и веса (w) квадратуры Гаусса-Якоби для интеграла:
         ∫_{-1}^{1} (1-x)^alpha (1+x)^beta f(x) dx.
-        
+
         Нам нужно интегрировать (T - t)^(q-1).
         При замене переменной t = T(x+1)/2, член (T-t) пропорционален (1-x).
         Поэтому alpha = q - 1, beta = 0.
         """
         if self._quad_cache is None:
-            # alpha=q-1, beta=0. 
+            # alpha=q-1, beta=0.
             # Функция roots_jacobi возвращает узлы для веса (1-x)^alpha (1+x)^beta
             self._quad_cache = roots_jacobi(self.n_quad_points, self.q - 1, 0)
         return self._quad_cache
@@ -273,12 +273,12 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         """
         Нормализует входную траекторию, преобразуя ее в двумерный массив.
         Если траектория одномерна, добавляет ось для признаков.
-        
+
         Parameters
         ----------
         trajectory : array-like
             Входная траектория.
-            
+
         Returns
         -------
         np.ndarray
@@ -416,17 +416,17 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
     def _compute_gram_entry_jacobi(self, trajectory_i, trajectory_j):
         """
         ???????????????????? ???????????????? ?????????? ???????????????????? ????????????-??????????.
-        
+
         ???????????????? ????????: I = ???_0^T (T-t)^(q-1) f(t) dt.
         ????????????: t = T(x+1)/2, dt = (T/2)dx.
         (T - t) = T - T(x+1)/2 = T(1 - (x+1)/2) = T(1-x)/2.
-        
+
         ?????????? (T-t)^(q-1) = (T/2)^(q-1) * (1-x)^(q-1).
-        
+
         I = ???_{-1}^1 (T/2)^(q-1) (1-x)^(q-1) f(T(x+1)/2) * (T/2) dx
           = (T/2)^q ???_{-1}^1 (1-x)^(q-1) f(...) dx
-          
-        ???????????????? ???????????????????? ??????????: Sum w_k * f(x_k). 
+
+        ???????????????? ???????????????????? ??????????: Sum w_k * f(x_k).
         ?????? (1-x)^(q-1) ?????? "??????????" ?? w_k.
         ???????????????? ???????????? ?????????????????? (T/2)^q.
         """
@@ -445,7 +445,6 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             scale_j,
             np.asarray(weights, dtype=float),
         )
-        
 
     def _compute_gram_matrix(self, trajectories):
         quadrature_cache = self._build_quadrature_cache(trajectories)
@@ -494,7 +493,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
     def fit(self, train_trajectories, y=None):
         """
         Обучение трансформера: вычисление матрицы Грама.
-        
+
         Parameters
         ----------
         train_trajectories : list of array-like
@@ -513,14 +512,14 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
     def transform(self, test_trajectories):
         """
         Вычисляет координаты новых (тестовых) траекторий в базисе обучающих.
-        
+
         Parameters
         ----------
         test_trajectories : list of array-like
             Список тестовых траекторий
         """
-        n_train = len(self.train_trajectories_)
-        n_test = len(test_trajectories)
+        len(self.train_trajectories_)
+        len(test_trajectories)
 
         train_cache = getattr(self, "_train_quadrature_cache_", None)
         if train_cache is None:
@@ -542,20 +541,20 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
                 if self.regularization_policy.fallback_solver != "pinv":
                     raise
                 c = K_test_train @ np.linalg.pinv(self.gram_matrix_)
-            
+
         return c
-    
+
 
 class FractionalLiouvilleOperator(BaseEstimator):
     """
     Оператор Лиувилля дробного порядка с использованием квадратур Якоби.
-    
+
     Реализует конечномерное представление оператора P A_{f,q} P.
     Элементы матрицы вычисляются через однократный интеграл с сингулярным весом:
-    
-    A_{ij} = <A* mu_i, mu_j> 
+
+    A_{ij} = <A* mu_i, mu_j>
            = C_q * ∫_0^T (T-τ)^{q-1} [K(ξ_j(τ), ξ_i(T)) - K(ξ_j(τ), ξ_i(0))] dτ
-           
+
     Интеграл вычисляется точно с помощью квадратур Гаусса-Якоби для веса (1-x)^{q-1}.
     """
 
@@ -573,7 +572,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
         ----------
         okhs_transformer : OKHSTransformer
             Обученный экземпляр OKHSTransformer. Должен иметь атрибуты q, C_q, dt.
-            
+
         n_quad_points : int
             Число точек квадратуры Якоби для вычисления элементов оператора.
         """
@@ -585,11 +584,11 @@ class FractionalLiouvilleOperator(BaseEstimator):
         self.show_progress = getattr(okhs_transformer, "show_progress", False)
         self.progress_leave = getattr(okhs_transformer, "progress_leave", False)
         self.verbose = verbose
-        
+
         self.eigenvalues_ = None
         self.eigenvectors_ = None
         self.liouville_matrix_ = None
-        
+
         # Кэш для квадратур
         self._quad_cache = None
 
@@ -685,7 +684,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
             if not hasattr(self.okhs, 'train_trajectories_'):
                 raise ValueError("OKHSTransformer must be fitted first.")
             trajectories = self.okhs.train_trajectories_
-        
+
         n_traj = len(trajectories)
         liouville_cache = self._build_liouville_cache(trajectories)
         values = liouville_cache['quadrature']['values']
@@ -723,7 +722,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
                     progress.update(left_start, left_stop, right_start, right_stop)
         finally:
             progress.close()
-                
+
         G = self.okhs.gram_matrix_
         validate_liouville_shapes(G, self.liouville_matrix_)
 
@@ -744,7 +743,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
         for i in range(eigenvectors.shape[1]):
             v = eigenvectors[:, i]
             norm = np.sqrt(np.abs(v.conj().T @ G @ v))
-            eigenvectors[:, i] = v / (norm + 1e-12) 
+            eigenvectors[:, i] = v / (norm + 1e-12)
 
         # Сортировка по модулю собственных значений (от больших к меньшим)
         self.eigenvalues_, self.eigenvectors_ = sort_eigendecomposition(
@@ -752,7 +751,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
             eigenvectors,
             self.stability_policy.sorting_strategy,
         )
-        
+
         return self
 
     def get_eigenfunctions(self):
@@ -778,7 +777,7 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         self.regularization_policy = regularization_policy or RegularizationPolicy()
         self.stability_policy = stability_policy or StabilityPolicy()
         self.verbose = verbose
-        
+
         self.modes_ = None
         self._quad_cache = None
 
@@ -1110,32 +1109,30 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
             "boundary_discontinuity_abs_mean": float(np.mean(np.abs(discontinuity))),
         }
 
-
     def _get_jacobi_rule(self):
         if self._quad_cache is None:
             self._quad_cache = roots_jacobi(self.n_quad_points, self.okhs.q - 1, 0)
         return self._quad_cache
-        
+
     def _integrate_observable_projection(self, trajectory, observable_func):
         """
         Вычисляет <g_id, Phi_k>_OKHS.
         Это равно (T g_id)(trajectory) = C_q * int (T-t)^(q-1) g_id(traj(t)) dt.
         """
         T = self.okhs._get_trajectory_duration(trajectory)
-        if T <= 1e-14: 
+        if T <= 1e-14:
             return np.zeros_like(observable_func(0.0))
 
         nodes, weights = self._get_jacobi_rule()
         t_nodes = T * (nodes + 1) / 2
         jacobian_factor = (T / 2.0) ** self.okhs.q
-        
+
         integral_sum = 0.0
         for k in range(self.n_quad_points):
             val = observable_func(t_nodes[k])
             integral_sum += weights[k] * val
-            
-        return self.okhs.C_q * jacobian_factor * integral_sum
 
+        return self.okhs.C_q * jacobian_factor * integral_sum
 
     def compute_identity_projections(self, trajectories):
         """
@@ -1145,16 +1142,15 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         n_traj = len(trajectories)
         n_features = trajectories[0].shape[1]
         Y = np.zeros((n_traj, n_features))
-        
+
         for k in range(n_traj):
             traj = trajectories[k]
             T_traj = self.okhs._get_trajectory_duration(traj)
-            
-            obs_func = lambda t: self.okhs._evaluate_trajectory_at_time(traj, t, T_traj)
-            Y[k, :] = self._integrate_observable_projection(traj, obs_func)
-            
-        return Y
 
+            def obs_func(t): return self.okhs._evaluate_trajectory_at_time(traj, t, T_traj)
+            Y[k, :] = self._integrate_observable_projection(traj, obs_func)
+
+        return Y
 
     def compute_eigenfunction_projections(self, Y, V):
         """
@@ -1163,58 +1159,55 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         """
         return V.conj().T @ Y
 
-
     def solve_modes(self, W, B):
         """
         Решение системы W * Xi = B.
         """
         regularization = max(self.regularization, self.regularization_policy.base_jitter)
         W_reg = W + regularization * np.eye(W.shape[0])
-        
+
         try:
             Xi = np.linalg.solve(W_reg, B)
         except np.linalg.LinAlgError:
             Xi = np.linalg.pinv(W_reg) @ B
         return Xi
 
-
     def fit(self, trajectories=None):
         if trajectories is None:
             trajectories = self.okhs.train_trajectories_
-            
+
         if self.liouville_operator.eigenvectors_ is None:
-             raise ValueError("Liouville operator must be fitted.")
-             
+            raise ValueError("Liouville operator must be fitted.")
+
         V = self.liouville_operator.eigenvectors_
         G = self.okhs.gram_matrix_
-        
+
         Y = self.compute_identity_projections(trajectories)
-        
+
         B = self.compute_eigenfunction_projections(Y, V)
-        
+
         # Compute W = V^* G V (Gram matrix in eigenbasis)
         W = V.conj().T @ G @ V
-        
+
         # Solve for modes Xi
         self.modes_ = self.solve_modes(W, B)
-        
-        return self
 
+        return self
 
     def fit_initial_coefficients(self, initial_trajectory, eig=None, Xi=None):
         """
         Определяет коэффициенты c_j из решения системы уравнений:
-        
+
         x(t_k) = sum_j c_j * Xi_j * E_q(lambda_j * t_k^q)
-        
-        Используются все точки initial_trajectory. Система решается в смысле 
+
+        Используются все точки initial_trajectory. Система решается в смысле
         наименьших квадратов.
-        
+
         Parameters
         ----------
         initial_trajectory : array-like, shape (K, n_features)
             Начальный сегмент траектории (от t=0).
-            
+
         Returns
         -------
         c : array, shape (n_modes,), dtype=complex
@@ -1228,25 +1221,24 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         if Xi is None:
             Xi = np.asarray(self.modes_)  # (n_modes, n_features)
         n_modes = len(eig)
-        
+
         # Проверка размерности
         validate_initial_coefficient_feasibility(initial_trajectory, n_modes)
-        
+
         # Временная сетка: t_k = k * dt, k=0..K-1
         t_grid = np.arange(K) * self.okhs.dt
-        
+
         # Строим систему A @ c ≈ b
         # A: (K*n_features, n_modes), b: (K*n_features,)
         A = np.zeros((K * n_features, n_modes), dtype=np.complex128)
         b = initial_trajectory.reshape(K * n_features).astype(np.complex128)
-        
+
         for k, t in enumerate(t_grid):
             ml = mittag_leffler(eig * (t ** self.okhs.q), self.okhs.q, 1)  # (n_modes,)
-            
+
             # блок строк [k*d : (k+1)*d, :]
             # Строка для признака d=0..n_features-1: A[k*d+d, j] = ml[j] * Xi[j, d]
             A[k * n_features:(k + 1) * n_features, :] = (ml[:, None] * Xi).T
-        
 
         # Решаем систему в смысле наименьших квадратов с регуляризацией
         n_modes = A.shape[1]
@@ -1264,21 +1256,21 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
             c = np.linalg.pinv(reg_matrix) @ b_stack
 
         self.initial_coefficients_ = c
-                
+
         return c
 
     def predict(self, initial_trajectory, t_span, stability_threshold=None):
         """
         Предсказание траектории на основе начального сегмента.
-        
+
         Parameters
         ----------
         initial_trajectory : array-like, shape (K, n_features)
             Начальный сегмент траектории (используется для определения c_j).
-            
+
         t_span : array-like, shape (n_predict,)
             Временные точки для предсказания (физическое время от t=0).
-            
+
         Returns
         -------
         x_pred : array, shape (n_predict, n_features)
@@ -1286,7 +1278,7 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         """
         initial_trajectory = np.asarray(initial_trajectory)
         t_span = np.asarray(t_span)
-        
+
         eig_full = np.asarray(self.liouville_operator.eigenvalues_)
         Xi_full = np.asarray(self.modes_)  # (n_modes, n_features)
 
@@ -1301,18 +1293,18 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
             raise ValueError("No stable modes remain after applying the stability policy.")
 
         c = self.fit_initial_coefficients(initial_trajectory, Xi=Xi, eig=eig)
-        
+
         # Вычисляем эволюцию Mittag-Leffler для всех t и всех λ
         t_q = (t_span.astype(np.complex128) ** self.okhs.q)[:, None]  # (n_pred, 1)
         lam = eig[None, :]  # (1, n_modes)
         ML = mittag_leffler(lam * t_q, self.okhs.q, 1)  # (n_pred, n_modes)
-        
+
         # x(t) = sum_j c_j * E_q(λ_j t^q) * Xi_j
         # В матричной форме: ML @ diag(c) @ Xi = ML @ (c[:, None] * Xi)
 
         X = c[:, None] * Xi  # (n_modes, n_features)
         x_pred = ML @ X      # (n_pred, n_features)
-        
+
         return np.real(x_pred)
 
     def predict_with_diagnostics(
@@ -1333,7 +1325,6 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
             min_prediction_modes=min_prediction_modes,
         )
         return state["predicted"], self._build_prediction_diagnostics(state)
-    
 
     def plot_predict(self, initial_trajectory, t_span, stability_threshold=0.05):
         """

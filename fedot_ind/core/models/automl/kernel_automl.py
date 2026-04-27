@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass
-from typing import Any
 
 import numpy as np
 from sklearn.base import BaseEstimator
