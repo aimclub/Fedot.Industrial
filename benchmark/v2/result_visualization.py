@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from html import escape
 from math import ceil
 from pathlib import Path
@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
 from fedot_ind.core.models.ts_forecasting.regime_utils.regime_diagnostics import analyze_regime_diagnostics
 
 try:  # pragma: no cover - fallback supports direct script execution without importing benchmark package root
@@ -34,56 +35,71 @@ REGIME_NUMERIC_FIELDS = (
 
 @dataclass(frozen=True)
 class ForecastingProgressItemPayload:
+    """Loaded progress item JSON with convenience accessors for visualization."""
+
     path: Path
     payload: dict[str, Any]
 
     @property
     def run_id(self) -> str:
+        """Return the benchmark run identifier stored in the item."""
         return str(self.payload.get('run_id', ''))
 
     @property
     def series_record(self) -> dict[str, Any]:
+        """Return the serialized series record payload."""
         return dict(self.payload.get('series_record', {}))
 
     @property
     def run_record(self) -> dict[str, Any]:
+        """Return the serialized run record payload."""
         return dict(self.payload.get('run_record', {}))
 
     @property
     def metric_records(self) -> tuple[dict[str, Any], ...]:
+        """Return serialized metric records for this item."""
         return tuple(dict(item) for item in self.payload.get('metric_records', ()))
 
     @property
     def prediction_records(self) -> tuple[dict[str, Any], ...]:
+        """Return serialized horizon prediction records for this item."""
         return tuple(dict(item) for item in self.payload.get('prediction_records', ()))
 
     @property
     def metadata(self) -> dict[str, Any]:
+        """Return run metadata, including tuning reports when present."""
         return dict(self.run_record.get('metadata', {}))
 
     @property
     def dataset_name(self) -> str:
+        """Return the dataset name for grouping and filenames."""
         return str(self.series_record.get('dataset_name', self.run_record.get('dataset_name', '')))
 
     @property
     def subset(self) -> str:
+        """Return the dataset subset name."""
         return str(self.series_record.get('subset', self.run_record.get('subset', '')))
 
     @property
     def series_id(self) -> str:
+        """Return the time-series identifier."""
         return str(self.series_record.get('series_id', self.run_record.get('series_id', '')))
 
     @property
     def model_name(self) -> str:
+        """Return the model name used for this benchmark item."""
         return str(self.run_record.get('model_name', ''))
 
     @property
     def status(self) -> str:
+        """Return the item execution status."""
         return str(self.run_record.get('status', ''))
 
 
 @dataclass(frozen=True)
 class ForecastingProgressVisualizationResult:
+    """Data frames and artifacts produced by progress item visualization."""
+
     items_frame: pd.DataFrame
     relative_gain_frame: pd.DataFrame
     relative_gain_summary: pd.DataFrame
@@ -100,6 +116,7 @@ def load_progress_item_payloads(
         model_name: str | None = None,
         status: str = 'success',
 ) -> tuple[ForecastingProgressItemPayload, ...]:
+    """Load progress item JSON files filtered by model name and status."""
     directory = Path(items_dir)
     items: list[ForecastingProgressItemPayload] = []
     for path in sorted(directory.glob('*.json')):
@@ -257,6 +274,7 @@ def _resolve_symmetric_gain_span(values: Any, *, fallback: float = 1.0) -> float
 
 
 def build_fold_comparison_frame(item: ForecastingProgressItemPayload) -> pd.DataFrame:
+    """Build per-fold baseline-vs-tuned metric comparison rows for one item."""
     report = _safe_stage_tuning_report(item)
     baseline_evaluation = dict(report.get('baseline_evaluation', {}))
     tuned_evaluation = dict(report.get('best_evaluation', {}))
@@ -324,6 +342,7 @@ def build_fold_comparison_frame(item: ForecastingProgressItemPayload) -> pd.Data
 
 
 def build_relative_gain_frame(items: tuple[ForecastingProgressItemPayload, ...]) -> pd.DataFrame:
+    """Build per-series relative metric gains from post-fit tuning comparisons."""
     rows: list[dict[str, Any]] = []
     for item in items:
         comparison = _safe_stage_tuning_comparison(item)
@@ -374,6 +393,7 @@ def build_relative_gain_summary(
         baseline_param_summary: str,
         tuned_param_summary: str,
 ) -> pd.DataFrame:
+    """Aggregate relative gains by metric and attach parameter summaries."""
     if gain_frame.empty:
         return pd.DataFrame(
             columns=[
@@ -422,6 +442,7 @@ def build_relative_gain_summary(
 
 
 def build_improvement_case_summary(gain_frame: pd.DataFrame) -> pd.DataFrame:
+    """Summarize how often tuning improved or degraded metric values."""
     columns = (
         'scope',
         'metric_name',
@@ -467,6 +488,7 @@ def build_improvement_case_summary(gain_frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_regime_diagnostics_frame(items: tuple[ForecastingProgressItemPayload, ...]) -> pd.DataFrame:
+    """Build a per-series frame with regime diagnostics and fallback computation."""
     rows: list[dict[str, Any]] = []
     for item in items:
         diagnostics = _safe_regime_diagnostics(item)
@@ -491,6 +513,7 @@ def build_regime_diagnostics_frame(items: tuple[ForecastingProgressItemPayload, 
 
 
 def build_regime_diagnostics_summary(regime_frame: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate regime diagnostics by regime hint."""
     columns = (
         'regime_hint',
         'series_count',
@@ -526,6 +549,7 @@ def build_regime_improvement_summary(
         gain_frame: pd.DataFrame,
         regime_frame: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Join tuning gains with regimes and summarize improvement by regime."""
     columns = (
         'metric_name',
         'regime_hint',
@@ -580,6 +604,8 @@ def build_regime_improvement_summary(
 
 @dataclass
 class ForecastingProgressItemsVisualizer:
+    """Render plots, tables and HTML summaries from progress item artifacts."""
+
     items_dir: str | Path
     output_dir: str | Path
     model_name: str | None = None
@@ -588,11 +614,13 @@ class ForecastingProgressItemsVisualizer:
     plot_formats: tuple[str, ...] = ('png', 'svg')
 
     def __post_init__(self):
+        """Resolve visualization paths and initialize the item cache."""
         self.items_dir = Path(self.items_dir)
         self.output_dir = ensure_directory(self.output_dir)
         self._items_cache: tuple[ForecastingProgressItemPayload, ...] | None = None
 
     def load_items(self) -> tuple[ForecastingProgressItemPayload, ...]:
+        """Load and cache progress items for this visualization run."""
         if self._items_cache is None:
             self._items_cache = load_progress_item_payloads(
                 self.items_dir,
@@ -1209,6 +1237,7 @@ class ForecastingProgressItemsVisualizer:
         ]
 
     def render(self) -> ForecastingProgressVisualizationResult:
+        """Render all requested plots, tables and HTML summary artifacts."""
         items = self.load_items()
         items_frame = self._build_items_frame(items)
         gain_frame = build_relative_gain_frame(items)
@@ -1304,6 +1333,7 @@ def visualize_forecasting_progress_items(
         max_series_plots: int | None = 3,
         plot_formats: tuple[str, ...] = ('png', 'svg'),
 ) -> ForecastingProgressVisualizationResult:
+    """Convenience entrypoint for rendering forecasting progress item analytics."""
     return ForecastingProgressItemsVisualizer(
         items_dir=items_dir,
         output_dir=output_dir,

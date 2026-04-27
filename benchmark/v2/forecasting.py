@@ -96,17 +96,23 @@ DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'f
 
 
 class BenchmarkConfigurationError(ValueError):
+    """Raised when a forecasting benchmark configuration is invalid."""
+
     pass
 
 
 class ModelExecutionError(RuntimeError):
+    """Raised when a model run produces a benchmark-level failure status."""
+
     def __init__(self, status: RunStatus, message: str):
+        """Store the run status alongside the human-readable error message."""
         super().__init__(message)
         self.status = status
         self.message = message
 
 
 def validate_forecasting_suite_config(config: BenchmarkSuiteConfig) -> None:
+    """Validate that a suite config can be executed as a forecasting benchmark."""
     if config.task_type is not TaskType.FORECASTING:
         raise BenchmarkConfigurationError('Forecasting suite expects task_type=forecasting.')
     if not config.datasets:
@@ -401,12 +407,16 @@ def _parse_sequence_records(
 
 
 class M4Adapter:
+    """Dataset adapter for loading M4 forecasting series."""
+
     benchmark_name = 'm4'
 
     def __init__(self, loader: Callable[[DatasetSpec], Any] | None = None):
+        """Store a custom or default M4 loader."""
         self.loader = loader or self._default_loader
 
     def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        """Load, normalize and optionally sample M4 series records."""
         subset = _normalize_subset_name(spec.subset)
         key = _infer_m4_key(subset)
         local_csv_dir = spec.adapter_options.get('local_csv_dir')
@@ -487,12 +497,16 @@ class M4Adapter:
 
 
 class MonashAdapter:
+    """Dataset adapter for loading Monash-style forecasting series."""
+
     benchmark_name = 'monash'
 
     def __init__(self, loader: Callable[[DatasetSpec], Any] | None = None):
+        """Store a custom or default Monash loader."""
         self.loader = loader or self._default_loader
 
     def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        """Load, normalize and optionally sample Monash series records."""
         local_csv_path = spec.adapter_options.get('local_csv_path')
         use_local_files = spec.adapter_options.get('use_local_files', False)
         if local_csv_path or use_local_files:
@@ -623,9 +637,12 @@ class MonashAdapter:
 
 
 class InMemoryForecastingAdapter:
+    """Dataset adapter backed by records provided directly in DatasetSpec."""
+
     benchmark_name = 'in_memory'
 
     def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        """Convert in-memory payload records into ForecastingSeriesRecord values."""
         payload = list(spec.adapter_options.get('records', ()))
         if not payload:
             raise BenchmarkConfigurationError('InMemory adapter requires adapter_options["records"].')
@@ -669,42 +686,54 @@ def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
 
 @dataclass
 class NaiveLastValueModel(ForecastingModelAdapter):
+    """Simple baseline that repeats the last observed value."""
+
     name: str = 'NaiveLastValue'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast by repeating the last train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'last_value'}
 
 
 @dataclass
 class NaiveMeanModel(ForecastingModelAdapter):
+    """Simple baseline that repeats the train mean."""
+
     name: str = 'NaiveMean'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast by repeating the mean train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         return np.full(series_record.forecast_horizon, np.mean(train), dtype=float), {'strategy': 'mean'}
 
 
 @dataclass
 class NaiveDriftModel(ForecastingModelAdapter):
+    """Simple baseline that extrapolates a linear end-to-end drift."""
+
     name: str = 'NaiveDrift'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast a drift line from first to last train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         if len(train) <= 1:
             return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'fallback'}
@@ -715,15 +744,19 @@ class NaiveDriftModel(ForecastingModelAdapter):
 
 @dataclass
 class MovingAverageModel(ForecastingModelAdapter):
+    """Simple baseline that repeats the trailing moving average."""
+
     window_size: int = 3
     name: str = 'MovingAverage'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast by repeating the last-window mean."""
         train = np.asarray(series_record.train_values, dtype=float)
         window = min(max(self.window_size, 1), len(train))
         return np.full(series_record.forecast_horizon, np.mean(train[-window:]), dtype=float), {'window_size': window}
@@ -731,14 +764,18 @@ class MovingAverageModel(ForecastingModelAdapter):
 
 @dataclass
 class LinearTrendModel(ForecastingModelAdapter):
+    """Simple baseline that extrapolates a fitted linear trend."""
+
     name: str = 'LinearTrend'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit a linear trend on train values and extrapolate the horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
         if len(train) <= 1:
             return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'constant'}
@@ -750,6 +787,8 @@ class LinearTrendModel(ForecastingModelAdapter):
 
 @dataclass
 class ClassicalDMDModel(ForecastingModelAdapter):
+    """Benchmark adapter for the classical DMD forecasting backend."""
+
     window_size: int = 12
     n_modes: int | None = None
     name: str = 'ClassicalDMD'
@@ -757,11 +796,13 @@ class ClassicalDMDModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the DMD runtime dependencies are available."""
         if DMDForecaster is None or not _safe_import('torch'):
             return RunStatus.NOT_AVAILABLE, 'torch is required for DMDForecaster.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit DMD on Hankel trajectories and return the forecast horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(max(self.window_size, series_record.forecast_horizon + 1), len(train) - 1)
         if window_size <= series_record.forecast_horizon:
@@ -784,6 +825,8 @@ class ClassicalDMDModel(ForecastingModelAdapter):
 
 @dataclass
 class OKHSModel(ForecastingModelAdapter):
+    """Benchmark adapter for the legacy OKHS forecasting backend."""
+
     method: str | OKHSMethod = OKHSMethod.DMD
     q: float = 0.7
     q_policy: str | QPolicy = QPolicy.FIXED
@@ -814,11 +857,13 @@ class OKHSModel(ForecastingModelAdapter):
     device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether OKHS runtime dependencies are available."""
         if OKHSForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for OKHS forecasting.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit OKHS on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(max(self.window_size, 4), len(train) - 1)
         if window_size < 2:
@@ -876,6 +921,8 @@ class OKHSModel(ForecastingModelAdapter):
 
 @dataclass
 class OKHSFDMDForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for the named OKHS fDMD forecaster."""
+
     q: float = 0.7
     n_modes: int = 5
     window_size: int = 20
@@ -909,6 +956,7 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
     device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the OKHS fDMD runtime is importable."""
         if (
                 OKHSFDMDForecaster is None
                 or build_okhs_fdmd_spec is None
@@ -918,6 +966,7 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Run OKHS fDMD on a benchmark series and attach stage diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         spec = build_okhs_fdmd_spec(
             forecast_horizon=series_record.forecast_horizon,
@@ -984,6 +1033,8 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
 
 @dataclass
 class MSSAModel(ForecastingModelAdapter):
+    """Benchmark adapter for the stage-aware MSSA forecaster."""
+
     window_size: int | None = None
     rank: int | None = None
     explained_variance: float = 0.95
@@ -1002,9 +1053,11 @@ class MSSAModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the local MSSA runtime."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit MSSA on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         model = MSSAForecaster(
             forecast_horizon=series_record.forecast_horizon,
@@ -1059,6 +1112,8 @@ class MSSAModel(ForecastingModelAdapter):
 
 @dataclass
 class SSACompatModel(ForecastingModelAdapter):
+    """Benchmark adapter for the SSA compatibility wrapper."""
+
     window_size: int | None = None
     rank: int | None = None
     explained_variance: float = 0.95
@@ -1070,11 +1125,13 @@ class SSACompatModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether FEDOT compatibility runtime is available."""
         if not _safe_import('fedot.core.data.data'):
             return RunStatus.NOT_AVAILABLE, 'fedot is required for ssa_forecaster compatibility wrapper.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Run the SSA compatibility wrapper and return forecast metadata."""
         from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
 
         input_data = _build_fedot_forecasting_input(series_record)
@@ -1128,6 +1185,8 @@ class SSACompatModel(ForecastingModelAdapter):
 
 @dataclass
 class LaggedForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for lagged_forecaster via lagged ridge runtime."""
+
     channel_model: str = 'ridge'
     window_size: int = 10
     stride: int = 1
@@ -1138,6 +1197,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether lagged ridge runtime and channel model are supported."""
         if LaggedRidgeForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for lagged_ridge_forecaster runtime.'
         if str(self.channel_model).lower() != 'ridge':
@@ -1148,6 +1208,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit lagged ridge on train values and return forecast plus diagnostics."""
         if str(self.channel_model).lower() != 'ridge':
             raise ModelExecutionError(
                 RunStatus.SKIPPED,
@@ -1189,6 +1250,8 @@ class LaggedForecasterModel(ForecastingModelAdapter):
 
 @dataclass
 class LowRankLaggedForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for low-rank lagged ridge forecasting."""
+
     window_size: int = 10
     stride: int = 1
     alpha: float = 1.0
@@ -1202,11 +1265,13 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the low-rank lagged runtime is available."""
         if LowRankLaggedRidgeForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for low_rank_lagged_ridge_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit low-rank lagged ridge and return forecast plus diagnostics."""
         model = LowRankLaggedRidgeForecaster(
             forecast_horizon=series_record.forecast_horizon,
             window_size_percent=self.window_size,
@@ -1248,6 +1313,8 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
 
 @dataclass
 class HybridEnsembleModel(ForecastingModelAdapter):
+    """Benchmark adapter for the named hybrid ensemble forecaster."""
+
     complex_branch: str = 'okhs'
     calibration_horizon: int | None = None
     lagged_params: dict[str, Any] = None
@@ -1259,11 +1326,13 @@ class HybridEnsembleModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the hybrid ensemble runtime is available."""
         if HybridEnsembleForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for hybrid_ensemble_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit all ensemble branches and return weighted forecast diagnostics."""
         model = HybridEnsembleForecaster(
             forecast_horizon=series_record.forecast_horizon,
             complex_branch=self.complex_branch,
@@ -1295,6 +1364,8 @@ class HybridEnsembleModel(ForecastingModelAdapter):
 
 @dataclass
 class HAVOKModel(ForecastingModelAdapter):
+    """Benchmark adapter for the stage-aware HAVOK forecaster."""
+
     window_size: int | None = None
     rank: int | None = None
     forcing_threshold_scale: float = 1.0
@@ -1315,9 +1386,11 @@ class HAVOKModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the local HAVOK runtime."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit HAVOK on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         model = HAVOKForecaster(
             forecast_horizon=series_record.forecast_horizon,
@@ -1383,6 +1456,8 @@ class HAVOKModel(ForecastingModelAdapter):
 
 @dataclass
 class NeuralForecastingHeadModel(ForecastingModelAdapter):
+    """Benchmark adapter for primitive neural forecasting heads."""
+
     neural_model_name: str = 'patch_tst_model'
     epochs: int | None = None
     batch_size: int | None = None
@@ -1417,11 +1492,13 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether torch and neural head runtime are available."""
         if torch is None or run_neural_forecast_head_on_series is None:
             return RunStatus.NOT_AVAILABLE, 'torch/native neural forecasting runtime is unavailable.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Run a neural forecasting head on train values and return diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         params = {
             key: value for key, value in self.__dict__.items()
@@ -1454,6 +1531,8 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
 
 @dataclass
 class OptionalExternalModel(ForecastingModelAdapter):
+    """Placeholder adapter for optional external forecasting backends."""
+
     dependency_name: str
     name: str
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'external')
@@ -1461,16 +1540,19 @@ class OptionalExternalModel(ForecastingModelAdapter):
     scaffold_reason: str = 'Adapter scaffold is registered but backend training is not wired yet.'
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the optional external dependency can be imported."""
         if not _safe_import(self.dependency_name):
             return RunStatus.NOT_AVAILABLE, f'{self.dependency_name} is not installed.'
         return RunStatus.SUCCESS, 'dependency is available'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Raise a skipped execution status until the external backend is wired."""
         del series_record
         raise ModelExecutionError(RunStatus.SKIPPED, self.scaffold_reason)
 
 
 def build_dataset_adapter(spec: DatasetSpec):
+    """Create a dataset adapter for a forecasting dataset specification."""
     benchmark = spec.benchmark.lower()
     custom_loader = spec.adapter_options.get('loader')
     if benchmark == 'm4':
@@ -1497,6 +1579,7 @@ def _instantiate_model_adapter(adapter_cls, spec: ModelSpec, default_tags: tuple
 
 
 def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
+    """Create a forecasting model adapter from a benchmark model spec."""
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_forecasting_model_name(raw_adapter_name)
     params = dict(spec.params)
@@ -1586,6 +1669,7 @@ def compute_forecasting_metric(
         y_train: np.ndarray,
         seasonal_period: int,
 ) -> float:
+    """Compute an aggregate forecasting metric for one horizon vector."""
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     train = np.asarray(y_train, dtype=float).reshape(-1)
@@ -1620,6 +1704,7 @@ def compute_pointwise_metric(
         y_train: np.ndarray,
         seasonal_period: int,
 ) -> np.ndarray:
+    """Compute horizon-wise metric values for publication artifacts."""
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     if metric_name == 'mae':
@@ -1699,6 +1784,8 @@ def _append_event_interval_metrics(
 
 @dataclass
 class ForecastingSeriesArtifactsRecorder:
+    """Collect per-series metric and prediction artifacts during a run."""
+
     run_id: str
     metric_names: tuple[str, ...]
     metric_records: list[MetricRecord]
@@ -1709,6 +1796,7 @@ class ForecastingSeriesArtifactsRecorder:
             series_record: ForecastingSeriesRecord,
             prediction: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Validate model forecast length and return aligned actual/forecast arrays."""
         actual = np.asarray(series_record.test_values, dtype=float)
         forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
         if len(forecast) != len(actual):
@@ -1728,6 +1816,7 @@ class ForecastingSeriesArtifactsRecorder:
             metadata: dict[str, Any],
             metric_name_suffix: str = '',
     ) -> tuple[dict[str, float], dict[str, float]]:
+        """Record aggregate, horizon-wise and event-aware metric rows."""
         metrics_summary: dict[str, float] = {}
         train = np.asarray(series_record.train_values, dtype=float)
         for metric_name in self.metric_names:
@@ -1796,6 +1885,7 @@ class ForecastingSeriesArtifactsRecorder:
             actual: np.ndarray,
             forecast: np.ndarray,
     ) -> None:
+        """Append per-horizon prediction records for one series/model item."""
         for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
             self.prediction_records.append(
                 PredictionRecord(
@@ -1815,6 +1905,8 @@ class ForecastingSeriesArtifactsRecorder:
 
 @dataclass
 class ForecastingPostFitTuningCoordinator:
+    """Run mandatory post-fit stage tuning and compare tuned vs baseline metrics."""
+
     config: BenchmarkSuiteConfig
     verbosity_policy: ForecastingVerbosityPolicy
     artifacts_recorder: ForecastingSeriesArtifactsRecorder
@@ -1880,6 +1972,7 @@ class ForecastingPostFitTuningCoordinator:
             regime_diagnostics,
             routing_recommendation,
     ) -> dict[str, Any]:
+        """Execute stage tuning after baseline validation and return enriched metadata."""
         runtime_config = self._resolve_runtime_config(model_spec, baseline_metadata)
         if run_forecasting_stage_tuning_on_series is None:
             return {
@@ -1991,6 +2084,7 @@ def build_leaderboard(
         run_records: tuple[BenchmarkRunRecord, ...],
         primary_metric: str,
 ) -> BenchmarkAggregateReport:
+    """Aggregate successful run records into a benchmark leaderboard."""
     successful = [record for record in run_records if record.status is RunStatus.SUCCESS]
     grouped: dict[tuple[str, str, str], list[float]] = {}
     for record in successful:
@@ -2030,7 +2124,10 @@ def build_leaderboard(
 
 
 class ForecastingSuiteRunner:
+    """Orchestrate forecasting benchmark datasets, models, series and artifacts."""
+
     def __init__(self, config: BenchmarkSuiteConfig):
+        """Initialize benchmark state, progress, verbosity and resume coordinators."""
         validate_forecasting_suite_config(config)
         self.config = config
         self.run_id = (
@@ -2133,6 +2230,7 @@ class ForecastingSuiteRunner:
         }
 
     def run_suite(self) -> ForecastingBenchmarkResult:
+        """Run the configured forecasting suite and return all collected records."""
         try:
             self._iter_over_datasets()
         finally:
@@ -2507,4 +2605,5 @@ class ForecastingSuiteRunner:
 
 
 def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkResult:
+    """Compatibility entrypoint that executes a ForecastingSuiteRunner."""
     return ForecastingSuiteRunner(config).run_suite()
