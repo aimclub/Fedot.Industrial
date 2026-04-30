@@ -211,6 +211,25 @@ class DetectionBoundaryAdapter:
 
 
 def ensure_detection_array(values: Sequence[float] | np.ndarray) -> np.ndarray:
+    """
+    Преобразует входные данные в двумерный массив numpy с плавающей точкой, пригодный для детектирования.
+
+    - Если входной массив одномерный, преобразует в столбец (n, 1).
+    - Если двумерный — оставляет без изменений.
+    - Если размерность больше 2 — сворачивает все оси, кроме первой, в одну.
+
+    Параметры:
+        values : Sequence[float] или np.ndarray
+            Входные данные (список, кортеж, массив).
+
+    Возвращает:
+        np.ndarray
+            Двумерный массив с shape (n_samples, n_features).
+
+    Исключения:
+        ValueError
+            Если передан 0-мерный массив (скаляр).
+    """
     array = np.asarray(values, dtype=float)
     if array.ndim == 1:
         return array.reshape(-1, 1)
@@ -229,6 +248,35 @@ def resolve_detection_window_size(
         window_size_percent: float | None = None,
         minimum_window_size: int = 8,
 ) -> int:
+    """
+    Определяет размер окна для скользящего анализа временного ряда.
+
+    Правила:
+    1. Если длина ряда меньше 4 — возвращает длину ряда (минимум 1).
+    2. Если задан window_size — возвращает max(2, min(window_size, series_length)).
+    3. Если задан window_size_percent — вычисляет размер как процент от series_length,
+       затем ограничивает max(2, min(..., series_length)).
+    4. Иначе — default = max(minimum_window_size, round(series_length * 0.1)), затем
+       ограничивает series_length.
+
+    Параметры:
+        series_length : int
+            Общее количество точек ряда.
+        window_size : int или None
+            Явный размер окна.
+        window_size_percent : float или None
+            Размер окна в процентах от длины ряда.
+        minimum_window_size : int, default=8
+            Минимальный размер окна по умолчанию.
+
+    Возвращает:
+        int
+            Итоговый размер окна (всегда >=2 для рядов длиной >=4).
+    
+    Важно:
+    --
+    Используется round() - надо узнать, насколько это важно для контекста
+    """
     if series_length < 4:
         return max(1, int(series_length))
     if window_size is not None:
@@ -241,6 +289,22 @@ def resolve_detection_window_size(
 
 
 def resolve_detection_stride(window_size: int, stride: int | None = None) -> int:
+    """
+    Определяет шаг сдвига окна (stride) для детектирования.
+
+    - Если stride задан явно — возвращает max(1, int(stride)).
+    - Иначе — возвращает max(1, window_size // 4).
+
+    Параметры:
+        window_size : int
+            Размер окна.
+        stride : int или None
+            Шаг сдвига (если None — выбирается автоматически).
+
+    Возвращает:
+        int
+            Шаг сдвига (всегда >= 1).
+    """
     if stride is not None:
         return max(1, int(stride))
     return max(1, int(window_size // 4))
@@ -254,6 +318,34 @@ def build_detection_window_batch(
         channel_names: Sequence[str] | None = None,
         metadata: dict[str, Any] | None = None,
 ) -> DetectionWindowBatch:
+    """
+    Нарезает временной ряд на окна заданного размера с заданным шагом.
+
+    Создаёт объект (DetectionWindowBatch), содержащий:
+    - трёхмерный массив окон (n_windows, window_size, n_channels),
+    - индексы начала и конца каждого окна (n_windows, 2),
+    - метаданные (длина ряда, размер окна, шаг, имена каналов и пользовательские метаданные).
+
+    Параметры:
+        values : Sequence[float] или np.ndarray
+            Входной ряд (1D или 2D, где второй размер — каналы).
+        window_size : int
+            Размер окна.
+        stride : int, default=1
+            Шаг сдвига.
+        channel_names : Sequence[str] или None
+            Имена каналов. Если None — генерируются как 'channel_0', 'channel_1', ...
+        metadata : dict или None
+            Дополнительные метаданные.
+
+    Возвращает:
+        DetectionWindowBatch
+            Сформированный пакет окон.
+
+    Исключения:
+        ValueError
+            Если длина ряда меньше window_size.
+    """
     series = ensure_detection_array(values)
     if series.shape[0] < window_size:
         raise ValueError(
@@ -282,6 +374,43 @@ def split_detection_batch(
         batch: DetectionWindowBatch,
         split_spec: DetectionSplitSpec,
 ) -> tuple[DetectionWindowBatch, DetectionWindowBatch, DetectionWindowBatch | None]:
+    """
+    Разбивает пакет детекции на тренировочную, калибровочную и тестовую выборки согласно спецификации.
+
+    Поддерживаются ТРИ типа разбиения:
+    - DOMAIN_HOLDOUT: выделяет одно доменное значение как целевое (target_domain),
+      остальные домены — в тренировку. Внутри целевого домена окна делятся на калибровку и тест 
+      с учётом временного порядка.
+    - HOLDOUT: случайное или временное разбиение всех окон с заданными долями.
+    - есть ещё TEMPORAL - без доменов. train отдельно, калибровка и тест делятся, соблюдая временной порядок 
+      с помощью метода _split_temporal_window_ids(). 
+      
+    Для предотвращения утечки будущего (prevent_future_leakage=True) гарантируется,
+    что калибровочные окна предшествуют тестовым во времени.
+
+    Параметры:
+        batch : DetectionWindowBatch
+            Пакет окон, полученный из build_detection_window_batch.
+        split_spec : DetectionSplitSpec
+            Объект спецификации разбиения.
+
+    Возвращает:
+        tuple[DetectionWindowBatch, DetectionWindowBatch, DetectionWindowBatch | None]
+            (train_batch, calibration_batch, test_batch). Калибровочный пакет может совпадать  тренировочным, если калибровочных окон нет.
+
+    Исключения:
+        ValueError
+            Если batch не содержит окон, отсутствуют необходимые метаданные для доменного разбиения,
+            или разбиение привело к пустому тренировочному набору.
+    
+    Важно:
+    ------
+    Надо проверить во всём процессе, нужно ли убеждаться в наличии метаданных, как таковых.
+
+    Есть ещё момент, что calibration_fraction (при HOLDOUT - от всего количества окон, 
+    при DOMAIN_HOLDOUT - от части без train) 
+
+    """
     n_windows = batch.n_windows
     if n_windows == 0:
         raise ValueError('Detection batch must contain at least one window.')
@@ -380,6 +509,26 @@ def _split_temporal_window_ids(
         prevent_future_leakage: bool,
         minimum_start: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Вспомогательная функция: разбивает идентификаторы окон на калибровочные и тестовые,
+    соблюдая временной порядок (если prevent_future_leakage=True).
+
+    Параметры:
+        window_indices : np.ndarray
+            Массив формы (n_windows, 2) с началом и концом каждого окна.
+        candidate_ids : np.ndarray
+            Массив идентификаторов окон, которые нужно разделить.
+        calibration_size : int
+            Сколько окон выделить в калибровку (берутся первые по времени).
+        prevent_future_leakage : bool
+            Если True, тестовые окна не могут начинаться раньше, чем заканчивается последнее калибровочное.
+        minimum_start : int или None
+            Минимальное значение start индекса для включения окна (фильтр).
+
+    Возвращает:
+        tuple[np.ndarray, np.ndarray]
+            (calibration_ids, test_ids) – отсортированные массивы идентификаторов.
+    """   
     candidates = np.asarray(candidate_ids, dtype=int).reshape(-1)
     if candidates.size == 0:
         return np.asarray([], dtype=int), np.asarray([], dtype=int)
@@ -401,6 +550,31 @@ def _split_temporal_window_ids(
 
 
 def build_window_statistical_features(windows: np.ndarray) -> np.ndarray:
+    """
+    Вычисляет статистические признаки для каждого окна многоканального временного ряда.
+    
+    Для каждого окна (n_windows, window_size, n_channels) вычисляет по каждому каналу:
+    - среднее,
+    - стандартное отклонение,
+    - минимум,
+    - максимум,
+    - разность между последним и первым отсчётами (наклон/размах).
+    
+    Результат конкатенируется по оси каналов, т.е. для каждого окна возвращается вектор
+    размерности 5 * n_channels.
+    
+    Параметры:
+        windows : np.ndarray
+            Массив формы (n_windows, window_size, n_channels).
+    
+    Возвращает:
+        np.ndarray
+            Массив формы (n_windows, 5 * n_channels).
+    
+    Исключения:
+        ValueError
+            Если входной массив не трёхмерный.
+    """
     array = np.asarray(windows, dtype=float)
     if array.ndim != 3:
         raise ValueError('Detection windows must have shape [n_windows, window_size, n_channels].')
@@ -418,6 +592,32 @@ def infer_regime_segments(
         volatility_window: int = 16,
         transition_quantile: float = 0.85,
 ) -> tuple[RegimeSegment, ...]:
+    """
+    Выделяет сегменты временного ряда, характеризующие режимы: высокий уровень (high_load),
+    низкий уровень (low_load), переходный (transition) или стабильный (stable).
+
+    Алгоритм:
+    1. Берёт среднее по каналам (если многоканальный).
+    2. Вычисляет скользящую волатильность (rolling std) с окном volatility_window.
+    3. Вычисляет абсолютный наклон ряда abs(diff()).
+    4. Порог перехода — quantile абсолютного наклона (transition_quantile).
+    5. Квантили 75% и 25% среднего по каналам сигнала задают границы high/low.
+    6. Размечает точки: transition, иначе stable, потом stable с высоким/низким уровнем.
+    7. Склеивает соседние точки с одинаковой меткой в сегменты.
+
+    Параметры:
+        values : Sequence[float] или np.ndarray
+            Входной ряд (1D или 2D или ND) - ensure_detection_array сожмёт до 2D.
+        volatility_window : int, default=16
+            Размер окна для расчёта волатильности. Не меньше 3.
+        transition_quantile : float, default=0.85
+            Квантиль абсолютного наклона для определения переходов (0..1).
+
+    Возвращает:
+        tuple[RegimeSegment, ...]
+            Кортеж объектов RegimeSegment с индексами, меткой, средним уровнем,
+            волатильностью и наклоном внутри сегмента.
+    """
     series = ensure_detection_array(values)
     regime_signal = np.mean(series, axis=1)
     slope = np.diff(regime_signal, prepend=regime_signal[0])
@@ -464,6 +664,26 @@ def align_window_scores_to_points(
         window_scores: Sequence[float] | np.ndarray,
         batch: DetectionWindowBatch,
 ) -> np.ndarray:
+    """
+    Преобразует оценки (аномалий), вычисленные для каждого окна, в поточечный ряд.
+
+    Для каждой точки временного ряда усредняет оценки всех окон, которые покрывают эту точку.
+    Точки без покрытия получают значение 0 (деление на 1 предотвращает разрыв).
+
+    Параметры:
+        window_scores : Sequence[float] или np.ndarray
+            Оценки для каждого окна (длина равна batch.n_windows).
+        batch : DetectionWindowBatch
+            Пакет окон, содержащий window_indices и original_length.
+
+    Возвращает:
+        np.ndarray
+            Массив длины original_length, где каждому индексу сопоставлена средняя оценка.
+
+    Исключения:
+        ValueError
+            Если длина window_scores не совпадает с batch.n_windows.
+    """
     scores = np.asarray(window_scores, dtype=float).reshape(-1)
     if scores.shape[0] != batch.n_windows:
         raise ValueError('The number of window scores must match the number of detection windows.')
@@ -483,6 +703,35 @@ def estimate_detection_threshold(
         quantile: float = 0.99,
         regime_labels: Sequence[str] | None = None,
 ) -> float:
+    """
+    Вычисляет порог для бинаризации аномалий на основе оценок.
+
+    Поддерживаемые стратегии:
+    - 'mad' : медиана + 3 * MAD (медианное абсолютное отклонение); если MAD близок к нулю,
+               использует стандартное отклонение.
+    - 'quantile' : заданный квантиль распределения оценок.
+    - 'regime_conditional' : применяет стратегию 'mad' только к точкам, не отмеченным как 'transition'
+                             (если переданы regime_labels).
+    - 'domain_calibrated' : среднее + 2.5 * стандартное отклонение.
+
+    Параметры:
+        scores : Sequence[float] или np.ndarray
+            Вектор оценок (поточечных) длины original_length.
+        strategy : str, default='mad'
+            Название стратегии.
+        quantile : float, default=0.99
+            Квантиль (используется для strategy='quantile').
+        regime_labels : Sequence[str] или None
+            Метки режимов для каждой точки (требуется для 'regime_conditional').
+
+    Возвращает:
+        float
+            Вычисленный порог.
+
+    Исключения:
+        ValueError
+            Если стратегия не поддерживается.
+    """
     values = np.asarray(scores, dtype=float).reshape(-1)
     if values.size == 0:
         return 0.0
@@ -515,6 +764,25 @@ def build_anomaly_score_series(
         calibration_strategy: str,
         metadata: dict[str, Any] | None = None,
 ) -> AnomalyScoreSeries:
+    """
+    Формирует объект AnomalyScoreSeries из поточечных оценок и порога.
+
+    Сравнивает каждую оценку с порогом и создаёт бинарную метку (1 если score >= threshold, иначе 0).
+
+    Параметры:
+        point_scores : Sequence[float] или np.ndarray
+            Оценки для каждой точки временного ряда.
+        threshold : float
+            Порог детекции.
+        calibration_strategy : str
+            Название стратегии, использованной для получения порога (сохраняется в метаданных).
+        metadata : dict или None
+            Дополнительные метаданные.
+
+    Возвращает:
+        AnomalyScoreSeries
+            Объект, содержащий кортежи оценок и меток, порог, стратегию и метаданные.
+    """
     scores = np.asarray(point_scores, dtype=float).reshape(-1)
     labels = (scores >= float(threshold)).astype(int)
     return AnomalyScoreSeries(
@@ -532,6 +800,28 @@ def detect_events_from_score_series(
         min_event_length: int = 1,
         regime_segments: Sequence[RegimeSegment] = (),
 ) -> tuple[DetectionEvent, ...]:
+    """
+    Обнаруживает непрерывные аномальные участки (события) на основе бинарной метки.
+
+    Событием считается последовательность точек с меткой 1, длина которой не меньше min_event_length.
+    Для каждого события определяются:
+    - начальный и конечный индексы,
+    - пиковый индекс (максимальная оценка внутри события),
+    - пиковое и среднее значение оценки,
+    - метка режима, соответствующая позиции пика (если переданы regime_segments).
+
+    Параметры:
+        score_series : AnomalyScoreSeries
+            Серия с оценками и метками.
+        min_event_length : int, default=1
+            Минимальная длина события (количество последовательных аномальных точек).
+        regime_segments : Sequence[RegimeSegment], default=()
+            Сегменты режимов для определения regime_label события.
+
+    Возвращает:
+        tuple[DetectionEvent, ...]
+            Кортеж обнаруженных событий, отсортированных по времени.
+    """
     labels = np.asarray(score_series.labels, dtype=int).reshape(-1)
     scores = np.asarray(score_series.scores, dtype=float).reshape(-1)
     events: list[DetectionEvent] = []
@@ -554,6 +844,26 @@ def _build_detection_event(
         scores: np.ndarray,
         regime_segments: Sequence[RegimeSegment],
 ) -> DetectionEvent:
+    """
+    Вспомогательная функция: создаёт один объект DetectionEvent для заданного интервала.
+
+    Вычисляет пик (максимум scores), среднее значение и определяет метку режима
+    по пересечению с regime_segments.
+
+    Параметры:
+        start : int
+            Начальный индекс события.
+        end : int
+            Конечный индекс события (включительно).
+        scores : np.ndarray
+            Массив оценок для всего ряда.
+        regime_segments : Sequence[RegimeSegment]
+            Сегменты режимов.
+
+    Возвращает:
+        DetectionEvent
+            Сформированный объект события.
+    """
     segment_scores = scores[start:end + 1]
     peak_offset = int(np.argmax(segment_scores))
     peak_index = int(start + peak_offset)
@@ -577,6 +887,23 @@ def domain_invariant_scale(
         *,
         reference_values: Sequence[float] | np.ndarray | None = None,
 ) -> np.ndarray:
+    """
+    Масштабирует данные, делая их инвариантными к сдвигу и масштабу относительно опорного распределения.
+
+    Используется преобразование: (x - median) / MAD, где MAD — медианное абсолютное отклонение.
+    Если reference_values не задан, используется сама серия.
+    MAD, близкие к нулю, заменяются на 1.0.
+
+    Параметры:
+        values : Sequence[float] или np.ndarray
+            Данные для масштабирования (1D или 2D).
+        reference_values : Sequence[float] или np.ndarray или None
+            Опорные данные для оценки медианы и MAD. Если None — используются values.
+
+    Возвращает:
+        np.ndarray
+            Масштабированные данные той же формы, что и values.
+    """
     series = ensure_detection_array(values)
     reference = ensure_detection_array(reference_values) if reference_values is not None else series
     median = np.median(reference, axis=0)
@@ -591,6 +918,32 @@ def coral_feature_align(
         *,
         epsilon: float = 1e-6,
 ) -> np.ndarray:
+    """
+    Выполняет выравнивание признаков методом CORAL (CORrelation ALignment).
+    
+    Приводит ковариацию и среднее исходных признаков к ковариации и среднему целевых,
+    используя линейное преобразование:
+    1. Центрирует source и target.
+    2. Вычисляет ковариационные матрицы с регуляризацией epsilon.
+    3. Строит отбеливающее преобразование для source и окрашивающее для target.
+    4. Применяет преобразование к центрированному source и добавляет среднее target.
+    
+    Параметры:
+        source_features : Sequence[float] или np.ndarray
+            Признаки исходного домена (shape n_source x d).
+        target_features : Sequence[float] или np.ndarray
+            Признаки целевого домена (shape n_target x d).
+        epsilon : float, default=1e-6
+            Регуляризация для ковариационных матриц (добавляется к диагонали).
+    
+    Возвращает:
+        np.ndarray
+            Выровненные признаки исходного домена (n_source x d).
+    
+    Исключения:
+        ValueError
+            Если входные массивы не двумерные.
+    """
     source = np.asarray(source_features, dtype=float)
     target = np.asarray(target_features, dtype=float)
     if source.ndim != 2 or target.ndim != 2:
@@ -615,6 +968,30 @@ def build_transfer_alignment_report(
         source_domain: str = 'source',
         target_domain: str = 'target',
 ) -> TransferAlignmentReport:
+    """
+    Создаёт отчёт о различиях между исходным и целевым доменом для диагностики переноса.
+
+    Вычисляет средние значения по каналам, количество наблюдений, сдвиг средних,
+    а также включает в метаданные стандартные отклонения.
+
+    Параметры:
+        source_values : Sequence[float] или np.ndarray
+            Данные исходного домена.
+        target_values : Sequence[float] или np.ndarray
+            Данные целевого домена.
+        strategy : str, default='domain_invariant_scaling'
+            Название стратегии выравнивания (сохраняется в отчёте).
+        source_domain : str, default='source'
+            Метка для исходного домена.
+        target_domain : str, default='target'
+            Метка для целевого домена.
+
+    Возвращает:
+        TransferAlignmentReport
+            Объект отчёта с полями: strategy, source_domain, target_domain,
+            n_source, n_target, source_channel_mean, target_channel_mean,
+            mean_shift, metadata.
+    """
     source = ensure_detection_array(source_values)
     target = ensure_detection_array(target_values)
     source_mean = np.mean(source, axis=0)
@@ -643,6 +1020,34 @@ def build_risk_feature_frame(
         node_name: str | None = None,
         domain_name: str | None = None,
 ) -> RiskFeatureFrame:
+    """
+    Формирует таблицу (RiskFeatureFrame) с признаками риска для каждого обнаруженного события.
+
+    Для каждого события извлекаются:
+    - индексы начала, конца, пика,
+    - пиковая и средняя оценки,
+    - длина события,
+    - метка режима, средний уровень и волатильность режима (из regime_segments),
+    - название узла (node_name) и домена (domain_name),
+    - если передан score_series — порог и стратегия калибровки.
+
+    Args:
+        events : Sequence[DetectionEvent]
+            Обнаруженные события.
+        regime_segments : Sequence[RegimeSegment]
+            Сегменты режимов для привязки regime_label и характеристик.
+        score_series : AnomalyScoreSeries или None
+            Серия оценок (для добавления threshold и calibration_strategy).
+        node_name : str или None
+            Имя узла (например, идентификатор оборудования).
+        domain_name : str или None
+            Имя домена.
+
+    Returns:
+        RiskFeatureFrame
+            Объект с полями columns (кортеж названий столбцов),
+            rows (кортеж словарей) и metadata (словарь с n_events и n_regime_segments).
+    """
     rows: list[dict[str, Any]] = []
     regime_lookup = {
         (segment.start_index, segment.end_index): segment
