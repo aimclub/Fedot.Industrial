@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -14,6 +14,13 @@ try:  # pragma: no cover - optional in lightweight test envs
     import torch
 except Exception:  # pragma: no cover
     torch = None
+
+
+from fedot_ind.core.models.ts_forecasting.dmd_models.deep_okhs_fdmd_forecaster import (
+    DeepOKHSFDMDForecaster,
+    build_deep_okhs_fdmd_spec,
+    run_deep_okhs_fdmd_forecaster_on_series,
+)
 
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
 from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecaster
@@ -46,6 +53,11 @@ try:  # pragma: no cover - tensor-native composites require torch
         build_okhs_fdmd_spec,
         run_okhs_fdmd_forecaster_on_series,
     )
+    from fedot_ind.core.models.ts_forecasting.dmd_models.deep_okhs_fdmd_forecaster import (
+        DeepOKHSFDMDForecaster,
+        build_deep_okhs_fdmd_spec,
+        run_deep_okhs_fdmd_forecaster_on_series,
+    )
     from fedot_ind.core.models.ts_forecasting.forecasting_runtime import ForecastingSplitKind, ForecastingSplitSpec
     from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
 except Exception:  # pragma: no cover
@@ -59,6 +71,10 @@ except Exception:  # pragma: no cover
     ForecastingSplitKind = None
     ForecastingSplitSpec = None
     run_forecasting_stage_tuning_on_series = None
+
+    DeepOKHSFDMDForecaster = None
+    build_deep_okhs_fdmd_spec = None
+    run_deep_okhs_fdmd_forecaster_on_series = None
 
 try:  # pragma: no cover - optional heavyweight dependency tree in test envs
     from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, M4_PREFIX, M4_SEASONALITY
@@ -1030,6 +1046,140 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
 
 
 @dataclass
+class DeepOKHSFDMDForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for the Deep OKHS fDMD forecaster with Autoencoder."""
+
+    q: float = 0.7
+    n_modes: int = 5
+    window_size: int = 20
+    q_policy: str = 'fixed'
+    window_policy: str = 'adaptive_cycle_aware'
+    trajectory_sampling_policy: str = 'dense'
+    trajectory_rank_policy: str = 'explained_dispersion'
+    trajectory_rank_value: int | None = None
+    trajectory_representation_policy: str = 'projected'
+    latent_trajectory_stride_policy: str = 'adaptive'
+    latent_trajectory_stride: int | None = None
+    mode_selection_policy: str = 'energy'
+    mode_energy_threshold: float = 0.95
+    prediction_mode_selection_policy: str = 'adaptive_tail_energy'
+    max_prediction_modes: int | None = None
+    min_prediction_modes: int = 4
+    boundary_alignment_policy: str = 'tapered_offset'
+    boundary_alignment_decay: float = 4.0
+    prediction_stability_threshold: float | None = 0.03
+    anti_smoothing_policy: str = 'residual_bridge'
+    anti_smoothing_tail_window: int | None = None
+    anti_smoothing_amplitude_ratio: float = 0.35
+    anti_smoothing_monotone_ratio: float = 0.9
+    anti_smoothing_oscillation_floor: float = 0.25
+    anti_smoothing_decay: float = 2.5
+    anti_smoothing_target_amplitude_ratio: float = 0.8
+    
+    # Специфичные гиперпараметры Deep OKHS
+    latent_dim: int = 16
+    ae_epochs: int = 100
+    ae_learning_rate: float = 1e-3
+    alpha_adjoint: float = 1.0
+    beta_rec: float = 1.0
+    hidden_layers: list[int] = field(default_factory=lambda: [64, 64])
+    dt: float = 1.0
+
+    stage_tuning_runtime: dict[str, Any] | None = None
+    name: str = 'deep_okhs_fdmd_forecaster'
+    tags: tuple[str, ...] = ('deep_okhs', 'operator_model', 'forecasting', 'neural')
+    optional: bool = False
+    device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
+
+    def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the Deep OKHS fDMD runtime is importable."""
+        if (
+                DeepOKHSFDMDForecaster is None
+                or build_deep_okhs_fdmd_spec is None
+                or run_deep_okhs_fdmd_forecaster_on_series is None
+        ):
+            return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for deep_okhs_fdmd_forecaster.'
+        return RunStatus.SUCCESS, 'ready'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Run Deep OKHS fDMD on a benchmark series and attach stage diagnostics."""
+        train = np.asarray(series_record.train_values, dtype=float)
+        spec = build_deep_okhs_fdmd_spec(
+            forecast_horizon=series_record.forecast_horizon,
+            params={
+                'q': self.q,
+                'n_modes': self.n_modes,
+                'window_size': self.window_size,
+                'q_policy': self.q_policy,
+                'window_policy': self.window_policy,
+                'trajectory_sampling_policy': self.trajectory_sampling_policy,
+                'trajectory_rank_policy': self.trajectory_rank_policy,
+                'trajectory_rank_value': self.trajectory_rank_value,
+                'trajectory_representation_policy': self.trajectory_representation_policy,
+                'latent_trajectory_stride_policy': self.latent_trajectory_stride_policy,
+                'latent_trajectory_stride': self.latent_trajectory_stride,
+                'mode_selection_policy': self.mode_selection_policy,
+                'mode_energy_threshold': self.mode_energy_threshold,
+                'prediction_mode_selection_policy': self.prediction_mode_selection_policy,
+                'max_prediction_modes': self.max_prediction_modes,
+                'min_prediction_modes': self.min_prediction_modes,
+                'boundary_alignment_policy': self.boundary_alignment_policy,
+                'boundary_alignment_decay': self.boundary_alignment_decay,
+                'prediction_stability_threshold': self.prediction_stability_threshold,
+                'anti_smoothing_policy': self.anti_smoothing_policy,
+                'anti_smoothing_tail_window': self.anti_smoothing_tail_window,
+                'anti_smoothing_amplitude_ratio': self.anti_smoothing_amplitude_ratio,
+                'anti_smoothing_monotone_ratio': self.anti_smoothing_monotone_ratio,
+                'anti_smoothing_oscillation_floor': self.anti_smoothing_oscillation_floor,
+                'anti_smoothing_decay': self.anti_smoothing_decay,
+                'anti_smoothing_target_amplitude_ratio': self.anti_smoothing_target_amplitude_ratio,
+                'device': self.device,
+                
+                # Deep specific parameters
+                'latent_dim': self.latent_dim,
+                'ae_epochs': self.ae_epochs,
+                'ae_learning_rate': self.ae_learning_rate,
+                'alpha_adjoint': self.alpha_adjoint,
+                'beta_rec': self.beta_rec,
+                'hidden_layers': self.hidden_layers,
+                'dt': self.dt,
+            },
+            series_length=len(train),
+        )
+        
+        run_result = run_deep_okhs_fdmd_forecaster_on_series(
+            time_series=train,
+            forecast_horizon=series_record.forecast_horizon,
+            params=dict(spec.params),
+        )
+        
+        forecast = np.asarray(run_result.forecast, dtype=float).reshape(-1)[:series_record.forecast_horizon]
+        metadata = dict(run_result.diagnostics)
+        metadata.update(
+            {
+                'selected_q': float(spec.params['q']),
+                'window_size': int(spec.params['window_size']),
+                'last_train_value': float(train[-1]),
+                'first_prediction_value': float(forecast[0]) if len(forecast) else None,
+                'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
+            }
+        )
+        if metadata['first_prediction_value'] is not None:
+            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
+        if metadata['first_actual_value'] is not None:
+            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+            
+        metadata = _maybe_attach_stage_tuning_report(
+            metadata,
+            adapter_name='deep_okhs_fdmd_forecaster',
+            series_record=series_record,
+            base_params=dict(spec.params),
+            runtime_config=self.stage_tuning_runtime,
+        )
+        return forecast, metadata
+
+
+@dataclass
 class MSSAModel(ForecastingModelAdapter):
     """Benchmark adapter for the stage-aware MSSA forecaster."""
 
@@ -1585,6 +1735,8 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
         return _instantiate_model_adapter(OKHSModel, spec, ('okhs', 'forecasting'))
     if adapter_name == 'okhs_fdmd_forecaster':
         return _instantiate_model_adapter(OKHSFDMDForecasterModel, spec, ('okhs', 'forecasting', 'operator_model'))
+    if adapter_name == 'deep_okhs_fdmd_forecaster':
+        return _instantiate_model_adapter(DeepOKHSFDMDForecasterModel, spec, ('deep_okhs', 'operator_model', 'forecasting', 'neural'))
     if adapter_name == 'ssa_forecaster':
         return _instantiate_model_adapter(SSACompatModel, spec, ('baseline', 'forecasting', 'ssa'))
     if adapter_name == 'lagged_forecaster':

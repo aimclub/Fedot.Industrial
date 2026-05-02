@@ -4,6 +4,11 @@ from typing import List, Tuple
 
 
 class DeepFDMDAutoencoder(nn.Module):
+    """
+    Автоэнкодер для обучения нелинейного латентного пространства \tilde{H} в методе Deep OKHS.
+    Состоит из энкодера и декодера, обучающихся совместно с оператором Лиувилля W.
+    Имеет пропускные связи для облегчения оптимизации и обеспечения начальной идентичности.
+    """
     def __init__(self, input_dim: int, latent_dim: int, hidden_layers: List[int] = [64, 64], dtype=torch.float64):
         super().__init__()
         self.input_dim = input_dim
@@ -66,3 +71,35 @@ class DeepFDMDAutoencoder(nn.Module):
 
     def encode_trajectory(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder_net(x) + self.enc_skip(x)
+
+
+class AdjointBasisEncoder(nn.Module):
+    """
+    Нейросеть для аппроксимации базиса инвариантного подпространства 
+    сопряженного дробного оператора Лиувилля (A_{f, q}^*).
+    """
+    def __init__(self, 
+                 input_dim: int, 
+                 latent_dim: int, 
+                 hidden_layers: List[int] = [64, 64], 
+                 activation: nn.Module = nn.ELU()):
+        
+        super(AdjointBasisEncoder, self).__init__()
+        
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        
+        layers = []
+        current_dim = input_dim
+        
+        for hidden_dim in hidden_layers:
+            layers.append(nn.Linear(current_dim, hidden_dim))
+            layers.append(activation)
+            current_dim = hidden_dim
+
+        layers.append(nn.Linear(current_dim, latent_dim))
+        
+        self.encoder = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.encoder(x)

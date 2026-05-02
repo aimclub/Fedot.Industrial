@@ -3,9 +3,9 @@ import torch
 import numpy as np
 
 try:
-    pass
+    from pymittagleffler import mittag_leffler
 except ImportError:  # pragma: no cover - fallback for local environments without pymittagleffler
-    pass
+    from fedot_ind.core.operation.transformation.representation.kernel.utils import mittag_leffler
 
 try:
     from pycaputo.controller import make_fixed_controller
@@ -20,7 +20,6 @@ except ImportError:  # pragma: no cover - optional runtime dependency for exampl
     caputo = None
     evolve = None
 
-
 class RBFKernel:
     def __init__(self, gamma: float = 1.0):
         self.gamma = gamma
@@ -33,9 +32,8 @@ class RBFKernel:
         x_tensor = torch.as_tensor(x)
         y_tensor = torch.as_tensor(y)
         dist_sq = torch.sum((x_tensor - y_tensor) ** 2)
-
+        
         return torch.exp(-self.gamma * dist_sq).item()
-
 
 def generate_trajectories_pycaputo(
         f,
@@ -89,3 +87,30 @@ def generate_trajectories_pycaputo(
 
     time = np.linspace(0, T_max, n_steps + 1)
     return time, trajectories
+
+
+
+def rhs_linear(t, y, lambda_param):
+    return lambda_param * np.array(y)
+
+def rhs_logistic(t, y, r):
+    return r * y * (1.0 - y)
+
+def rhs_quadratic(t, y, a, b):
+    return a * y - b * y**2
+
+def rhs_mu_cubic(t, y, mu):
+    return mu * (1.0 - y**2) * y - y
+
+def rhs_lotka_volterra(t, y, alpha, beta, delta, gamma):
+    """
+    Дробная модель Лотки-Вольтерры.
+    D^q u = alpha*u - beta*u*v
+    D^q v = delta*u*v - gamma*v
+    """
+    u, v = y[0], y[1]
+    return np.array([
+        alpha * u - beta * u * v,
+        delta * u * v - gamma * v
+    ])
+

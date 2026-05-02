@@ -34,6 +34,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
     def __init__(
             self,
             okhs_transformer,
+            ready_operator=None,
             n_quad_points=20,
             pairwise_block_size=64,
             regularization_policy=None,
@@ -48,6 +49,11 @@ class FractionalLiouvilleOperator(BaseEstimator):
         self.show_progress = getattr(okhs_transformer, "show_progress", False)
         self.progress_leave = getattr(okhs_transformer, "progress_leave", False)
         self.verbose = verbose
+
+        if ready_operator is not None:
+            self.ready_operator = torch.tensor(ready_operator, dtype=torch.float64, device=okhs_transformer.device) 
+        else:
+            self.ready_operator = None
 
         self.eigenvalues_ = None
         self.eigenvectors_ = None
@@ -160,6 +166,19 @@ class FractionalLiouvilleOperator(BaseEstimator):
         return liouville_block
 
     def fit(self, trajectories=None):
+
+        if self.ready_operator is not None:
+            self.liouville_matrix_ = self.ready_operator
+            
+            eigenvalues, eigenvectors = torch.linalg.eig(self.liouville_matrix_)
+            self.eigenvalues_, self.eigenvectors_ = sort_eigendecomposition(
+            eigenvalues,
+            eigenvectors,
+            self.stability_policy.sorting_strategy,
+            )
+
+            return self
+        
         if trajectories is None:
             if not hasattr(self.okhs, 'train_trajectories_'):
                 raise ValueError("OKHSTransformer must be fitted first.")
