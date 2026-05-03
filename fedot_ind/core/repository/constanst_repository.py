@@ -55,6 +55,10 @@ from fedot_ind.core.operation.transformation.representation.topological.topofeat
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.core.operation.transformation.torch_backend.image_transformation.methods.mtf_transformation import MTF
+from fedot_ind.core.operation.transformation.torch_backend.image_transformation.methods.gaf_transformation import GAF
+from fedot_ind.core.operation.transformation.torch_backend.image_transformation.methods.stft_transformation import STFTSpectrogram
+
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,
@@ -333,6 +337,14 @@ class FeatureConstant(Enum):
     WAVELET_SCALES = [2, 4, 10, 20]
     SINGULAR_VALUE_MEDIAN_THR = 2.58
     SINGULAR_VALUE_BETA_THR = beta_thr
+
+
+class ImageTransformationConstant(Enum):
+    IMAGE_TRANSFORMATION_METHODS = {
+        'mtf': MTF,
+        'gaf': GAF,
+        'stft': STFTSpectrogram,
+    }
 
 
 class FedotOperationConstant(Enum):
@@ -1072,6 +1084,8 @@ DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
 SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
 SPECTRUM_ESTIMATORS_TORCH = FeatureConstant.SPECTRUM_ESTIMATORS_TORCH.value
 DEFAULT_ESTIMATOR_PARAMETERS = FeatureConstant.DEFAULT_ESTIMATOR_PARAMETERS.value
+
+IMAGE_TRANSFORMATION_METHODS = ImageTransformationConstant.IMAGE_TRANSFORMATION_METHODS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
 KERNEL_BASELINE_FEATURE_GENERATORS_TORCH = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS_TORCH.value
