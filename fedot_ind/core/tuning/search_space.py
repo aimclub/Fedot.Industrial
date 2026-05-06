@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 from hyperopt import hp
 
+from fedot_ind.core.repository.detection_registry import DETECTION_MODEL_ALIASES
 from fedot_ind.core.repository.forecasting_registry import FORECASTING_MODEL_ALIASES
 
 NESTED_PARAMS_LABEL = 'nested_label'
@@ -279,7 +280,11 @@ industrial_search_space = {
                                 'sampling-scope': [list(np.arange(0.9, 1.0, 0.02))]},
          'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 5, 10]]}},
     'pdl_clf': {},
-    'pdl_reg': {}
+    'pdl_reg': {},
+    'sst' : {},
+    'unscented_kalman_filter' : {},
+    'functional_pca' : {} 
+
 }
 
 default_fedot_operation_params = {
@@ -921,6 +926,16 @@ pdl_base_model = {'pdl_clf': 'rf',
 for _forecasting_alias, _canonical_name in FORECASTING_MODEL_ALIASES.items():
     if _canonical_name in industrial_search_space and _forecasting_alias not in industrial_search_space:
         industrial_search_space[_forecasting_alias] = industrial_search_space[_canonical_name]
+
+for _detection_alias, _canonical_name in DETECTION_MODEL_ALIASES.items():
+    canonical_space = industrial_search_space.get(_canonical_name)
+    alias_space = industrial_search_space.get(_detection_alias)
+    if canonical_space is not None and alias_space is None:
+        industrial_search_space[_detection_alias] = canonical_space
+    elif canonical_space is None and alias_space is not None:
+        industrial_search_space[_canonical_name] = alias_space
+    elif canonical_space is not None and alias_space is not None and alias_space != canonical_space:
+        industrial_search_space[_detection_alias] = canonical_space
 
 
 def get_industrial_search_space(self):
