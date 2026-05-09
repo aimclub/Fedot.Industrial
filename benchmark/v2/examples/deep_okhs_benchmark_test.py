@@ -8,7 +8,6 @@ from benchmark.v2 import (
     run_forecasting_benchmark_suite,
 )
 
-# Назовем эксперимент тестовым
 EXPERIMENT_DATE = 'test_run'
 
 # Выберем только один сабсет для быстрого теста
@@ -39,14 +38,25 @@ FORECASTING_MODELS = (
             
             # Гиперпараметры нейросети (уменьшены для быстрого теста)
             'latent_dim': 16,
-            'ae_epochs': 15,  # Всего 15 эпох, чтобы убедиться, что градиенты текут
+            'ae_epochs': 35,  # Всего 35 эпох, чтобы убедиться, что градиенты текут
             'ae_learning_rate': 1e-3,
             'hidden_layers': [32, 32],
             'alpha_adjoint': 1.0,
             'beta_rec': 1.0,
         },
     ),
-    # # Опционально: добавим классический OKHS для сравнения результатов "из коробки"
+
+    #     ModelSpec(
+    #     adapter_name='havok',
+    #     display_name='havok_forecaster',
+    #     params={
+    #         'window_size': None,
+    #         'rank': 4,
+    #         'forcing_threshold_scale': 0.85,
+    #         'forcing_decay': 0.85,
+    #     },
+    # ),
+
     # ModelSpec(
     #     adapter_name='okhs_fdmd_forecaster',
     #     display_name='Classic_OKHS_fDMD',
@@ -54,6 +64,21 @@ FORECASTING_MODELS = (
     #         'q': 0.7,
     #         'n_modes': 5,
     #         'window_size': 20,
+    #     },
+    # ),
+    # ModelSpec(
+    #     adapter_name='deepar_model',
+    #     display_name='deepar_model',
+    #     params={
+    #         'epochs': 20,
+    #         'batch_size': 16,
+    #         'learning_rate': 1e-3,
+    #         'cell_type': 'LSTM',
+    #         'rnn_layers': 2,
+    #         'hidden_size': 32,
+    #         'expected_distribution': 'normal',
+    #         'dropout': 0.1,
+    #         'device': 'cpu',
     #     },
     # ),
 )

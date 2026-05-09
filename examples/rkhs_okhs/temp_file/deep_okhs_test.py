@@ -14,9 +14,9 @@ from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.dee
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.kernels import DeepKernel
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.deep_fractional_loss import DeepFractionalDMDLoss
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.deep_fdmd_net import DeepFDMDAutoencoder, AdjointBasisEncoder
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.deep_fdmd_net import DeepFDMDAutoencoder
 
-from okhs_experiment_utils import ExperimentConfig, fit_okhs_fdmd_pipeline
+from okhs_experiment_utils import ExperimentConfig
 from example_common import generate_trajectories_pycaputo, RBFKernel, rhs_lotka_volterra, rhs_linear, rhs_logistic, rhs_quadratic 
 
 
@@ -28,6 +28,34 @@ class EncoderAdapter(nn.Module):
 
     def forward(self, x):
         return self.autoencoder.encode_trajectory(x)
+
+
+def interpolate_batch(t_grid: torch.Tensor, x_batch: torch.Tensor, target_t: torch.Tensor) -> torch.Tensor:
+    """
+    Векторизованная батчевая интерполяция для препроцессинга перед нейросетью.
+    t_grid: (K,) монотонная сетка наблюдений
+    x_batch: (N, K, d) тензор батча траекторий
+    target_t: (N, S) или (N, S, Q) узлы для интерполяции
+    """
+    t_grid = t_grid.to(target_t.device)
+    
+    target_t = torch.clamp(target_t, min=t_grid[0], max=t_grid[-1])
+
+    idx = torch.searchsorted(t_grid, target_t.contiguous())
+    idx = torch.clamp(idx, 1, len(t_grid) - 1)
+    
+    t_left = t_grid[idx - 1]
+    t_right = t_grid[idx]
+    
+    w_right = (target_t - t_left) / (t_right - t_left + 1e-12)
+    w_left = 1.0 - w_right
+    
+    # Продвинутое индексирование для батча
+    batch_indices = torch.arange(x_batch.shape[0], device=x_batch.device).view(-1, *([1]*(idx.ndim-1)))
+    x_left = x_batch[batch_indices, idx - 1]
+    x_right = x_batch[batch_indices, idx]
+    
+    return x_left * w_left.unsqueeze(-1) + x_right * w_right.unsqueeze(-1)
 
 
 def plot_training_loss(loss_history, save_path=None):
@@ -45,10 +73,7 @@ def plot_training_loss(loss_history, save_path=None):
 
 
 def compare_models_and_visualize(deep_fdmd, baseline_fdmd, test_trajectories, time_grid, config, n_plots=3):
-    """
-    Вычисляет ошибки на тесте, выводит сравнительную таблицу и строит графики 
-    для первых n_plots траекторий.
-    """
+    """Вычисляет ошибки на тесте, выводит сравнительную таблицу и строит графики."""
     initial_len = config.initial_segment_length
 
     print("\n" + "="*55)
@@ -129,13 +154,11 @@ def evaluate_full_pipeline(autoencoder, basis_trajectories, val_trajectories, ti
             val_mse += torch.nn.functional.mse_loss(pred_future, target_seg).item()
         val_mse /= len(val_trajectories)
 
-        # Метрики стабильности и диагностики
         eig_vals = liouville.eigenvalues_
         max_real_eig = torch.max(eig_vals.real).item()
         cond_G = okhs.gram_condition_number_
         max_mode_norm = torch.max(torch.norm(fdmd.modes_, dim=-1)).item()
         
-        # Латентный дрейф (отклонение от тождественного)
         val_sample = torch.tensor(val_trajectories[0], dtype=torch.float64, device=device)
         z_val = autoencoder.encode_trajectory(val_sample)
         latent_drift = torch.mean(torch.norm(z_val[..., :config.dim] - val_sample, dim=-1)).item()
@@ -146,7 +169,6 @@ def evaluate_full_pipeline(autoencoder, basis_trajectories, val_trajectories, ti
 def train_deep_fdmd_pipeline(config, trajectories, time_grid, epochs=100, lr=1e-3, lambda_adj=1.0, device='cuda'):
     print(f"\n--- Инициализация Deep fDMD на {device.upper()} ---")
     
-    # Инициализация TensorBoard логирования
     log_dir = os.path.join("runs", config.name.replace(" ", "_").replace(":", ""))
     writer = SummaryWriter(log_dir=log_dir)
     print(f"TensorBoard логирование в: {log_dir}")
@@ -164,19 +186,21 @@ def train_deep_fdmd_pipeline(config, trajectories, time_grid, epochs=100, lr=1e-
     print(f"Выбрано {len(basis_traj)} базисных траекторий из {len(raw_basis)} (CUR Decomposition)")
     
     x_train_tensor = torch.tensor(np.array(basis_traj), dtype=torch.float64, device=device)
-    t_grid_tensor = torch.tensor(time_grid, dtype=torch.float64, device=device)
-    T_tensor = torch.full((x_train_tensor.shape[0],), time_grid[-1], dtype=torch.float64, device=device)
-
-    # latent_dim = max(config.dim, 16)
+    
     latent_dim = 40
     model = DeepFDMDAutoencoder(input_dim=config.dim, latent_dim=latent_dim, dtype=torch.float64).to(device)
 
+    # Быстрое обучение OKHS для инициализации TimeGridManager
     okhs = OKHSTransformer(kernel=RBFKernel(gamma=1.0), q=config.q_true, n_quad_points=config.n_quad_points, dt=float(time_grid[1] - time_grid[0]), device=device)
-    okhs.fit(basis_traj)  # Быстрое обучение OKHS для инициализации Liouville и Adjoint Loss
+    okhs.fit(basis_traj)  
+    
+    # Получаем отнормированную сетку и длительности из менеджера
+    t_grid_norm = okhs.time_manager.train_t_grids_norm_[0]
+    T_norm_tensor = torch.full((x_train_tensor.shape[0],), t_grid_norm[-1].item(), dtype=torch.float64, device=device)
+
     liouville = FractionalLiouvilleOperator(okhs_transformer=okhs, n_quad_points=config.n_quad_points)
     liouville.fit()
-    print(f"Liouville Matrix shape: {liouville.liouville_matrix_.shape}")
-    print(f"latent_dim: {latent_dim}")
+    
     adjoint_loss_fn = DeepFractionalDMDLoss(latent_dim=latent_dim, q=config.q_true, n_quad_points=config.n_quad_points, device=device)
     recon_loss_fn = nn.MSELoss()
 
@@ -197,10 +221,25 @@ def train_deep_fdmd_pipeline(config, trajectories, time_grid, epochs=100, lr=1e-
         model.train()
         optimizer.zero_grad()
         
-        # Быстрый шаг градиентного спуска (только автоэнкодер + Adjoint Loss)
-        z_traj, x_recon = model(x_train_tensor)
+        # 1. Запрашиваем узлы коллокации у лосса (в нормированном времени tau)
+        t_k, tau_nodes = adjoint_loss_fn.get_collocation_nodes(T_norm_tensor)
+        
+        # 2. Интерполируем исходные траектории X в узлах
+        x_tk = interpolate_batch(t_grid_norm, x_train_tensor, t_k)
+        x_nodes = interpolate_batch(t_grid_norm, x_train_tensor, tau_nodes)
+        x_start = x_train_tensor[:, 0, :]
+        
+        # 3. Переводим интерполированные точки в латентное пространство (Decoupled Preprocessing)
+        z_start = model.encode_trajectory(x_start)
+        z_tk = model.encode_trajectory(x_tk)
+        z_nodes = model.encode_trajectory(x_nodes)
+        
+        # 4. Считаем ошибку невязки Лиувилля
+        loss_adj = adjoint_loss_fn(z_start, z_tk, z_nodes, t_k)
+        
+        # 5. Считаем ошибку реконструкции на всей траектории
+        _, x_recon = model(x_train_tensor)
         loss_recon = recon_loss_fn(x_recon, x_train_tensor)
-        loss_adj = adjoint_loss_fn(t_grid_tensor, z_traj, T_tensor)
         
         loss = loss_recon + lambda_adj * loss_adj
         loss.backward()
@@ -210,7 +249,6 @@ def train_deep_fdmd_pipeline(config, trajectories, time_grid, epochs=100, lr=1e-
         history['train_recon'].append(loss_recon.item())
         history['train_adj'].append(loss_adj.item())
 
-        # Валидация полного пайплайна для дашборда
         val_mse, max_real, cond_g, drift, max_norm, liouville_eigenvalues = evaluate_full_pipeline(
             model, basis_traj, val_traj, time_grid, config, device
         )
@@ -226,28 +264,11 @@ def train_deep_fdmd_pipeline(config, trajectories, time_grid, epochs=100, lr=1e-
         scheduler.step(val_mse)
         pbar.set_postfix({'Val MSE': f"{val_mse:.2e}", 'Cond(G)': f"{cond_g:.1e}"})
         
-        # TensorBoard логирование
         writer.add_scalar('Loss/Reconstruction', loss_recon.item(), epoch)
         writer.add_scalar('Loss/Adjoint', loss_adj.item(), epoch)
         writer.add_scalar('Loss/Total', loss.item(), epoch)
         writer.add_scalar('Validation/MSE', val_mse, epoch)
-        writer.add_scalar('Validation/Max_Real_Eigenvalue', max_real, epoch)
-        writer.add_scalar('Validation/Gram_Condition_Number', cond_g, epoch)
-        writer.add_scalar('Validation/Latent_Drift', drift, epoch)
-        writer.add_scalar('Validation/Max_Mode_Norm', max_norm, epoch)
         writer.add_scalar('LearningRate', optimizer.param_groups[0]['lr'], epoch)
-        
-        # Гистограммы параметров и градиентов
-        for name, param in model.named_parameters():
-            writer.add_histogram(f'Parameters/{name}', param, epoch)
-            if param.grad is not None:
-                writer.add_histogram(f'Gradients/{name}', param.grad, epoch)
-        
-        # Гистограммы Loss параметров
-        for name, param in adjoint_loss_fn.named_parameters():
-            writer.add_histogram(f'LossParams/{name}', param, epoch)
-            if param.grad is not None:
-                writer.add_histogram(f'LossGradients/{name}', param.grad, epoch)
         
         if val_mse < best_val_mse:
             best_val_mse = val_mse
@@ -255,9 +276,7 @@ def train_deep_fdmd_pipeline(config, trajectories, time_grid, epochs=100, lr=1e-
 
     print(f"\nОбучение завершено. Лучший Val MSE: {best_val_mse:.4e}")
     model.load_state_dict(best_model_state)
-    
     writer.close()
-    print(f"TensorBoard логирование завершено. Запустите: tensorboard --logdir=runs")
     
     return model, adjoint_loss_fn.W, basis_traj, test_traj, history
 
@@ -284,44 +303,24 @@ if __name__ == "__main__":
     cases = [
         # dict(
         #     config=ExperimentConfig(
-        #         name="Lotka-Volterra (q=0.9)",
-        #         q_true=0.9,
+        #         name="Linear",
+        #         q_true=0.8,
         #         dim=2,
         #         n_train_traj=100,
         #         n_steps_train=500,
-        #         T_max_train=12.0,
-        #         initial_segment_length=100,
-        #         n_quad_points=20,
-        #         regularization=1e-4,
+        #         T_max_train=5.0,
+        #         initial_segment_length=105,
+        #         n_quad_points=30,
+        #         regularization=1e-7,
         #         plot_part=1.0,
-        #         seed=1337,
-        #         ic_low=0.5,             # Популяции строго положительны
-        #         ic_high=3.0,
+        #         seed=42,
+        #         ic_low=-1.0,
+        #         ic_high=1.0,
         #     ),
-        #     dynamics_func=rhs_lotka_volterra,
-        #     dynamics_args=(1.5, 1.0, 1.0, 3.0),  # alpha, beta, delta, gamma
-        #     kernel=RBFKernel(gamma=1.0),
+        #     dynamics_func=rhs_linear,
+        #     dynamics_args=(-2.0,),
+        #     kernel=RBFKernel(gamma=1.5),
         # ),
-        dict(
-            config=ExperimentConfig(
-                name="Linear",
-                q_true=0.8,
-                dim=2,
-                n_train_traj=100,
-                n_steps_train=500,
-                T_max_train=5.0,
-                initial_segment_length=105,
-                n_quad_points=30,
-                regularization=1e-7,
-                plot_part=1.0,
-                seed=42,
-                ic_low=-1.0,
-                ic_high=1.0,
-            ),
-            dynamics_func=rhs_linear,
-            dynamics_args=(-2.0,),
-            kernel=RBFKernel(gamma=1.5),
-        ),
         dict(
             config=ExperimentConfig(
                 name="Logistic",
@@ -379,43 +378,34 @@ if __name__ == "__main__":
             ic_high=config.ic_high,
         )
         
-        # 1. Обучение нейросети
         trained_autoencoder, W, basis_trajectories, test_traj, history = train_deep_fdmd_pipeline(
             config=config, 
             trajectories=trajectories, 
             time_grid=time_grid, 
-            epochs=40, 
-            
+            epochs=20, 
             lr=1e-3,
             device=device_str
         )
 
-        # 2. Вывод дашбордов обучения
         plot_training_loss(history["loss"])
         plot_eigenvalues(history["W_eigenvalues"], f"{config.name} - Eigenvalues of W")
-        plot_eigenvalues(history["liouville_eigenvalues"], f"{config.name} - Liouville Eigenvalues")
-        plot_eigenvalues(history["W*_eigenvalues"], f"{config.name} - Eigenvalues of W^T")
-        # plot_training_diagnostics(history)
         
-        # 3. Сохранение весов энкодера
         save_dir = "saved_models"
         os.makedirs(save_dir, exist_ok=True)
         model_path = os.path.join(save_dir, "deep_autoencoder_weights.pth")
         torch.save(trained_autoencoder.state_dict(), model_path)
         print(f"Веса модели сохранены в: {model_path}")
 
-        # 4. Сборка финального пайплайна Deep fDMD для тестирования
         print("\nСборка финального пайплайна Deep fDMD...")
         trained_autoencoder.eval()
         deep_kernel = DeepKernel(feature_extractor=EncoderAdapter(trained_autoencoder), base_kernel=None).to(device)
         okhs_deep = OKHSTransformer(kernel=deep_kernel, q=config.q_true, n_quad_points=config.n_quad_points, dt=float(time_grid[1] - time_grid[0]), device=device)
-        okhs_deep.fit(basis_trajectories)  # Обучаем базовое OKHS для сравнения Gram матриц
+        okhs_deep.fit(basis_trajectories)  
         liouville_deep = FractionalLiouvilleOperator(okhs_transformer=okhs_deep, n_quad_points=config.n_quad_points)
         liouville_deep.fit()
         trained_deep_fdmd = FractionalDMD(liouville_operator=liouville_deep, n_quad_points=config.n_quad_points, regularization=config.regularization, device=device)
         trained_deep_fdmd.fit(basis_trajectories)
 
-        # 5. Обучение Baseline (RBF Kernel)
         print("Обучение Baseline (обычный RBF Kernel)...")
         rbf_kernel = RBFKernel(gamma=1.0)
         okhs_base = OKHSTransformer(kernel=rbf_kernel, q=config.q_true, n_quad_points=config.n_quad_points, dt=float(time_grid[1] - time_grid[0]), device=device)
@@ -425,7 +415,6 @@ if __name__ == "__main__":
         baseline_fdmd = FractionalDMD(liouville_operator=liouville_base, n_quad_points=config.n_quad_points, regularization=config.regularization, device=device)
         baseline_fdmd.fit(basis_trajectories)
         
-        # 6. Сравнение моделей и финальные графики на тестовой выборке
         compare_models_and_visualize(
             deep_fdmd=trained_deep_fdmd,
             baseline_fdmd=baseline_fdmd,
@@ -433,18 +422,4 @@ if __name__ == "__main__":
             time_grid=time_grid,
             config=config,
             n_plots=3 
-        )
-
-        # print("Gram matrix (Deep OKHS):")
-        # print(okhs_deep.gram_matrix_)
-        # print(f"Condition Number of Gram Matrix: {okhs_deep.gram_condition_number_:.2e}")
-        
-        # Опционально: Диагностика устойчивости мод (спектр)
-        sample_idx = 0
-        init_seg = test_traj[sample_idx][:config.initial_segment_length]
-        plot_forecast_diagnostics(
-            fdmd=trained_deep_fdmd,
-            initial_trajectory=init_seg,
-            t_span=time_grid,
-            stability_threshold=0 
         )

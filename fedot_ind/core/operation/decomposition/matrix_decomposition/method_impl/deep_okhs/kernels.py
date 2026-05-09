@@ -20,7 +20,7 @@ class DeepKernel(nn.Module):
 
         # fx = self.feature_extractor(x.float())
         # fy = self.feature_extractor(y.float())
-        print(f"input dtype: {x.dtype}, feature extractor dtype: {next(self.feature_extractor.parameters()).dtype}")
+        # print(f"input dtype: {x.dtype}, feature extractor dtype: {next(self.feature_extractor.parameters()).dtype}")
         fx = self.feature_extractor(x)
         fy = self.feature_extractor(y)
 

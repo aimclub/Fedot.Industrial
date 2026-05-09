@@ -238,7 +238,7 @@ def build_okhs_direct_model(
     }
 
 
-def run_okhs_direct_prediction(
+def  run_okhs_direct_prediction(
         *,
         kernel: Any,
         reference_trajectories: Sequence[np.ndarray],
@@ -377,11 +377,11 @@ def run_okhs_dmd_prediction(model: Any, initial_trajectory: np.ndarray, forecast
         forecast_horizon=forecast_horizon,
         time_step=time_step,
     )
-    if hasattr(model, 'predict_with_diagnostics'):
-        prediction, diagnostics = model.predict_with_diagnostics(initial_trajectory, future_times)
-    else:
-        prediction = model.predict(initial_trajectory, future_times)
-        diagnostics = {}
+    # if hasattr(model, 'predict_with_diagnostics'):
+    #     prediction, diagnostics = model.predict_with_diagnostics(initial_trajectory, future_times)
+    # else:
+    prediction = model.plot_predict(initial_trajectory, future_times)
+    diagnostics = {}
     if hasattr(prediction, 'cpu'):
         prediction = prediction.cpu()
     normalized = np.asarray(prediction, dtype=float)

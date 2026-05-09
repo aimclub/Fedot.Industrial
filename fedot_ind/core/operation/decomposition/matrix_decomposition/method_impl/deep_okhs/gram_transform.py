@@ -1,19 +1,15 @@
-
-from sklearn.base import TransformerMixin
+from sklearn.base import TransformerMixin, BaseEstimator
 from scipy.special import gamma, roots_jacobi
-from sklearn.base import BaseEstimator
+import torch
 
 try:  # pragma: no cover - dependency is expected, but keep a safe fallback
     from tqdm.auto import tqdm
 except Exception:  # pragma: no cover
     from tqdm import tqdm  # type: ignore
 
-import torch
-from sklearn.base import TransformerMixin, BaseEstimator
-from scipy.special import gamma, roots_jacobi
-
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.policies import RegularizationPolicy
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.matrix_utils import MatrixComputationProgress
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.time_grid_manager import TimeGridManager
 
 TQDM_FACTORY = tqdm
 TQDM_WRITE = tqdm.write
@@ -34,6 +30,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             q=0.7,
             n_quad_points=20,
             dt=1.0,
+            time_manager=None,
             pairwise_block_size=64,
             regularization_policy=None,
             show_progress=False,
@@ -55,6 +52,8 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             Количество узлов квадратуры Гаусса-Якоби для интегрирования.
         dt : float, default=1.0
             Шаг дискретизации по времени для расчета длительности траектории.
+        time_manager : TimeGridManager, optional
+            Менеджер временной сетки для нормализации и кэширования. 
         pairwise_block_size : int, default=64
             Размер блока для блочных вычислений матрицы Грама.
             Оптимизирует использование памяти при работе с большими выборками.
@@ -86,46 +85,31 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         else:
             self.device = torch.device(device)
 
+        self.time_manager = time_manager or TimeGridManager(dt=dt)
+
         self._quad_cache = None
 
-        print(
-            f"OKHSTransformer initialized with device={self.device}, q={self.q}, n_quad_points={self.n_quad_points}, pairwise_block_size={self.pairwise_block_size}")
+        if self.verbose:
+            print(f"OKHSTransformer initialized with device={self.device}, q={self.q}, "
+                  f"n_quad_points={self.n_quad_points}, pairwise_block_size={self.pairwise_block_size}")
 
-    def _get_trajectory_duration(self, trajectory):
+    def _get_trajectory_duration(self, trajectory, t_grid_norm=None):
         """
-        Вычисляет длительность траектории на основе количества шагов.
+        Возвращает НОРМИРОВАННУЮ длительность траектории (tau_max).
+        Если t_grid_norm передана из кэша, берем последнее значение.
+        Если нет (например, вызов из оператора Лиувилля), генерируем и нормируем на лету.
         """
-        n_steps = len(trajectory)
-        return (n_steps - 1) * self.dt
-
-    def _evaluate_trajectory_at_time(self, trajectory, t, T):
-        """
-        Вычисляет значение траектории в момент времени t методом линейной интерполяции.
-        """
-        if T <= 1e-14:
-            return trajectory[0]
-
-        n_steps = len(trajectory)
-        t_idx = (t / T) * (n_steps - 1)
-
-        idx = int(torch.floor(torch.tensor(t_idx)).item())
-        idx = max(0, min(idx, n_steps - 2))
-
-        alpha = t_idx - idx
-        value = (1 - alpha) * trajectory[idx] + alpha * trajectory[idx + 1]
-        return value
+        if t_grid_norm is not None:
+            return t_grid_norm[-1].item()
+            
+        normalized = self._normalize_trajectory(trajectory)
+        t_phys = self.time_manager.get_physical_grid(normalized)
+        t_norm = self.time_manager.normalize(t_phys)
+        return t_norm[-1].item()
 
     def _get_jacobi_rule(self):
-        """
-        Получает узлы и веса Гаусса-Якоби для численного интегрирования.
-
-        Результат кэшируется для повторного использования при нескольких вызовах.
-        Используется параметр q из инициализации для специализированного взвешивания
-        сингулярности на краях интервала.
-        """
+        """Получает узлы и веса Гаусса-Якоби для численного интегрирования."""
         if self._quad_cache is None:
-            # SciPy используется исключительно для получения базисных констант,
-            # дальше они переводятся в тензоры
             nodes, weights = roots_jacobi(self.n_quad_points, self.q - 1, 0)
             self._quad_cache = (
                 torch.tensor(nodes, dtype=torch.float64),
@@ -134,12 +118,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         return self._quad_cache
 
     def _normalize_trajectory(self, trajectory):
-        """
-        Нормализует траекторию в тензор PyTorch с типом float64 и правильной формой.
-
-        Преобразует входные данные в torch.Tensor если необходимо,
-        приводит к типу float64 и гарантирует 2D форму (n_steps, d).
-        """
+        """Нормализует траекторию в тензор PyTorch с типом float64 и правильной формой."""
         if not isinstance(trajectory, torch.Tensor):
             normalized = torch.tensor(trajectory, dtype=torch.float64, device=self.device)
         else:
@@ -149,33 +128,31 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             return normalized.view(-1, 1)
         return normalized
 
-    def _evaluate_trajectory_at_nodes(self, trajectory, T):
+    def _evaluate_trajectory_at_nodes(self, trajectory, T_norm, t_grid_norm=None):
         """
-        Вычисляет значения траектории в узлах Гаусса-Якоби квадратурного правила.
-
-        Для каждого узла квадратуры вычисляется интерполированное значение
-        траектории в соответствующий момент времени.
+        Вычисляет значения в узлах квадратуры через TimeGridManager.
+        Ожидает отнормированное время (T_norm и t_grid_norm).
         """
-        normalized = self._normalize_trajectory(trajectory)
-        n_steps = len(normalized)
-        if T <= 1e-14 or n_steps <= 1:
-            return normalized[0].unsqueeze(0).repeat(self.n_quad_points, 1)
-
+        normalized_x = self._normalize_trajectory(trajectory)
+        
+        # Если сетка не пришла из кэша (например, inference новых данных), считаем её
+        if t_grid_norm is None:
+            t_phys = self.time_manager.get_physical_grid(normalized_x)
+            t_grid_norm = self.time_manager.normalize(t_phys)
+        
         nodes, _ = self._get_jacobi_rule()
-        nodes = nodes.to(normalized.device)
+        nodes = nodes.to(normalized_x.device)
+        
+        # Аффинное преобразование узлов [-1, 1] -> [0, T_norm]
+        target_tau = T_norm * (nodes + 1) / 2.0
+        
+        # Векторизованная интерполяция через менеджер
+        return self.time_manager.interpolate(t_grid_norm, normalized_x, target_tau)
 
-        t_nodes = T * (nodes + 1) / 2.0
-        t_idx = (t_nodes / T) * (n_steps - 1)
-
-        idx = torch.floor(t_idx).long()
-        idx = torch.clamp(idx, 0, n_steps - 2)
-        alpha = (t_idx - idx).unsqueeze(1)
-
-        return (1.0 - alpha) * normalized[idx] + alpha * normalized[idx + 1]
-
-    def _build_quadrature_cache(self, trajectories):
+    def _build_quadrature_cache(self, trajectories, t_grids_norm=None):
         """
-        Создает кэш с предвычисленными значениями траекторий в узлах квадратуры.
+        Создает кэш. Принимает опциональный t_grids_norm, 
+        чтобы переиспользовать уже отнормированные сетки.
 
         Кэш содержит значения всех траекторий в узлах квадратуры Гаусса-Якоби
         и масштабирующие коэффициенты (T/2)^q для каждой траектории.
@@ -185,6 +162,9 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         ----------
         trajectories : list of array-like
             Список траекторий для кэширования.
+        t_grids_norm : list of torch.Tensor, optional
+            Список уже отнормированных временных сеток. 
+            Если переданы, будут использованы для интерполяции без повторной нормализации.
 
         Возвращает
         ----------
@@ -194,6 +174,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             - 'scales': тензор размера (n_trajectories,) со значениями (T/2)^q
             - 'weights': веса квадратуры размера (n_quad_points,)
         """
+
         _, weights = self._get_jacobi_rule()
         normalized_trajectories = [self._normalize_trajectory(traj) for traj in trajectories]
 
@@ -209,9 +190,14 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
 
         values = []
         scales = []
-        for trajectory in normalized_trajectories:
-            duration = self._get_trajectory_duration(trajectory)
-            values.append(self._evaluate_trajectory_at_nodes(trajectory, duration))
+        for i, trajectory in enumerate(normalized_trajectories):
+            # Извлекаем готовую сетку, если она передана
+            tau_grid = t_grids_norm[i] if t_grids_norm is not None else None
+            
+            duration = self._get_trajectory_duration(trajectory, t_grid_norm=tau_grid)
+            val = self._evaluate_trajectory_at_nodes(trajectory, duration, t_grid_norm=tau_grid)
+            
+            values.append(val)
             scales.append((duration / 2.0) ** self.q)
 
         return {
@@ -221,24 +207,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         }
 
     def _compute_kernel_matrix_between_samples(self, left_samples, right_samples):
-        """
-        Вычисляет матрицу значений ядра между двумя наборами выборок.
-
-        Использует специализированный batch-метод ядра если доступен,
-        иначе вычисляет поточечно для каждой пары выборок.
-
-        Параметры
-        ----------
-        left_samples : torch.Tensor
-            Левый набор выборок размера (n_left, d).
-        right_samples : torch.Tensor
-            Правый набор выборок размера (n_right, d).
-
-        Возвращает
-        ----------
-        torch.Tensor
-            Матрица значений ядра размера (n_left, n_right) типа float64.
-        """
+        """Вычисляет матрицу значений ядра между двумя наборами выборок."""
         batch_kernel = getattr(self.kernel, "_compute_batch_kernel", None)
         if callable(batch_kernel):
             kernel_values = batch_kernel(
@@ -258,14 +227,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         return kernel_matrix
 
     def _compute_gram_entry_from_values(self, values_i, values_j, scale_i, scale_j, weights):
-        """
-        Вычисляет один элемент матрицы Грама OKHS из предвычисленных значений в узлах.
-
-        Вычисляет следующую величину:
-        G_ij = C_q^2 * scale_i * scale_j * Σ_p Σ_q w_p * K(ξ_p^i, ξ_q^j) * w_q
-
-        где ξ - значения траекторий в узлах квадратуры, w - веса, K - ядро.
-        """
+        """Вычисляет один элемент матрицы Грама OKHS."""
         kernel_matrix = self._compute_kernel_matrix_between_samples(values_j, values_i)
         weighted_sum = torch.einsum('i,ij,j->', weights, kernel_matrix, weights).item()
         return (self.C_q ** 2) * weighted_sum * scale_i * scale_j
@@ -295,9 +257,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         return count
 
     def _compute_gram_block_from_cache(self, left_values, right_values, left_scales, right_scales, weights):
-        """
-        Вычисляет блок матрицы Грама из предвычисленного кэша значений.
-
+        """Вычисляет блок матрицы Грама из предвычисленного кэша значений.
         Вычисляет прямоугольный блок матрицы Грама размера (n_left, n_right)
         используя значения траекторий в узлах квадратуры.
 
@@ -325,7 +285,6 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
                 right_values.unsqueeze(2).unsqueeze(3),
                 left_values.unsqueeze(0).unsqueeze(0),
             )
-            # Приводим к типу float64 для сохранения обусловленности
             kernel_values = kernel_values.to(dtype=torch.float64, device=weights.device)
             weighted = torch.einsum('p,apbq,q->ab', weights, kernel_values, weights)
             return ((self.C_q ** 2) * weighted * right_scales.unsqueeze(1) * left_scales.unsqueeze(0)).T
@@ -345,7 +304,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
     def _compute_cross_gram_matrix_from_cache(self, left_cache, right_cache):
         """
         Вычисляет кросс-матрицу Грама между двумя наборами траекторий из кэша.
-
+        
         Вычисляет матрицу K размера (n_left, n_right), где K[i,j] - скалярное
         произведение между i-й траекторией из left и j-й траекторией из right
         в OKHS норме.
@@ -388,11 +347,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
 
     def _compute_gram_entry_jacobi(self, trajectory_i, trajectory_j):
         """
-        Вычисляет один элемент матрицы Грама для двух траекторий напрямую.
-
-        Этот метод используется для точечных вычислений без кэша.
-        Автоматически вычисляет длительность обеих траекторий и применяет
-        правило Гаусса-Якоби для интегрирования.
+        Метод для прямого вычисления элемента Грама.
         """
         T_i = self._get_trajectory_duration(trajectory_i)
         T_j = self._get_trajectory_duration(trajectory_j)
@@ -412,15 +367,11 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             weights.to(device),
         )
 
-    def _compute_gram_matrix(self, trajectories):
+    def _compute_gram_matrix(self, trajectories, t_grids_norm=None):
         """
-        Вычисляет полную матрицу Грама OKHS для набора траекторий.
-
-        Матрица Грама размера (n, n) где n - количество траекторий.
-        Вычисления выполняются блоками для эффективного использования памяти.
-        Симметричность матрицы используется для сокращения вычислений.
+        Вычисляет полную матрицу Грама. 
         """
-        quadrature_cache = self._build_quadrature_cache(trajectories)
+        quadrature_cache = self._build_quadrature_cache(trajectories, t_grids_norm=t_grids_norm)
         values = quadrature_cache["values"]
         scales = quadrature_cache["scales"]
         weights = quadrature_cache["weights"]
@@ -429,7 +380,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         gram_matrix = torch.zeros((n, n), dtype=torch.float64, device=weights.device)
         block_size = self._resolve_pairwise_block_size(n)
         progress = MatrixComputationProgress(
-            enabled=True,
+            enabled=self.show_progress,
             matrix_name="gram",
             total_blocks=self._count_symmetric_block_pairs(n, block_size),
             n_items=n,
@@ -464,13 +415,9 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         self._last_quadrature_cache_ = quadrature_cache
         return gram_matrix
 
-    def fit(self, train_trajectories, y=None):
+    def fit(self, train_trajectories, train_t_grids=None, y=None):
         """
-        Вычисляет и сохраняет матрицу Грама для набора тренировочных траекторий.
-
-        После вычисления матрицы Грама применяется регуляризация и оценивается
-        число обусловленности. Это необходимо для последующего преобразования
-        тестовых данных методом transform().
+        Вычисляет и сохраняет матрицу Грама.
 
         Параметры
         ----------
@@ -479,17 +426,15 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         y : array-like, optional
             Ложные метки, игнорируются (для совместимости со sklearn).
 
-        Возвращает
-        ----------
-        self
-            Возвращает себя для методов цепочки (chaining).
         """
         self.train_trajectories_ = train_trajectories
-        raw_gram_matrix = self._compute_gram_matrix(train_trajectories)
+        
+        # 1. Обучаем менеджер времени и фиксируем сетки
+        self.time_manager.fit(trajectories=train_trajectories, t_grids=train_t_grids)
+        self.train_t_grids_ = self.time_manager.train_t_grids_norm_
 
-        # Инфраструктурная проверка формы, предполагается, что validate_square_matrix_shape
-        # принимает тензоры и проверяет tensor.shape (работает так же, как с numpy)
-        # validate_square_matrix_shape(raw_gram_matrix, "Gram matrix")
+        # 2. Передаем уже отнормированные сетки в расчет матрицы Грама
+        raw_gram_matrix = self._compute_gram_matrix(train_trajectories, t_grids_norm=self.train_t_grids_)
 
         self._train_quadrature_cache_ = self._last_quadrature_cache_
 
@@ -499,13 +444,10 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         self.gram_matrix_ = raw_gram_matrix + regularization
         return self
 
-    def transform(self, test_trajectories):
+    def transform(self, test_trajectories, test_t_grids=None):
         """
-        Преобразует набор тестовых траекторий в OKHS признаки.
-
-        Вычисляет кросс-матрицу Грама между тестовыми и тренировочными
-        траекториями, затем решает линейную систему для получения коэффициентов
-        представления в базисе OKHS.
+        Вычисляет кросс-матрицу Грама между тестовыми и обучающими траекториями,
+        а затем решает систему для получения признаков OKHS.
 
         Параметры
         ----------
@@ -526,10 +468,22 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         """
         train_cache = getattr(self, "_train_quadrature_cache_", None)
         if train_cache is None:
-            train_cache = self._build_quadrature_cache(self.train_trajectories_)
+            # Если вызываем transform без fit (нештатная ситуация, но страхуем)
+            train_cache = self._build_quadrature_cache(self.train_trajectories_, t_grids_norm=self.train_t_grids_)
             self._train_quadrature_cache_ = train_cache
 
-        test_cache = self._build_quadrature_cache(test_trajectories)
+        # Если на тесте пришли специфичные сетки, нормализуем их, используя T_norm менеджера
+        if test_t_grids is not None:
+            test_t_grids_norm = [
+                self.time_manager.normalize(
+                    self.time_manager.get_physical_grid(self._normalize_trajectory(traj), t_grid)
+                ) 
+                for traj, t_grid in zip(test_trajectories, test_t_grids)
+            ]
+        else:
+            test_t_grids_norm = None
+
+        test_cache = self._build_quadrature_cache(test_trajectories, t_grids_norm=test_t_grids_norm)
         K_test_train = self._compute_cross_gram_matrix_from_cache(test_cache, train_cache)
 
         should_use_pinv = self.gram_condition_number_ > self.regularization_policy.condition_threshold
@@ -537,7 +491,6 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
             c = K_test_train @ torch.linalg.pinv(self.gram_matrix_)
         else:
             try:
-                # torch.linalg.solve бросает RuntimeError вместо LinAlgError при сингулярности матрицы
                 c = torch.linalg.solve(self.gram_matrix_, K_test_train.T).T
             except RuntimeError:
                 if self.regularization_policy.fallback_solver != "pinv":

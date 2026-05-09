@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import warnings
 
 import numpy as np
@@ -297,17 +298,20 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         )
         q_value = self.okhs.q
         tail_points = min(max(4, horizon // 2), int(initial_trajectory.shape[0]))
-        tail_start = int(initial_trajectory.shape[0]) - tail_points
-        tail_grid = torch.arange(tail_start, int(initial_trajectory.shape[0]), dtype=self.real_dtype,
-                                 device=self.device) * self.okhs.dt
-        future_grid = t_span
+        
+        # Получаем физическую сетку через менеджер и нормализуем
+        tail_grid_phys = self.okhs.time_manager.get_physical_grid(initial_trajectory)[-tail_points:]
+        tail_grid_norm = self.okhs.time_manager.normalize(tail_grid_phys)
+        
+        future_grid_norm = self.okhs.time_manager.normalize(t_span)
 
+        # Используем нормализованные сетки в функции Миттаг-Леффлера
         tail_ml = _mittag_leffler_tensor(
-            preselected_eig.unsqueeze(0) * (tail_grid.to(self.complex_dtype).unsqueeze(1) ** q_value),
+            preselected_eig.unsqueeze(0) * (tail_grid_norm.to(self.complex_dtype).unsqueeze(1) ** q_value),
             q_value,
         )
         future_ml = _mittag_leffler_tensor(
-            preselected_eig.unsqueeze(0) * (future_grid.to(self.complex_dtype).unsqueeze(1) ** q_value),
+            preselected_eig.unsqueeze(0) * (future_grid_norm.to(self.complex_dtype).unsqueeze(1) ** q_value),
             q_value,
         )
 
@@ -437,13 +441,17 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         prediction_mode_cap_applied = bool(int(stable_indices.numel()) > int(selected_mode_indices.numel()))
 
         coefficients = self.fit_initial_coefficients(initial_trajectory, Xi=xi, eig=eig)
-        t_q = (t_span.to(self.complex_dtype) ** self.okhs.q).unsqueeze(1)
+        
+        # Нормализация времени для функции Миттаг-Леффлера
+        t_span_norm = self.okhs.time_manager.normalize(t_span)
+        t_q = (t_span_norm.to(self.complex_dtype) ** self.okhs.q).unsqueeze(1)
+        
         mittag = _mittag_leffler_tensor(eig.unsqueeze(0) * t_q, self.okhs.q)
         predicted = (mittag @ (coefficients.unsqueeze(1) * xi)).real.to(self.real_dtype)
 
         return {
             'initial_trajectory': initial_trajectory,
-            't_span': t_span,
+            't_span': t_span, # В state сохраняем исходное время, чтобы можно было строить графики
             'eig_full': eig_full,
             'stable_mask': stable_mask,
             'eig': eig,
@@ -471,9 +479,11 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         stable_mask = state['stable_mask']
         selected_mode_indices = state['selected_mode_indices']
 
-        initial_grid = torch.arange(initial_trajectory.shape[0], dtype=self.real_dtype,
-                                    device=self.device) * self.okhs.dt
-        initial_t_q = (initial_grid.to(self.complex_dtype) ** self.okhs.q).unsqueeze(1)
+        # Получение физической сетки через менеджер и ее нормализация
+        initial_grid_phys = self.okhs.time_manager.get_physical_grid(initial_trajectory)
+        initial_grid_norm = self.okhs.time_manager.normalize(initial_grid_phys)
+        
+        initial_t_q = (initial_grid_norm.to(self.complex_dtype) ** self.okhs.q).unsqueeze(1)
         initial_mittag = _mittag_leffler_tensor(eig.unsqueeze(0) * initial_t_q, self.okhs.q)
         reconstruction = (initial_mittag @ (coefficients.unsqueeze(1) * xi)).real
 
@@ -572,6 +582,8 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         return self
 
     def fit_initial_coefficients(self, initial_trajectory, eig=None, Xi=None, store_result=True):
+        import math
+        
         initial_trajectory = self._normalize_state_trajectory(initial_trajectory)
         K, n_features = initial_trajectory.shape
 
@@ -583,19 +595,31 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         n_modes = int(eig.shape[0])
         validate_initial_coefficient_feasibility(initial_trajectory, n_modes)
 
-        t_grid = torch.arange(K, dtype=self.real_dtype, device=self.device) * self.okhs.dt
+        tail_points = math.ceil(n_modes / n_features)
+        tail_points = min(tail_points, K)
+        initial_trajectory_tail = initial_trajectory[-tail_points:]
+
+        # Физическая сетка запрашивается из менеджера и нормализуется 
+        t_grid_full_phys = self.okhs.time_manager.get_physical_grid(initial_trajectory)
+        t_grid_tail_phys = t_grid_full_phys[-tail_points:]
+        t_grid_tail_norm = self.okhs.time_manager.normalize(t_grid_tail_phys)
+
+        # Передаем НОРМАЛИЗОВАННОЕ время в функцию Миттаг-Леффлера
         ml_evals = _mittag_leffler_tensor(
-            eig.unsqueeze(0) * (t_grid.to(self.complex_dtype).unsqueeze(1) ** self.okhs.q),
+            eig.unsqueeze(0) * (t_grid_tail_norm.to(self.complex_dtype).unsqueeze(1) ** self.okhs.q),
             self.okhs.q,
         )
+        
         A_blocks = ml_evals.unsqueeze(2) * Xi.unsqueeze(0)
-        A = A_blocks.transpose(1, 2).reshape(K * n_features, n_modes)
-        b = initial_trajectory.reshape(-1).to(self.complex_dtype)
+        
+        A = A_blocks.transpose(1, 2).reshape(tail_points * n_features, n_modes)
+        b = initial_trajectory_tail.reshape(-1).to(self.complex_dtype)
 
         alpha = max(self.regularization, self.regularization_policy.base_jitter)
         A_stack = A.conj().T @ A
         reg_matrix = A_stack + alpha * torch.eye(n_modes, dtype=A_stack.dtype, device=self.device)
         b_stack = A.conj().T @ b
+        
         try:
             c = torch.linalg.solve(reg_matrix, b_stack)
         except RuntimeError:
@@ -664,6 +688,10 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
 
     initial_trajectory = fdmd._normalize_state_trajectory(initial_trajectory)
     t_span_tensor = fdmd._coerce_time_grid(t_span)
+    
+    # Нормализация t_span для корректного вычисления 
+    t_span_norm = fdmd.okhs.time_manager.normalize(t_span_tensor)
+
     eig_full = fdmd._get_eigenvalues_tensor()
     xi_full = fdmd._get_modes_tensor(eigenvalues=eig_full)
 
@@ -680,10 +708,13 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
     n_modes = len(eig)
 
     coefficients = fdmd.fit_initial_coefficients(initial_trajectory, Xi=xi, eig=eig)
-    t_q = (t_span_tensor.to(fdmd.complex_dtype) ** fdmd.okhs.q).unsqueeze(1)
+    
+    # Используем нормализованное время t_span_norm в функции Миттаг-Леффлера
+    t_q = (t_span_norm.to(fdmd.complex_dtype) ** fdmd.okhs.q).unsqueeze(1)
     mittag_tensor = _mittag_leffler_tensor(eig.unsqueeze(0) * t_q, fdmd.okhs.q)
     predicted_tensor = (mittag_tensor @ (coefficients.unsqueeze(1) * xi)).real
 
+    # На графиках по оси Х оставляем физическое время t_span_np
     t_span_np = t_span_tensor.detach().cpu().numpy()
     eig_np = eig.detach().cpu().numpy()
     xi_np = xi.detach().cpu().numpy()
@@ -698,7 +729,8 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
     colors = [tab10(index) for index in range(top_k)] if top_k <= 10 else [tab20(index) for index in range(top_k)]
 
     figure, axes = plt.subplots(2, 2, figsize=(14, 10))
-    figure.suptitle('???????????? ?????????????????????? ???????????? fDMD (OKHS)', fontsize=16, fontweight='bold')
+
+    figure.suptitle('Fractional DMD (OKHS) Diagnostics', fontsize=16, fontweight='bold')
 
     axis_ml = axes[0, 0]
     for color_index, mode_index in enumerate(top_idx):
@@ -707,20 +739,20 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
             np.real(mittag_np[:, mode_index]),
             color=colors[color_index],
             linewidth=1.5,
-            label=f'j={mode_index}  ??={eig_np[mode_index]:.3f}',
+            label=f'j={mode_index}, \u03bb={eig_np[mode_index]:.3f}'
         )
-    axis_ml.set_xlabel('?????????? t')
-    axis_ml.set_ylabel('Re(E_q(?? t^q))')
-    axis_ml.set_title(f'Mittag-Leffler ?????????????? (??????-{top_k})')
+    axis_ml.set_xlabel('Time (t)')
+    axis_ml.set_ylabel('Re(E_q(\u03bb \u03c4^q))')
+    axis_ml.set_title(f'Mittag-Leffler Dynamics (Top {top_k})')
     axis_ml.legend(loc='best', fontsize=8, ncol=2)
     axis_ml.grid(True, alpha=0.3)
 
     axis_c = axes[0, 1]
     positions = np.arange(top_k)
     bars_c = axis_c.bar(positions, abs_c[top_idx], color=colors, edgecolor='black', linewidth=0.5)
-    axis_c.set_xlabel('???????????? ???????? (?????????????????????????? ???? |c|)')
+    axis_c.set_xlabel('Mode Index (sorted by |c|)')
     axis_c.set_ylabel('|c_j|')
-    axis_c.set_title('???????????????????????? ????????????????????')
+    axis_c.set_title('Initial Coefficients Amplitude')
     axis_c.set_xticks(positions)
     axis_c.set_xticklabels([str(index) for index in top_idx], rotation=45)
     for bar, value in zip(bars_c, abs_c[top_idx]):
@@ -730,9 +762,9 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
     axis_xi = axes[1, 0]
     abs_xi0 = np.abs(xi_np[top_idx, 0])
     bars_xi = axis_xi.bar(positions, abs_xi0, color=colors, edgecolor='black', linewidth=0.5)
-    axis_xi.set_xlabel('???????????? ???????? (?????????????????????????? ???? |c|)')
-    axis_xi.set_ylabel('|Xi[j,0]|')
-    axis_xi.set_title('???????????? ???????????????????? ?????? ????????????????')
+    axis_xi.set_xlabel('Mode Index (sorted by |c|)')
+    axis_xi.set_ylabel('|\u03be_{j,0}|')
+    axis_xi.set_title('Spatial Mode Amplitudes')
     axis_xi.set_xticks(positions)
     axis_xi.set_xticklabels([str(index) for index in top_idx], rotation=45)
     for bar, value in zip(bars_xi, abs_xi0):
@@ -742,7 +774,7 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
     axis_eig = axes[1, 1]
     if len(other_idx) > 0:
         axis_eig.scatter(np.real(eig_np[other_idx]), np.imag(eig_np[other_idx]), c='gray', alpha=0.5, s=20,
-                         label='???????????? ????????')
+                         label='Other modes')
     for color_index, mode_index in enumerate(top_idx):
         axis_eig.scatter(
             np.real(eig_np[mode_index]),
@@ -756,9 +788,9 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
                           textcoords='offset points', xytext=(5, 5), fontsize=6)
     axis_eig.axhline(0, color='gray', linewidth=0.5, linestyle='--')
     axis_eig.axvline(0, color='gray', linewidth=0.5, linestyle='--')
-    axis_eig.set_xlabel('Re(??)')
-    axis_eig.set_ylabel('Im(??)')
-    axis_eig.set_title('?????????????????????? ???????????????? ??_j')
+    axis_eig.set_xlabel('Re(\u03bb)')
+    axis_eig.set_ylabel('Im(\u03bb)')
+    axis_eig.set_title('Eigenvalues of the fDMD Operator')
     axis_eig.grid(True, alpha=0.3)
 
     plt.tight_layout()
@@ -767,13 +799,12 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
     if fdmd.verbose:
         unstable = np.where(np.real(eig_np) > 0.1)[0]
         print('\n=== Prediction diagnostics ===')
-        print(f'?????????? ??????: {n_modes}, ???????????????? ??????-{top_k} ???? |c|')
-        print(f'???????????????? Re(??): [{np.min(np.real(eig_np)):.3f}, {np.max(np.real(eig_np)):.3f}]')
-        print(f'???????????????? Im(??): [{np.min(np.imag(eig_np)):.3f}, {np.max(np.imag(eig_np)):.3f}]')
+        print(f'Total modes: {n_modes}, Showing top {top_k} by |c|')
+        print(f'Re(\u03bb): [{np.min(np.real(eig_np)):.3f}, {np.max(np.real(eig_np)):.3f}]')
+        print(f'Im(\u03bb): [{np.min(np.imag(eig_np)):.3f}, {np.max(np.imag(eig_np)):.3f}]')
         if len(unstable) > 0:
-            print(
-                '???????? ?? ?????????????????????????? ???????????????????????????? ???????????? (?????????????????? ????????):')
+            print('Unstable modes (real parts > 0.1):')
             for mode_index in unstable[:5]:
-                print(f'  j={mode_index}, ??={eig_np[mode_index]:.3f}, |c|={abs_c[mode_index]:.3f}')
+                print(f'  j={mode_index}, \u03bb={eig_np[mode_index]:.3f}, |c|={abs_c[mode_index]:.3f}')
 
     return predicted

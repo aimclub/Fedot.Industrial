@@ -28,7 +28,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
     Элементы матрицы вычисляются через однократный интеграл с сингулярным весом:
 
     A_{ij} = <A* mu_i, mu_j>
-           = C_q * (T - \tau)^{q-1} [K(xi_j(\tau), xi_i(T)) - K(xi_j(\tau), xi_i(0))] d\tau
+           = C_q * (T - \\tau)^{q-1} [K(xi_j(\\tau), xi_i(T)) - K(xi_j(\\tau), xi_i(0))] d\\tau
     """
 
     def __init__(
@@ -74,8 +74,11 @@ class FractionalLiouvilleOperator(BaseEstimator):
 
     def _build_liouville_cache(self, trajectories):
         quadrature_cache = getattr(self.okhs, '_train_quadrature_cache_', None)
+        
+        # Убеждаемся, что мы пробрасываем отнормированные сетки при пересборке кэша
         if quadrature_cache is None or len(quadrature_cache['values']) != len(trajectories):
-            quadrature_cache = self.okhs._build_quadrature_cache(trajectories)
+            t_grids_norm = getattr(self.okhs, 'train_t_grids_', None)
+            quadrature_cache = self.okhs._build_quadrature_cache(trajectories, t_grids_norm=t_grids_norm)
 
         # Собираем начальные и конечные точки (уже нормализованные в _build_quadrature_cache)
         start_points = []
@@ -92,18 +95,21 @@ class FractionalLiouvilleOperator(BaseEstimator):
             'end_points': torch.stack(end_points).to(device),
         }
 
-    def _compute_liouville_entry(self, traj_i, traj_j):
+    def _compute_liouville_entry(self, traj_i, traj_j, t_grid_i_norm=None, t_grid_j_norm=None):
         """
         Вычисляет одиночный элемент A_{ij}.
         """
-        T_i = self.okhs._get_trajectory_duration(traj_i)
-        T_j = self.okhs._get_trajectory_duration(traj_j)
+        # метод из OKHS, который сам запросит менеджер сеток
+        T_i = self.okhs._get_trajectory_duration(traj_i, t_grid_norm=t_grid_i_norm)
+        T_j = self.okhs._get_trajectory_duration(traj_j, t_grid_norm=t_grid_j_norm)
 
         if T_i <= 1e-14 or T_j <= 1e-14:
             return 0.0
 
         _, weights = self._get_jacobi_rule()
-        values_j = self.okhs._evaluate_trajectory_at_nodes(traj_j, T_j)
+        
+        # Пробрасываем сетку для j-й траектории
+        values_j = self.okhs._evaluate_trajectory_at_nodes(traj_j, T_j, t_grid_norm=t_grid_j_norm)
         normalized_i = self.okhs._normalize_trajectory(traj_i)
 
         end_point_i = normalized_i[-1]
@@ -185,6 +191,9 @@ class FractionalLiouvilleOperator(BaseEstimator):
             trajectories = self.okhs.train_trajectories_
 
         n_traj = len(trajectories)
+        
+        # Кэш соберется корректно, так как в _build_liouville_cache мы добавили 
+        # проброс t_grids_norm, если кэша вдруг нет.
         liouville_cache = self._build_liouville_cache(trajectories)
         values = liouville_cache['quadrature']['values']
         scales = liouville_cache['quadrature']['scales']

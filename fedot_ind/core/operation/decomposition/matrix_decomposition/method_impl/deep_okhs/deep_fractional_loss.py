@@ -4,8 +4,8 @@ from scipy.special import gamma, roots_jacobi
 
 class DeepFractionalDMDLoss(nn.Module):
     """
-    Вычисляет интегральную невязку с использованием метода коллокаций 
-    и кэшированием тензоров интерполяции.
+    Вычисляет интегральную невязку в латентном пространстве \tilde{H}.
+    Ожидает на вход уже интерполированные и закодированные тензоры.
     """
     def __init__(self, latent_dim: int, q: float, n_quad_points: int = 20, num_tk_samples: int = 5, device: str = 'cpu'):
         super().__init__()
@@ -13,7 +13,7 @@ class DeepFractionalDMDLoss(nn.Module):
         self.latent_dim = latent_dim
         self.num_tk_samples = num_tk_samples
         
-        # Матрица оператора Лиувилля \in \mathbb{R}^{m \times m}
+        # Матрица оператора Лиувилля W \in \mathbb{R}^{m \times m}
         self.W = nn.Parameter(torch.eye(latent_dim, dtype=torch.float64, device=device) + 
                               torch.randn(latent_dim, latent_dim, dtype=torch.float64, device=device) * 0.1)
 
@@ -21,101 +21,54 @@ class DeepFractionalDMDLoss(nn.Module):
         self.register_buffer('nodes', torch.tensor(nodes, dtype=torch.float64, device=device))
         self.register_buffer('weights', torch.tensor(weights, dtype=torch.float64, device=device))
         self.c_q = 1.0 / gamma(q)
-        
-        # Внутреннее состояние для кэширования графа интерполяции
-        self._cache_signature = None
-        self.cache = {}
 
-    def _build_interpolation_cache(self, t_grid: torch.Tensor, T: torch.Tensor):
+    def get_collocation_nodes(self, T_norm: torch.Tensor) -> tuple:
         """
-        Прекомпиляция фиксированной сетки коллокаций и индексов интерполяции.
-        Пространства:
-        - t_grid: R^K
-        - T: R^N
-        """
-        N = T.shape[0]
-        device = T.device
+        Генерирует целевые узлы коллокации в нормированном времени tau.
+        Используется во внешнем цикле обучения для передачи в TimeGridManager.
         
-        # 1. Фиксированная равномерная сетка точек коллокации вместо Монте-Карло
-        # t_k \in R^{N \times num_tk_samples}
+        Параметры:
+            T_norm (torch.Tensor): Нормированные длительности батча (N,)
+        Возвращает:
+            t_k (torch.Tensor): Концы подынтервалов (N, num_tk_samples)
+            tau_nodes (torch.Tensor): Узлы квадратуры (N, num_tk_samples, Q)
+        """
+        device = T_norm.device
+        
+        # Концы отрезков коллокации [0, t_k]
         steps = torch.linspace(1.0 / self.num_tk_samples, 1.0, self.num_tk_samples, device=device)
-        t_k = steps.unsqueeze(0) * T.view(-1, 1)
+        t_k = steps.unsqueeze(0) * T_norm.view(-1, 1)
 
-        # 2. Узлы квадратур Гаусса-Якоби
-        # tau_nodes \in R^{N \times num_tk_samples \times Q}
+        # Аффинное отображение узлов Гаусса-Якоби [-1, 1] -> [0, t_k]
         tau_nodes = (t_k.unsqueeze(-1) / 2.0) * (self.nodes.view(1, 1, -1) + 1.0)
         
-        # 3. Масштабирующий множитель дробного интеграла
-        self.cache['scale'] = self.c_q * ((t_k / 2.0) ** self.q)  # (N, num_tk_samples)
+        return t_k, tau_nodes
 
-        # Функция для расчета индексов и весов отрезков (выполняется 1 раз)
-        def precompute_weights(nodes: torch.Tensor):
-            flat_nodes = torch.clamp(nodes.view(N, -1), min=t_grid[0], max=t_grid[-1])
-            idx = torch.searchsorted(t_grid, flat_nodes)
-            idx = torch.clamp(idx, min=1, max=len(t_grid) - 1)
-            
-            t_l = t_grid[idx - 1]
-            t_r = t_grid[idx]
-            w_r = (flat_nodes - t_l) / (t_r - t_l + 1e-12)
-            w_l = 1.0 - w_r
-            
-            batch_idx = torch.arange(N, device=device).view(-1, 1).expand_as(idx)
-            return batch_idx, idx, w_l.unsqueeze(-1), w_r.unsqueeze(-1)
-
-        # Кэшируем индексы для узлов интегрирования \tau
-        b_idx_tau, idx_tau, wl_tau, wr_tau = precompute_weights(tau_nodes)
-        self.cache['tau'] = (b_idx_tau, idx_tau, wl_tau, wr_tau)
-        
-        # Кэшируем индексы для границ интервалов t_k (для дифференциальной невязки)
-        b_idx_tk, idx_tk, wl_tk, wr_tk = precompute_weights(t_k)
-        self.cache['tk'] = (b_idx_tk, idx_tk, wl_tk, wr_tk)
-        
-        # Сохраняем сигнатуру батча, чтобы понимать, когда кэш "протух"
-        self._cache_signature = (N, float(T[0].item()), float(t_grid[-1].item()))
-
-    def _fast_interpolate(self, z_trajectory: torch.Tensor, cache_key: str, original_shape: tuple) -> torch.Tensor:
+    def forward(self, z_start: torch.Tensor, z_tk: torch.Tensor, z_nodes: torch.Tensor, t_k: torch.Tensor) -> torch.Tensor:
         """
-        Векторизованная сборка тензоров O(1) без поиска по сетке.
+        Метод принимает готовые латентные представления и вычисляет 
+        штраф за невязку с оператором Лиувилля.
+        
+        Параметры:
+            z_start (torch.Tensor): Точки в tau=0 (N, m)
+            z_tk (torch.Tensor): Точки на концах интервалов t_k (N, S, m)
+            z_nodes (torch.Tensor): Точки в узлах квадратуры (N, S, Q, m)
+            t_k (torch.Tensor): Длины интервалов для масштабирования интеграла (N, S)
         """
-        b_idx, idx, wl, wr = self.cache[cache_key]
-        
-        z_left = z_trajectory[b_idx, idx - 1, :]
-        z_right = z_trajectory[b_idx, idx, :]
-        z_interp = z_left * wl + z_right * wr
-        
-        return z_interp.view(original_shape)
+        # 1. Масштабирующий множитель дробного интеграла
+        scale = self.c_q * ((t_k / 2.0) ** self.q)  # (N, S)
 
-    def forward(self, t_grid: torch.Tensor, z_trajectory: torch.Tensor, T: torch.Tensor) -> torch.Tensor:
-        N = z_trajectory.shape[0]
-        Q = len(self.nodes)
+        # 2. Вычисление дробного интеграла Римана-Лиувилля (свертка по Q)
+        integral_sum = torch.einsum('q, nsqm -> nsm', self.weights, z_nodes)
+        fractional_integral = scale.unsqueeze(-1) * integral_sum
         
-        # Проверяем инвалидацию кэша (например, если пришел неполный батч в конце эпохи)
-        current_sig = (N, float(T[0].item()), float(t_grid[-1].item()))
-        if self._cache_signature != current_sig:
-            self._build_interpolation_cache(t_grid, T)
-
-        # --- Аналитическая фаза графа ---
-        
-        # 1. Сборка интерполированных значений в узлах \tau (N, S, Q, m)
-        z_nodes = self._fast_interpolate(
-            z_trajectory, 'tau', 
-            original_shape=(N, self.num_tk_samples, Q, self.latent_dim)
-        )
-
-        # 2. Вычисление дробного интеграла Римана-Лиувилля
-        integral_sum = torch.einsum('q, nkqm -> nkm', self.weights, z_nodes)
-        fractional_integral = self.cache['scale'].unsqueeze(-1) * integral_sum
+        # Действие оператора Лиувилля W на интеграл
         w_action = torch.matmul(fractional_integral, self.W.T)
         
         # 3. Дифференциальная невязка на концах [0, t_k]
-        z_start = z_trajectory[:, 0, :].unsqueeze(1) # (N, 1, m)
-        z_tk = self._fast_interpolate(
-            z_trajectory, 'tk', 
-            original_shape=(N, self.num_tk_samples, self.latent_dim)
-        )
-        boundary_diff = z_tk - z_start 
+        boundary_diff = z_tk - z_start.unsqueeze(1) # (N, S, m) - (N, 1, m)
         
-        # 4. Лосс
+        # 4. Вычисление MSE функции потерь
         residual = boundary_diff - w_action
         loss_adjoint = torch.mean(torch.linalg.norm(residual, dim=-1)**2)
         
