@@ -11,14 +11,14 @@ def prepare_skab_benchmark():
                                'device': 'cpu'
                                }
     model_to_compare = [
-        # {0: ['iforest_detector']},
-        {0: [('conv_ae_detector', ENCODER_LEARNING_PARAMS)]},
+        {0: ['iforest_detector']},
+        # {0: [('conv_ae_detector', ENCODER_LEARNING_PARAMS)]},
         # {0: ['stat_detector']},
         # {}
     ]
     model_name = [
-        # 'iforest',
-        'conv_encoder',
+        'iforest',
+        # 'conv_encoder',
         # 'stat_detector',
         # 'industrial'
     ]

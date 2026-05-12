@@ -32,6 +32,7 @@ class AutomlConfigConstant(Enum):
     DEFAULT_CLF_AUTOML_CONFIG = {'task': 'classification', **DEFAULT_SUBCONFIG}
     DEFAULT_REG_AUTOML_CONFIG = {'task': 'regression', **DEFAULT_SUBCONFIG}
     DEFAULT_TSF_AUTOML_CONFIG = {'task': 'ts_forecasting', 'task_params': {'forecast_length': 14}, **DEFAULT_SUBCONFIG}
+    DEFAULT_ADN_AUTOML_CONFIG = {'task': 'anomaly_detection', **DEFAULT_SUBCONFIG}
 
 
 class LearningConfigConstant(Enum):
@@ -40,6 +41,7 @@ class LearningConfigConstant(Enum):
     DEFAULT_CLF_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'accuracy'}, **DEFAULT_SUBCONFIG}
     DEFAULT_REG_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'rmse'}, **DEFAULT_SUBCONFIG}
     DEFAULT_TSF_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'rmse'}, **DEFAULT_SUBCONFIG}
+    DEFAULT_ADN_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'accuracy'}, **DEFAULT_SUBCONFIG}
     TASK_MAPPING = {
         'classification': {
             'task': 'classification',
@@ -66,6 +68,14 @@ class LearningConfigConstant(Enum):
                 'optimisation_strategy': {
                     'mutation_agent': 'random',
                     'mutation_strategy': 'growth_mutation_strategy'},
+                'optimisation_agent': 'Industrial'}},
+        'anomaly_detection': {
+            'task': 'anomaly_detection',
+            'use_automl': True,
+            'optimisation_strategy': {
+                'optimisation_strategy': {
+                    'mutation_agent': 'random',
+                    'mutation_strategy': 'growth_mutation_strategy'},
                 'optimisation_agent': 'Industrial'}}}
 
 
@@ -74,6 +84,11 @@ class IndustrialConfigConstant(Enum):
     DEFAULT_REG_INDUSTRIAL_CONFIG = {'problem': 'regression'}
     DEFAULT_TSF_INDUSTRIAL_CONFIG = {'problem': 'ts_forecasting',
                                      'task_params': {'forecast_length': 14}}
+    DEFAULT_ADN_INDUSTRIAL_CONFIG = {'strategy': 'anomaly_detection',
+                                     'problem': 'anomaly_detection',
+                                     'strategy_params': {'detection_window': 10,
+                                     'train_data_size': 'anomaly-free',
+                                     'data_type': 'time_series'}}
 
 
 DEFAULT_AUTOML_LEARNING_CONFIG = AutomlLearningConfigConstant.DEFAULT_AUTOML_CONFIG.value
@@ -81,14 +96,17 @@ DEFAULT_COMPUTE_CONFIG = ComputeConfigConstant.DEFAULT_COMPUTE_CONFIG.value
 DEFAULT_CLF_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_CLF_AUTOML_CONFIG.value
 DEFAULT_REG_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_REG_AUTOML_CONFIG.value
 DEFAULT_TSF_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_TSF_AUTOML_CONFIG.value
+DEFAULT_ADN_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_ADN_AUTOML_CONFIG.value
 
 DEFAULT_CLF_LEARNING_CONFIG = LearningConfigConstant.DEFAULT_CLF_LEARNING_CONFIG.value
 DEFAULT_REG_LEARNING_CONFIG = LearningConfigConstant.DEFAULT_REG_LEARNING_CONFIG.value
 DEFAULT_TSF_LEARNING_CONFIG = LearningConfigConstant.DEFAULT_TSF_LEARNING_CONFIG.value
+DEFAULT_ADN_LEARNING_CONFIG = LearningConfigConstant.DEFAULT_ADN_LEARNING_CONFIG.value
 
 DEFAULT_CLF_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_CLF_INDUSTRIAL_CONFIG.value
 DEFAULT_REG_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_REG_INDUSTRIAL_CONFIG.value
 DEFAULT_TSF_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_TSF_INDUSTRIAL_CONFIG.value
+DEFAULT_ADN_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_ADN_INDUSTRIAL_CONFIG.value
 
 DEFAULT_CLF_API_CONFIG = {'industrial_config': DEFAULT_CLF_INDUSTRIAL_CONFIG,
                           'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
@@ -103,6 +121,11 @@ DEFAULT_REG_API_CONFIG = {'industrial_config': DEFAULT_REG_INDUSTRIAL_CONFIG,
 DEFAULT_TSF_API_CONFIG = {'industrial_config': DEFAULT_TSF_INDUSTRIAL_CONFIG,
                           'automl_config': DEFAULT_TSF_AUTOML_CONFIG,
                           'learning_config': DEFAULT_TSF_LEARNING_CONFIG,
+                          'compute_config': DEFAULT_COMPUTE_CONFIG}
+
+DEFAULT_ADN_API_CONFIG = {'industrial_config': DEFAULT_ADN_INDUSTRIAL_CONFIG,
+                          'automl_config': DEFAULT_ADN_AUTOML_CONFIG,
+                          'learning_config': DEFAULT_ADN_LEARNING_CONFIG,
                           'compute_config': DEFAULT_COMPUTE_CONFIG}
 
 TASK_MAPPING = LearningConfigConstant.TASK_MAPPING.value
