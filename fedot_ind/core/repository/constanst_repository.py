@@ -273,7 +273,7 @@ class FedotOperationConstant(Enum):
             TaskTypesEnum.regression), 'ts_forecasting': Task(
             TaskTypesEnum.ts_forecasting, TsForecastingParams(
                 forecast_length=1)), 'anomaly_detection': Task(
-            TaskTypesEnum.classification)}
+            TaskTypesEnum.classification)} # TODO: выделить как задачу детекции
 
     FEDOT_API_PARAMS = default_param_values_dict = dict(
         problem=None,
