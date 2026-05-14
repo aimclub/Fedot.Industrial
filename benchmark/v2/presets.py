@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite, run_anomaly_detection_suite
+from .api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite, run_detection_benchmark_suite
 from .core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, TaskType
 
 DEFAULT_PRESET_OUTPUT_DIR = Path('benchmark/results/v2_presets')
@@ -211,6 +211,13 @@ def run_local_benchmark_preset(
             models=models,
         )
         return run_forecasting_benchmark_suite(config)
+    if normalized == 'skab':
+        config = build_local_skab_suite_config(
+            output_dir=output_dir,
+            persist_on_run=persist_on_run,
+            models=models,
+        )
+        return run_detection_benchmark_suite(config)
     if normalized == 'ucr':
         config = build_local_ucr_suite_config(
             dataset_name=dataset_name or 'Lightning7',
@@ -277,5 +284,10 @@ def _default_regression_models() -> tuple[ModelSpec, ...]:
     )
 
 
-def _default_detection_models() -> tuple[ModelSpec, ...]:
-    pass
+def _default_detection_models() -> tuple[ModelSpec, ...]: # TODO: определить дефолтные модели для детекции
+    return (
+        ModelSpec(adapter_name ='feature_iforest_detector', display_name='IsolationForestDetectionModel'),
+        ModelSpec(adapter_name='feature_oneclass_detector', display_name='OneClassDetectionModel'),
+        ModelSpec(adapter_name='conv_autoencoder_detector', display_name='ConvAutoEncoderDetectionModel'),
+        ModelSpec(adapter_name='tcn_autoencoder_detector', display_name='TCN_AutoEncoderDetectionModel'),
+    )

@@ -6,8 +6,7 @@ from typing import Any
 
 import yaml
 
-# from .api import run_detection_benchmark_suite
-from .api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite
+from .api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite, run_detection_benchmark_suite
 from .core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, TaskType, to_plain_data
 from .presets import run_local_benchmark_preset
 
@@ -99,8 +98,8 @@ def run_manifest(payload: dict[str, Any]):
         )
 
     config = build_suite_config_from_manifest(validated)
-    # if config.task_type is TaskType.ANOMALY_DETECTION:
-    #     return run_detection_benchmark_suite(config)
+    if config.task_type is TaskType.ANOMALY_DETECTION:
+        return run_detection_benchmark_suite(config)
     if config.task_type is TaskType.FORECASTING:
         return run_forecasting_benchmark_suite(config)
     if config.task_type is TaskType.TS_CLASSIFICATION:
@@ -143,5 +142,5 @@ def _default_metrics_for_task(task_type: str | TaskType) -> tuple[str, ...]:
     if task is TaskType.TS_CLASSIFICATION:
         return ('accuracy', 'balanced_accuracy', 'f1_macro')
     if task is TaskType.ANOMALY_DETECTION:
-        return ('accuracy',)
+        return ('accuracy', 'balanced_accuracy', 'f1_macro')
     return ('rmse', 'mae', 'r2')

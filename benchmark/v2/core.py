@@ -181,6 +181,7 @@ class DetectionBenchmarkResult:
     config: BenchmarkSuiteConfig
     series_records: tuple[DetectionSeriesRecord, ...]
     run_records: tuple[BenchmarkRunRecord, ...]
+    prediction_records: tuple[LabelPredictionRecord, ...]
     metric_records: tuple[MetricRecord, ...]
     aggregate_report: BenchmarkAggregateReport
     artifact_manifest: tuple[ArtifactRecord, ...] = ()

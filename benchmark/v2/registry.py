@@ -11,6 +11,7 @@ from .api import (
     run_forecasting_benchmark_suite,
     run_tsc_benchmark_suite,
     run_tser_benchmark_suite,
+    run_detection_benchmark_suite
 )
 from .core import (
     BenchmarkSuiteConfig,
@@ -153,6 +154,8 @@ def run_registered_suite(config: BenchmarkSuiteConfig) -> BenchmarkRunBundle:
         result = run_tsc_benchmark_suite(config)
     elif config.task_type is TaskType.TS_REGRESSION:
         result = run_tser_benchmark_suite(config)
+    elif config.task_type is TaskType.ANOMALY_DETECTION:
+        result = run_detection_benchmark_suite(config)
     else:  # pragma: no cover
         raise ValueError(f'Unsupported task type: {config.task_type}')
 

@@ -16,7 +16,7 @@ from . import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Run benchmark-v2 presets or manifest-driven jobs.')
-    parser.add_argument('preset', nargs='?', choices=('m4', 'monash', 'ucr', 'tser'))
+    parser.add_argument('preset', nargs='?', choices=('m4', 'monash', 'ucr', 'tser', 'skab'))
     parser.add_argument('--manifest', default=None)
     parser.add_argument('--registered', action='store_true')
     parser.add_argument('--print-resolved-manifest', action='store_true')
