@@ -1,7 +1,6 @@
 from typing import Tuple, Union, Optional
 
 import numpy as np
-import torch
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum

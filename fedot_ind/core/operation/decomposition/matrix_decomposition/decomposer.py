@@ -39,6 +39,8 @@ class MatrixDecomposer:
             return spectrum
 
     def get_low_rank(self, spectrum):
+        if np.isscalar(spectrum):
+            return min(max(int(spectrum), 1), self.min_components)
         return min(len(spectrum), self.min_components)
 
     def get_tensor_approximation(self, tensor: Union[dict, np.ndarray]):

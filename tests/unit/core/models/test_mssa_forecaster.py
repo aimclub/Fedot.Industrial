@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import (
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import (
     MSSAForecaster,
     MSSAForecasterImplementation,
 )
-from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import recommend_forecasting_model
+from fedot_ind.core.models.ts_forecasting.regime_utils.regime_diagnostics import analyze_regime_diagnostics
 
 
 def test_mssa_forecaster_predicts_univariate_series():

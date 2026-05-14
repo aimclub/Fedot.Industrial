@@ -68,14 +68,21 @@ industrial_search_space = {
                                 'sampling-scope': [['sum', 'pairwise']]}
          },
     'patch_tst_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 100, 10)]]},
-         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]},
+        {'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 12, 16, 20, 24, 32]]},
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'ELU', 'SwishBeta', 'ReLU', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+    'tst_model':
+        {'activation': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [['GELU', 'ReLU', 'LeakyReLU', 'ELU', 'Tanh']]},
+         'model_dim': {'hyperopt-dist': hp.choice, 'sampling-scope': [[64, 128, 256]]},
+         'n_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3, 4, 5]]},
+         'number_heads': {'hyperopt-dist': hp.choice, 'sampling-scope': [[4, 8, 16]]},
+         'd_ff': {'hyperopt-dist': hp.choice, 'sampling-scope': [[128, 256, 512]]},
+         'dropout': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.05, 0.1, 0.2, 0.3]]}},
     'deepar_model':
-        {'cell_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['GRU', 'LSTM', 'RNN']]},
-         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(4, 32, 4)]]},
+        {'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 12, 16, 20, 24, 32]]},
+         'cell_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['GRU', 'LSTM', 'RNN']]},
          'rnn_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 5, 1)]]},
          'hidden_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 50, 5)]]},
          'expected_distribution': {'hyperopt-dist': hp.choice, 'sampling-scope': [['normal', 'cauchy']]},
@@ -101,20 +108,26 @@ industrial_search_space = {
                             ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
 
     'tcn_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
+        {'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 12, 16, 20, 24, 32]]},
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
-                            ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+                            ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish', 'ReLU', 'GELU']]},
+         'kernel_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3, 5, 7]]},
+         'num_filters': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32, 64]]},
+         'num_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3, 4, 5]]},
+         'dilation_base': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3, 4]]},
+         'dropout': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.05, 0.1, 0.2, 0.3]]},
+         'weight_norm': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
 
     'topo_forecaster':
-        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
-         'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 40, 5)]]},
-         'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 20, 3)]]}},
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
+         'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(4, 24, 2)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4]]},
+         'alpha': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.1, 0.5, 1.0, 2.0, 5.0]]}},
     'hankelisation':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},
-    'svd_decomposition':
-        {'device': {'hyperopt-dist': hp.choice, 'sampling-scope': [['cpu']]}},
+    'svd_decomposition': {},
     'randomized_svd_decomposition':
         {'n_oversamples': {'hyperopt-dist': hp.choice, 'sampling-scope': [[3, 5, 8, 10]]}},
     'tensor_decomposition':
@@ -168,10 +181,8 @@ industrial_search_space = {
          'forcing_threshold_scale': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.75, 1.0, 1.25, 1.5]]},
          'forcing_decay': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.7, 0.8, 0.85, 0.9]]},
          'head_policy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['mlp', 'linear']]},
-         'head_hidden_dim': {'hyperopt-dist': hp.choice, 'sampling-scope': [[32, 64, 96]]},
-         'head_hidden_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 3]]},
-         'head_epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[60, 120, 180]]},
-         'head_learning_rate': {'hyperopt-dist': hp.choice, 'sampling-scope': [[5e-4, 1e-3, 2e-3]]}},
+         'head_activation': {'hyperopt-dist': hp.choice, 'sampling-scope': [['relu', 'gelu', 'tanh', 'elu']]},
+         'head_depth': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]}},
     'okhs_fdmd_forecaster':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
          'n_modes': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]},
@@ -225,12 +236,12 @@ industrial_search_space = {
                                                                                   'riemann_extractor']]}
          },
     'nbeats_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(50, 200, 20)]]},
-         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32]]},
-         "n_stacks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 50, 10)]]},
+        {"n_stacks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 50, 10)]]},
          "n_trend_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 5, 1)]]},
          "n_seasonality_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 4, 1)]]},
-         "n_of_harmonics": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 3, 1)]]}},
+         "n_of_harmonics": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 3, 1)]]},
+         "layers": {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6]]},
+         "degree_of_polynomial": {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]}},
     'bagging': {'method':
                 {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
     'stat_detector':

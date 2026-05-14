@@ -7,6 +7,7 @@ try:
 except ImportError:
     from fedot_ind.core.operation.transformation.representation.kernel.utils import mittag_leffler
 
+
 class MittagLefflerAutograd(torch.autograd.Function):
     '''Дифференцируемая функция Миттаг-Леффлера для PyTorch. Поддерживает backpropagation.'''
     @staticmethod
@@ -42,8 +43,9 @@ class MittagLefflerAutograd(torch.autograd.Function):
         grad_z_tensor = torch.tensor(grad_z_np, dtype=torch.complex128, device=device)
         grad_input = grad_output * grad_z_tensor
 
-        #Для q градиент не поддерживается, возвращаем None
+        # Для q градиент не поддерживается, возвращаем None
         return grad_input, None
+
 
 def _mittag_leffler_tensor(z_tensor, q):
     return MittagLefflerAutograd.apply(z_tensor, q)

@@ -15,7 +15,7 @@ from fedot_ind.core.models.kernel.okhs_runtime import (
     run_okhs_direct_prediction,
     run_okhs_dmd_prediction,
 )
-from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import (
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import (
     OKHSFDMDForecasterRunResult,
     OKHSFDMDForecasterSpec,
     build_okhs_fdmd_spec,
@@ -370,7 +370,7 @@ def test_build_okhs_optimization_info_collects_stage_diagnostics_and_optional_fi
     assert info['weights_norm'] > 0
     assert info['head_runtime'] == 'fdmd'
     assert info['stage_diagnostics']['forecast_head']['prediction_diagnostics'][
-               'boundary_discontinuity_abs_mean'] == 0.1
+        'boundary_discontinuity_abs_mean'] == 0.1
 
 
 def test_build_okhs_optimization_info_supports_direct_runtime_diagnostics():

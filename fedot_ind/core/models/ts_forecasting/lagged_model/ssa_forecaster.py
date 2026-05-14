@@ -8,19 +8,24 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
-from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import build_forecasting_stage_tuning_execution
-from fedot_ind.core.models.ts_forecasting.stage_tuning_runtime import run_forecasting_stage_tuning_on_series
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_execution import (
+    build_forecasting_stage_tuning_execution,
+)
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime import (
+    run_forecasting_stage_tuning_on_series,
+)
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecaster
 
 
 class SSAForecasterImplementation(ModelImplementation):
     """Compatibility SSA wrapper over the shared Page-embedding forecasting backend."""
 
     def __init__(self, params: Optional[OperationParameters] = None):
+        """Read SSA compatibility parameters and shared head settings."""
         params = params or OperationParameters()
         super().__init__(params)
         self.window_size = params.get('window_size')
@@ -33,7 +38,8 @@ class SSAForecasterImplementation(ModelImplementation):
         self.head_hidden_layers = int(params.get('head_hidden_layers', 2))
         self.head_epochs = int(params.get('head_epochs', 120))
         self.head_learning_rate = float(params.get('head_learning_rate', 1e-3))
-        self.device = str(params.get('device', 'cpu'))
+        self.device = str(params.get('device', 'auto'))
+        self.progress_policy = params.get('progress_policy')
         self.compatibility_status_ = 'compatibility_wrapper'
         self.model_: MSSAForecaster | None = None
 
@@ -44,6 +50,7 @@ class SSAForecasterImplementation(ModelImplementation):
         return series
 
     def fit(self, input_data: InputData):
+        """Fit the SSA compatibility wrapper through the MSSA backend."""
         forecast_horizon = input_data.task.task_params.forecast_length
         self.model_ = MSSAForecaster(
             forecast_horizon=forecast_horizon,
@@ -57,11 +64,13 @@ class SSAForecasterImplementation(ModelImplementation):
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         self.model_.fit(self._prepare_series(input_data))
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
+        """Return FEDOT OutputData with the SSA forecast."""
         series = self._prepare_series(input_data)
         prediction = self.model_.predict(series)
         return self._convert_to_output(
@@ -71,11 +80,13 @@ class SSAForecasterImplementation(ModelImplementation):
         )
 
     def predict_for_fit(self, input_data: InputData) -> np.ndarray:
+        """Return denoised series features for fit-time compatibility paths."""
         if self.model_ is None:
             self.fit(input_data)
         return np.asarray(self.model_.denoised_series_, dtype=float).reshape(1, -1)
 
     def get_diagnostics(self) -> dict[str, object]:
+        """Return compatibility metadata and wrapped mSSA diagnostics."""
         diagnostics = {
             'compatibility_status': self.compatibility_status_,
             'history_lookback': int(self.history_lookback),
@@ -86,6 +97,7 @@ class SSAForecasterImplementation(ModelImplementation):
         return diagnostics
 
     def get_stage_tuning_plan(self) -> dict[str, object]:
+        """Return the stage-aware tuning plan for SSA."""
         return build_forecasting_stage_tuning_plan(
             'ssa_forecaster',
             {
@@ -100,10 +112,12 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
         ).to_dict()
 
     def get_stage_search_spaces(self) -> tuple[dict[str, object], ...]:
+        """Return SSA search-space slices grouped by stage."""
         return tuple(
             stage.to_dict() for stage in build_forecasting_stage_search_spaces(
                 'ssa_forecaster',
@@ -119,11 +133,13 @@ class SSAForecasterImplementation(ModelImplementation):
                     'head_epochs': self.head_epochs,
                     'head_learning_rate': self.head_learning_rate,
                     'device': self.device,
+                    'progress_policy': self.progress_policy,
                 },
             )
         )
 
     def get_stage_tuning_execution(self, stage_updates: dict[str, object] | None = None) -> dict[str, object]:
+        """Resolve proposed SSA updates into a stage tuning execution."""
         return build_forecasting_stage_tuning_execution(
             'ssa_forecaster',
             base_params={
@@ -138,6 +154,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
             stage_updates=stage_updates,
         ).to_dict()
@@ -154,6 +171,7 @@ class SSAForecasterImplementation(ModelImplementation):
             max_values_per_parameter: int = 3,
             max_stage_candidates: int = 16,
     ) -> dict[str, object]:
+        """Run runtime stage tuning for SSA on a raw time series."""
         return run_forecasting_stage_tuning_on_series(
             'ssa_forecaster',
             time_series=np.asarray(time_series, dtype=float),
@@ -170,6 +188,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
             stage_updates=stage_updates,
             metric_name=metric_name,

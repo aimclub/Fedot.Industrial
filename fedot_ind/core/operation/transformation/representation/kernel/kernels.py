@@ -263,7 +263,7 @@ class OccupationKernel(KernelBase):
     def _compute_single_kernel(self, x, y):
         """Для совместимости с KernelBase"""
         return self._compute_trajectory_kernel(x, y)
-    
+
     # def compute_gram_matrix(self, trajectories):
     #     """Матрица Грама для набора траекторий"""
     #     n = len(trajectories)

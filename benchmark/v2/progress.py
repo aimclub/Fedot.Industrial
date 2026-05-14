@@ -48,6 +48,20 @@ class BenchmarkProgressMonitor:
         if hasattr(self.bar, 'refresh'):
             self.bar.refresh()
 
+    def seed_resume_state(self, *, completed_items: int, status_counts: dict[str, int] | None = None) -> None:
+        normalized_counts = dict(status_counts or {})
+        self.success_count = int(normalized_counts.get('success', 0))
+        self.failed_count = int(normalized_counts.get('failed', 0))
+        self.skipped_count = int(normalized_counts.get('skipped', 0))
+        self.not_available_count = int(normalized_counts.get('not_available', 0))
+        if not self.enabled or self.bar is None:
+            return
+        current_value = int(getattr(self.bar, 'n', 0) or 0)
+        delta = int(max(0, completed_items - current_value))
+        if delta > 0 and hasattr(self.bar, 'update'):
+            self.bar.update(delta)
+        self._refresh(status='resumed')
+
     def dataset_loaded(self, dataset_name: str, item_count: int) -> None:
         self.current_dataset = dataset_name
         self.current_model = ''
@@ -68,6 +82,12 @@ class BenchmarkProgressMonitor:
         self.current_model = model_name
         self.current_item = item_name
         self._refresh(status='running')
+
+    def item_resumed(self, dataset_name: str, model_name: str, item_name: str, status: str) -> None:
+        self.current_dataset = dataset_name
+        self.current_model = model_name
+        self.current_item = item_name
+        self._refresh(status=f'resumed:{status}')
 
     def advance(self, status: str, message: str = '') -> None:
         normalized = str(status)

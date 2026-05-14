@@ -35,7 +35,10 @@
   "topo_forecaster": {
     "channel_model": "ridge",
     "patch_len": 10,
-    "window_size": 10
+    "window_size": 10,
+    "stride": 1,
+    "alpha": 1.0,
+    "device": "auto"
   },
   "lagged_forecaster": {
     "channel_model": "ridge",
@@ -464,6 +467,13 @@
     "add_global_features": true,
     "use_cache": true
   },
+  "quantile_extractor_torch": {
+    "window_size": 10,
+    "use_sliding_window": true,
+    "stride": 1,
+    "add_global_features": true,
+    "use_cache": true
+  },
   "riemann_extractor": {
     "n_filter": 4,
     "estimator": "scm",
@@ -483,8 +493,16 @@
     "with_tuning": true
   },
   "tst_model": {
-    "epochs": 100,
-    "batch_size": 32
+    "epochs": 150,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "device": "cuda",
+    "activation": "GELU",
+    "model_dim": 128,
+    "n_layers": 3,
+    "number_heads": 16,
+    "d_ff": 256,
+    "dropout": 0.1
   },
   "xcm_model": {
     "epochs": 100,

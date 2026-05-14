@@ -1,7 +1,7 @@
 import numpy as np
 
-from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
+from fedot_ind.core.models.ts_forecasting.regime_utils.regime_diagnostics import analyze_regime_diagnostics
 
 
 def test_regime_routing_prefers_periodic_models_for_periodic_series():
@@ -56,6 +56,7 @@ def test_adapter_name_to_family_maps_new_composite_models():
     assert adapter_name_to_family('hybrid_ensemble_forecaster') == 'operator_model'
     assert adapter_name_to_family('okhs_fdmd_forecaster') == 'operator_model'
     assert adapter_name_to_family('patch_tst_model') == 'neural_forecaster'
+    assert adapter_name_to_family('tst_model') == 'neural_forecaster'
     assert adapter_name_to_family('tcn_model') == 'neural_forecaster'
     assert adapter_name_to_family('deepar_model') == 'neural_forecaster'
     assert adapter_name_to_family('nbeats_model') == 'neural_forecaster'

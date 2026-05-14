@@ -3,6 +3,7 @@ import torch
 import torch
 import torch.nn as nn
 
+
 class DeepKernel(nn.Module):
     def __init__(self, feature_extractor: nn.Module, base_kernel=None):
         """
@@ -16,7 +17,7 @@ class DeepKernel(nn.Module):
     def _compute_batch_kernel(self, x, y):
         # x: (N_r, Q, 1, d) -> fx: (N_r, Q, 1, m)
         # y: (1, 1, N_l, d) -> fy: (1, 1, N_l, m)
-        
+
         # fx = self.feature_extractor(x.float())
         # fy = self.feature_extractor(y.float())
         print(f"input dtype: {x.dtype}, feature extractor dtype: {next(self.feature_extractor.parameters()).dtype}")

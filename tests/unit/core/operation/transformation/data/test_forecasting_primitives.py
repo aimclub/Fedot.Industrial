@@ -1,20 +1,18 @@
-import numpy as np
-import pytest
-
-pytest.importorskip('fedot')
-pytest.importorskip('torch')
-
-from fedot.core.data.data import InputData
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-
+from fedot_ind.core.repository.model_repository import FORECASTING_PREPROC
 from fedot_ind.core.operation.transformation.data.forecasting_primitives import (
     ExplainedVarianceRankTruncationImplementation,
     SVDDecompositionImplementation,
     read_forecasting_stage_data,
 )
-from fedot_ind.core.repository.model_repository import FORECASTING_PREPROC
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.data.data import InputData
+import numpy as np
+import pytest
+
+pytest.importorskip('fedot')
+pytest.importorskip('torch')
 
 
 def _build_table_input(rows: int = 24, cols: int = 12, horizon: int = 4) -> InputData:

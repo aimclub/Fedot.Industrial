@@ -8,6 +8,7 @@ from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okh
     OKHSTransformer,
 )
 
+
 def run_test(
     q_true=0.8,
     lambda_param=-2.0,

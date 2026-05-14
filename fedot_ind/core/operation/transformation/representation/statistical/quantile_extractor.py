@@ -44,9 +44,6 @@ class QuantileExtractor(BaseExtractor):
         self.logging_params.update({'Wsize': self.window_size,
                                     'Stride': self.stride})
 
-    def __repr__(self):
-        return 'Statistical Class for TS representation'
-
     def _concatenate_global_and_local_feature(
             self,
             global_features: np.ndarray,

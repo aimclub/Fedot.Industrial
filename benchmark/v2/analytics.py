@@ -19,6 +19,10 @@ from .core import (
     write_json,
 )
 from .markdown import dataframe_to_markdown
+from .verbosity import (
+    ForecastingVerbosityPolicy,
+    resolve_forecasting_verbosity_policy,
+)
 
 
 @dataclass(frozen=True)
@@ -29,6 +33,38 @@ class SeriesComparisonResult:
     metrics_table: pd.DataFrame
     prediction_table: pd.DataFrame
     artifact_manifest: tuple[ArtifactRecord, ...] = ()
+
+
+def _resolve_result_verbosity_policy(result: ForecastingBenchmarkResult) -> ForecastingVerbosityPolicy:
+    return resolve_forecasting_verbosity_policy(
+        result.config.run_spec.verbosity,
+        options=result.config.run_spec.verbosity_options,
+    )
+
+
+def _strip_nested_keys(value: Any, *, keys: set[str]) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): _strip_nested_keys(item, keys=keys)
+            for key, item in value.items()
+            if str(key) not in keys
+        }
+    if isinstance(value, list):
+        return [_strip_nested_keys(item, keys=keys) for item in value]
+    if isinstance(value, tuple):
+        return [_strip_nested_keys(item, keys=keys) for item in value]
+    return value
+
+
+def _prune_generic_artifact_payload(payload: Any, verbosity_policy: ForecastingVerbosityPolicy) -> Any:
+    keys_to_strip: set[str] = set()
+    if not verbosity_policy.include_progress_policy:
+        keys_to_strip.add('progress_policy')
+    if not verbosity_policy.include_runner_context:
+        keys_to_strip.add('benchmark_runtime_context')
+    if not keys_to_strip:
+        return payload
+    return _strip_nested_keys(payload, keys=keys_to_strip)
 
 
 def _series_record_lookup(result: ForecastingBenchmarkResult) -> dict[str, Any]:
@@ -359,8 +395,8 @@ def build_forecasting_stage_frame(result: ForecastingBenchmarkResult) -> pd.Data
 
 def _is_hybrid_ensemble_record(metadata: dict[str, Any]) -> bool:
     return (
-            str(metadata.get('model_family', '')).lower() == 'hybrid_ensemble'
-            or str(metadata.get('adapter_name', '')).lower() == 'hybrid_ensemble_forecaster'
+        str(metadata.get('model_family', '')).lower() == 'hybrid_ensemble'
+        or str(metadata.get('adapter_name', '')).lower() == 'hybrid_ensemble_forecaster'
     )
 
 
@@ -464,8 +500,8 @@ def build_stage_tuning_family_frame(result: ForecastingBenchmarkResult) -> pd.Da
     denominator = frame['baseline_score'].replace(0.0, np.nan).abs()
     frame['relative_gain'] = frame['absolute_gain'] / denominator
     frame['routing_family_match'] = (
-            frame['model_adapter_family'].fillna('').astype(str)
-            == frame['routing_recommendation_family'].fillna('').astype(str)
+        frame['model_adapter_family'].fillna('').astype(str)
+        == frame['routing_recommendation_family'].fillna('').astype(str)
     )
     frame['improved'] = frame['improved'].fillna(False).astype(bool)
 
@@ -534,6 +570,7 @@ def compare_models_on_series(
         series_id: str,
         output_dir: str | Path | None = None,
 ) -> SeriesComparisonResult:
+    verbosity_policy = _resolve_result_verbosity_policy(result)
     predictions = predictions_to_frame(result.prediction_records)
     metrics = metrics_to_frame(result.metric_records)
 
@@ -655,7 +692,7 @@ def compare_models_on_series(
             (metrics['series_id'] == series_id)
             & (metrics['metric_name'] == result.aggregate_report.primary_metric)
             & (metrics['horizon_index'].notna())
-            ].copy()
+        ].copy()
         if not horizon_metrics.empty:
             horizon_figure, horizon_axis = plt.subplots(figsize=(9, 5))
             for model_name, group in horizon_metrics.groupby('model_name'):
@@ -696,7 +733,7 @@ def compare_models_on_series(
                 'model_outcomes': model_summaries,
             }
             diagnostics_path = target_dir / f'{series_id}_regime_diagnostics.json'
-            write_json(diagnostics_path, regime_payload)
+            write_json(diagnostics_path, _prune_generic_artifact_payload(regime_payload, verbosity_policy))
             artifact_manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
 
         stage_records = [
@@ -713,7 +750,7 @@ def compare_models_on_series(
                     **(_extract_forecasting_stage_payload(record.metadata) or {}),
                 }
             stage_path = target_dir / f'{series_id}_forecasting_stage_diagnostics.json'
-            write_json(stage_path, stage_payload)
+            write_json(stage_path, _prune_generic_artifact_payload(stage_payload, verbosity_policy))
             artifact_manifest.append(ArtifactRecord(kind='structured', path=str(stage_path), format='json'))
 
         hybrid_records = [
@@ -722,7 +759,7 @@ def compare_models_on_series(
         ]
         if hybrid_records:
             hybrid_payload = {
-                record.model_name: record.metadata
+                record.model_name: _prune_generic_artifact_payload(record.metadata, verbosity_policy)
                 for record in hybrid_records
             }
             hybrid_path = target_dir / f'{series_id}_hybrid_ensemble_diagnostics.json'
@@ -739,7 +776,11 @@ def compare_models_on_series(
                     'adapter_name': record.metadata.get('adapter_name'),
                     'model_adapter_family': record.metadata.get('model_adapter_family'),
                     'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
-                    **(_extract_stage_tuning_report(record.metadata) or {}),
+                    **(
+                        verbosity_policy.prune_stage_tuning_report(
+                            _extract_stage_tuning_report(record.metadata) or {}
+                        ) or {}
+                    ),
                 }
                 for record in stage_tuning_records
             }
@@ -750,11 +791,12 @@ def compare_models_on_series(
         okhs_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
-               and 'okhs' in record.model_name.lower()
+            and 'okhs' in record.model_name.lower()
         ]
         if okhs_records:
             diagnostics_payload = {
-                record.model_name: record.metadata for record in okhs_records
+                record.model_name: _prune_generic_artifact_payload(record.metadata, verbosity_policy)
+                for record in okhs_records
             }
             diagnostics_path = target_dir / f'{series_id}_okhs_diagnostics.json'
             write_json(diagnostics_path, diagnostics_payload)
@@ -773,7 +815,10 @@ def compare_models_on_series(
                 }
             if okhs_fdmd_stage_payload:
                 stage_diagnostics_path = target_dir / f'{series_id}_okhs_fdmd_stage_diagnostics.json'
-                write_json(stage_diagnostics_path, okhs_fdmd_stage_payload)
+                write_json(
+                    stage_diagnostics_path,
+                    _prune_generic_artifact_payload(okhs_fdmd_stage_payload, verbosity_policy),
+                )
                 artifact_manifest.append(
                     ArtifactRecord(kind='structured', path=str(stage_diagnostics_path), format='json')
                 )
@@ -821,11 +866,12 @@ def compare_models_on_series(
         havok_records = [
             record for record in result.run_records
             if record.series_id == series_id and record.status is RunStatus.SUCCESS
-               and 'havok' in record.model_name.lower()
+            and 'havok' in record.model_name.lower()
         ]
         if havok_records:
             diagnostics_payload = {
-                record.model_name: record.metadata for record in havok_records
+                record.model_name: _prune_generic_artifact_payload(record.metadata, verbosity_policy)
+                for record in havok_records
             }
             diagnostics_path = target_dir / f'{series_id}_havok_diagnostics.json'
             write_json(diagnostics_path, diagnostics_payload)
@@ -915,6 +961,7 @@ def render_publication_pack(
         result: ForecastingBenchmarkResult,
         output_dir: str | Path | None = None,
 ) -> tuple[ArtifactRecord, ...]:
+    verbosity_policy = _resolve_result_verbosity_policy(result)
     target_dir = ensure_directory(output_dir or Path(result.config.artifact_spec.output_dir) / result.run_id)
     aggregate_dir = ensure_directory(target_dir / 'aggregate')
     series_dir = ensure_directory(target_dir / 'series')
@@ -994,6 +1041,7 @@ def render_publication_pack(
         'status_counts': result.aggregate_report.status_counts,
         'dataset_specs': [to_plain_data(spec) for spec in result.config.datasets],
         'model_specs': [to_plain_data(spec) for spec in result.config.models],
+        'verbosity_policy': verbosity_policy.to_dict(),
     }
     write_json(metadata_path, metadata_payload)
     manifest.append(ArtifactRecord(kind='structured', path=str(metadata_path), format='json'))
@@ -1041,7 +1089,7 @@ def render_publication_pack(
 
         horizon_metrics = metrics_frame[
             (metrics_frame['metric_name'] == primary_metric) & (metrics_frame['horizon_index'].notna())
-            ].copy()
+        ].copy()
         if not horizon_metrics.empty:
             horizon_plot = (
                 horizon_metrics.groupby(['model_name', 'horizon_index'])['metric_value']
@@ -1111,7 +1159,7 @@ def render_publication_pack(
                     (metrics_frame['dataset_name'] == dataset_name)
                     & (metrics_frame['metric_name'] == metric_name)
                     & (metrics_frame['horizon_index'].notna())
-                    ].copy()
+                ].copy()
                 if not horizon_frame.empty:
                     horizon_summary = (
                         horizon_frame.groupby(['model_name', 'horizon_index'])['metric_value']
@@ -1147,7 +1195,7 @@ def render_publication_pack(
                     (baseline_rows['benchmark'] == okhs_row['benchmark'])
                     & (baseline_rows['dataset_name'] == okhs_row['dataset_name'])
                     & (baseline_rows['series_id'] == okhs_row['series_id'])
-                    ]
+                ]
                 for _, baseline_row in comparable.iterrows():
                     pairwise_rows.append(
                         {

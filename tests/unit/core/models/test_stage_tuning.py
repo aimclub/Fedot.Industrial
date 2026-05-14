@@ -1,14 +1,17 @@
-from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import (
-    LowRankLaggedRidgeForecasterImplementation,
-)
-from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.stage_tuning import (
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import \
+    HybridEnsembleForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     ForecastingStageName,
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
 )
+from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import \
+    LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import (
+    LowRankLaggedRidgeForecasterImplementation,
+)
+from fedot_ind.core.models.ts_forecasting.progress_policy import ForecastingProgressPolicy
 from fedot_ind.core.models.ts_forecasting.stage_tuning_execution import (
     build_forecasting_stage_tuning_execution,
     run_sequential_stage_tuning,
@@ -75,6 +78,8 @@ def test_build_stage_tuning_plan_for_mssa_and_havok_exposes_head_stage():
     assert havok_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert 'forcing_threshold_scale' in havok_plan.groups[-1].parameters
     assert 'head_policy' in havok_plan.groups[-1].parameters
+    assert 'head_activation' in havok_plan.groups[-1].parameters
+    assert 'head_depth' in havok_plan.groups[-1].parameters
 
 
 def test_build_stage_search_spaces_for_mssa_and_havok_include_head_parameters():
@@ -91,7 +96,8 @@ def test_build_stage_search_spaces_for_mssa_and_havok_include_head_parameters():
     assert 'head_policy' in mssa_spaces[-1].parameter_space
     assert 'head_epochs' in mssa_spaces[-1].parameter_space
     assert havok_spaces[-1].stage == ForecastingStageName.FORECAST_HEAD.value
-    assert 'head_hidden_layers' in havok_spaces[-1].parameter_space
+    assert 'head_activation' in havok_spaces[-1].parameter_space
+    assert 'head_depth' in havok_spaces[-1].parameter_space
     assert 'forcing_decay' in havok_spaces[-1].parameter_space
 
 
@@ -123,31 +129,41 @@ def test_build_stage_tuning_plan_for_hybrid_ensemble_exposes_branch_and_ensemble
 def test_build_stage_tuning_plan_for_neural_forecasters_marks_them_as_stage_citizens():
     patch_tst_plan = build_forecasting_stage_tuning_plan(
         'patch_tst_model',
-        {'patch_len': 16, 'epochs': 20},
+        {'patch_len': 16, 'activation': 'GELU'},
+    )
+    tst_plan = build_forecasting_stage_tuning_plan(
+        'tst_model',
+        {'activation': 'GELU', 'model_dim': 128},
     )
     tcn_plan = build_forecasting_stage_tuning_plan(
         'tcn_model',
-        {'patch_len': 16, 'kernel_size': 3, 'epochs': 20},
+        {'patch_len': 16, 'kernel_size': 3},
     )
     deepar_plan = build_forecasting_stage_tuning_plan(
         'deepar_model',
-        {'hidden_size': 32, 'epochs': 20},
+        {'patch_len': 16, 'hidden_size': 32},
     )
     nbeats_plan = build_forecasting_stage_tuning_plan(
         'nbeats_model',
-        {'n_stacks': 2, 'epochs': 20},
+        {'n_stacks': 2},
     )
 
     assert patch_tst_plan.family == 'neural_forecaster'
     assert patch_tst_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
     assert patch_tst_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert patch_tst_plan.groups[-1].parameters == ('activation',)
     assert patch_tst_plan.metadata['head_runtime'] == 'neural'
+    assert tst_plan.family == 'neural_forecaster'
+    assert len(tst_plan.groups) == 1
+    assert tst_plan.groups[0].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'model_dim' in tst_plan.groups[0].parameters
     assert tcn_plan.family == 'neural_forecaster'
     assert tcn_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
     assert tcn_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert deepar_plan.family == 'neural_forecaster'
-    assert len(deepar_plan.groups) == 1
-    assert deepar_plan.groups[0].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert len(deepar_plan.groups) == 2
+    assert deepar_plan.groups[0].stage == ForecastingStageName.TRAJECTORY.value
+    assert deepar_plan.groups[-1].stage == ForecastingStageName.FORECAST_HEAD.value
     assert nbeats_plan.family == 'neural_forecaster'
     assert len(nbeats_plan.groups) == 1
     assert nbeats_plan.groups[0].stage == ForecastingStageName.FORECAST_HEAD.value
@@ -170,29 +186,39 @@ def test_build_stage_search_spaces_filters_search_space_per_stage():
 def test_build_stage_search_spaces_supports_neural_forecasters():
     patch_spaces = build_forecasting_stage_search_spaces(
         'patch_tst_model',
-        {'patch_len': 16, 'epochs': 20},
+        {'patch_len': 16, 'activation': 'GELU'},
+    )
+    tst_spaces = build_forecasting_stage_search_spaces(
+        'tst_model',
+        {'activation': 'GELU', 'model_dim': 128},
     )
     tcn_spaces = build_forecasting_stage_search_spaces(
         'tcn_model',
-        {'patch_len': 16, 'epochs': 20, 'kernel_size': 3},
+        {'patch_len': 16, 'kernel_size': 3},
     )
     deepar_spaces = build_forecasting_stage_search_spaces(
         'deepar_model',
-        {'hidden_size': 32, 'epochs': 20},
+        {'patch_len': 16, 'hidden_size': 32},
     )
     nbeats_spaces = build_forecasting_stage_search_spaces(
         'nbeats_model',
-        {'n_stacks': 2, 'epochs': 20},
+        {'n_stacks': 2},
     )
 
     assert patch_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
     assert 'patch_len' in patch_spaces[0].parameter_space
     assert patch_spaces[1].stage == ForecastingStageName.FORECAST_HEAD.value
-    assert 'epochs' in patch_spaces[1].parameter_space
+    assert set(patch_spaces[1].parameter_space) == {'activation'}
+    assert len(tst_spaces) == 1
+    assert tst_spaces[0].stage == ForecastingStageName.FORECAST_HEAD.value
+    assert 'model_dim' in tst_spaces[0].parameter_space
+    assert 'n_layers' in tst_spaces[0].parameter_space
     assert tcn_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
     assert 'kernel_size' in tcn_spaces[1].parameter_space
-    assert len(deepar_spaces) == 1
-    assert 'hidden_size' in deepar_spaces[0].parameter_space
+    assert len(deepar_spaces) == 2
+    assert deepar_spaces[0].stage == ForecastingStageName.TRAJECTORY.value
+    assert 'patch_len' in deepar_spaces[0].parameter_space
+    assert 'hidden_size' in deepar_spaces[1].parameter_space
     assert len(nbeats_spaces) == 1
     assert 'n_stacks' in nbeats_spaces[0].parameter_space
 
@@ -278,6 +304,53 @@ def test_run_sequential_stage_tuning_optimizes_stage_by_stage():
     assert result.best_parameters['alpha'] == 2.0
     assert result.stage_history[0]['stage'] == ForecastingStageName.TRAJECTORY.value
     assert result.stage_history[-1]['stage'] == ForecastingStageName.FORECAST_HEAD.value
+
+
+def test_run_sequential_stage_tuning_uses_tqdm_progress(monkeypatch):
+    calls = []
+
+    def fake_tqdm(iterable=None, *args, **kwargs):
+        calls.append(kwargs.get('desc'))
+        return iterable
+
+    monkeypatch.setattr(
+        'fedot_ind.core.models.ts_forecasting.stage_tuning_execution.tqdm',
+        fake_tqdm,
+    )
+
+    run_sequential_stage_tuning(
+        'lagged_ridge_forecaster',
+        objective=lambda params: abs(params.get('window_size', 0) - 16) + abs(params.get('alpha', 0) - 1.0),
+        base_params={'window_size': 12, 'stride': 1, 'alpha': 2.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 16},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 1.0},
+        },
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+        show_progress=True,
+    )
+
+    assert calls
+    assert any(desc and 'Stage tuning:' in desc for desc in calls)
+
+
+def test_run_sequential_stage_tuning_preserves_progress_policy_metadata():
+    result = run_sequential_stage_tuning(
+        'lagged_ridge_forecaster',
+        objective=lambda params: abs(params.get('window_size', 0) - 16) + abs(params.get('alpha', 0) - 1.0),
+        base_params={'window_size': 12, 'stride': 1, 'alpha': 2.0},
+        stage_updates={
+            ForecastingStageName.TRAJECTORY.value: {'window_size': 16},
+            ForecastingStageName.FORECAST_HEAD.value: {'alpha': 1.0},
+        },
+        max_values_per_parameter=2,
+        max_stage_candidates=4,
+        progress_policy=ForecastingProgressPolicy(enabled=True, stage_tuning_enabled=True),
+    )
+
+    assert result.metadata['progress_policy']['enabled'] is True
+    assert result.metadata['progress_policy']['stage_tuning_enabled'] is True
 
 
 def test_implementation_publishes_run_stage_tuning_result():

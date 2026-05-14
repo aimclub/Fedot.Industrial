@@ -28,11 +28,9 @@ try:
 except Exception as exc:  # pragma: no cover - legacy-only fallback
     LEGACY_IMPORT_ERROR = exc
 
-
     class AbstractBenchmark:
         def __init__(self, output_dir=None):
             self.output_dir = output_dir
-
 
     class ResultsPicker:
         def __init__(self, path=None):
@@ -40,7 +38,6 @@ except Exception as exc:  # pragma: no cover - legacy-only fallback
 
         def run(self, *args, **kwargs):
             return pd.DataFrame()
-
 
     matplotlib = None
     PipelineNode = None

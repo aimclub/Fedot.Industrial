@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,9 +16,13 @@ except Exception:  # pragma: no cover
     torch = None
 
 from fedot_ind.core.models.kernel.okhs_common import OKHSMethod, QPolicy, canonical_method_name, normalize_okhs_method
-from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecaster
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecaster
-from fedot_ind.core.models.ts_forecasting.regime_diagnostics import analyze_regime_diagnostics
+from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecaster
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecaster
+from fedot_ind.core.models.ts_forecasting.progress_policy import (
+    ForecastingProgressPolicy,
+    resolve_forecasting_progress_policy,
+)
+from fedot_ind.core.models.ts_forecasting.regime_utils.regime_diagnostics import analyze_regime_diagnostics
 from fedot_ind.core.models.ts_forecasting.regime_routing import adapter_name_to_family, recommend_forecasting_model
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
@@ -30,11 +35,13 @@ try:  # pragma: no cover - DMD runtime may require torch stack
 except Exception:  # pragma: no cover
     DMDForecaster = None
 try:  # pragma: no cover - tensor-native composites require torch
-    from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecaster
-    from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecaster
-    from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import LowRankLaggedRidgeForecaster
-    from fedot_ind.core.models.ts_forecasting.neural_forecast_head import run_neural_forecast_head_on_series
-    from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import (
+    from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import HybridEnsembleForecaster
+    from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import LaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
+        LowRankLaggedRidgeForecaster
+    from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head import \
+        run_neural_forecast_head_on_series
+    from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import (
         OKHSFDMDForecaster,
         build_okhs_fdmd_spec,
         run_okhs_fdmd_forecaster_on_series,
@@ -75,7 +82,12 @@ from benchmark.v2.core import (
     TaskType,
     new_run_id,
 )
+from benchmark.v2.verbosity import (
+    ForecastingVerbosityPolicy,
+    resolve_forecasting_verbosity_policy,
+)
 from benchmark.v2.progress import BenchmarkProgressMonitor
+from benchmark.v2.incremental_persistence import ForecastingIncrementalPersistenceCoordinator
 
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -84,17 +96,21 @@ DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'f
 
 
 class BenchmarkConfigurationError(ValueError):
-    pass
+    """Raised when a forecasting benchmark configuration is invalid."""
 
 
 class ModelExecutionError(RuntimeError):
+    """Raised when a model run produces a benchmark-level failure status."""
+
     def __init__(self, status: RunStatus, message: str):
+        """Store the run status alongside the human-readable error message."""
         super().__init__(message)
         self.status = status
         self.message = message
 
 
 def validate_forecasting_suite_config(config: BenchmarkSuiteConfig) -> None:
+    """Validate that a suite config can be executed as a forecasting benchmark."""
     if config.task_type is not TaskType.FORECASTING:
         raise BenchmarkConfigurationError('Forecasting suite expects task_type=forecasting.')
     if not config.datasets:
@@ -155,20 +171,53 @@ def _resolve_stage_tuning_split_spec(raw: dict[str, Any] | None):
         kind = split_spec.get('kind')
         validation_horizon = split_spec.get('validation_horizon')
         min_train_length = split_spec.get('min_train_length')
+        n_splits = split_spec.get('n_splits')
+        test_size = split_spec.get('test_size')
+        gap = split_spec.get('gap', 0)
+        max_train_size = split_spec.get('max_train_size')
+        initial_window = split_spec.get('initial_window')
+        step_length = split_spec.get('step_length')
         if kind is not None and ForecastingSplitKind is not None:
             kind = ForecastingSplitKind(str(kind).lower())
         return ForecastingSplitSpec(
             kind=kind or ForecastingSplitSpec().kind,
             validation_horizon=validation_horizon,
             min_train_length=min_train_length,
+            n_splits=n_splits,
+            test_size=test_size,
+            gap=gap,
+            max_train_size=max_train_size,
+            initial_window=initial_window,
+            step_length=step_length,
         )
     validation_horizon = raw.get('validation_horizon')
     min_train_length = raw.get('min_train_length')
-    if validation_horizon is None and min_train_length is None:
+    n_splits = raw.get('n_splits')
+    test_size = raw.get('test_size')
+    gap = raw.get('gap')
+    max_train_size = raw.get('max_train_size')
+    initial_window = raw.get('initial_window')
+    step_length = raw.get('step_length')
+    if (
+            validation_horizon is None
+            and min_train_length is None
+            and n_splits is None
+            and test_size is None
+            and gap is None
+            and max_train_size is None
+            and initial_window is None
+            and step_length is None
+    ):
         return None
     return ForecastingSplitSpec(
         validation_horizon=validation_horizon,
         min_train_length=min_train_length,
+        n_splits=n_splits,
+        test_size=test_size,
+        gap=0 if gap is None else gap,
+        max_train_size=max_train_size,
+        initial_window=initial_window,
+        step_length=step_length,
     )
 
 
@@ -192,6 +241,16 @@ def _maybe_attach_stage_tuning_report(
     max_values_per_parameter = int(config.get('max_values_per_parameter', 3))
     max_stage_candidates = int(config.get('max_stage_candidates', 16))
     split_spec = _resolve_stage_tuning_split_spec(config)
+    progress_policy = config.get('progress_policy')
+    verbosity_policy = config.get('verbosity_policy')
+    resolved_verbosity_policy = (
+        verbosity_policy
+        if isinstance(verbosity_policy, ForecastingVerbosityPolicy)
+        else resolve_forecasting_verbosity_policy(
+            (verbosity_policy or {}).get('level') if isinstance(verbosity_policy, dict) else verbosity_policy,
+            options=verbosity_policy if isinstance(verbosity_policy, dict) else None,
+        )
+    )
 
     try:
         report = run_forecasting_stage_tuning_on_series(
@@ -205,9 +264,12 @@ def _maybe_attach_stage_tuning_report(
             seasonal_period=series_record.seasonal_period,
             max_values_per_parameter=max_values_per_parameter,
             max_stage_candidates=max_stage_candidates,
+            progress_policy=progress_policy,
         )
-        metadata['stage_tuning_report'] = report.to_dict()
-        metadata['stage_tuning_runtime'] = {
+        stage_tuning_report = resolved_verbosity_policy.prune_stage_tuning_report(report.to_dict())
+        if stage_tuning_report is not None:
+            metadata['stage_tuning_report'] = stage_tuning_report
+        stage_tuning_runtime = {
             'enabled': True,
             'metric_name': metric_name,
             'max_values_per_parameter': max_values_per_parameter,
@@ -215,7 +277,11 @@ def _maybe_attach_stage_tuning_report(
             'improved': report.metadata.get('improved'),
             'baseline_score': report.metadata.get('baseline_score'),
             'best_score': report.metadata.get('best_score'),
+            'progress_policy': resolve_forecasting_progress_policy(progress_policy).to_dict(),
         }
+        pruned_runtime = resolved_verbosity_policy.prune_stage_tuning_runtime(stage_tuning_runtime)
+        if pruned_runtime is not None:
+            metadata['stage_tuning_runtime'] = pruned_runtime
     except Exception as exc:  # pragma: no cover - benchmark should keep the main run alive
         metadata['stage_tuning_report_error'] = str(exc)
     return metadata
@@ -339,12 +405,16 @@ def _parse_sequence_records(
 
 
 class M4Adapter:
+    """Dataset adapter for loading M4 forecasting series."""
+
     benchmark_name = 'm4'
 
     def __init__(self, loader: Callable[[DatasetSpec], Any] | None = None):
+        """Store a custom or default M4 loader."""
         self.loader = loader or self._default_loader
 
     def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        """Load, normalize and optionally sample M4 series records."""
         subset = _normalize_subset_name(spec.subset)
         key = _infer_m4_key(subset)
         local_csv_dir = spec.adapter_options.get('local_csv_dir')
@@ -425,12 +495,16 @@ class M4Adapter:
 
 
 class MonashAdapter:
+    """Dataset adapter for loading Monash-style forecasting series."""
+
     benchmark_name = 'monash'
 
     def __init__(self, loader: Callable[[DatasetSpec], Any] | None = None):
+        """Store a custom or default Monash loader."""
         self.loader = loader or self._default_loader
 
     def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        """Load, normalize and optionally sample Monash series records."""
         local_csv_path = spec.adapter_options.get('local_csv_path')
         use_local_files = spec.adapter_options.get('use_local_files', False)
         if local_csv_path or use_local_files:
@@ -561,9 +635,12 @@ class MonashAdapter:
 
 
 class InMemoryForecastingAdapter:
+    """Dataset adapter backed by records provided directly in DatasetSpec."""
+
     benchmark_name = 'in_memory'
 
     def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        """Convert in-memory payload records into ForecastingSeriesRecord values."""
         payload = list(spec.adapter_options.get('records', ()))
         if not payload:
             raise BenchmarkConfigurationError('InMemory adapter requires adapter_options["records"].')
@@ -607,42 +684,54 @@ def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
 
 @dataclass
 class NaiveLastValueModel(ForecastingModelAdapter):
+    """Simple baseline that repeats the last observed value."""
+
     name: str = 'NaiveLastValue'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast by repeating the last train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'last_value'}
 
 
 @dataclass
 class NaiveMeanModel(ForecastingModelAdapter):
+    """Simple baseline that repeats the train mean."""
+
     name: str = 'NaiveMean'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast by repeating the mean train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         return np.full(series_record.forecast_horizon, np.mean(train), dtype=float), {'strategy': 'mean'}
 
 
 @dataclass
 class NaiveDriftModel(ForecastingModelAdapter):
+    """Simple baseline that extrapolates a linear end-to-end drift."""
+
     name: str = 'NaiveDrift'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast a drift line from first to last train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         if len(train) <= 1:
             return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'fallback'}
@@ -653,15 +742,19 @@ class NaiveDriftModel(ForecastingModelAdapter):
 
 @dataclass
 class MovingAverageModel(ForecastingModelAdapter):
+    """Simple baseline that repeats the trailing moving average."""
+
     window_size: int = 3
     name: str = 'MovingAverage'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Forecast by repeating the last-window mean."""
         train = np.asarray(series_record.train_values, dtype=float)
         window = min(max(self.window_size, 1), len(train))
         return np.full(series_record.forecast_horizon, np.mean(train[-window:]), dtype=float), {'window_size': window}
@@ -669,14 +762,18 @@ class MovingAverageModel(ForecastingModelAdapter):
 
 @dataclass
 class LinearTrendModel(ForecastingModelAdapter):
+    """Simple baseline that extrapolates a fitted linear trend."""
+
     name: str = 'LinearTrend'
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit a linear trend on train values and extrapolate the horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
         if len(train) <= 1:
             return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'constant'}
@@ -688,6 +785,8 @@ class LinearTrendModel(ForecastingModelAdapter):
 
 @dataclass
 class ClassicalDMDModel(ForecastingModelAdapter):
+    """Benchmark adapter for the classical DMD forecasting backend."""
+
     window_size: int = 12
     n_modes: int | None = None
     name: str = 'ClassicalDMD'
@@ -695,11 +794,13 @@ class ClassicalDMDModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the DMD runtime dependencies are available."""
         if DMDForecaster is None or not _safe_import('torch'):
             return RunStatus.NOT_AVAILABLE, 'torch is required for DMDForecaster.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit DMD on Hankel trajectories and return the forecast horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(max(self.window_size, series_record.forecast_horizon + 1), len(train) - 1)
         if window_size <= series_record.forecast_horizon:
@@ -722,6 +823,8 @@ class ClassicalDMDModel(ForecastingModelAdapter):
 
 @dataclass
 class OKHSModel(ForecastingModelAdapter):
+    """Benchmark adapter for the legacy OKHS forecasting backend."""
+
     method: str | OKHSMethod = OKHSMethod.DMD
     q: float = 0.7
     q_policy: str | QPolicy = QPolicy.FIXED
@@ -752,11 +855,13 @@ class OKHSModel(ForecastingModelAdapter):
     device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether OKHS runtime dependencies are available."""
         if OKHSForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for OKHS forecasting.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit OKHS on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(max(self.window_size, 4), len(train) - 1)
         if window_size < 2:
@@ -814,6 +919,8 @@ class OKHSModel(ForecastingModelAdapter):
 
 @dataclass
 class OKHSFDMDForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for the named OKHS fDMD forecaster."""
+
     q: float = 0.7
     n_modes: int = 5
     window_size: int = 20
@@ -847,6 +954,7 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
     device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the OKHS fDMD runtime is importable."""
         if (
                 OKHSFDMDForecaster is None
                 or build_okhs_fdmd_spec is None
@@ -856,6 +964,7 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Run OKHS fDMD on a benchmark series and attach stage diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         spec = build_okhs_fdmd_spec(
             forecast_horizon=series_record.forecast_horizon,
@@ -922,6 +1031,8 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
 
 @dataclass
 class MSSAModel(ForecastingModelAdapter):
+    """Benchmark adapter for the stage-aware MSSA forecaster."""
+
     window_size: int | None = None
     rank: int | None = None
     explained_variance: float = 0.95
@@ -932,16 +1043,19 @@ class MSSAModel(ForecastingModelAdapter):
     head_hidden_layers: int = 2
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
-    device: str = 'cpu'
+    device: str = 'auto'
+    progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'mSSA'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'mssa')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the local MSSA runtime."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit MSSA on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         model = MSSAForecaster(
             forecast_horizon=series_record.forecast_horizon,
@@ -956,6 +1070,7 @@ class MSSAModel(ForecastingModelAdapter):
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
@@ -976,30 +1091,46 @@ class MSSAModel(ForecastingModelAdapter):
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
-            runtime_config=self.stage_tuning_runtime,
+            runtime_config={
+                **dict(self.stage_tuning_runtime or {}),
+                **(
+                    {
+                        'progress_policy': dict(self.progress_policy or {})
+                        if isinstance(self.progress_policy, dict)
+                        else self.progress_policy,
+                    }
+                    if self.progress_policy is not None else {}
+                ),
+            },
         )
         return forecast[:series_record.forecast_horizon], metadata
 
 
 @dataclass
 class SSACompatModel(ForecastingModelAdapter):
+    """Benchmark adapter for the SSA compatibility wrapper."""
+
     window_size: int | None = None
     rank: int | None = None
     explained_variance: float = 0.95
     history_lookback: int = 0
+    progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'ssa_forecaster'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'ssa')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether FEDOT compatibility runtime is available."""
         if not _safe_import('fedot.core.data.data'):
             return RunStatus.NOT_AVAILABLE, 'fedot is required for ssa_forecaster compatibility wrapper.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
+        """Run the SSA compatibility wrapper and return forecast metadata."""
+        from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
 
         input_data = _build_fedot_forecasting_input(series_record)
         model = SSAForecasterImplementation(
@@ -1009,6 +1140,7 @@ class SSACompatModel(ForecastingModelAdapter):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': 'one_dimensional',
+                'progress_policy': self.progress_policy,
             }
         )
         model.fit(input_data)
@@ -1032,14 +1164,27 @@ class SSACompatModel(ForecastingModelAdapter):
                 'explained_variance': self.explained_variance,
                 'history_lookback': self.history_lookback,
                 'mode': 'one_dimensional',
+                'progress_policy': self.progress_policy,
             },
-            runtime_config=self.stage_tuning_runtime,
+            runtime_config={
+                **dict(self.stage_tuning_runtime or {}),
+                **(
+                    {
+                        'progress_policy': dict(self.progress_policy or {})
+                        if isinstance(self.progress_policy, dict)
+                        else self.progress_policy,
+                    }
+                    if self.progress_policy is not None else {}
+                ),
+            },
         )
         return forecast[:series_record.forecast_horizon], metadata
 
 
 @dataclass
 class LaggedForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for lagged_forecaster via lagged ridge runtime."""
+
     channel_model: str = 'ridge'
     window_size: int = 10
     stride: int = 1
@@ -1050,6 +1195,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether lagged ridge runtime and channel model are supported."""
         if LaggedRidgeForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for lagged_ridge_forecaster runtime.'
         if str(self.channel_model).lower() != 'ridge':
@@ -1060,6 +1206,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit lagged ridge on train values and return forecast plus diagnostics."""
         if str(self.channel_model).lower() != 'ridge':
             raise ModelExecutionError(
                 RunStatus.SKIPPED,
@@ -1101,6 +1248,8 @@ class LaggedForecasterModel(ForecastingModelAdapter):
 
 @dataclass
 class LowRankLaggedForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for low-rank lagged ridge forecasting."""
+
     window_size: int = 10
     stride: int = 1
     alpha: float = 1.0
@@ -1114,11 +1263,13 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the low-rank lagged runtime is available."""
         if LowRankLaggedRidgeForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for low_rank_lagged_ridge_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit low-rank lagged ridge and return forecast plus diagnostics."""
         model = LowRankLaggedRidgeForecaster(
             forecast_horizon=series_record.forecast_horizon,
             window_size_percent=self.window_size,
@@ -1160,6 +1311,8 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
 
 @dataclass
 class HybridEnsembleModel(ForecastingModelAdapter):
+    """Benchmark adapter for the named hybrid ensemble forecaster."""
+
     complex_branch: str = 'okhs'
     calibration_horizon: int | None = None
     lagged_params: dict[str, Any] = None
@@ -1171,11 +1324,13 @@ class HybridEnsembleModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the hybrid ensemble runtime is available."""
         if HybridEnsembleForecaster is None:
             return RunStatus.NOT_AVAILABLE, 'torch is required for hybrid_ensemble_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit all ensemble branches and return weighted forecast diagnostics."""
         model = HybridEnsembleForecaster(
             forecast_horizon=series_record.forecast_horizon,
             complex_branch=self.complex_branch,
@@ -1207,25 +1362,33 @@ class HybridEnsembleModel(ForecastingModelAdapter):
 
 @dataclass
 class HAVOKModel(ForecastingModelAdapter):
+    """Benchmark adapter for the stage-aware HAVOK forecaster."""
+
     window_size: int | None = None
     rank: int | None = None
     forcing_threshold_scale: float = 1.0
     forcing_decay: float = 0.85
     head_policy: str = 'mlp'
-    head_hidden_dim: int = 64
-    head_hidden_layers: int = 2
+    head_activation: str = 'relu'
+    head_depth: int = 2
+    head_base_hidden_dim: int = 512
+    head_hidden_dim: int | None = None
+    head_hidden_layers: int | None = None
     head_epochs: int = 120
     head_learning_rate: float = 1e-3
-    device: str = 'cpu'
+    device: str = 'auto'
+    progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'HAVOK'
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'havok')
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Return readiness for the local HAVOK runtime."""
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fit HAVOK on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         model = HAVOKForecaster(
             forecast_horizon=series_record.forecast_horizon,
@@ -1234,11 +1397,15 @@ class HAVOKModel(ForecastingModelAdapter):
             forcing_threshold_scale=self.forcing_threshold_scale,
             forcing_decay=self.forcing_decay,
             head_policy=self.head_policy,
+            head_activation=self.head_activation,
+            head_depth=self.head_depth,
+            head_base_hidden_dim=self.head_base_hidden_dim,
             head_hidden_dim=self.head_hidden_dim,
             head_hidden_layers=self.head_hidden_layers,
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
             device=self.device,
+            progress_policy=self.progress_policy,
         )
         model.fit(train)
         forecast = np.asarray(model.predict(train), dtype=float).reshape(-1)
@@ -1260,19 +1427,35 @@ class HAVOKModel(ForecastingModelAdapter):
                 'forcing_threshold_scale': self.forcing_threshold_scale,
                 'forcing_decay': self.forcing_decay,
                 'head_policy': self.head_policy,
+                'head_activation': self.head_activation,
+                'head_depth': self.head_depth,
+                'head_base_hidden_dim': self.head_base_hidden_dim,
                 'head_hidden_dim': self.head_hidden_dim,
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
                 'device': self.device,
+                'progress_policy': self.progress_policy,
             },
-            runtime_config=self.stage_tuning_runtime,
+            runtime_config={
+                **dict(self.stage_tuning_runtime or {}),
+                **(
+                    {
+                        'progress_policy': dict(self.progress_policy or {})
+                        if isinstance(self.progress_policy, dict)
+                        else self.progress_policy,
+                    }
+                    if self.progress_policy is not None else {}
+                ),
+            },
         )
         return forecast[:series_record.forecast_horizon], metadata
 
 
 @dataclass
 class NeuralForecastingHeadModel(ForecastingModelAdapter):
+    """Benchmark adapter for primitive neural forecasting heads."""
+
     neural_model_name: str = 'patch_tst_model'
     epochs: int | None = None
     batch_size: int | None = None
@@ -1281,6 +1464,10 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     patch_len: int | None = None
     forecast_mode: str | None = None
     use_amp: bool | None = None
+    model_dim: int | None = None
+    n_layers: int | None = None
+    number_heads: int | None = None
+    d_ff: int | None = None
     kernel_size: int | None = None
     num_filters: int | None = None
     num_layers: int | None = None
@@ -1303,11 +1490,13 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     optional: bool = False
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether torch and neural head runtime are available."""
         if torch is None or run_neural_forecast_head_on_series is None:
             return RunStatus.NOT_AVAILABLE, 'torch/native neural forecasting runtime is unavailable.'
         return RunStatus.SUCCESS, 'ready'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Run a neural forecasting head on train values and return diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         params = {
             key: value for key, value in self.__dict__.items()
@@ -1340,6 +1529,8 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
 
 @dataclass
 class OptionalExternalModel(ForecastingModelAdapter):
+    """Placeholder adapter for optional external forecasting backends."""
+
     dependency_name: str
     name: str
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'external')
@@ -1347,16 +1538,19 @@ class OptionalExternalModel(ForecastingModelAdapter):
     scaffold_reason: str = 'Adapter scaffold is registered but backend training is not wired yet.'
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether the optional external dependency can be imported."""
         if not _safe_import(self.dependency_name):
             return RunStatus.NOT_AVAILABLE, f'{self.dependency_name} is not installed.'
         return RunStatus.SUCCESS, 'dependency is available'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        """Raise a skipped execution status until the external backend is wired."""
         del series_record
         raise ModelExecutionError(RunStatus.SKIPPED, self.scaffold_reason)
 
 
 def build_dataset_adapter(spec: DatasetSpec):
+    """Create a dataset adapter for a forecasting dataset specification."""
     benchmark = spec.benchmark.lower()
     custom_loader = spec.adapter_options.get('loader')
     if benchmark == 'm4':
@@ -1368,54 +1562,55 @@ def build_dataset_adapter(spec: DatasetSpec):
     raise BenchmarkConfigurationError(f'Unsupported forecasting benchmark adapter: {spec.benchmark}')
 
 
+def _instantiate_model_adapter(adapter_cls, spec: ModelSpec, default_tags: tuple[str, ...]):
+    accepted_parameters = set(inspect.signature(adapter_cls).parameters)
+    filtered_params = {
+        key: value
+        for key, value in dict(spec.params).items()
+        if key in accepted_parameters
+    }
+    return adapter_cls(
+        name=spec.display_name,
+        tags=spec.tags or default_tags,
+        **filtered_params,
+    )
+
+
 def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
+    """Create a forecasting model adapter from a benchmark model spec."""
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_forecasting_model_name(raw_adapter_name)
-    params = dict(spec.params)
+    dict(spec.params)
     if raw_adapter_name == 'okhs':
-        return OKHSModel(name=spec.display_name, tags=spec.tags or ('okhs', 'forecasting'), **params)
+        return _instantiate_model_adapter(OKHSModel, spec, ('okhs', 'forecasting'))
     if adapter_name == 'okhs_fdmd_forecaster':
-        return OKHSFDMDForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('okhs', 'forecasting', 'operator_model'),
-            **params,
-        )
+        return _instantiate_model_adapter(OKHSFDMDForecasterModel, spec, ('okhs', 'forecasting', 'operator_model'))
     if adapter_name == 'ssa_forecaster':
-        return SSACompatModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'ssa'), **params)
+        return _instantiate_model_adapter(SSACompatModel, spec, ('baseline', 'forecasting', 'ssa'))
     if adapter_name == 'lagged_forecaster':
-        return LaggedForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'lagged_linear'),
-            **params,
-        )
+        return _instantiate_model_adapter(LaggedForecasterModel, spec, ('baseline', 'forecasting', 'lagged_linear'))
     if adapter_name == 'lagged_ridge_forecaster':
-        return LaggedForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'lagged_linear'),
-            **params,
-        )
+        return _instantiate_model_adapter(LaggedForecasterModel, spec, ('baseline', 'forecasting', 'lagged_linear'))
     if adapter_name == 'low_rank_lagged_ridge_forecaster':
-        return LowRankLaggedForecasterModel(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'low_rank_linear'),
-            **params,
-        )
+        return _instantiate_model_adapter(LowRankLaggedForecasterModel, spec,
+                                          ('baseline', 'forecasting', 'low_rank_linear'))
     if adapter_name == 'hybrid_ensemble_forecaster':
-        return HybridEnsembleModel(
-            name=spec.display_name,
-            tags=spec.tags or ('ensemble', 'forecasting', 'operator_model'),
-            **params,
-        )
+        return _instantiate_model_adapter(HybridEnsembleModel, spec, ('ensemble', 'forecasting', 'operator_model'))
     if adapter_name in {'mssa', 'mssa_forecaster'}:
-        return MSSAModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'mssa'), **params)
+        return _instantiate_model_adapter(MSSAModel, spec, ('baseline', 'forecasting', 'mssa'))
     if adapter_name in {'havok', 'havok_forecaster'}:
-        return HAVOKModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'havok'), **params)
-    if adapter_name in {'patch_tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+        return _instantiate_model_adapter(HAVOKModel, spec, ('baseline', 'forecasting', 'havok'))
+    if adapter_name in {'patch_tst_model', 'tst_model', 'tcn_model', 'deepar_model', 'nbeats_model'}:
+        filtered_params = {
+            key: value
+            for key, value in dict(spec.params).items()
+            if key in set(inspect.signature(NeuralForecastingHeadModel).parameters)
+        }
         return NeuralForecastingHeadModel(
             neural_model_name=adapter_name,
             name=spec.display_name,
             tags=spec.tags or ('baseline', 'forecasting', 'neural_forecaster'),
-            **params,
+            **filtered_params,
         )
     if adapter_name == 'naive_last_value':
         return NaiveLastValueModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
@@ -1424,11 +1619,11 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     if adapter_name == 'naive_drift':
         return NaiveDriftModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'moving_average':
-        return MovingAverageModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'), **params)
+        return _instantiate_model_adapter(MovingAverageModel, spec, ('baseline', 'forecasting'))
     if adapter_name == 'linear_trend':
         return LinearTrendModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'classical_dmd':
-        return ClassicalDMDModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting', 'dmd'), **params)
+        return _instantiate_model_adapter(ClassicalDMDModel, spec, ('baseline', 'forecasting', 'dmd'))
     if adapter_name == 'autogluon':
         return OptionalExternalModel(
             dependency_name='autogluon',
@@ -1472,6 +1667,7 @@ def compute_forecasting_metric(
         y_train: np.ndarray,
         seasonal_period: int,
 ) -> float:
+    """Compute an aggregate forecasting metric for one horizon vector."""
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     train = np.asarray(y_train, dtype=float).reshape(-1)
@@ -1506,6 +1702,7 @@ def compute_pointwise_metric(
         y_train: np.ndarray,
         seasonal_period: int,
 ) -> np.ndarray:
+    """Compute horizon-wise metric values for publication artifacts."""
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     if metric_name == 'mae':
@@ -1583,220 +1780,21 @@ def _append_event_interval_metrics(
     return event_metrics
 
 
-def build_leaderboard(
-        run_records: tuple[BenchmarkRunRecord, ...],
-        primary_metric: str,
-) -> BenchmarkAggregateReport:
-    successful = [record for record in run_records if record.status is RunStatus.SUCCESS]
-    grouped: dict[tuple[str, str, str], list[float]] = {}
-    for record in successful:
-        metric_value = record.metrics_summary.get(primary_metric)
-        if metric_value is None:
-            continue
-        grouped.setdefault((record.benchmark, record.dataset_name, record.model_name), []).append(metric_value)
+@dataclass
+class ForecastingSeriesArtifactsRecorder:
+    """Collect per-series metric and prediction artifacts during a run."""
 
-    leaderboard_rows = []
-    for (benchmark, dataset_name, model_name), values in grouped.items():
-        leaderboard_rows.append(
-            {
-                'benchmark': benchmark,
-                'dataset_name': dataset_name,
-                'model_name': model_name,
-                primary_metric: float(np.mean(values)),
-                'n_series': len(values),
-            }
-        )
+    run_id: str
+    metric_names: tuple[str, ...]
+    metric_records: list[MetricRecord]
+    prediction_records: list[PredictionRecord]
 
-    leaderboard_rows = sorted(leaderboard_rows, key=lambda row: row[primary_metric])
-    for rank, row in enumerate(leaderboard_rows, start=1):
-        row['rank'] = rank
-
-    status_counts: dict[str, int] = {}
-    for record in run_records:
-        status_counts[record.status.value] = status_counts.get(record.status.value, 0) + 1
-
-    run_id = run_records[0].run_id if run_records else new_run_id('empty')
-    return BenchmarkAggregateReport(
-        run_id=run_id,
-        task_type=TaskType.FORECASTING,
-        primary_metric=primary_metric,
-        leaderboard_rows=tuple(leaderboard_rows),
-        status_counts=status_counts,
-    )
-
-
-class ForecastingSuiteRunner:
-    def __init__(self, config: BenchmarkSuiteConfig):
-        validate_forecasting_suite_config(config)
-        self.config = config
-        self.run_id = new_run_id(config.run_spec.run_name)
-        self.series_records: list[ForecastingSeriesRecord] = []
-        self.run_records: list[BenchmarkRunRecord] = []
-        self.prediction_records: list[PredictionRecord] = []
-        self.metric_records: list[MetricRecord] = []
-        self.progress = BenchmarkProgressMonitor(
-            enabled=config.run_spec.show_progress,
-            task_type=config.task_type.value,
-            run_name=config.run_spec.run_name,
-            leave=config.run_spec.progress_leave,
-            log_errors=config.run_spec.progress_log_errors,
-            log_summaries=config.run_spec.progress_log_summaries,
-        )
-
-    def run_suite(self) -> ForecastingBenchmarkResult:
-        try:
-            self._iter_over_datasets()
-        finally:
-            self.progress.close()
-
-        aggregate_report = build_leaderboard(
-            tuple(self.run_records),
-            primary_metric=self.config.run_spec.primary_metric,
-        )
-        return ForecastingBenchmarkResult(
-            run_id=self.run_id,
-            config=self.config,
-            series_records=tuple(self.series_records),
-            run_records=tuple(self.run_records),
-            prediction_records=tuple(self.prediction_records),
-            metric_records=tuple(self.metric_records),
-            aggregate_report=aggregate_report,
-        )
-
-    def _iter_over_datasets(self) -> None:
-        for dataset_spec in self.config.datasets:
-            dataset_series = self._load_dataset_series(dataset_spec)
-            self._iter_over_models(dataset_spec, dataset_series)
-            self.progress.dataset_finished()
-
-    def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
-        dataset_adapter = build_dataset_adapter(dataset_spec)
-        dataset_series = dataset_adapter.load_series(dataset_spec)
-        self.series_records.extend(dataset_series)
-        self.progress.extend_total(len(dataset_series) * len(self.config.models))
-        self.progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
-        return dataset_series
-
-    def _iter_over_models(
-            self,
-            dataset_spec: DatasetSpec,
-            dataset_series: tuple[ForecastingSeriesRecord, ...],
-    ) -> None:
-        for model_spec in self.config.models:
-            model = build_model_adapter(model_spec)
-            self.progress.model_started(dataset_spec.dataset_name, model.name)
-            try:
-                availability_status, availability_message = model.availability()
-                if availability_status is not RunStatus.SUCCESS:
-                    self._handle_unavailable_model(
-                        model_spec=model_spec,
-                        model=model,
-                        dataset_series=dataset_series,
-                        availability_status=availability_status,
-                        availability_message=availability_message,
-                    )
-                    continue
-                self._iter_over_series(model_spec, model, dataset_series)
-            finally:
-                self.progress.model_finished()
-
-    def _iter_over_series(
-            self,
-            model_spec: ModelSpec,
-            model: ForecastingModelAdapter,
-            dataset_series: tuple[ForecastingSeriesRecord, ...],
-    ) -> None:
-        for series_record in dataset_series:
-            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
-            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
-            try:
-                self._evaluate_series(model_spec, model, series_record, regime_diagnostics, routing_recommendation)
-                self.progress.advance(RunStatus.SUCCESS.value)
-            except ModelExecutionError as exc:
-                self._append_failed_run_record(
-                    model_spec=model_spec,
-                    model=model,
-                    series_record=series_record,
-                    status=exc.status,
-                    message=exc.message,
-                    regime_diagnostics=regime_diagnostics,
-                    routing_recommendation=routing_recommendation,
-                )
-                self.progress.advance(exc.status.value, exc.message)
-            except Exception as exc:
-                self._append_failed_run_record(
-                    model_spec=model_spec,
-                    model=model,
-                    series_record=series_record,
-                    status=RunStatus.FAILED,
-                    message=str(exc),
-                    regime_diagnostics=regime_diagnostics,
-                    routing_recommendation=routing_recommendation,
-                )
-                self.progress.advance(RunStatus.FAILED.value, str(exc))
-
-    def _handle_unavailable_model(
-            self,
-            *,
-            model_spec: ModelSpec,
-            model: ForecastingModelAdapter,
-            dataset_series: tuple[ForecastingSeriesRecord, ...],
-            availability_status: RunStatus,
-            availability_message: str,
-    ) -> None:
-        for series_record in dataset_series:
-            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
-            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
-            self.run_records.append(
-                BenchmarkRunRecord(
-                    run_id=self.run_id,
-                    benchmark=series_record.benchmark,
-                    dataset_name=series_record.dataset_name,
-                    subset=series_record.subset,
-                    series_id=series_record.series_id,
-                    model_name=model.name,
-                    status=availability_status,
-                    tags=model.tags,
-                    message=availability_message,
-                    metadata=self._build_common_metadata(
-                        model_spec=model_spec,
-                        model=model,
-                        regime_diagnostics=regime_diagnostics,
-                        routing_recommendation=routing_recommendation,
-                        extra={'optional': model.optional},
-                    ),
-                )
-            )
-            self.progress.advance(availability_status.value, availability_message)
-
-    def _build_series_context(self, series_record: ForecastingSeriesRecord):
-        regime_diagnostics = analyze_regime_diagnostics(np.asarray(series_record.train_values, dtype=float))
-        routing_recommendation = recommend_forecasting_model(regime_diagnostics)
-        return regime_diagnostics, routing_recommendation
-
-    def _build_common_metadata(
-            self,
-            *,
-            model_spec: ModelSpec,
-            model: ForecastingModelAdapter,
-            regime_diagnostics,
-            routing_recommendation,
-            extra: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return {
-            'adapter_name': model_spec.adapter_name,
-            'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
-            'regime_diagnostics': regime_diagnostics.to_dict(),
-            'routing_recommendation': routing_recommendation.to_dict(),
-            'routing_recommendation_family': adapter_name_to_family(routing_recommendation.primary_adapter),
-            **dict(extra or {}),
-        }
-
-    def _validate_forecast_length(
+    def validate_forecast_length(
             self,
             series_record: ForecastingSeriesRecord,
             prediction: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Validate model forecast length and return aligned actual/forecast arrays."""
         actual = np.asarray(series_record.test_values, dtype=float)
         forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
         if len(forecast) != len(actual):
@@ -1806,7 +1804,7 @@ class ForecastingSuiteRunner:
             )
         return actual, forecast
 
-    def _record_metric_bundle(
+    def record_metric_bundle(
             self,
             *,
             series_record: ForecastingSeriesRecord,
@@ -1816,9 +1814,10 @@ class ForecastingSuiteRunner:
             metadata: dict[str, Any],
             metric_name_suffix: str = '',
     ) -> tuple[dict[str, float], dict[str, float]]:
+        """Record aggregate, horizon-wise and event-aware metric rows."""
         metrics_summary: dict[str, float] = {}
         train = np.asarray(series_record.train_values, dtype=float)
-        for metric_name in self.config.metrics:
+        for metric_name in self.metric_names:
             metric_value = compute_forecasting_metric(
                 metric_name,
                 actual,
@@ -1876,7 +1875,7 @@ class ForecastingSuiteRunner:
         metrics_summary.update({key: value for key, value in event_metrics.items() if key.startswith('mae_')})
         return metrics_summary, event_metrics
 
-    def _record_predictions(
+    def record_predictions(
             self,
             *,
             series_record: ForecastingSeriesRecord,
@@ -1884,6 +1883,7 @@ class ForecastingSuiteRunner:
             actual: np.ndarray,
             forecast: np.ndarray,
     ) -> None:
+        """Append per-horizon prediction records for one series/model item."""
         for horizon_index, (actual_value, forecast_value) in enumerate(zip(actual, forecast), start=1):
             self.prediction_records.append(
                 PredictionRecord(
@@ -1900,6 +1900,15 @@ class ForecastingSuiteRunner:
                 )
             )
 
+
+@dataclass
+class ForecastingPostFitTuningCoordinator:
+    """Run mandatory post-fit stage tuning and compare tuned vs baseline metrics."""
+
+    config: BenchmarkSuiteConfig
+    verbosity_policy: ForecastingVerbosityPolicy
+    artifacts_recorder: ForecastingSeriesArtifactsRecorder
+
     def _build_tuned_model_spec(self, model_spec: ModelSpec, best_parameters: dict[str, Any]) -> ModelSpec:
         tuned_params = {
             **dict(model_spec.params),
@@ -1914,23 +1923,53 @@ class ForecastingSuiteRunner:
             params=tuned_params,
         )
 
-    def _resolve_post_fit_tuning_runtime_config(
+    def _resolve_runtime_config(
             self,
             model_spec: ModelSpec,
             baseline_metadata: dict[str, Any],
     ) -> dict[str, Any]:
         raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
         metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
+        raw_progress_policy = raw_config.get('progress_policy', metadata_runtime.get('progress_policy'))
+        raw_verbosity_policy = raw_config.get('verbosity_policy', self.verbosity_policy.to_dict())
+        if raw_progress_policy is None:
+            resolved_progress_policy = resolve_forecasting_progress_policy(
+                None,
+                show_progress=self.config.run_spec.show_progress,
+            )
+        else:
+            resolved_progress_policy = resolve_forecasting_progress_policy(raw_progress_policy)
+        resolved_verbosity_policy = (
+            raw_verbosity_policy
+            if isinstance(raw_verbosity_policy, ForecastingVerbosityPolicy)
+            else resolve_forecasting_verbosity_policy(
+                (raw_verbosity_policy or {}).get('level') if isinstance(raw_verbosity_policy, dict)
+                else raw_verbosity_policy,
+                options=raw_verbosity_policy if isinstance(raw_verbosity_policy, dict) else None,
+            )
+        )
         return {
-            'metric_name': str(raw_config.get('metric_name', metadata_runtime.get('metric_name',
-                                                                                  self.config.run_spec.primary_metric))),
+            'metric_name': str(
+                raw_config.get(
+                    'metric_name',
+                    metadata_runtime.get(
+                        'metric_name',
+                        self.config.run_spec.primary_metric))),
             'stage_updates': raw_config.get('stage_updates'),
-            'max_values_per_parameter': int(raw_config.get('max_values_per_parameter', 3)),
-            'max_stage_candidates': int(raw_config.get('max_stage_candidates', 16)),
+            'max_values_per_parameter': int(
+                raw_config.get(
+                    'max_values_per_parameter',
+                    3)),
+            'max_stage_candidates': int(
+                raw_config.get(
+                    'max_stage_candidates',
+                    16)),
             'split_spec': _resolve_stage_tuning_split_spec(raw_config),
+            'progress_policy': resolved_progress_policy,
+            'verbosity_policy': resolved_verbosity_policy,
         }
 
-    def _maybe_run_post_fit_tuning_comparison(
+    def run(
             self,
             *,
             model_spec: ModelSpec,
@@ -1941,7 +1980,8 @@ class ForecastingSuiteRunner:
             regime_diagnostics,
             routing_recommendation,
     ) -> dict[str, Any]:
-        runtime_config = self._resolve_post_fit_tuning_runtime_config(model_spec, baseline_metadata)
+        """Execute stage tuning after baseline validation and return enriched metadata."""
+        runtime_config = self._resolve_runtime_config(model_spec, baseline_metadata)
         if run_forecasting_stage_tuning_on_series is None:
             return {
                 **baseline_metadata,
@@ -1964,14 +2004,16 @@ class ForecastingSuiteRunner:
                 seasonal_period=series_record.seasonal_period,
                 max_values_per_parameter=int(runtime_config['max_values_per_parameter']),
                 max_stage_candidates=int(runtime_config['max_stage_candidates']),
+                progress_policy=runtime_config.get('progress_policy'),
             )
-            report_dict = report.to_dict()
+            verbosity_policy = runtime_config.get('verbosity_policy', self.verbosity_policy)
+            report_dict = verbosity_policy.prune_stage_tuning_report(report.to_dict()) or {}
             sequential_result = dict(report_dict.get('sequential_result') or {})
             best_parameters = dict(sequential_result.get('best_parameters') or {})
             enriched_baseline_metadata = {
                 **baseline_metadata,
                 'stage_tuning_report': report_dict,
-                'stage_tuning_runtime': {
+                'stage_tuning_runtime': verbosity_policy.prune_stage_tuning_runtime({
                     'enabled': True,
                     'metric_name': str(runtime_config['metric_name']),
                     'max_values_per_parameter': int(runtime_config['max_values_per_parameter']),
@@ -1979,7 +2021,11 @@ class ForecastingSuiteRunner:
                     'improved': report.metadata.get('improved'),
                     'baseline_score': report.metadata.get('baseline_score'),
                     'best_score': report.metadata.get('best_score'),
-                },
+                    'progress_policy': resolve_forecasting_progress_policy(
+                        runtime_config.get('progress_policy'),
+                        show_progress=self.config.run_spec.show_progress,
+                    ).to_dict(),
+                }) or {},
             }
             if not best_parameters:
                 return enriched_baseline_metadata
@@ -1994,8 +2040,8 @@ class ForecastingSuiteRunner:
                 }
 
             tuned_prediction, tuned_metadata = tuned_model.forecast(series_record)
-            actual, tuned_forecast = self._validate_forecast_length(series_record, tuned_prediction)
-            tuned_metrics_summary, tuned_event_metrics = self._record_metric_bundle(
+            actual, tuned_forecast = self.artifacts_recorder.validate_forecast_length(series_record, tuned_prediction)
+            tuned_metrics_summary, tuned_event_metrics = self.artifacts_recorder.record_metric_bundle(
                 series_record=series_record,
                 model_name=model.name,
                 actual=actual,
@@ -2006,9 +2052,8 @@ class ForecastingSuiteRunner:
             tuned_metrics_summary.update(
                 {key: value for key, value in tuned_event_metrics.items() if key.startswith('mae_')}
             )
-            return {
-                **enriched_baseline_metadata,
-                'stage_tuning_comparison': {
+            comparison_payload = verbosity_policy.prune_stage_tuning_comparison(
+                {
                     'best_parameters': best_parameters,
                     'baseline_metrics': baseline_metrics_summary,
                     'tuned_metrics': tuned_metrics_summary,
@@ -2030,13 +2075,441 @@ class ForecastingSuiteRunner:
                     'tuned_adapter_family': adapter_name_to_family(tuned_model_spec.adapter_name),
                     'regime_diagnostics': regime_diagnostics.to_dict(),
                     'routing_recommendation': routing_recommendation.to_dict(),
-                },
+                }
+            )
+            return {
+                **enriched_baseline_metadata,
+                **({'stage_tuning_comparison': comparison_payload} if comparison_payload is not None else {}),
             }
         except Exception as exc:
             return {
                 **baseline_metadata,
                 'stage_tuning_comparison_error': str(exc),
             }
+
+
+def build_leaderboard(
+        run_records: tuple[BenchmarkRunRecord, ...],
+        primary_metric: str,
+) -> BenchmarkAggregateReport:
+    """Aggregate successful run records into a benchmark leaderboard."""
+    successful = [record for record in run_records if record.status is RunStatus.SUCCESS]
+    grouped: dict[tuple[str, str, str], list[float]] = {}
+    for record in successful:
+        metric_value = record.metrics_summary.get(primary_metric)
+        if metric_value is None:
+            continue
+        grouped.setdefault((record.benchmark, record.dataset_name, record.model_name), []).append(metric_value)
+
+    leaderboard_rows = []
+    for (benchmark, dataset_name, model_name), values in grouped.items():
+        leaderboard_rows.append(
+            {
+                'benchmark': benchmark,
+                'dataset_name': dataset_name,
+                'model_name': model_name,
+                primary_metric: float(np.mean(values)),
+                'n_series': len(values),
+            }
+        )
+
+    leaderboard_rows = sorted(leaderboard_rows, key=lambda row: row[primary_metric])
+    for rank, row in enumerate(leaderboard_rows, start=1):
+        row['rank'] = rank
+
+    status_counts: dict[str, int] = {}
+    for record in run_records:
+        status_counts[record.status.value] = status_counts.get(record.status.value, 0) + 1
+
+    run_id = run_records[0].run_id if run_records else new_run_id('empty')
+    return BenchmarkAggregateReport(
+        run_id=run_id,
+        task_type=TaskType.FORECASTING,
+        primary_metric=primary_metric,
+        leaderboard_rows=tuple(leaderboard_rows),
+        status_counts=status_counts,
+    )
+
+
+class ForecastingSuiteRunner:
+    """Orchestrate forecasting benchmark datasets, models, series and artifacts."""
+
+    def __init__(self, config: BenchmarkSuiteConfig):
+        """Initialize benchmark state, progress, verbosity and resume coordinators."""
+        validate_forecasting_suite_config(config)
+        self.config = config
+        self.run_id = (
+            ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
+            or new_run_id(config.run_spec.run_name)
+        )
+        self.series_records: list[ForecastingSeriesRecord] = []
+        self.run_records: list[BenchmarkRunRecord] = []
+        self.prediction_records: list[PredictionRecord] = []
+        self.metric_records: list[MetricRecord] = []
+        self.known_series_keys: set[tuple[str, str, str, str]] = set()
+        self.resumed_item_keys: set[str] = set()
+        self.progress_policy = resolve_forecasting_progress_policy(
+            ForecastingProgressPolicy(
+                enabled=bool(config.run_spec.show_progress),
+                leave=bool(config.run_spec.progress_leave),
+                stage_tuning_enabled=bool(config.run_spec.show_progress),
+                head_training_enabled=bool(config.run_spec.show_progress),
+            ),
+            show_progress=config.run_spec.show_progress,
+        )
+        self.verbosity_policy = resolve_forecasting_verbosity_policy(
+            config.run_spec.verbosity,
+            options=config.run_spec.verbosity_options,
+        )
+        self.artifacts_recorder = ForecastingSeriesArtifactsRecorder(
+            run_id=self.run_id,
+            metric_names=tuple(self.config.metrics),
+            metric_records=self.metric_records,
+            prediction_records=self.prediction_records,
+        )
+        self.post_fit_tuning = ForecastingPostFitTuningCoordinator(
+            config=self.config,
+            verbosity_policy=self.verbosity_policy,
+            artifacts_recorder=self.artifacts_recorder,
+        )
+        self.progress = BenchmarkProgressMonitor(
+            enabled=config.run_spec.show_progress,
+            task_type=config.task_type.value,
+            run_name=config.run_spec.run_name,
+            leave=config.run_spec.progress_leave,
+            log_errors=config.run_spec.progress_log_errors,
+            log_summaries=config.run_spec.progress_log_summaries,
+        )
+        self.incremental_persistence = ForecastingIncrementalPersistenceCoordinator(
+            config=self.config,
+            run_id=self.run_id,
+        )
+        self._load_resume_state()
+
+    def _series_key(self, series_record: ForecastingSeriesRecord) -> tuple[str, str, str, str]:
+        return (
+            str(series_record.benchmark),
+            str(series_record.dataset_name),
+            str(series_record.subset),
+            str(series_record.series_id),
+        )
+
+    def _load_resume_state(self) -> None:
+        resume_state = self.incremental_persistence.load_resume_state()
+        if resume_state is None:
+            return
+        self.series_records = list(resume_state.series_records)
+        self.run_records = list(resume_state.run_records)
+        self.metric_records = list(resume_state.metric_records)
+        self.prediction_records = list(resume_state.prediction_records)
+        self.known_series_keys = {self._series_key(record) for record in self.series_records}
+        self.resumed_item_keys = set(resume_state.item_artifact_paths)
+        self.progress.seed_resume_state(
+            completed_items=resume_state.completed_items,
+            status_counts=resume_state.status_counts,
+        )
+
+    def _augment_model_spec_with_progress_policy(self, model_spec: ModelSpec) -> ModelSpec:
+        params = dict(model_spec.params)
+        params.setdefault('progress_policy', self.progress_policy.to_dict())
+        if isinstance(params.get('stage_tuning_runtime'), dict):
+            params['stage_tuning_runtime'] = {
+                **dict(params['stage_tuning_runtime']),
+                'verbosity_policy': dict(
+                    params['stage_tuning_runtime'].get('verbosity_policy', self.verbosity_policy.to_dict())
+                ),
+            }
+        return ModelSpec(
+            adapter_name=model_spec.adapter_name,
+            display_name=model_spec.display_name,
+            tags=model_spec.tags,
+            optional=model_spec.optional,
+            params=params,
+        )
+
+    def _runner_context_metadata(self) -> dict[str, Any]:
+        if not self.verbosity_policy.include_runner_context:
+            return {}
+        return {
+            'benchmark_runtime_context': {
+                'progress_policy': self.progress_policy.to_dict(),
+                'verbosity_policy': self.verbosity_policy.to_dict(),
+            }
+        }
+
+    def run_suite(self) -> ForecastingBenchmarkResult:
+        """Run the configured forecasting suite and return all collected records."""
+        try:
+            self._iter_over_datasets()
+        finally:
+            self.progress.close()
+
+        aggregate_report = build_leaderboard(
+            tuple(self.run_records),
+            primary_metric=self.config.run_spec.primary_metric,
+        )
+        return ForecastingBenchmarkResult(
+            run_id=self.run_id,
+            config=self.config,
+            series_records=tuple(self.series_records),
+            run_records=tuple(self.run_records),
+            prediction_records=tuple(self.prediction_records),
+            metric_records=tuple(self.metric_records),
+            aggregate_report=aggregate_report,
+            artifact_manifest=self.incremental_persistence.build_artifact_manifest(),
+        )
+
+    def _iter_over_datasets(self) -> None:
+        for dataset_spec in self.config.datasets:
+            dataset_series = self._load_dataset_series(dataset_spec)
+            self._iter_over_models(dataset_spec, dataset_series)
+            self.progress.dataset_finished()
+
+    def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+        dataset_adapter = build_dataset_adapter(dataset_spec)
+        dataset_series = dataset_adapter.load_series(dataset_spec)
+        for record in dataset_series:
+            record_key = self._series_key(record)
+            if record_key not in self.known_series_keys:
+                self.series_records.append(record)
+                self.known_series_keys.add(record_key)
+        # self.incremental_persistence.persist_series_catalog(self.series_records)
+        self.progress.extend_total(len(dataset_series) * len(self.config.models))
+        self.progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
+        return dataset_series
+
+    def _iter_over_models(
+            self,
+            dataset_spec: DatasetSpec,
+            dataset_series: tuple[ForecastingSeriesRecord, ...],
+    ) -> None:
+        for model_spec in self.config.models:
+            resolved_model_spec = self._augment_model_spec_with_progress_policy(model_spec)
+            model = build_model_adapter(resolved_model_spec)
+            self.progress.model_started(dataset_spec.dataset_name, model.name)
+            try:
+                availability_status, availability_message = model.availability()
+                if availability_status is not RunStatus.SUCCESS:
+                    self._handle_unavailable_model(
+                        model_spec=resolved_model_spec,
+                        model=model,
+                        dataset_series=dataset_series,
+                        availability_status=availability_status,
+                        availability_message=availability_message,
+                    )
+                    continue
+                self._iter_over_series(resolved_model_spec, model, dataset_series)
+            finally:
+                self.progress.model_finished()
+
+    def _iter_over_series(
+            self,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            dataset_series: tuple[ForecastingSeriesRecord, ...],
+    ) -> None:
+        for series_record in dataset_series:
+            item_key = self.incremental_persistence.item_key(series_record, model.name)
+            if item_key in self.resumed_item_keys:
+                existing_record = next(
+                    (
+                        record for record in self.run_records
+                        if record.benchmark == series_record.benchmark
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
+                    ),
+                    None,
+                )
+                self.progress.item_resumed(
+                    series_record.dataset_name,
+                    model.name,
+                    series_record.series_id,
+                    existing_record.status.value if existing_record is not None else 'success',
+                )
+                continue
+            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
+            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
+            try:
+                self._evaluate_series(model_spec, model, series_record, regime_diagnostics, routing_recommendation)
+                self.progress.advance(RunStatus.SUCCESS.value)
+            except ModelExecutionError as exc:
+                self._append_failed_run_record(
+                    model_spec=model_spec,
+                    model=model,
+                    series_record=series_record,
+                    status=exc.status,
+                    message=exc.message,
+                    regime_diagnostics=regime_diagnostics,
+                    routing_recommendation=routing_recommendation,
+                )
+                self.progress.advance(exc.status.value, exc.message)
+            except Exception as exc:
+                self._append_failed_run_record(
+                    model_spec=model_spec,
+                    model=model,
+                    series_record=series_record,
+                    status=RunStatus.FAILED,
+                    message=str(exc),
+                    regime_diagnostics=regime_diagnostics,
+                    routing_recommendation=routing_recommendation,
+                )
+                self.progress.advance(RunStatus.FAILED.value, str(exc))
+
+    def _handle_unavailable_model(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            dataset_series: tuple[ForecastingSeriesRecord, ...],
+            availability_status: RunStatus,
+            availability_message: str,
+    ) -> None:
+        for series_record in dataset_series:
+            item_key = self.incremental_persistence.item_key(series_record, model.name)
+            if item_key in self.resumed_item_keys:
+                existing_record = next(
+                    (
+                        record for record in self.run_records
+                        if record.benchmark == series_record.benchmark
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
+                    ),
+                    None,
+                )
+                self.progress.item_resumed(
+                    series_record.dataset_name,
+                    model.name,
+                    series_record.series_id,
+                    existing_record.status.value if existing_record is not None else availability_status.value,
+                )
+                continue
+            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
+            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
+            self.run_records.append(
+                BenchmarkRunRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model.name,
+                    status=availability_status,
+                    tags=model.tags,
+                    message=availability_message,
+                    metadata=self._build_common_metadata(
+                        model_spec=model_spec,
+                        model=model,
+                        regime_diagnostics=regime_diagnostics,
+                        routing_recommendation=routing_recommendation,
+                        extra={'optional': model.optional},
+                    ),
+                )
+            )
+            self.incremental_persistence.persist_item_result(
+                series_record=series_record,
+                run_record=self.run_records[-1],
+            )
+            self.progress.advance(availability_status.value, availability_message)
+
+    def _build_series_context(self, series_record: ForecastingSeriesRecord):
+        regime_diagnostics = analyze_regime_diagnostics(np.asarray(series_record.train_values, dtype=float))
+        routing_recommendation = recommend_forecasting_model(regime_diagnostics)
+        return regime_diagnostics, routing_recommendation
+
+    def _build_common_metadata(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            regime_diagnostics,
+            routing_recommendation,
+            extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            'adapter_name': model_spec.adapter_name,
+            'model_adapter_family': adapter_name_to_family(model_spec.adapter_name),
+            'regime_diagnostics': regime_diagnostics.to_dict(),
+            'routing_recommendation': routing_recommendation.to_dict(),
+            'routing_recommendation_family': adapter_name_to_family(routing_recommendation.primary_adapter),
+            **self._runner_context_metadata(),
+            **dict(extra or {}),
+        }
+
+    def _validate_forecast_length(
+            self,
+            series_record: ForecastingSeriesRecord,
+            prediction: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return self.artifacts_recorder.validate_forecast_length(series_record, prediction)
+
+    def _record_metric_bundle(
+            self,
+            *,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast: np.ndarray,
+            metadata: dict[str, Any],
+            metric_name_suffix: str = '',
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        return self.artifacts_recorder.record_metric_bundle(
+            series_record=series_record,
+            model_name=model_name,
+            actual=actual,
+            forecast=forecast,
+            metadata=metadata,
+            metric_name_suffix=metric_name_suffix,
+        )
+
+    def _record_predictions(
+            self,
+            *,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast: np.ndarray,
+    ) -> None:
+        self.artifacts_recorder.record_predictions(
+            series_record=series_record,
+            model_name=model_name,
+            actual=actual,
+            forecast=forecast,
+        )
+
+    def _build_tuned_model_spec(self, model_spec: ModelSpec, best_parameters: dict[str, Any]) -> ModelSpec:
+        return self.post_fit_tuning._build_tuned_model_spec(model_spec, best_parameters)
+
+    def _resolve_post_fit_tuning_runtime_config(
+            self,
+            model_spec: ModelSpec,
+            baseline_metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self.post_fit_tuning._resolve_runtime_config(model_spec, baseline_metadata)
+
+    def _maybe_run_post_fit_tuning_comparison(
+            self,
+            *,
+            model_spec: ModelSpec,
+            model: ForecastingModelAdapter,
+            series_record: ForecastingSeriesRecord,
+            baseline_metadata: dict[str, Any],
+            baseline_metrics_summary: dict[str, float],
+            regime_diagnostics,
+            routing_recommendation,
+    ) -> dict[str, Any]:
+        return self.post_fit_tuning.run(
+            model_spec=model_spec,
+            model=model,
+            series_record=series_record,
+            baseline_metadata=baseline_metadata,
+            baseline_metrics_summary=baseline_metrics_summary,
+            regime_diagnostics=regime_diagnostics,
+            routing_recommendation=routing_recommendation,
+        )
 
     def _append_failed_run_record(
             self,
@@ -2048,27 +2521,31 @@ class ForecastingSuiteRunner:
             message: str,
             regime_diagnostics,
             routing_recommendation,
-    ) -> None:
-        self.run_records.append(
-            BenchmarkRunRecord(
-                run_id=self.run_id,
-                benchmark=series_record.benchmark,
-                dataset_name=series_record.dataset_name,
-                subset=series_record.subset,
-                series_id=series_record.series_id,
-                model_name=model.name,
-                status=status,
-                tags=model.tags,
-                message=message,
-                metadata=self._build_common_metadata(
-                    model_spec=model_spec,
-                    model=model,
-                    regime_diagnostics=regime_diagnostics,
-                    routing_recommendation=routing_recommendation,
-                    extra={'optional': model.optional},
-                ),
-            )
+    ) -> BenchmarkRunRecord:
+        run_record = BenchmarkRunRecord(
+            run_id=self.run_id,
+            benchmark=series_record.benchmark,
+            dataset_name=series_record.dataset_name,
+            subset=series_record.subset,
+            series_id=series_record.series_id,
+            model_name=model.name,
+            status=status,
+            tags=model.tags,
+            message=message,
+            metadata=self._build_common_metadata(
+                model_spec=model_spec,
+                model=model,
+                regime_diagnostics=regime_diagnostics,
+                routing_recommendation=routing_recommendation,
+                extra={'optional': model.optional},
+            ),
         )
+        self.run_records.append(run_record)
+        self.incremental_persistence.persist_item_result(
+            series_record=series_record,
+            run_record=run_record,
+        )
+        return run_record
 
     def _evaluate_series(
             self,
@@ -2078,6 +2555,8 @@ class ForecastingSuiteRunner:
             regime_diagnostics,
             routing_recommendation,
     ) -> None:
+        metric_count_before = len(self.metric_records)
+        prediction_count_before = len(self.prediction_records)
         prediction, metadata = model.forecast(series_record)
         actual, forecast = self._validate_forecast_length(series_record, prediction)
         metrics_summary, event_metrics = self._record_metric_bundle(
@@ -2102,31 +2581,37 @@ class ForecastingSuiteRunner:
             regime_diagnostics=regime_diagnostics,
             routing_recommendation=routing_recommendation,
         )
-        self.run_records.append(
-            BenchmarkRunRecord(
-                run_id=self.run_id,
-                benchmark=series_record.benchmark,
-                dataset_name=series_record.dataset_name,
-                subset=series_record.subset,
-                series_id=series_record.series_id,
-                model_name=model.name,
-                status=RunStatus.SUCCESS,
-                tags=model.tags,
-                metrics_summary=metrics_summary,
-                metadata=self._build_common_metadata(
-                    model_spec=model_spec,
-                    model=model,
-                    regime_diagnostics=regime_diagnostics,
-                    routing_recommendation=routing_recommendation,
-                    extra={
-                        **metadata,
-                        'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
-                        'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
-                    },
-                ),
-            )
+        run_record = BenchmarkRunRecord(
+            run_id=self.run_id,
+            benchmark=series_record.benchmark,
+            dataset_name=series_record.dataset_name,
+            subset=series_record.subset,
+            series_id=series_record.series_id,
+            model_name=model.name,
+            status=RunStatus.SUCCESS,
+            tags=model.tags,
+            metrics_summary=metrics_summary,
+            metadata=self._build_common_metadata(
+                model_spec=model_spec,
+                model=model,
+                regime_diagnostics=regime_diagnostics,
+                routing_recommendation=routing_recommendation,
+                extra={
+                    **metadata,
+                    'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
+                    'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
+                },
+            ),
+        )
+        self.run_records.append(run_record)
+        self.incremental_persistence.persist_item_result(
+            series_record=series_record,
+            run_record=run_record,
+            metric_records=tuple(self.metric_records[metric_count_before:]),
+            prediction_records=tuple(self.prediction_records[prediction_count_before:]),
         )
 
 
 def run_forecasting_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkResult:
+    """Compatibility entrypoint that executes a ForecastingSuiteRunner."""
     return ForecastingSuiteRunner(config).run_suite()

@@ -1,14 +1,13 @@
-import pytest
-
-pytest.importorskip('fedot.core.operations.operation_parameters')
-
-from fedot_ind.core.repository.IndustrialOperationParameters import get_default_params
+from fedot_ind.core.tuning.search_space import industrial_search_space
 from fedot_ind.core.repository.forecasting_registry import (
     CANONICAL_STAGE_FORECASTING_MODELS,
     canonical_forecasting_model_name,
     forecasting_aliases_for,
 )
-from fedot_ind.core.tuning.search_space import industrial_search_space
+from fedot_ind.core.repository.IndustrialOperationParameters import get_default_params
+import pytest
+
+pytest.importorskip('fedot.core.operations.operation_parameters')
 
 
 def test_canonical_forecasting_model_name_normalizes_short_aliases():

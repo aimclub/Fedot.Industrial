@@ -12,7 +12,7 @@ def mittag_leffler(z, q, beta=1.0, n_terms=100):
             if np.any(np.isnan(term)) or np.any(np.isinf(term)):
                 break
             result += term
-        except:
+        except BaseException:
             break
 
     return result

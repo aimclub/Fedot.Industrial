@@ -61,24 +61,27 @@ from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifie
 from fedot_ind.core.models.regression.freq_domain_regressor import FrequencyRegressor
 from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldRegressor
 from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
+from fedot_ind.core.models.ts_forecasting.dmd_models.havok_forecaster import HAVOKForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.ensemble_models.hybrid_ensemble_forecaster import \
+    HybridEnsembleForecasterImplementation
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
-from fedot_ind.core.models.ts_forecasting.havok_forecaster import HAVOKForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.hybrid_ensemble_forecaster import HybridEnsembleForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.lagged_ridge_forecaster import LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.lagged_ridge_forecaster import \
+    LaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.low_rank_lagged_ridge_forecaster import \
+    LowRankLaggedRidgeForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import MSSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
+from fedot_ind.core.models.ts_forecasting.lagged_model.topo_forecaster import TopologicalAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
-from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
-from fedot_ind.core.models.ts_forecasting.low_rank_lagged_ridge_forecaster import \
-    LowRankLaggedRidgeForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.mssa_forecaster import MSSAForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.neural_forecast_head import (
+from fedot_ind.core.models.ts_forecasting.neural_models.neural_forecast_head import (
     DeepARForecastHeadImplementation,
     NBeatsForecastHeadImplementation,
     PatchTSTForecastHeadImplementation,
     TCNForecastHeadImplementation,
+    TSTForecastHeadImplementation,
 )
-from fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster import OKHSFDMDForecasterImplementation
-from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
@@ -96,6 +99,7 @@ from fedot_ind.core.operation.transformation.data.hankelisation import Hankelisa
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
+from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import \
     TopologicalExtractor
 from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
@@ -171,6 +175,7 @@ class AtomizedModel(Enum):
         # feature extraction algorithm
         'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
+        'quantile_extractor_torch': TorchQuantileExtractor,
         'riemann_extractor': RiemannExtractor,
         # feature generation
         # 'topological_extractor': TopologicalFeaturesImplementation,
@@ -225,6 +230,7 @@ class AtomizedModel(Enum):
         'havok_forecaster': HAVOKForecasterImplementation,
         # primitive neural forecast heads
         'patch_tst_model': PatchTSTForecastHeadImplementation,
+        'tst_model': TSTForecastHeadImplementation,
         'deepar_model': DeepARForecastHeadImplementation,
         'tcn_model': TCNForecastHeadImplementation,
         'nbeats_model': NBeatsForecastHeadImplementation,

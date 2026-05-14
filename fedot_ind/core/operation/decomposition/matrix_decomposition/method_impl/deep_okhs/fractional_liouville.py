@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 import numpy as np
-from scipy.special import gamma, roots_jacobi
+from scipy.special import roots_jacobi
 from sklearn.base import BaseEstimator
 import torch
 
@@ -12,9 +11,9 @@ except Exception:  # pragma: no cover
 
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.policies import RegularizationPolicy, StabilityPolicy
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.matrix_utils import (
-     sort_eigendecomposition, 
-     validate_liouville_shapes,
-     MatrixComputationProgress 
+    sort_eigendecomposition,
+    validate_liouville_shapes,
+    MatrixComputationProgress
 )
 
 TQDM_FACTORY = tqdm
@@ -24,10 +23,10 @@ TQDM_WRITE = tqdm.write
 class FractionalLiouvilleOperator(BaseEstimator):
     """
     Оператор Лиувилля дробного порядка с использованием квадратур Якоби для численного интегрирования.
-    
+
     Реализует конечномерное представление оператора P A_{f,q} P.
     Элементы матрицы вычисляются через однократный интеграл с сингулярным весом:
-    
+
     A_{ij} = <A* mu_i, mu_j>
            = C_q * (T - \tau)^{q-1} [K(xi_j(\tau), xi_i(T)) - K(xi_j(\tau), xi_i(0))] d\tau
     """
@@ -49,11 +48,11 @@ class FractionalLiouvilleOperator(BaseEstimator):
         self.show_progress = getattr(okhs_transformer, "show_progress", False)
         self.progress_leave = getattr(okhs_transformer, "progress_leave", False)
         self.verbose = verbose
-        
+
         self.eigenvalues_ = None
         self.eigenvectors_ = None
         self.liouville_matrix_ = None
-        
+
         self._quad_cache = None
 
     def _get_jacobi_rule(self):
@@ -100,21 +99,28 @@ class FractionalLiouvilleOperator(BaseEstimator):
         _, weights = self._get_jacobi_rule()
         values_j = self.okhs._evaluate_trajectory_at_nodes(traj_j, T_j)
         normalized_i = self.okhs._normalize_trajectory(traj_i)
-        
+
         end_point_i = normalized_i[-1]
         start_point_i = normalized_i[0]
         scale_j = (T_j / 2.0) ** self.okhs.q
-        
+
         device = values_j.device
         weights = weights.to(device)
 
         kernel_to_end = self.okhs._compute_kernel_matrix_between_samples(values_j, end_point_i.unsqueeze(0)).view(-1)
-        kernel_to_start = self.okhs._compute_kernel_matrix_between_samples(values_j, start_point_i.unsqueeze(0)).view(-1)
-        
+        kernel_to_start = self.okhs._compute_kernel_matrix_between_samples(
+            values_j, start_point_i.unsqueeze(0)).view(-1)
+
         weighted_sum = torch.dot(weights, kernel_to_end - kernel_to_start).item()
         return self.okhs.C_q * scale_j * weighted_sum
 
-    def _compute_liouville_block_from_cache(self, left_start_points, left_end_points, right_values, right_scales, weights):
+    def _compute_liouville_block_from_cache(
+            self,
+            left_start_points,
+            left_end_points,
+            right_values,
+            right_scales,
+            weights):
         batch_kernel = getattr(self.okhs.kernel, "_compute_batch_kernel", None)
         if callable(batch_kernel):
             # right_values: (N_r, Q, d) -> (N_r, Q, 1, d)
@@ -123,19 +129,20 @@ class FractionalLiouvilleOperator(BaseEstimator):
                 right_values.unsqueeze(2),
                 left_end_points.view(1, 1, len(left_end_points), -1)
             ).to(dtype=torch.float64, device=weights.device)
-            
+
             kernel_to_start = batch_kernel(
                 right_values.unsqueeze(2),
                 left_start_points.view(1, 1, len(left_start_points), -1)
             ).to(dtype=torch.float64, device=weights.device)
-            
+
             # Свертка по оси узлов квадратуры (Q)
             weighted_end = torch.einsum('p,rpl->rl', weights, kernel_to_end)
             weighted_start = torch.einsum('p,rpl->rl', weights, kernel_to_start)
-            
+
             return (self.okhs.C_q * right_scales.unsqueeze(1) * (weighted_end - weighted_start)).T
 
-        liouville_block = torch.zeros((len(left_start_points), len(right_values)), dtype=torch.float64, device=weights.device)
+        liouville_block = torch.zeros((len(left_start_points), len(right_values)),
+                                      dtype=torch.float64, device=weights.device)
         for left_index in range(len(left_start_points)):
             for right_index in range(len(right_values)):
                 kernel_to_end = self.okhs._compute_kernel_matrix_between_samples(
@@ -146,10 +153,10 @@ class FractionalLiouvilleOperator(BaseEstimator):
                     right_values[right_index],
                     left_start_points[left_index].unsqueeze(0),
                 ).view(-1)
-                
+
                 val = torch.dot(weights, kernel_to_end - kernel_to_start)
                 liouville_block[left_index, right_index] = self.okhs.C_q * right_scales[right_index] * val
-                
+
         return liouville_block
 
     def fit(self, trajectories=None):
@@ -157,7 +164,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
             if not hasattr(self.okhs, 'train_trajectories_'):
                 raise ValueError("OKHSTransformer must be fitted first.")
             trajectories = self.okhs.train_trajectories_
-        
+
         n_traj = len(trajectories)
         liouville_cache = self._build_liouville_cache(trajectories)
         values = liouville_cache['quadrature']['values']
@@ -165,13 +172,13 @@ class FractionalLiouvilleOperator(BaseEstimator):
         weights = liouville_cache['quadrature']['weights']
         start_points = liouville_cache['start_points']
         end_points = liouville_cache['end_points']
-        
+
         device = values.device
         self.liouville_matrix_ = torch.zeros((n_traj, n_traj), dtype=torch.float64, device=device)
 
         if self.verbose:
             print(f"Computing Liouville matrix ({n_traj}x{n_traj}) using Jacobi quadratures...")
-            
+
         block_size = n_traj if not self.pairwise_block_size else max(1, min(int(self.pairwise_block_size), n_traj))
         progress = MatrixComputationProgress(
             enabled=self.show_progress,
@@ -188,7 +195,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
                 for right_start in range(0, n_traj, block_size):
                     right_stop = min(right_start + block_size, n_traj)
                     right_slice = slice(right_start, right_stop)
-                    
+
                     self.liouville_matrix_[left_slice, right_slice] = self._compute_liouville_block_from_cache(
                         start_points[left_slice],
                         end_points[left_slice],
@@ -199,13 +206,13 @@ class FractionalLiouvilleOperator(BaseEstimator):
                     progress.update(left_start, left_stop, right_start, right_stop)
         finally:
             progress.close()
-                
+
         G = self.okhs.gram_matrix_
         validate_liouville_shapes(G, self.liouville_matrix_)
 
         if self.verbose:
             print("Solving generalized eigenvalue problem A v = lambda G v...")
-            
+
         try:
             L_mat = torch.linalg.solve(G, self.liouville_matrix_)
             eigenvalues, eigenvectors = torch.linalg.eig(L_mat)
@@ -217,10 +224,9 @@ class FractionalLiouvilleOperator(BaseEstimator):
             L_mat = torch.linalg.pinv(G) @ self.liouville_matrix_
             eigenvalues, eigenvectors = torch.linalg.eig(L_mat)
 
-
         G_complex = G.to(eigenvectors.dtype)
         G_v = G_complex @ eigenvectors
-        norm_sq = torch.sum(eigenvectors.conj() * G_v, dim=0) 
+        norm_sq = torch.sum(eigenvectors.conj() * G_v, dim=0)
         norms = torch.sqrt(torch.abs(norm_sq))
         eigenvectors = eigenvectors / (norms.unsqueeze(0) + 1e-12)
 
@@ -229,7 +235,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
             eigenvectors,
             self.stability_policy.sorting_strategy,
         )
-        
+
         return self
 
     def get_eigenfunctions(self):

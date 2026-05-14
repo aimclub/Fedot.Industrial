@@ -103,7 +103,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
     """
 
     def __init__(
-            self, 
+            self,
             q=0.7,
             forecast_horizon=10,
             n_modes=5,
@@ -133,7 +133,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
             anti_smoothing_oscillation_floor=0.25,
             anti_smoothing_decay=2.5,
             anti_smoothing_target_amplitude_ratio=0.8,
-            device = 'cpu',
+            device='cpu',
     ):
         self.q = q
         self.forecast_horizon = forecast_horizon
