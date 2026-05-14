@@ -12,6 +12,7 @@ class TaskType(str, Enum):
     FORECASTING = 'forecasting'
     TS_CLASSIFICATION = 'ts_classification'
     TS_REGRESSION = 'ts_regression'
+    ANOMALY_DETECTION = 'anomaly_detection'
 
 
 class RunStatus(str, Enum):
@@ -163,6 +164,29 @@ class ForecastingBenchmarkResult:
 
 
 @dataclass(frozen=True)
+class DetectionSeriesRecord:
+    benchmark: str
+    dataset_name: str
+    subset: str
+    series_id: str
+    values: tuple[tuple[float, ...], ...]
+    target: tuple[int, ...] | None
+    timestamps: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DetectionBenchmarkResult:
+    run_id: str
+    config: BenchmarkSuiteConfig
+    series_records: tuple[DetectionSeriesRecord, ...]
+    run_records: tuple[BenchmarkRunRecord, ...]
+    metric_records: tuple[MetricRecord, ...]
+    aggregate_report: BenchmarkAggregateReport
+    artifact_manifest: tuple[ArtifactRecord, ...] = ()
+
+
+@dataclass(frozen=True)
 class ClassificationDatasetRecord:
     benchmark: str
     dataset_name: str
@@ -255,6 +279,32 @@ class ForecastingModelAdapter(Protocol):
             self,
             series_record: ForecastingSeriesRecord,
     ) -> tuple[Sequence[float], dict[str, Any]]:
+        ...
+
+
+class DetectionDatasetAdapter(Protocol):
+    benchmark_name: str
+
+    def load_series(self, spec: DatasetSpec) -> tuple[DetectionSeriesRecord, ...]:
+        ...
+
+
+class DetectionModelAdapter(Protocol):
+    name: str
+    tags: tuple[str, ...]
+    optional: bool
+
+    def availability(self) -> tuple[RunStatus, str]:
+        ...
+
+    def detect(
+            self,
+            series_record: DetectionSeriesRecord,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        (scores/events/diagnostics)
+        metadata: для BenchmarkRunRecord
+        """
         ...
 
 

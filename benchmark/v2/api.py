@@ -12,6 +12,7 @@ from .core import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
     ClassificationBenchmarkResult,
+    DetectionBenchmarkResult,
     DatasetSpec,
     ForecastingBenchmarkResult,
     ModelSpec,
@@ -20,6 +21,7 @@ from .core import (
     TaskType,
     write_json,
 )
+from .detection import run_anomaly_detection_suite
 from .forecasting import run_forecasting_suite
 from .okhs_quality import render_okhs_smoothing_acceptance_pack
 from .regression import render_tser_publication_pack, run_tser_suite
@@ -91,6 +93,28 @@ def run_forecasting_benchmark_suite(config: BenchmarkSuiteConfig) -> Forecasting
             series_records=result.series_records,
             run_records=result.run_records,
             prediction_records=result.prediction_records,
+            metric_records=result.metric_records,
+            aggregate_report=result.aggregate_report,
+            artifact_manifest=tuple(manifest),
+        )
+    return result
+
+
+def run_detection_benchmark_suite(config: BenchmarkSuiteConfig) -> DetectionBenchmarkResult:
+    """
+    связь runner и artifact writer
+    """
+    result = run_anomaly_detection_suite(config) # запуск detection benchmark suite
+    if config.artifact_spec.persist_on_run: # нужно ли сохранять artifact
+        output_dir = Path(config.artifact_spec.output_dir) / result.run_id
+        manifest = list(render_publication_pack(result, output_dir=output_dir)) # создание publication pack c artifacts. render_publication_pack написан под структуру форкастинг для detection нужны другие артефакты и render_detection_pack
+        # manifest = list(render_detection_pack(result, output_dir=output_dir)) # TODO
+        manifest.extend(_build_issue_artifacts(result, output_dir))
+        result = DetectionBenchmarkResult(
+            run_id=result.run_id,
+            config=result.config,
+            series_records=result.series_records,
+            run_records=result.run_records,
             metric_records=result.metric_records,
             aggregate_report=result.aggregate_report,
             artifact_manifest=tuple(manifest),

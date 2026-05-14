@@ -3,6 +3,7 @@ import os
 
 from fedot.core.operations.operation_parameters import OperationParameters
 
+from fedot_ind.core.repository.detection_registry import canonical_detection_model_name
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
 
@@ -51,6 +52,7 @@ class DefaultOperationParamsRepository:
     def get_default_params_for_operation(self, model_name: str) -> dict:
         model_name = model_name.split('/')[0]
         model_name = canonical_forecasting_model_name(model_name)
+        model_name = canonical_detection_model_name(model_name)
         if model_name in self._repo:
             return self._repo[model_name]
         return {}

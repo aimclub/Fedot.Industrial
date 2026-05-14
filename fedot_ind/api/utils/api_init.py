@@ -77,7 +77,7 @@ class IndustrialConfig(ConfigTemplate):
                                              monoid=[problem,
                                                      problem == 'anomaly_detection']). \
                 either(left_function=fedot_init_assumptions,
-                       right_function=fedot_init_assumptions)
+                       right_function=fedot_init_assumptions) # TODO: отсутствует ветвление, можно убрать конструкцию
 
         return self.initial_assumption
 

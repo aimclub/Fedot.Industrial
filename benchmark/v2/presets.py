@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite
+from .api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite, run_anomaly_detection_suite
 from .core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, TaskType
 
 DEFAULT_PRESET_OUTPUT_DIR = Path('benchmark/results/v2_presets')
@@ -10,6 +10,26 @@ DEFAULT_PRESET_OUTPUT_DIR = Path('benchmark/results/v2_presets')
 
 class BenchmarkPresetError(ValueError):
     pass
+
+
+def build_local_skab_suite_config(
+        *,
+        dataset_name: str = 'skab',
+        output_dir: str | Path | None = None,
+        persist_on_run: bool = True,
+        models: tuple[ModelSpec, ...] | None = None,
+) -> BenchmarkSuiteConfig:
+    return BenchmarkSuiteConfig(
+        task_type=TaskType.ANOMALY_DETECTION,
+        datasets=(
+            DatasetSpec(
+                benchmark='skab',
+                dataset_name=dataset_name),),
+        models=models or _default_detection_models(),
+        metrics=('accuracy', 'balanced_accuracy', 'f1_macro'),
+        artifact_spec=_artifact_spec(output_dir, persist_on_run, 'skab'),
+        run_spec=RunSpec(run_name=f'skab_{dataset_name.lower()}_suite', primary_metric='accuracy'),
+    )
 
 
 def build_local_m4_suite_config(
@@ -255,3 +275,7 @@ def _default_regression_models() -> tuple[ModelSpec, ...]:
         ModelSpec(adapter_name='mean_regressor', display_name='MeanRegressor'),
         ModelSpec(adapter_name='linear_regressor', display_name='LinearRegressor'),
     )
+
+
+def _default_detection_models() -> tuple[ModelSpec, ...]:
+    pass
