@@ -23,6 +23,8 @@ __pycache__/
 *.feather
 *.hdf5
 *.json
+!benchmark/v2/examples/kernel_learning_tser_manifest.json
+!benchmark/v2/examples/kernel_learning_ucr_manifest.json
 
 # User-specific stuff
 .idea/**/workspace.xml

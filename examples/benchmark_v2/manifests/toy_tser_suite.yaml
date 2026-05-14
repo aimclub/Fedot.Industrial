@@ -1,0 +1,28 @@
+﻿version: benchmark_v2_manifest@1
+kind: suite
+task_type: ts_regression
+datasets:
+  - benchmark: in_memory_tser
+    dataset_name: toy_tser_manifest
+    adapter_options:
+      record:
+        train_features:
+          - [ 0.0 ]
+          - [ 1.0 ]
+          - [ 2.0 ]
+          - [ 3.0 ]
+        train_target: [ 1.0, 3.0, 5.0, 7.0 ]
+        test_features:
+          - [ 4.0 ]
+          - [ 5.0 ]
+        test_target: [ 9.0, 11.0 ]
+models:
+  - adapter_name: linear_regressor
+    display_name: LinearRegressor
+artifact_spec:
+  output_dir: benchmark/results/v2_manifest_runs/toy_tser
+  persist_on_run: true
+run_spec:
+  run_name: toy_tser_manifest
+  primary_metric: rmse
+metrics: [ rmse, mae, r2 ]

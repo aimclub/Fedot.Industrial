@@ -243,12 +243,46 @@ class OptionalExternalClassifier:
             return RunStatus.NOT_AVAILABLE, f'{self.dependency_name} is not installed.'
 
 
+@dataclass
+class KernelEnsembleClassifierAdapter:
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'classification', 'kernel_learning')
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot_ind.core.kernel_learning import KernelEnsembleClassifier  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'Kernel ensemble classifier is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.kernel_learning import KernelEnsembleClassifier
+
+        self.model_ = KernelEnsembleClassifier(**(self.params or {}))
+        self.model_.fit(features, target)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None:
+            raise BenchmarkClassificationError('KernelEnsembleClassifierAdapter must be fitted before prediction.')
+        return self.model_.predict(features)
+
+
 def build_classification_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'majority_class':
         return MajorityClassClassifier(name=spec.display_name, tags=spec.tags or ('baseline', 'classification'))
     if name == 'nearest_centroid':
         return NearestCentroidClassifier(name=spec.display_name, tags=spec.tags or ('baseline', 'classification'))
+    if name == 'kernel_ensemble_classifier':
+        return KernelEnsembleClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'kernel_learning'),
+            optional=spec.optional,
+            params=dict(spec.params),
+        )
     if name == 'fedot_industrial_classifier':
         return OptionalExternalClassifier(
             dependency_name='fedot',

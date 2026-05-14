@@ -312,10 +312,10 @@ class IndustrialStrategy:
 
         list_proba = [predictions[model_preds] for model_preds in predictions]
         transformed = []
-        if self.random_label is None:
-            self.random_label = {
-                class_by_gen: np.random.choice(self.kernel_ensembler.classes_misses_by_generator[class_by_gen])
-                for class_by_gen in self.kernel_ensembler.classes_described_by_generator}
+        class_to_position = {
+            class_label: position
+            for position, class_label in enumerate(self.kernel_ensembler.all_classes)
+        }
         for prob_by_gen, class_by_gen in zip(
                 list_proba, self.kernel_ensembler.classes_described_by_generator):
             converted_probs = np.zeros(
@@ -323,9 +323,12 @@ class IndustrialStrategy:
                     self.kernel_ensembler.all_classes)))
             for true_class, map_class in self.kernel_ensembler.mapper_dict[class_by_gen].items(
             ):
-                converted_probs[:, true_class] = prob_by_gen[:, map_class]
-            random_label = self.random_label[class_by_gen]
-            converted_probs[:, random_label] = prob_by_gen[:, -1]
+                converted_probs[:, class_to_position[true_class]] = prob_by_gen[:, map_class]
+            missed_classes = self.kernel_ensembler.classes_misses_by_generator[class_by_gen]
+            if missed_classes:
+                abstention_probability = prob_by_gen[:, -1] / len(missed_classes)
+                for missed_class in missed_classes:
+                    converted_probs[:, class_to_position[missed_class]] = abstention_probability
             transformed.append(converted_probs)
 
         return np.array(transformed).transpose((1, 0, 2))

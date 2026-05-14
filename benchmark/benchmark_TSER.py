@@ -107,7 +107,9 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return run_tser_benchmark_from_legacy_config(self.experiment_setup)
+            experiment_setup = deepcopy(self.experiment_setup)
+            experiment_setup.setdefault('custom_datasets', tuple(self.custom_datasets))
+            return run_tser_benchmark_from_legacy_config(experiment_setup)
 
         self._ensure_legacy_dependencies()
         self.logger.info('Benchmark test started')

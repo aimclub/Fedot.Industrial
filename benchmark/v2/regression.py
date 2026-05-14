@@ -221,12 +221,46 @@ class OptionalExternalRegressor:
             return RunStatus.NOT_AVAILABLE, f'{self.dependency_name} is not installed.'
 
 
+@dataclass
+class KernelEnsembleRegressorAdapter:
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'regression', 'kernel_learning')
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot_ind.core.kernel_learning import KernelEnsembleRegressor  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'Kernel ensemble regressor is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.kernel_learning import KernelEnsembleRegressor
+
+        self.model_ = KernelEnsembleRegressor(**(self.params or {}))
+        self.model_.fit(features, target)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None:
+            raise BenchmarkRegressionError('KernelEnsembleRegressorAdapter must be fitted before prediction.')
+        return self.model_.predict(features)
+
+
 def build_regression_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'mean_regressor':
         return MeanRegressor(name=spec.display_name, tags=spec.tags or ('baseline', 'regression'))
     if name == 'linear_regressor':
         return LinearRegressor(name=spec.display_name, tags=spec.tags or ('baseline', 'regression'))
+    if name == 'kernel_ensemble_regressor':
+        return KernelEnsembleRegressorAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'regression', 'kernel_learning'),
+            optional=spec.optional,
+            params=dict(spec.params),
+        )
     if name == 'fedot_industrial_regressor':
         return OptionalExternalRegressor(
             dependency_name='fedot',
