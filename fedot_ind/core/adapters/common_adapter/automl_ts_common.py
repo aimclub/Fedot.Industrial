@@ -68,6 +68,7 @@ class AutoMLForecastingAdapter(ABC):
     @abstractmethod
     def resource_report(self) -> Dict:
         pass
+
     @property
     def result(self) -> Optional[AutoMLResult]:
         return self._result
