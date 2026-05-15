@@ -1,10 +1,7 @@
 import pytest
 import pandas as pd
-import numpy as np
-import time
 
-from fedot_ind.core.adapters.common_adapter.contracts import AutoMLBudget, AutoMLResult
-from fedot_ind.core.adapters.common_adapter.automl_ts_common import AutoMLForecastingAdapter
+from fedot_ind.core.adapters.common_adapter.contracts import AutoMLBudget
 from fedot_ind.core.adapters.common_adapter.fake_automl import FakeAutoMLBackend
 
 
@@ -28,7 +25,7 @@ def test_fake_backend_univariate():
     assert adapter.result.wall_clock > 0
     assert adapter.result.fitted_model_count == 1
     assert adapter.result.failure_count == 0
-    assert adapter.result.quantile_support == True
+    assert adapter.result.quantile_support
 
     predictions = adapter.predict(data, horizon=3)
     assert len(predictions) == 3
@@ -38,12 +35,13 @@ def test_fake_backend_univariate():
     assert len(quantiles) == 6
 
     avail = adapter.availability()
-    assert avail['univariate'] == True
-    assert avail['quantiles'] == True
+    assert avail['univariate']
+    assert avail['quantiles']
 
     resources = adapter.resource_report()
     assert 'memory_mb' in resources
     assert 'cpu_cores' in resources
+
 
 def test_fake_backend_panel_mode():
     adapter = FakeAutoMLBackend()
@@ -59,7 +57,7 @@ def test_fake_backend_panel_mode():
 
     assert adapter.result.fitted_model_count == 1
     assert adapter.result.failure_count == 0
-    assert adapter.result.quantile_support == True
+    assert adapter.result.quantile_support
 
     predictions = adapter.predict(data, horizon=2)
     assert len(predictions) == 4
@@ -97,7 +95,7 @@ def test_quantile_support_flag():
 
     adapter2 = FakeAutoMLBackend(supports_quantiles=True)
     adapter2.fit(data, metadata, budget)
-    assert adapter2.result.quantile_support == True
+    assert adapter2.result.quantile_support
     result = adapter2.predict_quantiles(data, horizon=2, quantiles=[0.1, 0.5, 0.9])
     assert len(result) == 6
 

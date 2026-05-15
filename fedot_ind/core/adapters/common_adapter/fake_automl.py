@@ -1,10 +1,9 @@
 import time
-import random
-from typing import Dict, List, Optional
+from typing import Dict, List
 import pandas as pd
 
 from fedot_ind.core.adapters.common_adapter.automl_ts_common import AutoMLForecastingAdapter
-from fedot_ind.core.adapters.common_adapter.contracts import AutoMLBudget, AutoMLResult
+from fedot_ind.core.adapters.common_adapter.contracts import AutoMLBudget
 
 
 class FakeAutoMLBackend(AutoMLForecastingAdapter):
@@ -35,7 +34,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
         self.fitted_mode = 'univariate'
         self._fitted_model_count += 1
 
-
     def _fit_panel(self, data: pd.DataFrame, budget: AutoMLBudget, **kwargs):
         if self.fail_on_fit:
             self._failure_count += 1
@@ -52,7 +50,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
         self.fitted_mode = 'panel'
         self._fitted_model_count += 1
 
-
     def _fit_multivariate(self, data: pd.DataFrame, budget: AutoMLBudget, **kwargs):
         if self.fail_on_fit:
             self._failure_count += 1
@@ -65,7 +62,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
 
         self.fitted_mode = 'multivariate'
         self._fitted_model_count += 1
-
 
     def predict(self, data: pd.DataFrame, horizon: int, **kwargs) -> pd.DataFrame:
         if self.fail_on_predict:
@@ -91,7 +87,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
             })
             return predictions
 
-
     def predict_quantiles(self, data: pd.DataFrame, horizon: int,
                           quantiles: List[float], **kwargs) -> pd.DataFrame:
         if not self._supports_quantiles():
@@ -114,7 +109,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
 
         return pd.DataFrame(results)
 
-
     def availability(self) -> Dict[str, bool]:
         return {
             'univariate': True,
@@ -122,7 +116,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
             'multivariate': True,
             'quantiles': self.supports_quantiles
         }
-
 
     def resource_report(self) -> Dict:
         import psutil
