@@ -24,7 +24,13 @@ def build_local_skab_suite_config(
         datasets=(
             DatasetSpec(
                 benchmark='skab',
-                dataset_name=dataset_name),),
+                dataset_name=dataset_name,
+                adapter_options={
+                    'folder': 'valve1',
+                    'split_mode': 'legacy_pair',
+                    'train_data_size': 'anomaly-free',
+                },
+            ),),
         models=models or _default_detection_models(),
         metrics=('accuracy', 'balanced_accuracy', 'f1_macro'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'skab'),
