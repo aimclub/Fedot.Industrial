@@ -1,3 +1,5 @@
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +19,10 @@ from benchmark.v2 import (
     run_tser_benchmark_suite,
 )
 from benchmark.v2.api import build_legacy_tsc_suite_config, build_legacy_tser_suite_config
+from benchmark.v2.classification import (
+    BenchmarkClassificationError,
+    LocalClassificationAdapter,
+)
 
 
 def test_tsc_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
@@ -95,3 +101,42 @@ def test_legacy_builders_default_to_kernel_model_specs():
     assert tsc_config.datasets[0].dataset_name == "Lightning7"
     assert tser_config.models[0].adapter_name == "kernel_ensemble_regressor"
     assert tser_config.datasets[0].dataset_name == "NaturalGasPricesSentiment"
+
+
+def test_ucr_adapter_uses_dataloader_fallback_with_local_root(monkeypatch, tmp_path: Path):
+    captured = {}
+
+    class FakeDataLoader:
+        def __init__(self, dataset_name, folder=None):
+            captured["dataset_name"] = dataset_name
+            captured["folder"] = folder
+
+        def load_data(self):
+            train = (np.array([[0.0], [1.0]]), np.array(["a", "b"]))
+            test = (np.array([[0.2], [1.2]]), np.array(["a", "b"]))
+            return train, test
+
+    fake_loader_module = types.ModuleType("fedot_ind.tools.loader")
+    fake_loader_module.DataLoader = FakeDataLoader
+    monkeypatch.setitem(sys.modules, "fedot_ind.tools.loader", fake_loader_module)
+    spec = DatasetSpec(
+        benchmark="ucr",
+        dataset_name="MissingUCR",
+        adapter_options={"local_data_root": str(tmp_path), "download_if_missing": True},
+    )
+
+    records = LocalClassificationAdapter().load_dataset(spec)
+
+    assert captured == {"dataset_name": "MissingUCR", "folder": str(tmp_path)}
+    assert records[0].metadata["split_provenance"] == "fedot_ind.tools.loader"
+
+
+def test_ucr_adapter_can_disable_download_fallback(tmp_path: Path):
+    spec = DatasetSpec(
+        benchmark="ucr",
+        dataset_name="MissingUCR",
+        adapter_options={"local_data_root": str(tmp_path), "download_if_missing": False},
+    )
+
+    with pytest.raises(BenchmarkClassificationError):
+        LocalClassificationAdapter().load_dataset(spec)

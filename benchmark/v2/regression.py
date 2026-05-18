@@ -121,15 +121,25 @@ class LocalRegressionAdapter:
             test_x = split.test_features
             test_y = split.test_target
             metadata = dict(split.metadata)
-        except LocalDatasetParseError:
+        except LocalDatasetParseError as local_error:
+            download_if_missing = bool(options.get('download_if_missing', False))
+            if not download_if_missing:
+                raise BenchmarkRegressionError(str(local_error)) from local_error
             try:
                 from fedot_ind.tools.loader import DataLoader
             except Exception as exc:  # pragma: no cover
                 raise BenchmarkRegressionError(f'Regression loader is unavailable: {exc}') from exc
-            train_data, test_data = DataLoader(dataset_name=spec.dataset_name).load_data()
+            train_data, test_data = DataLoader(
+                dataset_name=spec.dataset_name,
+                folder=options.get('local_data_root'),
+            ).load_data()
             train_x, train_y = train_data
             test_x, test_y = test_data
-            metadata = {'split_provenance': 'fedot_ind.tools.loader'}
+            metadata = {
+                'split_provenance': 'fedot_ind.tools.loader',
+                'local_parse_error': str(local_error),
+                'download_if_missing': download_if_missing,
+            }
         return (
             _encode_dataset_record(
                 benchmark=self.benchmark_name,

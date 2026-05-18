@@ -1,6 +1,7 @@
 import numpy as np
 
 from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleRegressor
+from fedot_ind.core.kernel_learning.contracts import KernelBundle, KernelSelectionReport
 
 
 def test_kernel_ensemble_classifier_predicts_and_returns_probabilities():
@@ -23,6 +24,8 @@ def test_kernel_ensemble_classifier_predicts_and_returns_probabilities():
     assert probabilities.shape == (4, 2)
     assert np.allclose(np.sum(probabilities, axis=1), 1.0)
     assert model.selected_generators_ == ("identity",)
+    assert model.important_generators_ == ("identity",)
+    assert model.kernel_importance_.selected_generators == ("identity",)
 
 
 def test_kernel_ensemble_regressor_predicts_stable_shape():
@@ -40,3 +43,26 @@ def test_kernel_ensemble_regressor_predicts_stable_shape():
     assert prediction.shape == (2,)
     assert np.all(np.isfinite(prediction))
     assert prediction[1] > prediction[0]
+
+
+def test_kernel_mixing_still_uses_selector_weights_not_importance_threshold():
+    model = KernelEnsembleClassifier(importance_threshold=0.8)
+    model.selection_report_ = KernelSelectionReport(
+        generator_names=("a", "b"),
+        weights=(0.6, 0.4),
+        selected_generators=("a", "b"),
+        selected_weights=(0.6, 0.4),
+        scores={"a": 0.6, "b": 0.4},
+        alignments={"a": 0.6, "b": 0.4},
+        complexities={"a": 0.0, "b": 0.0},
+        redundancies={"a": 0.0, "b": 0.0},
+        task_type="classification",
+    )
+    model.kernel_bundles_ = [
+        KernelBundle(name="a", train_kernel=np.ones((2, 2))),
+        KernelBundle(name="b", train_kernel=np.eye(2) * 10.0),
+    ]
+
+    combined = model._combine_train_kernels()
+
+    np.testing.assert_allclose(combined, np.array([[4.6, 0.6], [0.6, 4.6]]))

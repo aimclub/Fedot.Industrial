@@ -24,6 +24,9 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
             redundancy_penalty: float = 0.05,
             min_weight: float = 0.05,
             target_gamma: str | float = "scale",
+            importance_threshold: float = 0.05,
+            importance_fallback_top_n: int = 1,
+            importance_max_union_size: int = 3,
             C: float = 1.0,
             probability: bool = True,
             random_state: int = 42,
@@ -41,6 +44,9 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
             redundancy_penalty=redundancy_penalty,
             min_weight=min_weight,
             target_gamma=target_gamma,
+            importance_threshold=importance_threshold,
+            importance_fallback_top_n=importance_fallback_top_n,
+            importance_max_union_size=importance_max_union_size,
         )
         self.C = C
         self.probability = probability

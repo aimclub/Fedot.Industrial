@@ -1,6 +1,8 @@
-import warnings
-import torch
+from __future__ import annotations
 
+import warnings
+
+import torch
 
 warnings.filterwarnings("ignore")
 

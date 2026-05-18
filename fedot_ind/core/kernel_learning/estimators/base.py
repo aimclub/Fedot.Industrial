@@ -9,7 +9,12 @@ from sklearn.base import BaseEstimator
 from fedot_ind.core.kernel_learning.contracts import KernelBundle
 from fedot_ind.core.kernel_learning.generators import DEFAULT_GENERATOR_NAMES, create_feature_generator
 from fedot_ind.core.kernel_learning.kernels import KernelMatrixBuilder
-from fedot_ind.core.kernel_learning.selection import SparseMKLSelector, combine_kernels
+from fedot_ind.core.kernel_learning.selection import (
+    KernelImportanceConfig,
+    SparseMKLSelector,
+    combine_kernels,
+    select_significant_generators,
+)
 
 
 class KernelEnsembleBase(BaseEstimator):
@@ -28,6 +33,9 @@ class KernelEnsembleBase(BaseEstimator):
             redundancy_penalty: float = 0.05,
             min_weight: float = 0.05,
             target_gamma: str | float = "scale",
+            importance_threshold: float = 0.15,
+            importance_fallback_top_n: int = 1,
+            importance_max_union_size: int = 3,
     ):
         self.generator_names = generator_names
         self.kernel = kernel
@@ -40,6 +48,9 @@ class KernelEnsembleBase(BaseEstimator):
         self.redundancy_penalty = redundancy_penalty
         self.min_weight = min_weight
         self.target_gamma = target_gamma
+        self.importance_threshold = importance_threshold
+        self.importance_fallback_top_n = importance_fallback_top_n
+        self.importance_max_union_size = importance_max_union_size
 
     def _resolve_generator_names(self) -> tuple[str, ...]:
         if self.generator_names is None:
@@ -81,6 +92,16 @@ class KernelEnsembleBase(BaseEstimator):
         self.selection_report_ = selector.fit(self.kernel_bundles_, y, task_type=self.task_type)
         self.selected_generators_ = self.selection_report_.selected_generators
         self.selected_weights_ = self.selection_report_.selected_weights
+        self.kernel_importance_ = select_significant_generators(
+            self.selection_report_,
+            KernelImportanceConfig(
+                weight_threshold=self.importance_threshold,
+                fallback_top_n=self.importance_fallback_top_n,
+                max_union_size=self.importance_max_union_size,
+            ),
+        )
+        self.important_generators_ = self.kernel_importance_.selected_generators
+        self.important_weights_ = self.kernel_importance_.selected_weights
         return self._combine_train_kernels()
 
     def _combine_train_kernels(self) -> np.ndarray:
