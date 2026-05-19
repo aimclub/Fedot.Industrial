@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 import dask
 from golem.core.log import Log
+from golem.core.optimisers.fitness import null_fitness
 from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher
 from golem.core.optimisers.genetic.operators.operator import EvaluationOperator, PopulationT
 from golem.core.optimisers.graph import OptGraph
@@ -82,16 +83,25 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
     def eval_ind(self, graph, uid_of_individual):
         adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
         start_time = timeit.default_timer()
-        fitness, graph = adapted_evaluate(graph)
+        evaluation_error = None
+        try:
+            fitness, graph = adapted_evaluate(graph)
+        except Exception as ex:
+            self.logger.info(f'Graph evaluation failed. Assigning null fitness. Exception - {ex}')
+            fitness = null_fitness()
+            evaluation_error = repr(ex)
         end_time = timeit.default_timer()
         eval_time_iso = datetime.now().isoformat()
+        metadata = {
+            'computation_time_in_seconds': end_time - start_time,
+            'evaluation_time_iso': eval_time_iso}
+        if evaluation_error is not None:
+            metadata['evaluation_error'] = evaluation_error
         eval_res = GraphEvalResult(
             uid_of_individual=uid_of_individual,
             fitness=fitness,
             graph=graph,
-            metadata={
-                'computation_time_in_seconds': end_time - start_time,
-                'evaluation_time_iso': eval_time_iso})
+            metadata=metadata)
         return eval_res
 
     @wrap_non_picklable_objects
