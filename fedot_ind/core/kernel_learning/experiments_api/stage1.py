@@ -211,7 +211,7 @@ class KernelLearningStage1ArtifactsLoader:
                 key: float(value)
                 for key, value in row.items()
                 if key not in {"run_id", "benchmark", "dataset_name", "subset", "model_name", "status"}
-                   and pd.notna(value)
+                and pd.notna(value)
             }
             dataset_name = str(row.get("dataset_name", ""))
             records.append(

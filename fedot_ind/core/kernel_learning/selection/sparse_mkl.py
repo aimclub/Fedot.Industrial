@@ -63,9 +63,9 @@ class SparseMKLSelector:
         redundancies = self._compute_redundancies(names, train_kernels)
         scores = {
             name: (
-                    alignments[name]
-                    - self.complexity_penalty * complexities[name]
-                    - self.redundancy_penalty * redundancies[name]
+                alignments[name]
+                - self.complexity_penalty * complexities[name]
+                - self.redundancy_penalty * redundancies[name]
             )
             for name in names
         }

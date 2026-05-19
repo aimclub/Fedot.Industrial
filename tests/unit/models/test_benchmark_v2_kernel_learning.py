@@ -1,12 +1,8 @@
-import sys
-import types
-from pathlib import Path
-
-import numpy as np
-import pytest
-
-pytest.importorskip("fedot")
-
+from benchmark.v2.classification import (
+    BenchmarkClassificationError,
+    LocalClassificationAdapter,
+)
+from benchmark.v2.api import build_legacy_tsc_suite_config, build_legacy_tser_suite_config
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -18,11 +14,14 @@ from benchmark.v2 import (
     run_tsc_benchmark_suite,
     run_tser_benchmark_suite,
 )
-from benchmark.v2.api import build_legacy_tsc_suite_config, build_legacy_tser_suite_config
-from benchmark.v2.classification import (
-    BenchmarkClassificationError,
-    LocalClassificationAdapter,
-)
+import sys
+import types
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+pytest.importorskip("fedot")
 
 
 def test_tsc_suite_runs_kernel_ensemble_adapter(tmp_path: Path):

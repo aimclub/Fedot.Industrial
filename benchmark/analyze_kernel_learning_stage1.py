@@ -10,12 +10,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 DEFAULT_RUN_DIR = (
-        PROJECT_ROOT
-        / "benchmark"
-        / "results"
-        / "v2_kernel_learning"
-        / "ucr_two_stage_140526"
-        / "kernel_learning_ucr_stage1_ba419d49e4"
+    PROJECT_ROOT
+    / "benchmark"
+    / "results"
+    / "v2_kernel_learning"
+    / "ucr_two_stage_140526"
+    / "kernel_learning_ucr_stage1_ba419d49e4"
 )
 
 

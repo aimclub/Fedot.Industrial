@@ -21,7 +21,7 @@ def test_ucr_experiment_script_is_declarative_and_local_first():
     assert '"recurrence_extractor"' in source
     assert '"tabular_extractor"' in source
     non_topological_section = \
-    source.split("NON_TOPOLOGICAL_GENERATORS = ", maxsplit=1)[1].split("DATASETS =", maxsplit=1)[0]
+        source.split("NON_TOPOLOGICAL_GENERATORS = ", maxsplit=1)[1].split("DATASETS =", maxsplit=1)[0]
     assert "topological_extractor" not in non_topological_section
 
 

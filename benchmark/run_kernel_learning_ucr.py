@@ -1,12 +1,5 @@
 from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
+from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -17,7 +10,14 @@ from benchmark.v2 import (
     discover_local_ucr_datasets,
     run_tsc_benchmark_suite,
 )
-from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 EXPERIMENT_DATE = "140526"
 UCR_DATA_ROOT = PROJECT_ROOT / "data"

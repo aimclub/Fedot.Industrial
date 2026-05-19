@@ -41,7 +41,7 @@ def importance_report_from_selection(selection: dict[str, Any]) -> KernelImporta
 
     names = tuple(selection.get("important_generators") or selection.get("selected_generators") or ())
     weights = tuple(float(weight) for weight in (
-            selection.get("important_weights") or selection.get("selected_weights") or ()
+        selection.get("important_weights") or selection.get("selected_weights") or ()
     ))
     if not weights:
         weights = tuple(1.0 / len(names) for _ in names) if names else ()

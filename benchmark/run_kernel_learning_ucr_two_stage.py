@@ -12,7 +12,8 @@ EXPERIMENT_DATE = "140526"
 UCR_DATA_ROOT = PROJECT_ROOT / "data"
 UCR_DATASETS = ()
 STAGE1_OUTPUT_DIR = PROJECT_ROOT / "benchmark" / "results" / "v2_kernel_learning" / f"ucr_two_stage_{EXPERIMENT_DATE}"
-STAGE2_OUTPUT_DIR = PROJECT_ROOT / "benchmark" / "results" / "v2_kernel_learning" / f"ucr_two_stage_optim_{EXPERIMENT_DATE}"
+STAGE2_OUTPUT_DIR = PROJECT_ROOT / "benchmark" / "results" / \
+    "v2_kernel_learning" / f"ucr_two_stage_optim_{EXPERIMENT_DATE}"
 STAGE1_RUN_ID = "kernel_learning_ucr_stage1_ba419d49e4"
 RUN_STAGE_1 = False
 
