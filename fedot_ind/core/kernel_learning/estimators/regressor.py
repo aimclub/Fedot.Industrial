@@ -33,6 +33,7 @@ class KernelEnsembleRegressor(KernelEnsembleBase):
             C: float = 1.0,
             epsilon: float = 0.1,
             head: Any | None = None,
+            torch_device: Any = "auto",
     ):
         super().__init__(
             generator_names=generator_names,
@@ -49,12 +50,14 @@ class KernelEnsembleRegressor(KernelEnsembleBase):
             importance_threshold=importance_threshold,
             importance_fallback_top_n=importance_fallback_top_n,
             importance_max_union_size=importance_max_union_size,
+            torch_device=torch_device,
         )
         self.alpha = alpha
         self.head_type = head_type
         self.C = C
         self.epsilon = epsilon
         self.head = head
+        self.torch_device = torch_device
 
     def fit(self, X: Any, y: Any):
         y_array = np.asarray(y, dtype=float).reshape(-1)

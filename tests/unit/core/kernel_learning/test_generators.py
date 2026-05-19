@@ -3,6 +3,7 @@ import types
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from fedot_ind.core.kernel_learning import (
     OperationSpec,
@@ -10,6 +11,7 @@ from fedot_ind.core.kernel_learning import (
     SummaryFeatureGenerator,
     build_generator_registry,
     create_feature_generator,
+    resolve_torch_device,
 )
 from fedot_ind.core.kernel_learning.generators import adapters
 
@@ -20,6 +22,23 @@ def test_statistical_summary_is_repo_native_adapter_not_manual_summary():
     assert isinstance(generator, RepositoryFeatureGeneratorAdapter)
     assert not hasattr(generator, "_build_features")
     assert generator.operation_specs[0].name == "quantile_extractor_torch"
+
+
+def test_statistical_summary_handles_single_timestamp_batches():
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+    generator = SummaryFeatureGenerator()
+    X = np.array([[0.0], [0.2], [1.0], [1.2]])
+    y = np.array([0, 0, 1, 1])
+
+    train_features = generator.fit_transform(X, y).features
+    test_features = generator.transform(np.array([[0.1], [1.1]])).features
+
+    assert train_features.shape[0] == 4
+    assert test_features.shape[0] == 2
+    assert train_features.shape[1] == test_features.shape[1]
+    assert np.all(np.isfinite(train_features))
+    assert np.all(np.isfinite(test_features))
 
 
 def test_default_registry_exposes_repo_native_generators():
@@ -66,7 +85,7 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
     monkeypatch.setattr(
         adapters,
         "to_fedot_input_data",
-        lambda X, y=None, task_type="classification", use_torch=False: SimpleNamespace(
+        lambda X, y=None, task_type="classification", use_torch=False, torch_device="auto": SimpleNamespace(
             features=np.asarray(X),
             target=None if y is None else np.asarray(y).reshape(-1, 1),
             idx=np.arange(np.asarray(X).shape[0]),
@@ -95,3 +114,17 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
     assert left.shape == (2, 4)
     assert np.allclose(left, right)
     assert np.all(np.isfinite(left))
+
+
+def test_resolve_torch_device_auto_uses_cpu_when_cuda_is_unavailable(monkeypatch):
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    assert str(resolve_torch_device("auto")) == "cpu"
+
+
+def test_resolve_torch_device_auto_prefers_cuda_when_available(monkeypatch):
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    assert str(resolve_torch_device("auto")) == "cuda"

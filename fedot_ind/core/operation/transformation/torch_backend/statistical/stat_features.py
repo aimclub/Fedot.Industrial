@@ -172,9 +172,8 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
     dd = torch.diff(s, axis=-1)
     n_peaks = torch.count_nonzero(dd == -2, axis=-1)
     if X.ndim > 2:
-        n_peaks.reshape(X.shape[0], X.shape[1])
-    else:
-        return n_peaks.item() if n_peaks.numel() == 1 else n_peaks
+        return n_peaks.reshape(*X.shape[:-1])
+    return n_peaks.item() if n_peaks.numel() == 1 else n_peaks
 
 
 def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
@@ -205,10 +204,15 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     indices = torch.where(dd == -2)
     rows, cols = indices
 
-    max_count = torch.bincount(rows).max().item()
     B = dd.shape[0]
     count_peaks = torch.bincount(rows, minlength=B)
     max_count = int(count_peaks.max().item())
+    if max_count == 0:
+        mean_dist = torch.zeros(B, device=x.device)
+        if X.ndim > 2:
+            return mean_dist.reshape(*X.shape[:-1])
+        return mean_dist.item() if mean_dist.numel() == 1 else mean_dist
+
     offsets = torch.cumsum(torch.cat([count_peaks[:1] * 0, count_peaks[:-1]]), dim=0)
     idx_global = torch.arange(len(rows), device=rows.device)
     idx_in_row = idx_global - offsets[rows]
@@ -223,9 +227,8 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     diff_peaks[diff_peaks < 0] = 0
     mean_dist = diff_peaks.sum(dim=-1) / count_peaks.float()
     if X.ndim > 2:
-        mean_dist.reshape(X.shape[0], X.shape[1])
-    else:
-        return mean_dist.item() if mean_dist.numel() == 1 else mean_dist
+        return mean_dist.reshape(*X.shape[:-1])
+    return mean_dist.item() if mean_dist.numel() == 1 else mean_dist
 
 
 def slope_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
@@ -546,7 +549,7 @@ def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.T
     if x.ndim == 1:
         x = x.unsqueeze(0)
     T = x.shape[axis]
-    span = max(int(T / 10), 2)
+    span = min(max(int(T / 10), 2), T)
     windows = x.unfold(dimension=axis, size=span, step=1)
     medians = median_torch(windows)
     res = medians.mean(dim=axis)

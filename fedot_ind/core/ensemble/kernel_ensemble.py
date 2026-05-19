@@ -112,10 +112,12 @@ class KernelEnsembler(BaseExtractor):
         if self.learning_strategy != 'all_classes':
             target_shape = train_fold.target.shape
             target = train_fold.target.reshape(-1)
-            not_described_idx = np.where(~np.isin(target, classes_described_by_generator[gen]))[0]
-            mp = np.vectorize(self._map_target_for_generator)
-            mapped_target = mp(entry=target, mapper_dict=self.mapper_dict[gen])
-            mapped_target[not_described_idx] = max(list(self.mapper_dict[gen].values())) + 1
+            described_mask = np.isin(target, classes_described_by_generator[gen])
+            fallback_class = max(list(self.mapper_dict[gen].values())) + 1
+            mapped_target = np.full(target.shape, fallback_class, dtype=object)
+            mapped_target[described_mask] = [
+                self.mapper_dict[gen][entry] for entry in target[described_mask]
+            ]
             train_fold.target = mapped_target.reshape(target_shape)
         return train_fold
 

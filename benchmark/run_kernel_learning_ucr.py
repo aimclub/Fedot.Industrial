@@ -3,8 +3,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -16,20 +14,32 @@ from benchmark.v2 import (
     ModelSpec,
     RunSpec,
     TaskType,
+    discover_local_ucr_datasets,
     run_tsc_benchmark_suite,
 )
+from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
 
 EXPERIMENT_DATE = "140526"
 UCR_DATA_ROOT = PROJECT_ROOT / "data"
-UCR_DATASETS = ("Lightning7", "ECG200", "Coffee")
-UCR_DATASETS = UNI_CLF_BENCH
+UCR_DATASETS = ()
 NON_TOPOLOGICAL_GENERATORS = (
     "quantile_extractor_torch",
+    "wavelet_basis",
     "wavelet_extractor",
+    "fourier_basis",
     "fourier_extractor",
-    # "eigen_extractor",
+    "eigen_basis",
+    "eigen_extractor",
     "recurrence_extractor",
+    "tabular_extractor",
 )
+
+
+def resolve_ucr_datasets() -> tuple[str, ...]:
+    if UCR_DATASETS:
+        return tuple(UCR_DATASETS)
+    return discover_local_ucr_datasets(UCR_DATA_ROOT, allowed_names=UNI_CLF_BENCH)
+
 
 DATASETS = tuple(
     DatasetSpec(
@@ -40,7 +50,7 @@ DATASETS = tuple(
             "download_if_missing": True,
         },
     )
-    for dataset_name in UCR_DATASETS
+    for dataset_name in resolve_ucr_datasets()
 )
 
 KERNEL_LEARNING_MODELS = (
@@ -70,11 +80,12 @@ KERNEL_LEARNING_MODELS = (
             "generator_names": NON_TOPOLOGICAL_GENERATORS,
             "kernel": "rbf",
             "gamma": "scale",
+            "torch_device": "auto",
             "C": 1.0,
             "complexity_penalty": 0.01,
             "redundancy_penalty": 0.05,
             "min_weight": 0.05,
-            'importance_threshold': 0.15
+            "importance_threshold": 0.05,
         },
     ),
 )
@@ -90,7 +101,7 @@ config = BenchmarkSuiteConfig(
     ),
     run_spec=RunSpec(
         run_name="kernel_learning_ucr_suite",
-        primary_metric="f1",
+        primary_metric="f1_macro",
         show_progress=True,
         progress_leave=False,
         progress_log_errors=True,

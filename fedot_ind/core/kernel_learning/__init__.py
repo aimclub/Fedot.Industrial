@@ -17,6 +17,7 @@ from .generators import (
     build_generator_registry,
     create_feature_generator,
     resolve_generator_operation_specs,
+    resolve_torch_device,
 )
 from .integration import KernelInitialPipelineSpec, KernelInitialPopulationBuilder
 from .kernels import KernelMatrixBuilder, kernel_complexity
@@ -56,5 +57,6 @@ __all__ = [
     "create_feature_generator",
     "kernel_complexity",
     "resolve_generator_operation_specs",
+    "resolve_torch_device",
     "select_significant_generators",
 ]

@@ -58,6 +58,7 @@ def to_fedot_input_data(
         *,
         task_type: str = "classification",
         use_torch: bool = False,
+        torch_device: Any = "auto",
 ):
     from fedot.core.data.data import InputData
     from fedot.core.repository.dataset_types import DataTypesEnum
@@ -65,7 +66,7 @@ def to_fedot_input_data(
 
     features = normalize_time_series_tensor(X)
     if use_torch:
-        features = _to_torch(features)
+        features = _to_torch(features, device=torch_device)
     task_map = {
         "classification": Task(TaskTypesEnum.classification),
         "regression": Task(TaskTypesEnum.regression),
@@ -82,11 +83,11 @@ def to_fedot_input_data(
     )
 
 
-def _features_to_fedot_input_data(features: Any, template: Any, *, use_torch: bool):
+def _features_to_fedot_input_data(features: Any, template: Any, *, use_torch: bool, torch_device: Any = "auto"):
     from fedot.core.data.data import InputData
     from fedot.core.repository.dataset_types import DataTypesEnum
 
-    prepared = _to_torch(features) if use_torch else _to_numpy(features)
+    prepared = _to_torch(features, device=torch_device) if use_torch else _to_numpy(features)
     data_type = DataTypesEnum.image if len(prepared.shape) >= 3 else DataTypesEnum.table
     return InputData(
         idx=getattr(template, "idx", np.arange(prepared.shape[0])),
@@ -115,12 +116,28 @@ def _to_numpy(values: Any) -> np.ndarray:
     return np.asarray(values)
 
 
-def _to_torch(values: Any):
+def resolve_torch_device(device: Any = "auto"):
     import torch
 
+    if isinstance(device, torch.device):
+        resolved = device
+    else:
+        requested = "auto" if device is None else str(device).strip().lower()
+        if requested == "auto":
+            requested = "cuda" if torch.cuda.is_available() else "cpu"
+        resolved = torch.device(requested)
+    if resolved.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("torch_device='cuda' was requested, but CUDA is not available.")
+    return resolved
+
+
+def _to_torch(values: Any, *, device: Any = "auto"):
+    import torch
+
+    resolved_device = resolve_torch_device(device)
     if isinstance(values, torch.Tensor):
-        return values.float()
-    return torch.as_tensor(_to_numpy(values), dtype=torch.float32)
+        return values.to(device=resolved_device, dtype=torch.float32)
+    return torch.as_tensor(_to_numpy(values), dtype=torch.float32, device=resolved_device)
 
 
 def _operation_params(params: dict[str, Any]):
@@ -149,9 +166,11 @@ def _call_transform(operation: Any, input_data: Any):
 class RepositoryFeatureGeneratorAdapter:
     name: str
     operation_specs: Sequence[OperationSpec]
+    torch_device: Any = "auto"
     task_type_: str | None = None
     operations_: list[Any] = field(default_factory=list)
     train_features_: np.ndarray | None = None
+    resolved_torch_device_: str | None = None
 
     def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
         self.task_type_ = task_type
@@ -177,11 +196,13 @@ class RepositoryFeatureGeneratorAdapter:
         if not self.operation_specs:
             raise ValueError(f"Feature generator {self.name!r} has no operation specs.")
 
+        torch_device = self._resolve_torch_device_for_run()
         current = to_fedot_input_data(
             X,
             y,
             task_type=self.task_type_ or "classification",
             use_torch=self.operation_specs[0].use_torch,
+            torch_device=torch_device,
         )
         raw_output: Any = None
         for index, (spec, operation) in enumerate(zip(self.operation_specs, self.operations_)):
@@ -193,19 +214,31 @@ class RepositoryFeatureGeneratorAdapter:
                     raw_output,
                     current,
                     use_torch=self.operation_specs[next_index].use_torch,
+                    torch_device=torch_device,
                 )
         return normalize_feature_matrix(raw_output)
 
+    def _resolve_torch_device_for_run(self):
+        if any(spec.use_torch for spec in self.operation_specs):
+            resolved = resolve_torch_device(self.torch_device)
+            self.resolved_torch_device_ = str(resolved)
+            return resolved
+        self.resolved_torch_device_ = None
+        return self.torch_device
+
     def _bundle(self, features: Any) -> FeatureBundle:
         matrix = normalize_feature_matrix(features)
+        diagnostics = {
+            "source": "fedot_industrial_operation",
+            "operations": tuple(spec.name for spec in self.operation_specs),
+            "n_features": int(matrix.shape[1]),
+        }
+        if self.resolved_torch_device_ is not None:
+            diagnostics["torch_device"] = self.resolved_torch_device_
         return FeatureBundle(
             name=self.name,
             features=matrix,
-            diagnostics={
-                "source": "fedot_industrial_operation",
-                "operations": tuple(spec.name for spec in self.operation_specs),
-                "n_features": int(matrix.shape[1]),
-            },
+            diagnostics=diagnostics,
         )
 
 
@@ -272,12 +305,18 @@ class IdentityFeatureGenerator:
 
 
 class SummaryFeatureGenerator(RepositoryFeatureGeneratorAdapter):
-    def __init__(self, name: str = "statistical_summary", params: dict[str, Any] | None = None):
+    def __init__(
+            self,
+            name: str = "statistical_summary",
+            params: dict[str, Any] | None = None,
+            torch_device: Any = "auto",
+    ):
         super().__init__(
             name=name,
             operation_specs=(
                 _torch_quantile_spec(params or _DEFAULT_STATISTICAL_PARAMS),
             ),
+            torch_device=torch_device,
         )
 
 
@@ -339,11 +378,15 @@ def create_feature_generator(
         name: str,
         *,
         registry: dict[str, Callable[[], Any]] | None = None,
+        torch_device: Any = "auto",
 ):
     source = registry or build_generator_registry()
     if name not in source:
         raise ValueError(f"Unknown kernel feature generator: {name}")
-    return source[name]()
+    generator = source[name]()
+    if isinstance(generator, RepositoryFeatureGeneratorAdapter):
+        generator.torch_device = torch_device
+    return generator
 
 
 def resolve_generator_operation_specs(

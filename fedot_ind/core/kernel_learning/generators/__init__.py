@@ -9,6 +9,7 @@ from .adapters import (
     build_generator_registry,
     create_feature_generator,
     normalize_feature_matrix,
+    resolve_torch_device,
     resolve_generator_operation_specs,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "build_generator_registry",
     "create_feature_generator",
     "normalize_feature_matrix",
+    "resolve_torch_device",
     "resolve_generator_operation_specs",
 ]

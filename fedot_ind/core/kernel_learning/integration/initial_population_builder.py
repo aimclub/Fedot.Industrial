@@ -107,7 +107,11 @@ class KernelInitialPopulationBuilder:
         specs = self.build_specs(importance)
         return [self.build_pipeline_from_spec(spec) for spec in specs]
 
-    def build_pipeline_from_spec(self, spec: KernelInitialPipelineSpec):
+    def build_pipeline_builders(self, importance: KernelImportanceReport):
+        specs = self.build_specs(importance)
+        return [self.build_pipeline_builder_from_spec(spec) for spec in specs]
+
+    def build_pipeline_builder_from_spec(self, spec: KernelInitialPipelineSpec):
         from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
         builder = PipelineBuilder()
@@ -115,15 +119,18 @@ class KernelInitialPopulationBuilder:
             for operation in spec.operation_chains[0]:
                 builder.add_node(operation.name, params=dict(operation.params))
             builder.add_node(spec.head_model)
-            return builder.build()
+            return builder
 
         if spec.kind == "union":
             for branch_idx, chain in enumerate(spec.operation_chains):
                 for operation in chain:
                     builder.add_node(operation.name, branch_idx=branch_idx, params=dict(operation.params))
-            return builder.join_branches(spec.head_model).build()
+            return builder.join_branches(spec.head_model)
 
         raise ValueError(f"Unsupported kernel initial pipeline kind: {spec.kind}")
+
+    def build_pipeline_from_spec(self, spec: KernelInitialPipelineSpec):
+        return self.build_pipeline_builder_from_spec(spec).build()
 
     def restrict_available_operations(
             self,

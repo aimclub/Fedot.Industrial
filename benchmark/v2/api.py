@@ -133,7 +133,8 @@ def run_tsc_benchmark_suite(config: BenchmarkSuiteConfig):
     result = run_tsc_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
-        manifest = list(
+        manifest = list(result.artifact_manifest)
+        manifest.extend(
             render_tsc_publication_pack(
                 result,
                 output_dir=output_dir,
@@ -159,7 +160,8 @@ def run_tser_benchmark_suite(config: BenchmarkSuiteConfig):
     result = run_tser_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
-        manifest = list(
+        manifest = list(result.artifact_manifest)
+        manifest.extend(
             render_tser_publication_pack(
                 result,
                 output_dir=output_dir,

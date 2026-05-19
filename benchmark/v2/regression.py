@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .artifacts import IncrementalBenchmarkArtifactWriter
 from .core import (
     ArtifactRecord,
     BenchmarkAggregateReport,
@@ -25,6 +26,7 @@ from .core import (
     to_plain_data,
     write_json,
 )
+from .kernel_artifacts import export_kernel_learning_artifacts
 from .local_io import LocalDatasetParseError, load_local_supervised_split
 from .markdown import dataframe_to_markdown
 from .progress import BenchmarkProgressMonitor
@@ -257,6 +259,9 @@ class KernelEnsembleRegressorAdapter:
             raise BenchmarkRegressionError('KernelEnsembleRegressorAdapter must be fitted before prediction.')
         return self.model_.predict(features)
 
+    def export_artifacts(self) -> dict[str, Any]:
+        return export_kernel_learning_artifacts(self.model_)
+
 
 def build_regression_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
@@ -320,6 +325,7 @@ def _build_regression_leaderboard(
 def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
     validate_tser_suite_config(config)
     run_id = new_run_id(config.run_spec.run_name)
+    artifact_writer = IncrementalBenchmarkArtifactWriter(config, run_id)
     dataset_records: list[RegressionDatasetRecord] = []
     run_records: list[BenchmarkRunRecord] = []
     prediction_records: list[ValuePredictionRecord] = []
@@ -347,7 +353,7 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                 if availability_status is not RunStatus.SUCCESS:
                     for record in records:
                         progress.item_started(record.dataset_name, model.name, record.dataset_name)
-                        run_records.append(
+                        run_record = artifact_writer.write_run(
                             BenchmarkRunRecord(
                                 run_id=run_id,
                                 benchmark=record.benchmark,
@@ -360,6 +366,7 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                                 message=availability_message,
                             )
                         )
+                        run_records.append(run_record)
                         progress.advance(availability_status.value, availability_message)
                     progress.model_finished()
                     continue
@@ -377,21 +384,9 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                             metric_name: compute_regression_metric(metric_name, test_y, prediction)
                             for metric_name in config.metrics
                         }
-                        run_records.append(
-                            BenchmarkRunRecord(
-                                run_id=run_id,
-                                benchmark=record.benchmark,
-                                dataset_name=record.dataset_name,
-                                subset=record.subset,
-                                series_id=record.dataset_name,
-                                model_name=model.name,
-                                status=RunStatus.SUCCESS,
-                                tags=model.tags,
-                                metrics_summary=metrics_summary,
-                            )
-                        )
+                        run_metric_records = []
                         for metric_name, metric_value in metrics_summary.items():
-                            metric_records.append(
+                            run_metric_records.append(
                                 MetricRecord(
                                     run_id=run_id,
                                     benchmark=record.benchmark,
@@ -404,8 +399,9 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                                     status=RunStatus.SUCCESS,
                                 )
                             )
+                        run_prediction_records = []
                         for sample_index, (actual, predicted) in enumerate(zip(test_y, prediction), start=1):
-                            prediction_records.append(
+                            run_prediction_records.append(
                                 ValuePredictionRecord(
                                     run_id=run_id,
                                     benchmark=record.benchmark,
@@ -418,9 +414,29 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                                     status=RunStatus.SUCCESS,
                                 )
                             )
+                        model_artifacts = model.export_artifacts() if hasattr(model, 'export_artifacts') else {}
+                        run_record = artifact_writer.write_run(
+                            BenchmarkRunRecord(
+                                run_id=run_id,
+                                benchmark=record.benchmark,
+                                dataset_name=record.dataset_name,
+                                subset=record.subset,
+                                series_id=record.dataset_name,
+                                model_name=model.name,
+                                status=RunStatus.SUCCESS,
+                                tags=model.tags,
+                                metrics_summary=metrics_summary,
+                            ),
+                            metric_records=run_metric_records,
+                            prediction_records=run_prediction_records,
+                            model_artifacts=model_artifacts,
+                        )
+                        run_records.append(run_record)
+                        metric_records.extend(run_metric_records)
+                        prediction_records.extend(run_prediction_records)
                         progress.advance(RunStatus.SUCCESS.value)
                     except Exception as exc:
-                        run_records.append(
+                        run_record = artifact_writer.write_run(
                             BenchmarkRunRecord(
                                 run_id=run_id,
                                 benchmark=record.benchmark,
@@ -433,6 +449,7 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                                 message=str(exc),
                             )
                         )
+                        run_records.append(run_record)
                         progress.advance(RunStatus.FAILED.value, str(exc))
                 progress.model_finished()
             progress.dataset_finished()
@@ -448,6 +465,7 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
         prediction_records=tuple(prediction_records),
         metric_records=tuple(metric_records),
         aggregate_report=aggregate_report,
+        artifact_manifest=artifact_writer.artifact_manifest(),
     )
 
 

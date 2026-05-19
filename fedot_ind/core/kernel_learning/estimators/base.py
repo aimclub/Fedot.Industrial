@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -33,9 +34,10 @@ class KernelEnsembleBase(BaseEstimator):
             redundancy_penalty: float = 0.05,
             min_weight: float = 0.05,
             target_gamma: str | float = "scale",
-            importance_threshold: float = 0.15,
+            importance_threshold: float = 0.05,
             importance_fallback_top_n: int = 1,
             importance_max_union_size: int = 3,
+            torch_device: Any = "auto",
     ):
         self.generator_names = generator_names
         self.kernel = kernel
@@ -51,6 +53,7 @@ class KernelEnsembleBase(BaseEstimator):
         self.importance_threshold = importance_threshold
         self.importance_fallback_top_n = importance_fallback_top_n
         self.importance_max_union_size = importance_max_union_size
+        self.torch_device = torch_device
 
     def _resolve_generator_names(self) -> tuple[str, ...]:
         if self.generator_names is None:
@@ -64,7 +67,7 @@ class KernelEnsembleBase(BaseEstimator):
         self.kernel_bundles_: list[KernelBundle] = []
 
         for name in self.generator_names_:
-            generator = create_feature_generator(name)
+            generator = create_feature_generator(name, torch_device=self.torch_device)
             feature_bundle = generator.fit_transform(X, y, task_type=self.task_type)
             builder = KernelMatrixBuilder(
                 kernel=self.kernel,
@@ -78,6 +81,13 @@ class KernelEnsembleBase(BaseEstimator):
                 feature_bundle.features,
                 name=feature_bundle.name,
                 train_features=feature_bundle.features,
+            )
+            kernel_bundle = replace(
+                kernel_bundle,
+                diagnostics={
+                    **kernel_bundle.diagnostics,
+                    "feature_generator": dict(feature_bundle.diagnostics),
+                },
             )
             self.generators_.append(generator)
             self.kernel_builders_[feature_bundle.name] = builder

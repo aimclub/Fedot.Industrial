@@ -31,6 +31,7 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
             probability: bool = True,
             random_state: int = 42,
             head: Any | None = None,
+            torch_device: Any = "auto",
     ):
         super().__init__(
             generator_names=generator_names,
@@ -47,11 +48,13 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
             importance_threshold=importance_threshold,
             importance_fallback_top_n=importance_fallback_top_n,
             importance_max_union_size=importance_max_union_size,
+            torch_device=torch_device,
         )
         self.C = C
         self.probability = probability
         self.random_state = random_state
         self.head = head
+        self.torch_device = torch_device
 
     def fit(self, X: Any, y: Any):
         y_array = np.asarray(y).reshape(-1)

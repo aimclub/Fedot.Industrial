@@ -11,7 +11,7 @@ OperationParameters = pytest.importorskip("fedot.core.operations.operation_param
 
 
 def test_kernel_strategy_accepts_legacy_trailing_space_key():
-    ensembler = kernel_module.KernelEnsembler(OperationParameters({"kernel_strategy ": "one_step_pwmk"}))
+    ensembler = kernel_module.KernelEnsembler(OperationParameters(**{"kernel_strategy ": "one_step_pwmk"}))
 
     assert ensembler.kernel_strategy == "one_step_pwmk"
 
@@ -19,7 +19,7 @@ def test_kernel_strategy_accepts_legacy_trailing_space_key():
 def test_kernel_strategy_canonical_key_wins_over_legacy_typo():
     ensembler = kernel_module.KernelEnsembler(
         OperationParameters(
-            {
+            **{
                 "kernel_strategy": "two_step_rmkl",
                 "kernel_strategy ": "one_step_cka",
             }

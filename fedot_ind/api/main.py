@@ -33,6 +33,17 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 warnings.filterwarnings("ignore")
 
 
+def _normalize_initial_assumption(initial_assumption):
+    if initial_assumption is None:
+        return None
+    if isinstance(initial_assumption, (list, tuple)):
+        return [_normalize_initial_assumption(item) for item in initial_assumption]
+    build = getattr(initial_assumption, 'build', None)
+    if callable(build):
+        return build()
+    return initial_assumption
+
+
 class FedotIndustrial(Fedot):
     """Main class for Industrial API. It provides a high-level interface for working with the
     Fedot framework. The class allows you to train, predict, and evaluate models for time series.
@@ -113,12 +124,10 @@ class FedotIndustrial(Fedot):
     def __init_solver(self, input_data: Optional[Union[InputData, np.array]] = None):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Dask Server')
-        if self.manager.automl_config.config['initial_assumption'] is None:
-            self.manager.automl_config.config['initial_assumption'] = \
-                self.manager.industrial_config.config['initial_assumption'].build()
-        else:
-            self.manager.automl_config.config['initial_assumption'] = \
-                self.manager.automl_config.config['initial_assumption'].build()
+        configured_initial = self.manager.automl_config.config['initial_assumption']
+        if configured_initial is None:
+            configured_initial = self.manager.industrial_config.config.get('initial_assumption')
+        self.manager.automl_config.config['initial_assumption'] = _normalize_initial_assumption(configured_initial)
         dask_server = DaskServer(self.manager.compute_config.distributed)
         self.manager.dask_client = dask_server.client
         self.manager.dask_cluster = dask_server.cluster
