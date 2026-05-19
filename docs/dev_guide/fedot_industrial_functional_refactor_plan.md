@@ -59,6 +59,8 @@ As a result, the code can look mathematical while being hard to debug. The refac
 
 Document the coding rules before changing implementation.
 
+Canonical rules live in `docs/dev_guide/fedot_industrial_functional_flow_rules.md`.
+
 ### Changes
 
 - Add developer documentation for functional flow usage.
@@ -114,6 +116,8 @@ Add helpers such as:
 
 Replace repeated raw strings, booleans, and loose dictionaries with explicit records for runtime planning.
 
+Initial typed vocabulary lives in `fedot_ind/api/flow/domain.py`.
+
 ### Suggested Location
 
 - `fedot_ind/api/flow/domain.py`
@@ -148,6 +152,8 @@ Replace repeated raw strings, booleans, and loose dictionaries with explicit rec
 Extract and harden initial assumption normalization. This is especially important for kernel warm-start,
 where `PipelineBuilder` should be built only after the industrial repository is active.
 
+Initial helper extraction lives in `fedot_ind/api/flow/initial_assumption.py`.
+
 ### Suggested Location
 
 - `fedot_ind/api/flow/initial_assumption.py`
@@ -180,6 +186,8 @@ Extract:
 ### Goal
 
 Move input conversion, `DataCheck`, target encoder extraction, and default-context shape adaptation out of the facade.
+
+Initial service extraction lives in `fedot_ind/api/services/input_processing.py`.
 
 ### Suggested Location
 
@@ -220,6 +228,9 @@ Internal steps may still use monadic composition, but each step should be named:
 
 Separate repository activation and Dask startup from solver construction.
 
+Initial service extraction lives in `fedot_ind/api/services/repository.py` and
+`fedot_ind/api/services/dask_runtime.py`.
+
 ### Suggested Locations
 
 - `fedot_ind/api/services/repository.py`
@@ -252,6 +263,8 @@ builders.
 ### Goal
 
 Move `Fedot(...)` construction into a dedicated factory fed by a typed plan.
+
+Initial factory extraction lives in `fedot_ind/api/services/solver_factory.py`.
 
 ### Suggested Location
 
