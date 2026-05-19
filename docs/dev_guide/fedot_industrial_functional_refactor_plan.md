@@ -304,6 +304,10 @@ The plan should include:
 
 Make `fit` read as a lifecycle script, not a monadic chain around side effects.
 
+The first orchestration pass keeps the public facade intact, rewires `fit` into
+explicit lifecycle steps, and moves the strategy-vs-solver fit branch into
+`fedot_ind/api/services/fit.py`.
+
 ### Target Shape
 
 ```python
@@ -334,6 +338,8 @@ def fit(self, input_data, **kwargs):
 ### Goal
 
 Extract prediction routing and target decoding from `FedotIndustrial`.
+
+Initial prediction routing extraction lives in `fedot_ind/api/services/prediction.py`.
 
 ### Suggested Location
 
@@ -374,6 +380,9 @@ The service should explicitly model:
 
 Move metrics evaluation and finetune flow into dedicated services.
 
+The first metrics extraction lives in `fedot_ind/api/services/metrics.py`.
+The finetune flow extraction lives in `fedot_ind/api/services/finetune.py`.
+
 ### Suggested Locations
 
 - `fedot_ind/api/services/metrics.py`
@@ -405,11 +414,24 @@ Introduce records such as:
 - Metrics and finetune code no longer rely on large inline branching inside `FedotIndustrial`.
 - Expected inputs and outputs are explicit.
 
+### Implementation Notes
+
+- `MetricEvaluationService` now owns encoded-target handling, ensemble-dict metrics and the final
+  `FEDOT_GET_METRICS` call.
+- `FinetuneService` now owns tuning parameter normalization, model materialization, backend-ready payload creation
+  and the direct-fit versus tuner branch.
+- `FedotIndustrial` keeps lifecycle ownership: it still decides when to process input, activate the backend and assign
+  the resulting tuned model to the manager.
+
 ## PR 11. Style Cleanup And Migration Guardrails
 
 ### Goal
 
 Finish migration away from mixed anonymous Pymonad chains in the API layer.
+
+Initial cleanup removes anonymous `Either`/`lambda` wrappers from `FedotIndustrial` prediction, persistence, loading and
+history-visualization paths. Pymonad usage remains available through `fedot_ind/api/flow/monadic.py` and typed flow
+helpers where it represents an explicit value transformation or expected domain branch.
 
 ### Changes
 
