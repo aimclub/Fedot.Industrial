@@ -2273,7 +2273,7 @@ class ForecastingSuiteRunner:
             if record_key not in self.known_series_keys:
                 self.series_records.append(record)
                 self.known_series_keys.add(record_key)
-        # self.incremental_persistence.persist_series_catalog(self.series_records)
+        self.incremental_persistence.persist_series_catalog(self.series_records)
         self.progress.extend_total(len(dataset_series) * len(self.config.models))
         self.progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
         return dataset_series

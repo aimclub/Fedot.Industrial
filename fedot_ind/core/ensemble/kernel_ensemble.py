@@ -2,11 +2,11 @@ from copy import deepcopy
 from typing import Any, Optional
 
 import pandas as pd
+from MKLpy.callbacks import EarlyStopping
+from MKLpy.scheduler import ReduceOnWorsening
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from MKLpy.callbacks import EarlyStopping
-from MKLpy.scheduler import ReduceOnWorsening
 from scipy.spatial.distance import pdist, squareform
 from sklearn.svm import SVC
 
@@ -42,7 +42,7 @@ class KernelEnsembler(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.distance_metric = params.get('distance_metric', KERNEL_DISTANCE_METRIC['default_metric'])
-        self.kernel_strategy = params.get('kernel_strategy ', 'one_step_cka')
+        self.kernel_strategy = params.get('kernel_strategy', params.get('kernel_strategy ', 'one_step_cka'))
         self.learning_strategy = params.get('learning_strategy', 'all_classes')
         self.head_model = params.get('head_model', 'rf')
         self.feature_extractor = params.get('feature_extractor', list(
@@ -110,15 +110,15 @@ class KernelEnsembler(BaseExtractor):
     def _create_kernel_data(self, input_data, classes_described_by_generator, gen):
         train_fold = deepcopy(input_data)
         if self.learning_strategy != 'all_classes':
-            described_idx, _ = np.where(
-                train_fold.target == classes_described_by_generator[gen])
-            not_described_idx = [i for i in np.arange(
-                0, train_fold.target.shape[0]) if i not in described_idx]
-            mp = np.vectorize(self._map_target_for_generator)
-            train_fold.target = mp(
-                entry=train_fold.target, mapper_dict=self.mapper_dict[gen])
-            train_fold.target[not_described_idx] = max(
-                list(self.mapper_dict[gen].values())) + 1
+            target_shape = train_fold.target.shape
+            target = train_fold.target.reshape(-1)
+            described_mask = np.isin(target, classes_described_by_generator[gen])
+            fallback_class = max(list(self.mapper_dict[gen].values())) + 1
+            mapped_target = np.full(target.shape, fallback_class, dtype=object)
+            mapped_target[described_mask] = [
+                self.mapper_dict[gen][entry] for entry in target[described_mask]
+            ]
+            train_fold.target = mapped_target.reshape(target_shape)
         return train_fold
 
     def _create_pipeline(self, gen):
@@ -167,6 +167,7 @@ class KernelEnsembler(BaseExtractor):
         return self.predict
 
     def generate_grammian(self, input_data) -> list[Any]:
+        self.feature_matrix_train = []
         for model in self.feature_extractor:
             model = KERNEL_BASELINE_FEATURE_GENERATORS[model].build()
             self.feature_matrix_train.append(model.fit(input_data).predict)

@@ -1,0 +1,14 @@
+version: benchmark_v2_manifest@1
+kind: preset
+preset_name: m4
+subset: daily
+sample_size: 2
+persist_on_run: true
+output_dir: benchmark/results/v2_manifest_runs/m4_daily
+models:
+  - adapter_name: naive_last_value
+    display_name: NaiveLastValue
+  - adapter_name: moving_average
+    display_name: MovingAverage
+    params:
+      window_size: 3

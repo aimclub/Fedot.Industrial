@@ -1,8 +1,9 @@
-import torch
 from typing import Optional
 
+import torch
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
@@ -28,6 +29,21 @@ class TorchQuantileExtractor(BaseExtractor):
         self.logging_params.update({'Wsize': self.window_size,
                                     'Stride': self.stride})
 
+    @staticmethod
+    def _as_feature_matrix(features: list, source: torch.Tensor) -> torch.Tensor:
+        n_samples = source.shape[0] if source.ndim > 1 else 1
+        matrices = []
+        for feature in features:
+            tensor = torch.as_tensor(feature, device=source.device, dtype=torch.float32)
+            if tensor.ndim == 0:
+                tensor = tensor.reshape(1, 1)
+            elif tensor.shape[0] == n_samples:
+                tensor = tensor.reshape(n_samples, -1)
+            else:
+                tensor = tensor.reshape(1, -1)
+            matrices.append(tensor)
+        return torch.cat(matrices, dim=-1)
+
     def extract_stats_features_torch(self, ts: torch.Tensor, axis: int) -> InputData:
         """
         This method computes global statistical features and window-based features,
@@ -42,24 +58,26 @@ class TorchQuantileExtractor(BaseExtractor):
                 If `add_global_features` is True, returns global + window features.
                 Otherwise, returns only window features.
         """
-        global_features = self.get_statistical_features_torch(
-            ts, add_global_features=self.add_global_features, axis=axis)
-        if ts.squeeze().ndim == 1:
-            global_features = torch.Tensor(global_features).to(ts.device)
-        else:
-            global_features = torch.stack(global_features, dim=0).T.to(ts.device)
-        if self.window_size == 0:
-            window_stat_features = self.get_statistical_features_torch(ts,
-                                                                       axis=axis)
-            if ts.squeeze().ndim == 1:
-                window_stat_features = torch.Tensor(window_stat_features).to(ts.device)
-            else:
-                window_stat_features = torch.stack(window_stat_features, dim=0).T.to(ts.device)
+        global_features = self._as_feature_matrix(
+            self.get_statistical_features_torch(
+                ts,
+                add_global_features=self.add_global_features,
+                axis=axis,
+            ),
+            ts,
+        )
+        used_window_fallback = False
+        if self.window_size == 0 or ts.shape[axis] <= 5:
+            window_stat_features = self._as_feature_matrix(
+                self.get_statistical_features_torch(ts, axis=axis),
+                ts,
+            )
+            used_window_fallback = True
         else:
             window_stat_features = self.apply_window_for_stat_feature_torch(
                 ts_data=ts, feature_generator=self.get_statistical_features_torch, window_size=self.window_size)
         if self.add_global_features:
-            if self.window_size != 0:
+            if self.window_size != 0 and not used_window_fallback:
                 if window_stat_features.ndim > 2:
                     window_stat_features = window_stat_features.reshape(window_stat_features.shape[0],
                                                                         window_stat_features.shape[-1] *
@@ -86,5 +104,5 @@ class TorchQuantileExtractor(BaseExtractor):
         if ts.ndim > 2:
             self.is_multichanel = True
         features = self.extract_stats_features_torch(ts, axis=-1)
-        features = features.cpu()
+        features = torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
         return features.cpu()

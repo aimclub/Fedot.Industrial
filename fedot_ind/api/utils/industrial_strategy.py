@@ -206,9 +206,74 @@ class IndustrialStrategy:
         return tuned_models
 
     def _kernel_strategy(self, input_data):
+        if self.industrial_strategy_params.get('use_kernel_warm_start', False):
+            return self._kernel_warm_start_strategy(input_data)
+        return self._legacy_kernel_strategy(input_data)
+
+    def _legacy_kernel_strategy(self, input_data):
         self.kernel_ensembler = KernelEnsembler(self.industrial_strategy_params)
         kernel_ensemble, kernel_data = self.kernel_ensembler.transform(input_data).predict
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
+
+    def _kernel_warm_start_strategy(self, input_data):
+        from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleRegressor
+        from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationBuilder
+
+        problem = self.config.get('problem', getattr(getattr(input_data, 'task', None), 'task_type', None))
+        problem = getattr(problem, 'value', problem)
+        if problem not in ('classification', 'regression'):
+            self.logger.warning(
+                'Kernel warm-start is only supported for classification/regression. Falling back to legacy strategy.')
+            return self._legacy_kernel_strategy(input_data)
+
+        kernel_learning_params = dict(self.industrial_strategy_params.get('kernel_learning_params') or {})
+        kernel_learning_params.setdefault(
+            'importance_threshold',
+            self.industrial_strategy_params.get('importance_threshold', 0.05),
+        )
+        kernel_learning_params.setdefault(
+            'importance_fallback_top_n',
+            self.industrial_strategy_params.get('importance_fallback_top_n', 1),
+        )
+        kernel_learning_params.setdefault(
+            'importance_max_union_size',
+            self.industrial_strategy_params.get('max_union_size', 3),
+        )
+        estimator_cls = KernelEnsembleClassifier if problem == 'classification' else KernelEnsembleRegressor
+        kernel_estimator = estimator_cls(**kernel_learning_params)
+        target = np.asarray(input_data.target).reshape(-1)
+        kernel_estimator.fit(input_data.features, target)
+
+        head_model = self.industrial_strategy_params.get('head_model') or (
+            'rf' if problem == 'classification' else 'treg'
+        )
+        initial_population_builder = KernelInitialPopulationBuilder(
+            task_type=problem,
+            head_model=head_model,
+            include_feature_union=self.industrial_strategy_params.get('include_feature_union', True),
+            max_union_size=self.industrial_strategy_params.get('max_union_size', 3),
+        )
+        initial_population = initial_population_builder.build_pipelines(kernel_estimator.kernel_importance_)
+        if not initial_population:
+            self.logger.warning(
+                'Kernel warm-start did not build any initial assumptions. Falling back to legacy strategy.')
+            return self._legacy_kernel_strategy(input_data)
+
+        warm_start_config = deepcopy(self.config)
+        warm_start_config['initial_assumption'] = initial_population
+        if self.industrial_strategy_params.get('restrict_search_space', False):
+            warm_start_config['available_operations'] = initial_population_builder.restrict_available_operations(
+                warm_start_config.get('available_operations'),
+            )
+
+        self.kernel_learning_estimator_ = kernel_estimator
+        self.kernel_initial_population_builder_ = initial_population_builder
+        self.kernel_initial_population_ = initial_population
+        self.kernel_warm_start_config_ = warm_start_config
+        self.kernel_warm_start_diagnostics_ = dict(initial_population_builder.diagnostics_)
+
+        self.solver = Fedot(**warm_start_config)
+        self.solver.fit(input_data)
 
     def _lora_strategy(self, input_data):
         self.lora_model = PipelineBuilder().add_node(
@@ -272,6 +337,15 @@ class IndustrialStrategy:
     def _kernel_predict(self,
                         input_data,
                         mode: str = 'labels'):
+        if not hasattr(self.solver, 'items'):
+            if mode in ['labels', 'default']:
+                prediction = self.solver.predict(input_data)
+                return prediction.predict if hasattr(prediction, 'predict') else prediction
+            if hasattr(self.solver, 'predict_proba'):
+                return self.solver.predict_proba(input_data)
+            prediction = self.solver.predict(input_data, mode)
+            return prediction.predict if hasattr(prediction, 'predict') else prediction
+
         labels_dict = {
             k: v.predict(
                 input_data,
@@ -312,10 +386,10 @@ class IndustrialStrategy:
 
         list_proba = [predictions[model_preds] for model_preds in predictions]
         transformed = []
-        if self.random_label is None:
-            self.random_label = {
-                class_by_gen: np.random.choice(self.kernel_ensembler.classes_misses_by_generator[class_by_gen])
-                for class_by_gen in self.kernel_ensembler.classes_described_by_generator}
+        class_to_position = {
+            class_label: position
+            for position, class_label in enumerate(self.kernel_ensembler.all_classes)
+        }
         for prob_by_gen, class_by_gen in zip(
                 list_proba, self.kernel_ensembler.classes_described_by_generator):
             converted_probs = np.zeros(
@@ -323,9 +397,12 @@ class IndustrialStrategy:
                     self.kernel_ensembler.all_classes)))
             for true_class, map_class in self.kernel_ensembler.mapper_dict[class_by_gen].items(
             ):
-                converted_probs[:, true_class] = prob_by_gen[:, map_class]
-            random_label = self.random_label[class_by_gen]
-            converted_probs[:, random_label] = prob_by_gen[:, -1]
+                converted_probs[:, class_to_position[true_class]] = prob_by_gen[:, map_class]
+            missed_classes = self.kernel_ensembler.classes_misses_by_generator[class_by_gen]
+            if missed_classes:
+                abstention_probability = prob_by_gen[:, -1] / len(missed_classes)
+                for missed_class in missed_classes:
+                    converted_probs[:, class_to_position[missed_class]] = abstention_probability
             transformed.append(converted_probs)
 
         return np.array(transformed).transpose((1, 0, 2))

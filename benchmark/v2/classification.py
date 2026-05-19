@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .artifacts import IncrementalBenchmarkArtifactWriter
 from .core import (
     ArtifactRecord,
     BenchmarkAggregateReport,
@@ -25,6 +26,7 @@ from .core import (
     to_plain_data,
     write_json,
 )
+from .kernel_artifacts import export_kernel_learning_artifacts
 from .local_io import LocalDatasetParseError, load_local_supervised_split
 from .markdown import dataframe_to_markdown
 from .progress import BenchmarkProgressMonitor
@@ -121,15 +123,25 @@ class LocalClassificationAdapter:
             test_x = split.test_features
             test_y = split.test_target
             metadata = dict(split.metadata)
-        except LocalDatasetParseError:
+        except LocalDatasetParseError as local_error:
+            download_if_missing = bool(options.get('download_if_missing', True))
+            if not download_if_missing:
+                raise BenchmarkClassificationError(str(local_error)) from local_error
             try:
                 from fedot_ind.tools.loader import DataLoader
             except Exception as exc:  # pragma: no cover
                 raise BenchmarkClassificationError(f'Classification loader is unavailable: {exc}') from exc
-            train_data, test_data = DataLoader(dataset_name=spec.dataset_name).load_data()
+            train_data, test_data = DataLoader(
+                dataset_name=spec.dataset_name,
+                folder=options.get('local_data_root'),
+            ).load_data()
             train_x, train_y = train_data
             test_x, test_y = test_data
-            metadata = {'split_provenance': 'fedot_ind.tools.loader'}
+            metadata = {
+                'split_provenance': 'fedot_ind.tools.loader',
+                'local_parse_error': str(local_error),
+                'download_if_missing': download_if_missing,
+            }
         return (
             _encode_dataset_record(
                 benchmark=self.benchmark_name,
@@ -243,12 +255,49 @@ class OptionalExternalClassifier:
             return RunStatus.NOT_AVAILABLE, f'{self.dependency_name} is not installed.'
 
 
+@dataclass
+class KernelEnsembleClassifierAdapter:
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'classification', 'kernel_learning')
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot_ind.core.kernel_learning import KernelEnsembleClassifier  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'Kernel ensemble classifier is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.kernel_learning import KernelEnsembleClassifier
+
+        self.model_ = KernelEnsembleClassifier(**(self.params or {}))
+        self.model_.fit(features, target)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None:
+            raise BenchmarkClassificationError('KernelEnsembleClassifierAdapter must be fitted before prediction.')
+        return self.model_.predict(features)
+
+    def export_artifacts(self) -> dict[str, Any]:
+        return export_kernel_learning_artifacts(self.model_)
+
+
 def build_classification_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'majority_class':
         return MajorityClassClassifier(name=spec.display_name, tags=spec.tags or ('baseline', 'classification'))
     if name == 'nearest_centroid':
         return NearestCentroidClassifier(name=spec.display_name, tags=spec.tags or ('baseline', 'classification'))
+    if name == 'kernel_ensemble_classifier':
+        return KernelEnsembleClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'kernel_learning'),
+            optional=spec.optional,
+            params=dict(spec.params),
+        )
     if name == 'fedot_industrial_classifier':
         return OptionalExternalClassifier(
             dependency_name='fedot',
@@ -297,6 +346,7 @@ def _build_classification_leaderboard(
 def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult:
     validate_tsc_suite_config(config)
     run_id = new_run_id(config.run_spec.run_name)
+    artifact_writer = IncrementalBenchmarkArtifactWriter(config, run_id)
     dataset_records: list[ClassificationDatasetRecord] = []
     run_records: list[BenchmarkRunRecord] = []
     prediction_records: list[LabelPredictionRecord] = []
@@ -324,7 +374,7 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                 if availability_status is not RunStatus.SUCCESS:
                     for record in records:
                         progress.item_started(record.dataset_name, model.name, record.dataset_name)
-                        run_records.append(
+                        run_record = artifact_writer.write_run(
                             BenchmarkRunRecord(
                                 run_id=run_id,
                                 benchmark=record.benchmark,
@@ -337,6 +387,7 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                                 message=availability_message,
                             )
                         )
+                        run_records.append(run_record)
                         progress.advance(availability_status.value, availability_message)
                     progress.model_finished()
                     continue
@@ -354,21 +405,9 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                             metric_name: compute_classification_metric(metric_name, test_y, prediction)
                             for metric_name in config.metrics
                         }
-                        run_records.append(
-                            BenchmarkRunRecord(
-                                run_id=run_id,
-                                benchmark=record.benchmark,
-                                dataset_name=record.dataset_name,
-                                subset=record.subset,
-                                series_id=record.dataset_name,
-                                model_name=model.name,
-                                status=RunStatus.SUCCESS,
-                                tags=model.tags,
-                                metrics_summary=metrics_summary,
-                            )
-                        )
+                        run_metric_records = []
                         for metric_name, metric_value in metrics_summary.items():
-                            metric_records.append(
+                            run_metric_records.append(
                                 MetricRecord(
                                     run_id=run_id,
                                     benchmark=record.benchmark,
@@ -381,8 +420,9 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                                     status=RunStatus.SUCCESS,
                                 )
                             )
+                        run_prediction_records = []
                         for sample_index, (actual, predicted) in enumerate(zip(test_y, prediction), start=1):
-                            prediction_records.append(
+                            run_prediction_records.append(
                                 LabelPredictionRecord(
                                     run_id=run_id,
                                     benchmark=record.benchmark,
@@ -395,9 +435,29 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                                     status=RunStatus.SUCCESS,
                                 )
                             )
+                        model_artifacts = model.export_artifacts() if hasattr(model, 'export_artifacts') else {}
+                        run_record = artifact_writer.write_run(
+                            BenchmarkRunRecord(
+                                run_id=run_id,
+                                benchmark=record.benchmark,
+                                dataset_name=record.dataset_name,
+                                subset=record.subset,
+                                series_id=record.dataset_name,
+                                model_name=model.name,
+                                status=RunStatus.SUCCESS,
+                                tags=model.tags,
+                                metrics_summary=metrics_summary,
+                            ),
+                            metric_records=run_metric_records,
+                            prediction_records=run_prediction_records,
+                            model_artifacts=model_artifacts,
+                        )
+                        run_records.append(run_record)
+                        metric_records.extend(run_metric_records)
+                        prediction_records.extend(run_prediction_records)
                         progress.advance(RunStatus.SUCCESS.value)
                     except Exception as exc:
-                        run_records.append(
+                        run_record = artifact_writer.write_run(
                             BenchmarkRunRecord(
                                 run_id=run_id,
                                 benchmark=record.benchmark,
@@ -410,6 +470,7 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                                 message=str(exc),
                             )
                         )
+                        run_records.append(run_record)
                         progress.advance(RunStatus.FAILED.value, str(exc))
                 progress.model_finished()
             progress.dataset_finished()
@@ -425,6 +486,7 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
         prediction_records=tuple(prediction_records),
         metric_records=tuple(metric_records),
         aggregate_report=aggregate_report,
+        artifact_manifest=artifact_writer.artifact_manifest(),
     )
 
 

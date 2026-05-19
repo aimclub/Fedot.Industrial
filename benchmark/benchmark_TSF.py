@@ -66,6 +66,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
 
         super(BenchmarkTSF, self).__init__(
             output_dir='./tser/benchmark_results')
+        self.output_dir = getattr(self, 'output_dir', self.result_dir)
 
         self.logger = logging.getLogger(self.__class__.__name__)
 

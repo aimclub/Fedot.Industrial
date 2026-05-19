@@ -133,7 +133,8 @@ def run_tsc_benchmark_suite(config: BenchmarkSuiteConfig):
     result = run_tsc_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
-        manifest = list(
+        manifest = list(result.artifact_manifest)
+        manifest.extend(
             render_tsc_publication_pack(
                 result,
                 output_dir=output_dir,
@@ -159,7 +160,8 @@ def run_tser_benchmark_suite(config: BenchmarkSuiteConfig):
     result = run_tser_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
-        manifest = list(
+        manifest = list(result.artifact_manifest)
+        manifest.extend(
             render_tser_publication_pack(
                 result,
                 output_dir=output_dir,
@@ -222,8 +224,17 @@ def build_legacy_tsc_suite_config(experiment_setup: dict[str, Any]) -> Benchmark
     model_payloads = tuple(experiment_setup.get('model_specs', ()))
     output_dir = experiment_setup.get('output_dir', './benchmark/results/v2_tsc')
     metrics = tuple(experiment_setup.get('metrics', ('accuracy', 'balanced_accuracy', 'f1_macro')))
-    if not dataset_payloads or not model_payloads:
-        raise ValueError('Legacy TSC v2 compatibility expects experiment_setup["dataset_specs"] and ["model_specs"].')
+    if not dataset_payloads:
+        custom_datasets = tuple(experiment_setup.get('custom_datasets') or ('Lightning7',))
+        dataset_payloads = tuple({'benchmark': 'ucr', 'dataset_name': dataset_name} for dataset_name in custom_datasets)
+    if not model_payloads:
+        model_payloads = (
+            {
+                'adapter_name': 'kernel_ensemble_classifier',
+                'display_name': 'KernelEnsembleClassifier',
+                'params': {'generator_names': ('statistical_summary',), 'kernel': 'linear'},
+            },
+        )
     datasets = tuple(DatasetSpec(**payload) for payload in dataset_payloads)
     models = tuple(ModelSpec(**payload) for payload in model_payloads)
     artifact_spec = experiment_setup.get('artifact_spec') or ArtifactSpec(output_dir=output_dir)
@@ -243,8 +254,18 @@ def build_legacy_tser_suite_config(experiment_setup: dict[str, Any]) -> Benchmar
     model_payloads = tuple(experiment_setup.get('model_specs', ()))
     output_dir = experiment_setup.get('output_dir', './benchmark/results/v2_tser')
     metrics = tuple(experiment_setup.get('metrics', ('rmse', 'mae', 'r2')))
-    if not dataset_payloads or not model_payloads:
-        raise ValueError('Legacy TSER v2 compatibility expects experiment_setup["dataset_specs"] and ["model_specs"].')
+    if not dataset_payloads:
+        custom_datasets = tuple(experiment_setup.get('custom_datasets') or ('NaturalGasPricesSentiment',))
+        dataset_payloads = tuple(
+            {'benchmark': 'local_tser', 'dataset_name': dataset_name} for dataset_name in custom_datasets)
+    if not model_payloads:
+        model_payloads = (
+            {
+                'adapter_name': 'kernel_ensemble_regressor',
+                'display_name': 'KernelEnsembleRegressor',
+                'params': {'generator_names': ('statistical_summary',), 'kernel': 'linear'},
+            },
+        )
     datasets = tuple(DatasetSpec(**payload) for payload in dataset_payloads)
     models = tuple(ModelSpec(**payload) for payload in model_payloads)
     artifact_spec = experiment_setup.get('artifact_spec') or ArtifactSpec(output_dir=output_dir)

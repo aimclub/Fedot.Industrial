@@ -58,6 +58,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
 
         super(BenchmarkTSER, self).__init__(
             output_dir='./tser/benchmark_results')
+        self.output_dir = getattr(self, 'output_dir', self.result_dir)
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -107,7 +108,9 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return run_tser_benchmark_from_legacy_config(self.experiment_setup)
+            experiment_setup = deepcopy(self.experiment_setup)
+            experiment_setup.setdefault('custom_datasets', tuple(self.custom_datasets))
+            return run_tser_benchmark_from_legacy_config(experiment_setup)
 
         self._ensure_legacy_dependencies()
         self.logger.info('Benchmark test started')
