@@ -5,8 +5,17 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class ForecastingProgressPolicy:
-    """Central policy for tqdm usage in forecasting runtime and model heads."""
+class BaseProgressPolicy:
+    """Shared tqdm policy for runtime flows with scoped progress bars.
+
+    The benchmark/runtime code has two independent places where tqdm bars may
+    appear:
+    - global orchestration level (dataset/model/series loops)
+    - scoped model internals (stage tuning, neural head training)
+
+    This base class centralizes all switch logic so task-specific policies
+    (forecasting, detection) only need type-level specialization.
+    """
 
     enabled: bool = False
     leave: bool = False
@@ -15,20 +24,31 @@ class ForecastingProgressPolicy:
     head_training_enabled: bool | None = None
 
     def _resolve_scope_enabled(self, scoped_flag: bool | None) -> bool:
+        """Resolve per-scope enable flag with fallback to global ``enabled``."""
         if scoped_flag is None:
             return bool(self.enabled)
         return bool(scoped_flag)
 
     def is_stage_tuning_enabled(self) -> bool:
-        """Return whether stage tuning progress bars should be shown."""
+        """Return whether stage-tuning tqdm bars should be visible."""
         return self._resolve_scope_enabled(self.stage_tuning_enabled)
 
     def is_head_training_enabled(self) -> bool:
-        """Return whether neural/MLP head training progress bars should be shown."""
+        """Return whether head-training tqdm bars should be visible."""
         return self._resolve_scope_enabled(self.head_training_enabled)
 
     def tqdm_kwargs(self, *, scope: str, desc: str, unit: str) -> dict[str, Any]:
-        """Build tqdm keyword arguments for a named progress scope."""
+        """Build normalized kwargs for ``tqdm``.
+
+        Parameters
+        ----------
+        scope:
+            Logical scope name (`stage_tuning`, `head_training`, or custom).
+        desc:
+            Human-readable progress label.
+        unit:
+            Iteration unit label shown by tqdm.
+        """
         if scope == 'stage_tuning':
             enabled = self.is_stage_tuning_enabled()
         elif scope == 'head_training':
@@ -43,8 +63,17 @@ class ForecastingProgressPolicy:
         }
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize progress settings for diagnostics and benchmark artifacts."""
+        """Serialize policy into JSON-friendly dict for metadata artifacts."""
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class ForecastingProgressPolicy(BaseProgressPolicy):
+    """Forecasting-specific alias of :class:`BaseProgressPolicy`.
+
+    Kept as an explicit type for public API readability and typing compatibility
+    in forecasting modules.
+    """
 
 
 def resolve_forecasting_progress_policy(

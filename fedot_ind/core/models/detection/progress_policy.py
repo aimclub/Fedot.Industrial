@@ -1,46 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
+
+from fedot_ind.core.models.ts_forecasting.progress_policy import BaseProgressPolicy
 
 
 @dataclass(frozen=True)
-class DetectionProgressPolicy:
-    """Central policy for tqdm usage in detection runtime and model heads."""
+class DetectionProgressPolicy(BaseProgressPolicy):
+    """Detection-specific progress policy.
 
-    enabled: bool = False
-    leave: bool = False
-    show_postfix: bool = True
-    stage_tuning_enabled: bool | None = None
-    head_training_enabled: bool | None = None
-
-    def _resolve_scope_enabled(self, scoped_flag: bool | None) -> bool:
-        if scoped_flag is None:
-            return bool(self.enabled)
-        return bool(scoped_flag)
-
-    def is_stage_tuning_enabled(self) -> bool:
-        return self._resolve_scope_enabled(self.stage_tuning_enabled)
-
-    def is_head_training_enabled(self) -> bool:
-        return self._resolve_scope_enabled(self.head_training_enabled)
-
-    def tqdm_kwargs(self, *, scope: str, desc: str, unit: str) -> dict[str, Any]:
-        if scope == 'stage_tuning':
-            enabled = self.is_stage_tuning_enabled()
-        elif scope == 'head_training':
-            enabled = self.is_head_training_enabled()
-        else:
-            enabled = bool(self.enabled)
-        return {
-            'desc': desc,
-            'unit': unit,
-            'leave': bool(self.leave),
-            'disable': not enabled,
-        }
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    The class currently shares all behavior with :class:`BaseProgressPolicy`,
+    but remains a dedicated type for:
+    - clearer API contracts in detection modules;
+    - future detection-only scopes (e.g., calibration diagnostics).
+    """
 
 
 def resolve_detection_progress_policy(
@@ -48,7 +22,19 @@ def resolve_detection_progress_policy(
         *,
         show_progress: bool | None = True,
 ) -> DetectionProgressPolicy:
-    """Normalize bool, dict or policy input into DetectionProgressPolicy."""
+    """Normalize user config into :class:`DetectionProgressPolicy`.
+
+    Parameters
+    ----------
+    policy:
+        Policy in one of supported forms:
+        - ready dataclass instance,
+        - plain dict from config/JSON,
+        - bool shortcut (on/off),
+        - None (use defaults).
+    show_progress:
+        Optional hard override for the global ``enabled`` flag.
+    """
     if isinstance(policy, DetectionProgressPolicy):
         resolved = policy
     elif isinstance(policy, dict):

@@ -62,10 +62,13 @@ except Exception:  # pragma: no cover
 
 
 class BenchmarkConfigurationError(ValueError):
+    """Raised when detection benchmark configuration is semantically invalid."""
     pass
 
 
 class ModelExecutionError(RuntimeError):
+    """Model-level execution failure carrying a benchmark run status."""
+
     def __init__(self, status: RunStatus, message: str):
         super().__init__(message)
         self.status = status
@@ -74,6 +77,11 @@ class ModelExecutionError(RuntimeError):
 
 @dataclass(frozen=True)
 class DetectionRegimeDiagnostics:
+    """Compact regime summary for metadata artifacts.
+
+    The benchmark keeps this intentionally small: enough to understand regime
+    structure in reports without importing heavy forecasting diagnostics.
+    """
     n_segments: int
     segment_labels: tuple[str, ...]
 
@@ -86,6 +94,7 @@ class DetectionRegimeDiagnostics:
 
 @dataclass(frozen=True)
 class DetectionRoutingContext:
+    """Detection-family routing context attached to run metadata."""
     primary_adapter: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -93,6 +102,7 @@ class DetectionRoutingContext:
 
 
 def validate_detection_suite_config(config: BenchmarkSuiteConfig) -> None:
+    """Validate that suite config is compatible with anomaly detection task."""
     if config.task_type is not TaskType.ANOMALY_DETECTION:
         raise BenchmarkConfigurationError('Anomaly detection suite expects task_type=anomaly_detection.')
     if not config.datasets:
@@ -111,6 +121,12 @@ def _parse_detection_records(
         dataset_name: str,
         subset: str,
 ) -> list[DetectionSeriesRecord]:
+    """Normalize heterogeneous adapter payload into DetectionSeriesRecord list.
+
+    Supported payload contracts:
+    - modern shape: ``values`` + ``target``;
+    - legacy pair: ``train_values``/``test_values`` + ``test_target``.
+    """
     records: list[DetectionSeriesRecord] = []
     for index, item in enumerate(payload):
         series_id = str(item.get('series_id', f'{dataset_name}_{index}'))
@@ -170,6 +186,7 @@ def _sample_records(
         records: list[DetectionSeriesRecord],
         spec: DatasetSpec,
 ) -> tuple[DetectionSeriesRecord, ...]:
+    """Apply deterministic filtering/sampling from DatasetSpec to loaded records."""
     filtered = records
     if spec.series_ids:
         requested = set(spec.series_ids)
@@ -182,6 +199,7 @@ def _sample_records(
 
 
 def _record_values_array(series_record: DetectionSeriesRecord) -> np.ndarray:
+    """Return series values as 2D float array expected by detector runtime."""
     matrix = np.asarray(series_record.values, dtype=float)
     if matrix.ndim == 1:
         return matrix.reshape(-1, 1)
@@ -189,12 +207,19 @@ def _record_values_array(series_record: DetectionSeriesRecord) -> np.ndarray:
 
 
 def _record_labels_array(series_record: DetectionSeriesRecord) -> np.ndarray:
+    """Return point-wise labels from series record and validate presence."""
     if series_record.target is None:
         raise BenchmarkConfigurationError(f'Series {series_record.series_id} is missing target labels.')
     return np.asarray(series_record.target, dtype=int).reshape(-1)
 
 
 def _train_fit_values(series_record: DetectionSeriesRecord) -> np.ndarray:
+    """Resolve fit split used by runtime detector.
+
+    Priority:
+    1) explicit ``metadata['train_values']`` (legacy-pair datasets),
+    2) temporal prefix split by ``metadata['train_fraction']``.
+    """
     metadata = dict(series_record.metadata)
     train_values = metadata.get('train_values')
     if train_values is not None:
@@ -209,6 +234,7 @@ def _train_fit_values(series_record: DetectionSeriesRecord) -> np.ndarray:
 
 
 def _resolve_stage_tuning_split_spec(raw: dict[str, Any] | None) -> DetectionSplitSpec | None:
+    """Normalize stage-tuning split config into DetectionSplitSpec."""
     if not raw:
         return None
     split_spec = raw.get('split_spec')
@@ -243,9 +269,11 @@ class SKABAdapter:
     benchmark_name = 'skab'
 
     def __init__(self, loader: Callable[..., Any] | None = None):
+        """Create adapter with optional custom loader for tests/injections."""
         self._loader = loader or self._default_loader()
 
     def load_series(self, spec: DatasetSpec) -> tuple[DetectionSeriesRecord, ...]:
+        """Load SKAB records according to ``split_mode`` and sampling settings."""
         split_mode = str(spec.adapter_options.get('split_mode', 'legacy_pair')).lower()
         folder = str(spec.adapter_options.get('folder', 'valve1'))
         train_data_size = spec.adapter_options.get('train_data_size', 'anomaly-free')
@@ -284,6 +312,7 @@ class SKABAdapter:
             spec: DatasetSpec,
             train_data_size: Any,
     ) -> DetectionSeriesRecord:
+        """Load one SKAB record in legacy pair mode (anomaly-free train + test)."""
         train_pair, test_pair = self._loader({
             'benchmark': folder,
             'dataset': series_id,
@@ -322,6 +351,7 @@ class SKABAdapter:
             spec: DatasetSpec,
             train_data_size: Any,
     ) -> DetectionSeriesRecord:
+        """Load one SKAB record from a single labeled CSV file."""
         csv_path = data_root / folder / f'{series_id}.csv'
         df = pd.read_csv(csv_path, index_col='datetime', sep=';', parse_dates=True)
         feature_columns = [column for column in df.columns if column not in {'anomaly', 'changepoint'}]
@@ -358,6 +388,7 @@ class SKABAdapter:
 
     @staticmethod
     def _default_loader() -> Callable[..., Any]:
+        """Build default SKAB loader compatible with existing DataLoader API."""
         from fedot_ind.tools.loader import DataLoader
 
         return DataLoader(dataset_name={}).load_detection_data
@@ -369,6 +400,7 @@ class MPSIAdapter:
     benchmark_name = 'mpsi'
 
     def load_series(self, spec: DatasetSpec) -> tuple[DetectionSeriesRecord, ...]:
+        """Load MPSI records from in-memory payload while archive wiring is absent."""
         payload = list(spec.adapter_options.get('records', ()))
         if not payload:
             raise BenchmarkConfigurationError(
@@ -389,6 +421,7 @@ class InMemoryDetectionAdapter:
     benchmark_name = 'in_memory'
 
     def load_series(self, spec: DatasetSpec) -> tuple[DetectionSeriesRecord, ...]:
+        """Convert ``adapter_options['records']`` to normalized series records."""
         payload = list(spec.adapter_options.get('records', ()))
         if not payload:
             raise BenchmarkConfigurationError('InMemory adapter requires adapter_options["records"].')
@@ -402,6 +435,7 @@ class InMemoryDetectionAdapter:
 
 
 def _safe_import(module_name: str) -> bool:
+    """Return True if optional dependency can be imported."""
     try:
         importlib.import_module(module_name)
         return True
@@ -410,6 +444,7 @@ def _safe_import(module_name: str) -> bool:
 
 
 def compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Compute benchmark detection metric from integer point labels."""
     actual = np.asarray(y_true, dtype=int).reshape(-1)
     predicted = np.asarray(y_pred, dtype=int).reshape(-1)
     labels = sorted(set(actual.tolist()) | set(predicted.tolist()))
@@ -436,6 +471,7 @@ def compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.nd
 
 @dataclass
 class ConstantZeroDetectionModel:
+    """Minimal baseline that predicts all points as non-anomalous."""
     name: str = 'ConstantZero'
     tags: tuple[str, ...] = ('baseline', 'detection', 'naive')
     optional: bool = False
@@ -444,12 +480,20 @@ class ConstantZeroDetectionModel:
         return RunStatus.SUCCESS, 'ready'
 
     def detect(self, series_record: DetectionSeriesRecord) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Produce constant zero labels with lightweight metadata."""
         labels = np.zeros(_record_labels_array(series_record).shape[0], dtype=int)
         return {'labels': labels}, {'model': self.name}
 
 
 @dataclass
 class RuntimeDetectionModelAdapter:
+    """Thin adapter around canonical runtime detectors from detection registry.
+
+    It standardizes three responsibilities expected by benchmark runner:
+    - dependency/availability checks,
+    - fit/eval boundary handling from DetectionSeriesRecord,
+    - normalized output contract ``{'labels', 'scores'}``.
+    """
     adapter_name: str
     display_name: str
     params: dict[str, Any] = field(default_factory=dict)
@@ -458,10 +502,12 @@ class RuntimeDetectionModelAdapter:
     name: str = ''
 
     def __post_init__(self) -> None:
+        """Fallback adapter name shown in progress/logs if not provided explicitly."""
         if not self.name:
             self.name = self.display_name
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Check whether detector can be instantiated in current environment."""
         canonical = canonical_detection_model_name(self.adapter_name)
         if canonical in {'conv_autoencoder_detector', 'tcn_autoencoder_detector'} and not _TORCH_AVAILABLE:
             return RunStatus.NOT_AVAILABLE, 'torch is required for neural anomaly detectors.'
@@ -470,6 +516,7 @@ class RuntimeDetectionModelAdapter:
         return RunStatus.SUCCESS, 'ready'
 
     def detect(self, series_record: DetectionSeriesRecord) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Fit detector on resolved train slice and score the evaluation slice."""
         canonical = canonical_detection_model_name(self.adapter_name)
         detector_cls = DETECTION_RUNTIME_MODELS[canonical]
         fit_values = _train_fit_values(series_record)
@@ -490,6 +537,7 @@ class RuntimeDetectionModelAdapter:
 
 
 class OptionalExternalModel:
+    """Placeholder adapter for optional backends not yet integrated."""
     dependency_name: str
     name: str
     tags: tuple[str, ...] = ('baseline', 'detection', 'external')
@@ -507,6 +555,7 @@ class OptionalExternalModel:
 
 
 def build_dataset_adapter(spec: DatasetSpec):
+    """Factory: choose dataset adapter by benchmark name."""
     benchmark = spec.benchmark.lower()
     custom_loader = spec.adapter_options.get('loader')
     if benchmark == 'skab':
@@ -519,6 +568,7 @@ def build_dataset_adapter(spec: DatasetSpec):
 
 
 def build_model_adapter(spec: ModelSpec):
+    """Factory: resolve canonical detector and build corresponding model adapter."""
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_detection_model_name(raw_adapter_name)
     params = dict(spec.params)
@@ -542,6 +592,7 @@ def build_model_adapter(spec: ModelSpec):
 # ADAPTED from forecasting recorder: point labels and classification metrics only.
 @dataclass
 class DetectionSeriesArtifactsRecorder:
+    """Collect point-level predictions and aggregate metric rows for one run."""
     run_id: str
     metric_names: tuple[str, ...]
     metric_records: list[MetricRecord]
@@ -552,6 +603,7 @@ class DetectionSeriesArtifactsRecorder:
             series_record: DetectionSeriesRecord,
             output: dict[str, Any],
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        """Validate detector output lengths and return aligned numpy vectors."""
         actual = _record_labels_array(series_record)
         labels = np.asarray(output.get('labels'), dtype=int).reshape(-1)
         if len(labels) != len(actual):
@@ -578,6 +630,7 @@ class DetectionSeriesArtifactsRecorder:
             metadata: dict[str, Any],
             metric_name_suffix: str = '',
     ) -> dict[str, float]:
+        """Record aggregate metric rows and return metric summary dict."""
         # del metadata
         metrics_summary: dict[str, float] = {}
         for metric_name in self.metric_names:
@@ -606,6 +659,7 @@ class DetectionSeriesArtifactsRecorder:
             actual: np.ndarray,
             labels: np.ndarray,
     ) -> None:
+        """Append one LabelPredictionRecord per series point."""
         for sample_index, (true_label, pred_label) in enumerate(zip(actual, labels)):
             self.prediction_records.append(
                 LabelPredictionRecord(
@@ -624,11 +678,13 @@ class DetectionSeriesArtifactsRecorder:
 
 @dataclass
 class DetectionPostFitTuningCoordinator:
+    """Run optional post-fit stage tuning and attach comparison metadata."""
     config: BenchmarkSuiteConfig
     verbosity_policy: DetectionVerbosityPolicy
     artifacts_recorder: DetectionSeriesArtifactsRecorder
 
     def _build_tuned_model_spec(self, model_spec: ModelSpec, best_parameters: dict[str, Any]) -> ModelSpec:
+        """Merge tuned parameters into original model spec."""
         tuned_params = {**dict(model_spec.params), **dict(best_parameters)}
         tuned_params.pop('stage_tuning_runtime', None)
         return ModelSpec(
@@ -644,6 +700,7 @@ class DetectionPostFitTuningCoordinator:
             model_spec: ModelSpec,
             baseline_metadata: dict[str, Any],
     ) -> dict[str, Any]:
+        """Resolve runtime tuning configuration from spec params + baseline metadata."""
         raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
         metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
         raw_progress_policy = raw_config.get('progress_policy', metadata_runtime.get('progress_policy'))
@@ -684,6 +741,7 @@ class DetectionPostFitTuningCoordinator:
             regime_diagnostics: DetectionRegimeDiagnostics,
             routing_recommendation: DetectionRoutingContext,
     ) -> dict[str, Any]:
+        """Execute stage tuning and optional tuned-vs-baseline comparison."""
         runtime_config = self._resolve_runtime_config(model_spec, baseline_metadata)
         try:
             values = ensure_detection_array(_record_values_array(series_record))
@@ -784,6 +842,7 @@ def build_leaderboard(
         run_records: tuple[BenchmarkRunRecord, ...],
         primary_metric: str,
 ) -> BenchmarkAggregateReport:
+    """Aggregate successful runs into leaderboard with metric-aware sort order."""
     successful = [record for record in run_records if record.status is RunStatus.SUCCESS]
     grouped: dict[tuple[str, str, str], list[float]] = {}
     for record in successful:
@@ -825,7 +884,13 @@ def build_leaderboard(
 
 # BORROWED from forecasting: dataset → model → series orchestration and resume hooks.
 class DetectionSuiteRunner:
+    """Orchestrate anomaly-detection benchmark end-to-end.
+
+    Execution hierarchy:
+    dataset -> model -> series -> detect/metrics/persist.
+    """
     def __init__(self, config: BenchmarkSuiteConfig):
+        """Initialize runner state, policies, recorders, and resume coordinator."""
         validate_detection_suite_config(config)
         self.config = config
         self.run_id = (
@@ -877,6 +942,7 @@ class DetectionSuiteRunner:
         self._load_resume_state()
 
     def _load_resume_state(self) -> None:
+        """Hydrate in-memory run state from persisted progress artifacts."""
         resume_state = self.incremental_persistence.load_resume_state()
         if resume_state is None:
             return
@@ -892,6 +958,7 @@ class DetectionSuiteRunner:
         )
 
     def _series_key(self, series_record: DetectionSeriesRecord) -> tuple[str, str, str, str]:
+        """Build unique identity for a loaded series in current run."""
         return (
             str(series_record.benchmark),
             str(series_record.dataset_name),
@@ -900,6 +967,7 @@ class DetectionSuiteRunner:
         )
 
     def _augment_model_spec_with_progress_policy(self, model_spec: ModelSpec) -> ModelSpec:
+        """Inject progress/verbosity defaults into model params for runtime layers."""
         params = dict(model_spec.params)
         params.setdefault('progress_policy', self.progress_policy.to_dict())
         if isinstance(params.get('stage_tuning_runtime'), dict):
@@ -918,6 +986,7 @@ class DetectionSuiteRunner:
         )
 
     def _runner_context_metadata(self) -> dict[str, Any]:
+        """Return optional runner-level metadata depending on verbosity policy."""
         if not self.verbosity_policy.include_runner_context:
             return {}
         return {
@@ -928,6 +997,7 @@ class DetectionSuiteRunner:
         }
 
     def run_suite(self) -> DetectionBenchmarkResult:
+        """Execute full benchmark suite and return unified result object."""
         try:
             self._iter_over_datasets()
         finally:
@@ -949,12 +1019,14 @@ class DetectionSuiteRunner:
         )
 
     def _iter_over_datasets(self) -> None:
+        """Outer loop over all configured datasets."""
         for dataset_spec in self.config.datasets:
             dataset_series = self._load_dataset_series(dataset_spec)
             self._iter_over_models(dataset_spec, dataset_series)
             self.progress.dataset_finished()
 
     def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[DetectionSeriesRecord, ...]:
+        """Load, deduplicate and persist dataset series catalog for resume."""
         dataset_adapter = build_dataset_adapter(dataset_spec)
         dataset_series = dataset_adapter.load_series(dataset_spec)
         for record in dataset_series:
@@ -972,6 +1044,7 @@ class DetectionSuiteRunner:
             dataset_spec: DatasetSpec,
             dataset_series: tuple[DetectionSeriesRecord, ...],
     ) -> None:
+        """Loop over models for one dataset and route unavailable cases safely."""
         for model_spec in self.config.models:
             resolved_model_spec = self._augment_model_spec_with_progress_policy(model_spec)
             model = build_model_adapter(resolved_model_spec)
@@ -997,6 +1070,7 @@ class DetectionSuiteRunner:
             model,
             dataset_series: tuple[DetectionSeriesRecord, ...],
     ) -> None:
+        """Loop over dataset series for one model with resume-aware skipping."""
         for series_record in dataset_series:
             item_key = self.incremental_persistence.item_key(series_record, model.name)
             if item_key in self.resumed_item_keys:
@@ -1061,6 +1135,7 @@ class DetectionSuiteRunner:
             availability_status: RunStatus,
             availability_message: str,
     ) -> None:
+        """Record NOT_AVAILABLE/SKIPPED items without running detection."""
         for series_record in dataset_series:
             item_key = self.incremental_persistence.item_key(series_record, model.name)
             if item_key in self.resumed_item_keys:
@@ -1115,6 +1190,7 @@ class DetectionSuiteRunner:
             series_record: DetectionSeriesRecord,
             model_spec: ModelSpec,
     ) -> tuple[DetectionRegimeDiagnostics, DetectionRoutingContext]:
+        """Build lightweight per-series context used in run metadata."""
         segments = infer_regime_segments(_record_values_array(series_record))
         regime_diagnostics = DetectionRegimeDiagnostics(
             n_segments=len(segments),
@@ -1134,6 +1210,7 @@ class DetectionSuiteRunner:
             routing_recommendation: DetectionRoutingContext,
             extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Assemble normalized metadata payload for BenchmarkRunRecord."""
         return {
             'adapter_name': model_spec.adapter_name,
             'model_adapter_family': detection_family_for(model_spec.adapter_name),
@@ -1155,6 +1232,7 @@ class DetectionSuiteRunner:
             regime_diagnostics: DetectionRegimeDiagnostics,
             routing_recommendation: DetectionRoutingContext,
     ) -> BenchmarkRunRecord:
+        """Append and persist failed run item with contextual metadata."""
         run_record = BenchmarkRunRecord(
             run_id=self.run_id,
             benchmark=series_record.benchmark,
@@ -1188,6 +1266,7 @@ class DetectionSuiteRunner:
             regime_diagnostics: DetectionRegimeDiagnostics,
             routing_recommendation: DetectionRoutingContext,
     ) -> None:
+        """Run detector for one series, record artifacts, and persist item result."""
         metric_count_before = len(self.metric_records)
         prediction_count_before = len(self.prediction_records)
         output, metadata = model.detect(series_record)
@@ -1242,4 +1321,5 @@ class DetectionSuiteRunner:
 
 
 def run_anomaly_detection_suite(config: BenchmarkSuiteConfig) -> DetectionBenchmarkResult:
+    """Public entrypoint for anomaly-detection benchmark suite."""
     return DetectionSuiteRunner(config).run_suite()

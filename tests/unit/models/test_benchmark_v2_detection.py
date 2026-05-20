@@ -22,6 +22,7 @@ from benchmark.v2.presets import build_local_skab_suite_config as preset_skab_co
 
 
 def _toy_detection_record() -> dict:
+    """Return a tiny synthetic record in legacy pair payload format."""
     values = np.array(
         [
             [0.0, 0.1],
@@ -45,12 +46,14 @@ def _toy_detection_record() -> dict:
 
 
 def test_compute_detection_metric_accuracy() -> None:
+    """Smoke-check: accuracy metric follows expected classification behavior."""
     y_true = np.array([0, 0, 1, 1])
     y_pred = np.array([0, 1, 1, 1])
     assert compute_detection_metric('accuracy', y_true, y_pred) == 0.75
 
 
 def test_in_memory_detection_suite_runs(tmp_path: Path) -> None:
+    """End-to-end smoke test for in-memory detection suite execution."""
     config = BenchmarkSuiteConfig(
         task_type=TaskType.ANOMALY_DETECTION,
         datasets=(
@@ -76,6 +79,7 @@ def test_in_memory_detection_suite_runs(tmp_path: Path) -> None:
 
 
 def test_mpsi_stub_requires_records() -> None:
+    """MPSI adapter must fail fast when stub payload is absent."""
     spec = DatasetSpec(benchmark='mpsi', dataset_name='mpsi')
     try:
         MPSIAdapter().load_series(spec)
@@ -86,6 +90,7 @@ def test_mpsi_stub_requires_records() -> None:
 
 
 def test_mpsi_stub_loads_in_memory_records() -> None:
+    """MPSI stub should accept in-memory records during phase-1 wiring."""
     spec = DatasetSpec(
         benchmark='mpsi',
         dataset_name='mpsi_stub',
@@ -97,6 +102,7 @@ def test_mpsi_stub_loads_in_memory_records() -> None:
 
 
 def test_skab_preset_smoke_runs_one_series(tmp_path: Path) -> None:
+    """SKAB preset smoke test on one small series for quick CI feedback."""
     config = preset_skab_config(
         output_dir=tmp_path,
         persist_on_run=False,

@@ -30,6 +30,11 @@ except Exception:  # pragma: no cover
 
 @dataclass(frozen=True)
 class DetectionSeriesEvaluation:
+    """Single-series evaluation snapshot for one detector parameter set.
+
+    This structure is the atomic unit used in stage-tuning reports:
+    model/params in, metric + labels out.
+    """
     model_name: str
     canonical_model_name: str
     family: str
@@ -58,6 +63,7 @@ class DetectionSeriesEvaluation:
 
 @dataclass(frozen=True)
 class DetectionSequentialStageTuningResult:
+    """Sequential tuning trace across stage groups defined in tuning plan."""
     model_name: str
     canonical_model_name: str
     family: str
@@ -82,6 +88,7 @@ class DetectionSequentialStageTuningResult:
 
 @dataclass(frozen=True)
 class DetectionSeriesStageTuningResult:
+    """Final tuning report containing baseline and best-parameter evaluations."""
     model_name: str
     canonical_model_name: str
     family: str
@@ -103,6 +110,7 @@ class DetectionSeriesStageTuningResult:
 
 
 def _normalize_base_params(params: dict[str, Any] | None) -> dict[str, Any]:
+    """Drop ``None`` values to avoid overriding detector defaults with nulls."""
     return {key: value for key, value in dict(params or {}).items() if value is not None}
 
 
@@ -111,6 +119,14 @@ def _split_series(
         labels: np.ndarray,
         split_spec: DetectionSplitSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Build train/calibration split from a labeled time series.
+
+    Returns
+    -------
+    tuple
+        ``(train_values, train_labels, calibration_values, calibration_labels)``.
+        If calibration window is empty, it falls back to train slice.
+    """
     n_samples = int(values.shape[0])
     train_end = max(1, int(round(n_samples * split_spec.train_fraction)))
     remaining = max(0, n_samples - train_end)
@@ -127,6 +143,7 @@ def _split_series(
 
 
 def _compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Compute detection metric used during candidate comparison."""
     actual = np.asarray(y_true, dtype=int).reshape(-1)
     predicted = np.asarray(y_pred, dtype=int).reshape(-1)
     labels = sorted(set(actual.tolist()) | set(predicted.tolist()))
@@ -152,6 +169,7 @@ def _compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.n
 
 
 def _build_detector(model_name: str, params: dict[str, Any]):
+    """Instantiate runtime detector by canonical name from registry map."""
     canonical_name = canonical_detection_model_name(model_name)
     if canonical_name not in DETECTION_RUNTIME_MODELS:
         raise ValueError(f'Unsupported detection model for stage tuning: {model_name}')
@@ -167,6 +185,7 @@ def _evaluate_parameters(
         metric_name: str,
         split_spec: DetectionSplitSpec,
 ) -> DetectionSeriesEvaluation:
+    """Fit/evaluate one detector configuration on one series split."""
     canonical_name = canonical_detection_model_name(model_name)
     series = ensure_detection_array(values)
     target = np.asarray(labels, dtype=int).reshape(-1)
@@ -194,6 +213,7 @@ def _evaluate_parameters(
 
 
 def _candidate_values(parameter_name: str, current_value: Any, max_values: int) -> tuple[Any, ...]:
+    """Generate compact candidate values around current parameter value."""
     if isinstance(current_value, bool):
         return (current_value,)
     if isinstance(current_value, int):
@@ -215,6 +235,7 @@ def _stage_candidate_grid(
         max_values_per_parameter: int,
         max_stage_candidates: int,
 ) -> tuple[dict[str, Any], ...]:
+    """Construct Cartesian candidate grid for one tuning stage."""
     parameter_values: list[tuple[str, tuple[Any, ...]]] = []
     for parameter_name in group_parameters:
         if parameter_name not in current_parameters:
@@ -252,7 +273,31 @@ def run_detection_stage_tuning_on_series(
         max_stage_candidates: int = 16,
         progress_policy: DetectionProgressPolicy | dict[str, Any] | bool | None = None,
 ) -> DetectionSeriesStageTuningResult:
-    """Run sequential stage tuning for one detector on one labeled series."""
+    """Run sequential stage tuning for one detector on one labeled series.
+
+    Parameters
+    ----------
+    model_name:
+        Adapter/detector name (canonical or alias).
+    values:
+        Input time-series values, univariate or multivariate.
+    labels:
+        Point-wise anomaly labels aligned with ``values``.
+    base_params:
+        Initial detector parameters before stage-wise updates.
+    stage_updates:
+        Reserved for future explicit per-stage updates (currently ignored).
+    metric_name:
+        Metric optimized during tuning (`accuracy`, `balanced_accuracy`, `f1_macro`).
+    split_spec:
+        Optional split configuration; defaults to temporal split.
+    max_values_per_parameter:
+        Upper bound on generated candidate values per parameter.
+    max_stage_candidates:
+        Upper bound on evaluated combinations per stage.
+    progress_policy:
+        Optional progress display policy.
+    """
     del stage_updates
     resolved_params = _normalize_base_params(base_params)
     resolved_split = split_spec or DetectionSplitSpec(kind=DetectionSplitKind.TEMPORAL)
@@ -312,6 +357,7 @@ def run_detection_stage_tuning_on_series(
         evaluations: list[dict[str, Any]] = []
         stage_best_score = best_score
         stage_best_parameters = dict(current_parameters)
+        # Stage-local search: vary only parameters assigned to current stage.
         for candidate in _stage_candidate_grid(
                 group.parameters,
                 current_parameters,
@@ -334,6 +380,7 @@ def run_detection_stage_tuning_on_series(
             if evaluation.metric_value >= stage_best_score:
                 stage_best_score = evaluation.metric_value
                 stage_best_parameters = dict(candidate_parameters)
+        # Sequential tuning semantics: next stage starts from best params of previous stage.
         current_parameters = stage_best_parameters
         if stage_best_score >= best_score:
             best_score = stage_best_score

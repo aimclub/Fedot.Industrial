@@ -149,6 +149,8 @@ def resolve_forecasting_verbosity_policy(
     )
 
 class DetectionVerbosityLevel(str, Enum):
+    """Supported verbosity presets for anomaly-detection benchmark artifacts."""
+
     COMPACT = 'compact'
     STANDARD = 'standard'
     DEBUG = 'debug'
@@ -156,7 +158,12 @@ class DetectionVerbosityLevel(str, Enum):
 
 @dataclass(frozen=True)
 class DetectionVerbosityPolicy:
-    """Policy that prunes heavy detection benchmark metadata before serialization."""
+    """Policy that prunes heavy detection benchmark metadata before serialization.
+
+    The policy controls what remains in run metadata when stage-tuning payloads
+    are attached. This allows choosing between compact outputs for CI and rich
+    outputs for debugging/research.
+    """
 
     level: str = DetectionVerbosityLevel.STANDARD.value
     include_stage_tuning_report: bool = True
@@ -169,9 +176,17 @@ class DetectionVerbosityPolicy:
     include_runner_context: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize policy fields into a metadata-friendly dictionary."""
         return asdict(self)
 
     def prune_stage_tuning_report(self, report: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Prune heavy fields from the stage-tuning report payload.
+
+        Parameters
+        ----------
+        report:
+            Full report returned by detection stage tuning runtime.
+        """
         if not self.include_stage_tuning_report or not isinstance(report, dict):
             return None
         payload = dict(report)
@@ -215,6 +230,7 @@ class DetectionVerbosityPolicy:
         return payload
 
     def prune_stage_tuning_runtime(self, runtime_payload: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Prune runtime-level tuning metadata based on verbosity switches."""
         if runtime_payload is None:
             return None
         payload = dict(runtime_payload)
@@ -223,6 +239,7 @@ class DetectionVerbosityPolicy:
         return payload
 
     def prune_stage_tuning_comparison(self, comparison: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Prune baseline-vs-tuned comparison payload for detection runs."""
         if not self.include_stage_tuning_comparison or not isinstance(comparison, dict):
             return None
         payload = dict(comparison)
@@ -238,6 +255,15 @@ def resolve_detection_verbosity_policy(
         *,
         options: dict[str, Any] | None = None,
 ) -> DetectionVerbosityPolicy:
+    """Resolve detection verbosity preset plus option overrides.
+
+    Parameters
+    ----------
+    level:
+        Preset name (`compact`, `standard`, `debug`) or enum value.
+    options:
+        Optional explicit overrides merged on top of preset defaults.
+    """
     resolved_level = DetectionVerbosityLevel(str(level or DetectionVerbosityLevel.STANDARD.value).lower())
     defaults = {
         DetectionVerbosityLevel.COMPACT: dict(

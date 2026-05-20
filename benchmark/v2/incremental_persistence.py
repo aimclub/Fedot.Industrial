@@ -22,11 +22,13 @@ from .core import (
 
 
 def _safe_slug(value: str) -> str:
+    """Convert a dynamic key into a stable file-safe slug."""
     slug = ''.join(character.lower() if character.isalnum() else '_' for character in str(value))
     return slug.strip('_') or 'item'
 
 
 def _write_json_atomic(path: str | Path, payload: Any) -> None:
+    """Persist JSON atomically to avoid half-written progress artifacts."""
     target_path = Path(path)
     ensure_directory(target_path.parent)
     temporary_path = target_path.with_name(f'{target_path.name}.tmp')
@@ -38,17 +40,20 @@ def _write_json_atomic(path: str | Path, payload: Any) -> None:
 
 
 def _read_json(path: str | Path) -> Any:
+    """Read JSON payload from a persisted progress artifact."""
     with Path(path).open('r', encoding='utf-8') as stream:
         return json.load(stream)
 
 
 def _as_tuple(values: Any) -> tuple[Any, ...]:
+    """Convert JSON list-ish values to tuple while preserving empty as ()"""
     if values is None:
         return ()
     return tuple(values)
 
 
 def _series_record_from_payload(payload: dict[str, Any]) -> ForecastingSeriesRecord:
+    """Restore ForecastingSeriesRecord from persisted JSON payload."""
     return ForecastingSeriesRecord(
         benchmark=str(payload['benchmark']),
         dataset_name=str(payload['dataset_name']),
@@ -64,6 +69,7 @@ def _series_record_from_payload(payload: dict[str, Any]) -> ForecastingSeriesRec
 
 
 def _run_record_from_payload(payload: dict[str, Any]) -> BenchmarkRunRecord:
+    """Restore BenchmarkRunRecord from persisted JSON payload."""
     return BenchmarkRunRecord(
         run_id=str(payload['run_id']),
         benchmark=str(payload['benchmark']),
@@ -80,6 +86,7 @@ def _run_record_from_payload(payload: dict[str, Any]) -> BenchmarkRunRecord:
 
 
 def _metric_record_from_payload(payload: dict[str, Any]) -> MetricRecord:
+    """Restore MetricRecord from persisted JSON payload."""
     return MetricRecord(
         run_id=str(payload['run_id']),
         benchmark=str(payload['benchmark']),
@@ -95,6 +102,7 @@ def _metric_record_from_payload(payload: dict[str, Any]) -> MetricRecord:
 
 
 def _prediction_record_from_payload(payload: dict[str, Any]) -> PredictionRecord:
+    """Restore forecasting PredictionRecord from persisted JSON payload."""
     return PredictionRecord(
         run_id=str(payload['run_id']),
         benchmark=str(payload['benchmark']),
@@ -109,257 +117,8 @@ def _prediction_record_from_payload(payload: dict[str, Any]) -> PredictionRecord
     )
 
 
-@dataclass(frozen=True)
-class ForecastingResumeState:
-    """Recovered benchmark records loaded from incremental progress artifacts."""
-
-    series_records: tuple[ForecastingSeriesRecord, ...]
-    run_records: tuple[BenchmarkRunRecord, ...]
-    metric_records: tuple[MetricRecord, ...]
-    prediction_records: tuple[PredictionRecord, ...]
-    item_artifact_paths: dict[str, str]
-    status_counts: dict[str, int]
-    completed_items: int
-
-
-class ForecastingIncrementalPersistenceCoordinator:
-    """Persist forecasting benchmark progress item-by-item and support resume."""
-
-    def __init__(self, config: BenchmarkSuiteConfig, run_id: str):
-        """Prepare run, progress and item directories for incremental persistence."""
-        self.config = config
-        self.run_id = run_id
-        self.enabled = bool(config.artifact_spec.persist_on_run)
-        self.item_artifact_paths: dict[str, str] = {}
-        self.status_counts: dict[str, int] = {}
-        self.completed_items = 0
-
-        if not self.enabled:
-            self.run_dir = None
-            self.progress_dir = None
-            self.items_dir = None
-            self.context_path = None
-            self.series_catalog_path = None
-            self.progress_index_path = None
-            return
-
-        self.run_dir = ensure_directory(Path(config.artifact_spec.output_dir) / run_id)
-        self.progress_dir = ensure_directory(self.run_dir / 'progress')
-        self.items_dir = ensure_directory(self.progress_dir / 'items')
-        self.context_path = self.progress_dir / 'run_context.json'
-        self.series_catalog_path = self.progress_dir / 'series_records.json'
-        self.progress_index_path = self.progress_dir / 'run_progress.json'
-        self.resuming_existing = bool(
-            getattr(config.run_spec, 'resume_enabled', False)
-            and self.progress_index_path.exists()
-        )
-        if not self.resuming_existing:
-            self._write_run_context()
-            self._write_progress_index()
-
-    @staticmethod
-    def resolve_run_id(config: BenchmarkSuiteConfig) -> str | None:
-        """Find an explicit or latest resumable run id for a benchmark config."""
-        if not bool(config.artifact_spec.persist_on_run):
-            return None
-        run_spec = config.run_spec
-        if not bool(getattr(run_spec, 'resume_enabled', False)):
-            return None
-        explicit_run_id = getattr(run_spec, 'resume_run_id', None)
-        if explicit_run_id:
-            return str(explicit_run_id)
-        output_dir = Path(config.artifact_spec.output_dir)
-        if not output_dir.exists():
-            return None
-        prefix = f'{run_spec.run_name}_'
-        candidates = [
-            path for path in output_dir.iterdir()
-            if path.is_dir() and path.name.startswith(prefix) and (path / 'progress' / 'run_progress.json').exists()
-        ]
-        if not candidates:
-            return None
-        candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-        return candidates[0].name
-
-    def _write_run_context(self) -> None:
-        if not self.enabled:
-            return
-        _write_json_atomic(
-            self.context_path,
-            {
-                'run_id': self.run_id,
-                'task_type': self.config.task_type.value,
-                'metrics': list(self.config.metrics),
-                'run_spec': to_plain_data(self.config.run_spec),
-                'artifact_spec': to_plain_data(self.config.artifact_spec),
-                'datasets': [to_plain_data(dataset) for dataset in self.config.datasets],
-                'models': [to_plain_data(model) for model in self.config.models],
-            },
-        )
-
-    def _write_progress_index(self) -> None:
-        if not self.enabled:
-            return
-        _write_json_atomic(
-            self.progress_index_path,
-            {
-                'run_id': self.run_id,
-                'completed_items': int(self.completed_items),
-                'status_counts': dict(self.status_counts),
-                'item_artifacts': dict(self.item_artifact_paths),
-            },
-        )
-
-    def persist_series_catalog(self, series_records: list[ForecastingSeriesRecord]) -> None:
-        """Persist the full series catalog used by a forecasting run."""
-        if not self.enabled:
-            return
-        _write_json_atomic(
-            self.series_catalog_path,
-            [to_plain_data(record) for record in series_records],
-        )
-
-    def _item_artifact_name(self, series_record: ForecastingSeriesRecord, run_record: BenchmarkRunRecord) -> str:
-        return '__'.join(
-            (
-                _safe_slug(series_record.dataset_name),
-                _safe_slug(series_record.subset),
-                _safe_slug(series_record.series_id),
-                _safe_slug(run_record.model_name),
-            )
-        ) + '.json'
-
-    @staticmethod
-    def item_key(series_record: ForecastingSeriesRecord, model_name: str) -> str:
-        """Build a stable resume key for a series/model benchmark item."""
-        return '::'.join(
-            (
-                str(series_record.benchmark),
-                str(series_record.dataset_name),
-                str(series_record.subset),
-                str(series_record.series_id),
-                str(model_name),
-            )
-        )
-
-    def persist_item_result(
-            self,
-            *,
-            series_record: ForecastingSeriesRecord,
-            run_record: BenchmarkRunRecord,
-            metric_records: tuple[MetricRecord, ...] = (),
-            prediction_records: tuple[PredictionRecord, ...] = (),
-    ) -> None:
-        """Atomically persist one completed series/model item result."""
-        if not self.enabled:
-            return
-        artifact_name = self._item_artifact_name(series_record, run_record)
-        artifact_path = self.items_dir / artifact_name
-        item_key = self.item_key(series_record, run_record.model_name)
-        previous_path = self.item_artifact_paths.get(item_key)
-        is_new_item = previous_path is None
-        if previous_path and Path(previous_path).exists():
-            previous_payload = _read_json(previous_path)
-            previous_status = str(dict(previous_payload.get('run_record', {})).get('status', '')).lower()
-            if previous_status:
-                previous_count = self.status_counts.get(previous_status, 0)
-                self.status_counts[previous_status] = max(0, previous_count - 1)
-        _write_json_atomic(
-            artifact_path,
-            {
-                'run_id': self.run_id,
-                'series_record': to_plain_data(series_record),
-                'run_record': to_plain_data(run_record),
-                'metric_records': [to_plain_data(record) for record in metric_records],
-                'prediction_records': [to_plain_data(record) for record in prediction_records],
-            },
-        )
-        self.item_artifact_paths[item_key] = str(artifact_path)
-        status = run_record.status.value
-        self.status_counts[status] = self.status_counts.get(status, 0) + 1
-        self.completed_items = len(self.item_artifact_paths)
-        if is_new_item:
-            self.completed_items = len(self.item_artifact_paths)
-        self._write_progress_index()
-
-    def load_resume_state(self) -> ForecastingResumeState | None:
-        """Load previously persisted item records when resume mode is enabled."""
-        if not self.enabled or not bool(getattr(self.config.run_spec, 'resume_enabled', False)):
-            return None
-        if not self.progress_dir.exists() or not self.progress_index_path.exists():
-            return None
-
-        progress_payload = _read_json(self.progress_index_path)
-        item_artifact_paths = {
-            str(key): str(value)
-            for key, value in dict(progress_payload.get('item_artifacts', {})).items()
-        }
-        status_counts = {
-            str(key): int(value)
-            for key, value in dict(progress_payload.get('status_counts', {})).items()
-        }
-        completed_items = int(progress_payload.get('completed_items', len(item_artifact_paths)))
-
-        series_records: list[ForecastingSeriesRecord] = []
-        if self.series_catalog_path.exists():
-            series_records = [
-                _series_record_from_payload(payload)
-                for payload in list(_read_json(self.series_catalog_path) or [])
-            ]
-
-        run_records: list[BenchmarkRunRecord] = []
-        metric_records: list[MetricRecord] = []
-        prediction_records: list[PredictionRecord] = []
-        seen_run_keys: set[tuple[str, str, str, str, str]] = set()
-
-        for artifact_path in item_artifact_paths.values():
-            payload = _read_json(artifact_path)
-            run_record = _run_record_from_payload(dict(payload.get('run_record', {})))
-            run_key = (
-                run_record.benchmark,
-                run_record.dataset_name,
-                run_record.subset,
-                run_record.series_id,
-                run_record.model_name,
-            )
-            if run_key not in seen_run_keys:
-                run_records.append(run_record)
-                seen_run_keys.add(run_key)
-            metric_records.extend(
-                _metric_record_from_payload(item)
-                for item in list(payload.get('metric_records', ()))
-            )
-            prediction_records.extend(
-                _prediction_record_from_payload(item)
-                for item in list(payload.get('prediction_records', ()))
-            )
-
-        self.item_artifact_paths = dict(item_artifact_paths)
-        self.status_counts = dict(status_counts)
-        self.completed_items = int(completed_items)
-        self._write_progress_index()
-        return ForecastingResumeState(
-            series_records=tuple(series_records),
-            run_records=tuple(run_records),
-            metric_records=tuple(metric_records),
-            prediction_records=tuple(prediction_records),
-            item_artifact_paths=dict(item_artifact_paths),
-            status_counts=dict(status_counts),
-            completed_items=int(completed_items),
-        )
-
-    def build_artifact_manifest(self) -> tuple[ArtifactRecord, ...]:
-        """Return manifest entries for progress-level persistence artifacts."""
-        if not self.enabled:
-            return ()
-        return (
-            ArtifactRecord(kind='structured', path=str(self.context_path), format='json'),
-            ArtifactRecord(kind='structured', path=str(self.series_catalog_path), format='json'),
-            ArtifactRecord(kind='structured', path=str(self.progress_index_path), format='json'),
-        )
-
-
 def _detection_series_record_from_payload(payload: dict[str, Any]) -> DetectionSeriesRecord:
+    """Restore DetectionSeriesRecord from persisted JSON payload."""
     values = tuple(tuple(float(value) for value in row) for row in payload.get('values', ()))
     target_raw = payload.get('target')
     target = None if target_raw is None else tuple(int(value) for value in target_raw)
@@ -376,6 +135,7 @@ def _detection_series_record_from_payload(payload: dict[str, Any]) -> DetectionS
 
 
 def _label_prediction_record_from_payload(payload: dict[str, Any]) -> LabelPredictionRecord:
+    """Restore detection LabelPredictionRecord from persisted JSON payload."""
     return LabelPredictionRecord(
         run_id=str(payload['run_id']),
         benchmark=str(payload['benchmark']),
@@ -390,7 +150,22 @@ def _label_prediction_record_from_payload(payload: dict[str, Any]) -> LabelPredi
 
 
 @dataclass(frozen=True)
+class ForecastingResumeState:
+    """Recovered forecasting state loaded from incremental progress artifacts."""
+
+    series_records: tuple[ForecastingSeriesRecord, ...]
+    run_records: tuple[BenchmarkRunRecord, ...]
+    metric_records: tuple[MetricRecord, ...]
+    prediction_records: tuple[PredictionRecord, ...]
+    item_artifact_paths: dict[str, str]
+    status_counts: dict[str, int]
+    completed_items: int
+
+
+@dataclass(frozen=True)
 class DetectionResumeState:
+    """Recovered detection state loaded from progress artifacts."""
+
     series_records: tuple[DetectionSeriesRecord, ...]
     run_records: tuple[BenchmarkRunRecord, ...]
     metric_records: tuple[MetricRecord, ...]
@@ -400,8 +175,14 @@ class DetectionResumeState:
     completed_items: int
 
 
-class DetectionIncrementalPersistenceCoordinator:
-    """Persist detection benchmark progress item-by-item and support resume."""
+class _BaseIncrementalPersistenceCoordinator:
+    """Common logic for item-wise benchmark persistence and resume.
+
+    Subclasses provide type-specific payload adapters for:
+    - series catalog records;
+    - prediction records;
+    - assembled resume state dataclass.
+    """
 
     def __init__(self, config: BenchmarkSuiteConfig, run_id: str):
         self.config = config
@@ -436,6 +217,7 @@ class DetectionIncrementalPersistenceCoordinator:
 
     @staticmethod
     def resolve_run_id(config: BenchmarkSuiteConfig) -> str | None:
+        """Return explicit resume id or latest resumable run directory name."""
         if not bool(config.artifact_spec.persist_on_run):
             return None
         run_spec = config.run_spec
@@ -458,6 +240,7 @@ class DetectionIncrementalPersistenceCoordinator:
         return candidates[0].name
 
     def _write_run_context(self) -> None:
+        """Persist static run metadata required for traceability."""
         if not self.enabled:
             return
         _write_json_atomic(
@@ -474,6 +257,7 @@ class DetectionIncrementalPersistenceCoordinator:
         )
 
     def _write_progress_index(self) -> None:
+        """Persist mutable progress index used by resume logic."""
         if not self.enabled:
             return
         _write_json_atomic(
@@ -486,7 +270,8 @@ class DetectionIncrementalPersistenceCoordinator:
             },
         )
 
-    def persist_series_catalog(self, series_records: list[DetectionSeriesRecord]) -> None:
+    def persist_series_catalog(self, series_records: list[Any]) -> None:
+        """Persist complete list of series processed in the run."""
         if not self.enabled:
             return
         _write_json_atomic(
@@ -494,7 +279,8 @@ class DetectionIncrementalPersistenceCoordinator:
             [to_plain_data(record) for record in series_records],
         )
 
-    def _item_artifact_name(self, series_record: DetectionSeriesRecord, run_record: BenchmarkRunRecord) -> str:
+    def _item_artifact_name(self, series_record: Any, run_record: BenchmarkRunRecord) -> str:
+        """Build deterministic per-item artifact filename."""
         return '__'.join(
             (
                 _safe_slug(series_record.dataset_name),
@@ -505,7 +291,8 @@ class DetectionIncrementalPersistenceCoordinator:
         ) + '.json'
 
     @staticmethod
-    def item_key(series_record: DetectionSeriesRecord, model_name: str) -> str:
+    def item_key(series_record: Any, model_name: str) -> str:
+        """Build stable resume key used by runner to skip completed items."""
         return '::'.join(
             (
                 str(series_record.benchmark),
@@ -519,11 +306,12 @@ class DetectionIncrementalPersistenceCoordinator:
     def persist_item_result(
             self,
             *,
-            series_record: DetectionSeriesRecord,
+            series_record: Any,
             run_record: BenchmarkRunRecord,
             metric_records: tuple[MetricRecord, ...] = (),
-            prediction_records: tuple[LabelPredictionRecord, ...] = (),
+            prediction_records: tuple[Any, ...] = (),
     ) -> None:
+        """Atomically persist one item and update status counters."""
         if not self.enabled:
             return
         artifact_name = self._item_artifact_name(series_record, run_record)
@@ -552,8 +340,27 @@ class DetectionIncrementalPersistenceCoordinator:
         self.completed_items = len(self.item_artifact_paths)
         self._write_progress_index()
 
-    def load_resume_state(self) -> DetectionResumeState | None:
-        """Load previously persisted item records when resume mode is enabled."""
+    def _series_record_from_payload(self, payload: dict[str, Any]) -> Any:
+        raise NotImplementedError
+
+    def _prediction_record_from_payload(self, payload: dict[str, Any]) -> Any:
+        raise NotImplementedError
+
+    def _build_resume_state(
+            self,
+            *,
+            series_records: tuple[Any, ...],
+            run_records: tuple[BenchmarkRunRecord, ...],
+            metric_records: tuple[MetricRecord, ...],
+            prediction_records: tuple[Any, ...],
+            item_artifact_paths: dict[str, str],
+            status_counts: dict[str, int],
+            completed_items: int,
+    ) -> Any:
+        raise NotImplementedError
+
+    def load_resume_state(self) -> Any | None:
+        """Reconstruct runner state from persisted item artifacts."""
         if not self.enabled or not bool(getattr(self.config.run_spec, 'resume_enabled', False)):
             return None
         if not self.progress_dir.exists() or not self.progress_index_path.exists():
@@ -570,16 +377,16 @@ class DetectionIncrementalPersistenceCoordinator:
         }
         completed_items = int(progress_payload.get('completed_items', len(item_artifact_paths)))
 
-        series_records: list[DetectionSeriesRecord] = []
+        series_records: list[Any] = []
         if self.series_catalog_path.exists():
             series_records = [
-                _detection_series_record_from_payload(payload)
+                self._series_record_from_payload(payload)
                 for payload in list(_read_json(self.series_catalog_path) or [])
             ]
 
         run_records: list[BenchmarkRunRecord] = []
         metric_records: list[MetricRecord] = []
-        prediction_records: list[LabelPredictionRecord] = []
+        prediction_records: list[Any] = []
         seen_run_keys: set[tuple[str, str, str, str, str]] = set()
 
         for artifact_path in item_artifact_paths.values():
@@ -600,7 +407,7 @@ class DetectionIncrementalPersistenceCoordinator:
                 for item in list(payload.get('metric_records', ()))
             )
             prediction_records.extend(
-                _label_prediction_record_from_payload(item)
+                self._prediction_record_from_payload(item)
                 for item in list(payload.get('prediction_records', ()))
             )
 
@@ -608,7 +415,7 @@ class DetectionIncrementalPersistenceCoordinator:
         self.status_counts = dict(status_counts)
         self.completed_items = int(completed_items)
         self._write_progress_index()
-        return DetectionResumeState(
+        return self._build_resume_state(
             series_records=tuple(series_records),
             run_records=tuple(run_records),
             metric_records=tuple(metric_records),
@@ -619,6 +426,7 @@ class DetectionIncrementalPersistenceCoordinator:
         )
 
     def build_artifact_manifest(self) -> tuple[ArtifactRecord, ...]:
+        """Return progress artifact entries for manifest rendering."""
         if not self.enabled:
             return ()
         return (
@@ -626,3 +434,29 @@ class DetectionIncrementalPersistenceCoordinator:
             ArtifactRecord(kind='structured', path=str(self.series_catalog_path), format='json'),
             ArtifactRecord(kind='structured', path=str(self.progress_index_path), format='json'),
         )
+
+
+class ForecastingIncrementalPersistenceCoordinator(_BaseIncrementalPersistenceCoordinator):
+    """Forecasting-specific persistence coordinator with typed resume payload."""
+
+    def _series_record_from_payload(self, payload: dict[str, Any]) -> ForecastingSeriesRecord:
+        return _series_record_from_payload(payload)
+
+    def _prediction_record_from_payload(self, payload: dict[str, Any]) -> PredictionRecord:
+        return _prediction_record_from_payload(payload)
+
+    def _build_resume_state(self, **kwargs: Any) -> ForecastingResumeState:
+        return ForecastingResumeState(**kwargs)
+
+
+class DetectionIncrementalPersistenceCoordinator(_BaseIncrementalPersistenceCoordinator):
+    """Detection-specific persistence coordinator with typed resume payload."""
+
+    def _series_record_from_payload(self, payload: dict[str, Any]) -> DetectionSeriesRecord:
+        return _detection_series_record_from_payload(payload)
+
+    def _prediction_record_from_payload(self, payload: dict[str, Any]) -> LabelPredictionRecord:
+        return _label_prediction_record_from_payload(payload)
+
+    def _build_resume_state(self, **kwargs: Any) -> DetectionResumeState:
+        return DetectionResumeState(**kwargs)
