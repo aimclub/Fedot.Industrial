@@ -475,7 +475,8 @@ class RuntimeDetectionModelAdapter:
         fit_values = _train_fit_values(series_record)
         eval_values = _record_values_array(series_record)
         detector = detector_cls(OperationParameters(**dict(self.params)))
-        detector.fit(InputData(features=fit_values))
+        # detector.fit(InputData(features=fit_values))
+        detector.fit(fit_values)
         score_series = detector.score_series_on_values(eval_values)
         labels = np.asarray(score_series.labels, dtype=int).reshape(-1)
         scores = np.asarray(score_series.scores, dtype=float).reshape(-1)
@@ -577,7 +578,7 @@ class DetectionSeriesArtifactsRecorder:
             metadata: dict[str, Any],
             metric_name_suffix: str = '',
     ) -> dict[str, float]:
-        del metadata
+        # del metadata
         metrics_summary: dict[str, float] = {}
         for metric_name in self.metric_names:
             metric_value = compute_detection_metric(metric_name, actual, labels)

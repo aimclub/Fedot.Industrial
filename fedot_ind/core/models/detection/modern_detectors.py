@@ -82,8 +82,10 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
     def family(self) -> str:
         return detection_family_for(self.canonical_name)
 
-    def fit(self, input_data: InputData) -> None:
-        series = self._prepare_series(input_data.features, fit_stage=True)
+    # def fit(self, input_data: InputData) -> None:
+    #     series = self._prepare_series(input_data.features, fit_stage=True)
+    def fit(self, input_data: np.ndarray) -> None:
+        series = self._prepare_series(input_data, fit_stage=True)
         batch = self._build_batch(series, metadata={'fit_stage': True})
         self.training_batch_ = batch
         self.regime_segments_ = infer_regime_segments(series) if self.enable_regime_segmentation else ()
