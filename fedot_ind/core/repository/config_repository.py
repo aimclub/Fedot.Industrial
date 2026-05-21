@@ -94,8 +94,9 @@ class IndustrialConfigConstant(Enum):
     DEFAULT_REG_INDUSTRIAL_CONFIG = {'problem': 'regression'}
     DEFAULT_TSF_INDUSTRIAL_CONFIG = {'problem': 'ts_forecasting',
                                      'task_params': {'forecast_length': 14}}
+    # задача anomaly_detection, граница с FEDOT classification
     DEFAULT_ADN_INDUSTRIAL_CONFIG = {'strategy': 'anomaly_detection',
-                                     'problem': 'anomaly_detection',
+                                     'problem': 'anomaly_detection', 
                                      'strategy_params': {'detection_window': 10,
                                      'train_data_size': 'anomaly-free',
                                      'data_type': 'table'}}

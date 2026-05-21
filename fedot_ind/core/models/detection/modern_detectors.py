@@ -82,8 +82,7 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
     def family(self) -> str:
         return detection_family_for(self.canonical_name)
 
-    # def fit(self, input_data: InputData) -> None:
-    #     series = self._prepare_series(input_data.features, fit_stage=True)
+
     def fit(self, input_data: np.ndarray) -> None:
         series = self._prepare_series(input_data, fit_stage=True)
         batch = self._build_batch(series, metadata={'fit_stage': True})
@@ -154,19 +153,19 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             },
         }
 
-    def predict(self, input_data: InputData) -> np.ndarray:
-        score_series = self.score_series_on_values(input_data.features)
+    def predict(self, values: np.ndarray | list[float]) -> np.ndarray:
+        score_series = self.score_series_on_values(values)
         labels = np.asarray(score_series.labels, dtype=int).reshape(-1, 1)
         return labels
 
-    def predict_for_fit(self, input_data: InputData):
-        return self.score_samples(input_data)
+    def predict_for_fit(self, values: np.ndarray | list[float]):
+        return self.score_samples(values)
 
-    def predict_proba(self, input_data: InputData) -> np.ndarray:
-        return self.score_samples(input_data)
+    def predict_proba(self, values: np.ndarray | list[float]) -> np.ndarray:
+        return self.score_samples(values)
 
-    def score_samples(self, input_data: InputData) -> np.ndarray:
-        score_series = self.score_series_on_values(input_data.features)
+    def score_samples(self, values: np.ndarray | list[float]) -> np.ndarray:
+        score_series = self.score_series_on_values(values)
         scores = np.asarray(score_series.scores, dtype=float)
         reference_scale = np.std(scores) if np.std(scores) > 1e-8 else max(float(score_series.threshold), 1.0)
         anomaly_probability = _sigmoid((scores - float(score_series.threshold)) / reference_scale)

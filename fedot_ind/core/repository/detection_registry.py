@@ -37,6 +37,15 @@ def canonical_detection_model_name(name: str | None) -> str:
     return DETECTION_MODEL_ALIASES.get(normalized, normalized)
 
 
+def ensure_canonical_detection_model(name: str | None, *, context: str = 'runtime') -> str:
+    """legacy остается как aliases, не проходит в runtime-first ветку"""
+    canonical = canonical_detection_model_name(name)
+    if canonical not in CANONICAL_STAGE_DETECTION_MODELS:
+        raise ValueError(
+            f'{context} accepts canonical detectors only, got: {name} -> {canonical}'
+        )
+    return canonical
+
 def detection_aliases_for(model_name: str) -> tuple[str, ...]:
     canonical = canonical_detection_model_name(model_name)
     aliases = [alias for alias, target in DETECTION_MODEL_ALIASES.items() if target == canonical]

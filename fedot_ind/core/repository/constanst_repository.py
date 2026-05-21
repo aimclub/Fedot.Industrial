@@ -390,10 +390,11 @@ class FedotOperationConstant(Enum):
         'feature_oneclass_detector',
         'conv_autoencoder_detector',
         'tcn_autoencoder_detector',
-        'legacy_sst_detector',
-        'legacy_kalman_detector',
-        'legacy_arima_detector',
-        'legacy_lstm_autoencoder_detector',
+        # только canonical набор
+        # 'legacy_sst_detector',
+        # 'legacy_kalman_detector',
+        # 'legacy_arima_detector',
+        # 'legacy_lstm_autoencoder_detector',
     ]
 
     AVAILABLE_REG_OPERATIONS = [

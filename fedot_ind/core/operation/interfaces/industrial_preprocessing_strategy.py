@@ -4,6 +4,12 @@ from inspect import signature
 from typing import Optional, Union, Callable
 
 import numpy as np
+
+try:  # pragma: no cover - optional in lightweight test envs
+    import torch
+except Exception:  # pragma: no cover
+    torch = None
+    
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy
 from fedot.core.operations.operation_parameters import OperationParameters

@@ -5,7 +5,6 @@ from itertools import product
 from typing import Any
 
 import numpy as np
-from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.models.detection.progress_policy import (
@@ -191,7 +190,8 @@ def _evaluate_parameters(
     target = np.asarray(labels, dtype=int).reshape(-1)
     train_values, _, calibration_values, calibration_labels = _split_series(series, target, split_spec)
     detector = _build_detector(model_name, parameters)
-    detector.fit(InputData(features=train_values))
+    # detector.fit(InputData(features=train_values))
+    detector.fit(train_values)
     score_series = detector.score_series_on_values(calibration_values)
     predicted = np.asarray(score_series.labels, dtype=int).reshape(-1)
     metric_value = _compute_detection_metric(metric_name, calibration_labels, predicted)
