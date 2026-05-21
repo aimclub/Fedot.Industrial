@@ -110,6 +110,12 @@ class FedotIndustrial(Fedot):
                 optimisation_params=optimisation_params)
         return input_data
 
+    def _resolve_fedot_problem(self) -> str:
+        task = self.manager.automl_config.config['task']
+        if task == 'anomaly_detection':
+            return 'classification'
+        return task
+
     def __init_solver(self, input_data: Optional[Union[InputData, np.array]] = None):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Dask Server')
@@ -128,7 +134,8 @@ class FedotIndustrial(Fedot):
         self.manager.solver = Fedot(
             **self.manager.learning_config.config['learning_strategy_params'],
             metric=self.manager.learning_config.config['optimisation_loss'],
-            problem=self.manager.automl_config.config['task'],
+            # согласование problem anomaly_detection -> classification для fedot
+            problem=self._resolve_fedot_problem(),
             task_params=self.manager.industrial_config.task_params
             if self.manager.industrial_config.is_forecasting_context else self.manager.automl_config.config
             ['task_params'], optimizer=self.manager.automl_config.optimisation_strategy,

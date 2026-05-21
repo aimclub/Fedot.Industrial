@@ -18,6 +18,7 @@ from .core import (
     ClassificationBenchmarkResult,
     ForecastingBenchmarkResult,
     RegressionBenchmarkResult,
+    DetectionBenchmarkResult,
     TaskType,
     ensure_directory,
     to_plain_data,
@@ -27,7 +28,7 @@ from .manifests import load_manifest, render_resolved_manifest, run_manifest
 from .markdown import dataframe_to_markdown
 from .presets import run_local_benchmark_preset
 
-BenchmarkResult = any([ForecastingBenchmarkResult, ClassificationBenchmarkResult, RegressionBenchmarkResult])
+BenchmarkResult = any([ForecastingBenchmarkResult, ClassificationBenchmarkResult, RegressionBenchmarkResult, DetectionBenchmarkResult])
 
 
 @dataclass(frozen=True)

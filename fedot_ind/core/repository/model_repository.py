@@ -303,7 +303,7 @@ class AtomizedModel(Enum):
         'xcm_model': XCModel,
         # variational models
         'deepar_model': DeepAR,
-        # detection models
+        # detection models # TODO: оставить один source of truth для detection: ANOMALY_DETECTION_MODEL
         'conv_ae_detector': ConvolutionalAutoEncoderDetector,
         'conv_autoencoder_detector': ConvAutoencoderDetector,
         'tcn_autoencoder_detector': TCNAutoencoderDetector,
@@ -324,7 +324,7 @@ class AtomizedModel(Enum):
 
     PRIMARY_ANOMALY_DETECTION_MODELS = [
         *CANONICAL_STAGE_DETECTION_MODELS,
-        *LEGACY_DETECTION_MODELS,
+        # *LEGACY_DETECTION_MODELS,
     ]
 
 

@@ -181,7 +181,7 @@ class DetectionBenchmarkResult:
     config: BenchmarkSuiteConfig
     series_records: tuple[DetectionSeriesRecord, ...]
     run_records: tuple[BenchmarkRunRecord, ...]
-    prediction_records: tuple[LabelPredictionRecord, ...]
+    prediction_records: tuple[DetectionPredictionRecord, ...] # TODO: добавить prediction_records для detection
     metric_records: tuple[MetricRecord, ...]
     aggregate_report: BenchmarkAggregateReport
     artifact_manifest: tuple[ArtifactRecord, ...] = ()
@@ -213,6 +213,19 @@ class RegressionDatasetRecord:
 
 @dataclass(frozen=True)
 class LabelPredictionRecord:
+    run_id: str
+    benchmark: str
+    dataset_name: str
+    subset: str
+    model_name: str
+    sample_index: int
+    y_true: str
+    y_pred: str
+    status: RunStatus
+
+
+@dataclass(frozen=True)
+class DetectionPredictionRecord:
     run_id: str
     benchmark: str
     dataset_name: str

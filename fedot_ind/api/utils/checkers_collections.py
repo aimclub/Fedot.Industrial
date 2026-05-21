@@ -101,6 +101,18 @@ class DataCheck:
         return InputData.from_numpy_time_series(
             features_array=features_array, target_array=target, task=task)
 
+    def _transformation_for_anomaly_detection(self, data_dict: dict) -> InputData:
+        features = self._prepare_detection_features(data_dict['features'])
+        target = np.ravel(data_dict['target']).astype(int)
+        idx = data_dict.get('idx', np.arange(features.shape[0]))
+        return InputData(
+            idx=idx,
+            features=features,
+            target=target,
+            task=fedot_task('anomaly_detection'),
+            data_type=FEDOT_DATA_TYPE['table'],
+        )
+
     def _transformation_for_other_task(self, data_dict: dict = None):
         def encode_target(init_dict): return Either(
             value=init_dict,
@@ -166,9 +178,20 @@ class DataCheck:
                                  monoid=[non_forecasting_transformation,
                                          self.task == 'ts_forecasting']).either(
             right_function=lambda data_dict: self._transformation_for_ts_forecasting(data_dict),
-            left_function=lambda transformation_func: self._transformation_for_other_task(
+            left_function=lambda transformation_func: (self._transformation_for_anomaly_detection(transformation_func(self.input_data))
+            if self.task == 'anomaly_detection'
+            else self._transformation_for_other_task(
                 transformation_func(self.input_data)))
+            )
 
+    def _prepare_detection_features(self, features):
+        features = np.asarray(features, dtype=float)
+        if features.ndim == 1:
+            return features.reshape(-1, 1)
+        if features.ndim > 2:
+            return features.reshape(features.shape[0], -1)
+        return features
+    
     def _check_input_data_features(self):
         """Checks and preprocesses the features in the input data.
 
@@ -179,8 +202,11 @@ class DataCheck:
         self.input_data.features = Either.insert(self.input_data.features). \
             then(lambda data: np.where(np.isnan(data), 0, data)). \
             then(lambda data_without_nan: np.where(np.isinf(data_without_nan), 0, data_without_nan)). \
-            then(lambda data_without_inf: NumpyConverter(data=data_without_inf).convert_to_torch_format()
-                 if self.task != 'ts_forecasting' else data_without_inf).value
+            then(lambda data_without_inf: self._prepare_detection_features(data_without_inf)
+                if self.task == 'anomaly_detection'
+                else NumpyConverter(data=data_without_inf).convert_to_torch_format()
+                if self.task != 'ts_forecasting' 
+                else data_without_inf).value
 
     def _check_input_data_target(self):
         """Checks and preprocesses the features in the input data.
@@ -191,6 +217,8 @@ class DataCheck:
         """
         if self.task == 'regression':
             self.input_data.target = self.input_data.target.squeeze().astype(float)
+        elif self.task == 'anomaly_detection':
+            self.input_data.target = np.ravel(self.input_data.target).astype(int)
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
         else:

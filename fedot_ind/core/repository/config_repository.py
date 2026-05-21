@@ -98,7 +98,7 @@ class IndustrialConfigConstant(Enum):
                                      'problem': 'anomaly_detection',
                                      'strategy_params': {'detection_window': 10,
                                      'train_data_size': 'anomaly-free',
-                                     'data_type': 'time_series'}}
+                                     'data_type': 'table'}}
 
 
 DEFAULT_AUTOML_LEARNING_CONFIG = AutomlLearningConfigConstant.DEFAULT_AUTOML_CONFIG.value

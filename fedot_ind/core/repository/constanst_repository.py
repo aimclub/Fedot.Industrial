@@ -316,7 +316,7 @@ class FedotOperationConstant(Enum):
             TaskTypesEnum.regression), 'ts_forecasting': Task(
             TaskTypesEnum.ts_forecasting, TsForecastingParams(
                 forecast_length=1)), 'anomaly_detection': Task(
-            TaskTypesEnum.classification)} # TODO: выделить как задачу детекции
+            TaskTypesEnum.classification)}
 
     FEDOT_API_PARAMS = default_param_values_dict = dict(
         problem=None,
@@ -360,6 +360,7 @@ class FedotOperationConstant(Enum):
     FEDOT_TUNING_METRICS = {
         'classification': ClassificationMetricsEnum.f1,
         'ts_forecasting': RegressionMetricsEnum.RMSE,  # RegressionMetricsEnum.MAPE,
+        'anomaly_detection': ClassificationMetricsEnum.f1,
         'regression': RegressionMetricsEnum.RMSE}
     FEDOT_DATA_TYPE = {
         'tensor': DataTypesEnum.image,

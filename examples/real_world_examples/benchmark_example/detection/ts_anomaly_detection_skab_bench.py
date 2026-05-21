@@ -1,7 +1,12 @@
 import os
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
-from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, DEFAULT_CLF_AUTOML_CONFIG
+from fedot_ind.core.repository.config_repository import (
+    DEFAULT_COMPUTE_CONFIG,
+    DEFAULT_ADN_AUTOML_CONFIG,
+    DEFAULT_ADN_LEARNING_CONFIG,
+    DEFAULT_ADN_INDUSTRIAL_CONFIG,
+)
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 
 
@@ -11,20 +16,20 @@ def prepare_skab_benchmark():
                                'device': 'cpu'
                                }
     model_to_compare = [
-        {0: ['iforest_detector']},
-        # {0: [('conv_ae_detector', ENCODER_LEARNING_PARAMS)]},
+        #{0: ['iforest_detector']},
+        {0: [('conv_ae_detector', ENCODER_LEARNING_PARAMS)]},
         # {0: ['stat_detector']},
         # {}
     ]
     model_name = [
-        'iforest',
-        # 'conv_encoder',
+        #'iforest',
+        'conv_encoder',
         # 'stat_detector',
         # 'industrial'
     ]
     finutune_existed_model = [
-        True,
-        True,
+        False,
+        # True,
         # True, False
     ]
     BENCHMARK = 'SKAB'
@@ -38,32 +43,41 @@ def prepare_skab_benchmark():
     return BENCHMARK, BENCHMARK_PARAMS
 
 
-METRIC_NAMES = ('nab', 'accuracy')
+METRIC_NAMES = ('f1', 'accuracy')
 EVAL_REGIME = True
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
-AUTOML_CONFIG = DEFAULT_CLF_AUTOML_CONFIG
-AUTOML_LEARNING_STRATEGY = dict(timeout=1,
-                                n_jobs=2,
-                                pop_size=10,
-                                logging_level=0)
+# AUTOML_CONFIG = DEFAULT_CLF_AUTOML_CONFIG
+# AUTOML_LEARNING_STRATEGY = dict(timeout=1,
+#                                 n_jobs=2,
+#                                 pop_size=10,
+#                                 logging_level=0)
 
-LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
-                   'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
-                   'optimisation_loss': {'quality_loss': 'accuracy'}}
+# LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
+#                    'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+#                    'optimisation_loss': {'quality_loss': 'accuracy'}}
 
-INDUSTRIAL_CONFIG = {'strategy': 'anomaly_detection',
-                     'problem': 'classification',
-                     'strategy_params': {'detection_window': 10,
-                                         'train_data_size': 'anomaly-free',
-                                         'data_type': 'time_series'}}
-
+# INDUSTRIAL_CONFIG = {'strategy': 'anomaly_detection',
+#                      'problem': 'classification',
+#                      'strategy_params': {'detection_window': 10,
+#                                          'train_data_size': 'anomaly-free',
+#                                          'data_type': 'table'}}
+COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+AUTOML_CONFIG = DEFAULT_ADN_AUTOML_CONFIG
+LEARNING_CONFIG = DEFAULT_ADN_LEARNING_CONFIG
+INDUSTRIAL_CONFIG = DEFAULT_ADN_INDUSTRIAL_CONFIG
 API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
               'automl_config': AUTOML_CONFIG,
               'learning_config': LEARNING_CONFIG,
               'compute_config': COMPUTE_CONFIG}
 
+
 if __name__ == "__main__":
+    """public config: anomaly_detection
+       Fedot boundary: classification
+       available_operations: canonical detection detectors only
+       runtime strategy: canonical detectors only
+       metrics/reporting: anomaly_detection"""
     api_agent = ApiTemplate(api_config=API_CONFIG, metric_list=METRIC_NAMES)
     BENCHMARK, BENCHMARK_PARAMS = prepare_skab_benchmark()
     if EVAL_REGIME:
