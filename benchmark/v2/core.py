@@ -115,6 +115,7 @@ class PredictionRecord:
     y_pred: float
     status: RunStatus
 
+
 @dataclass(frozen=True)
 class QuantilePredictionRecord:
     run_id: str

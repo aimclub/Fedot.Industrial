@@ -93,6 +93,7 @@ def _quantile_prediction_record_from_payload(payload: dict[str, Any]) -> Quantil
         status=RunStatus(str(payload['status'])),
     )
 
+
 def _metric_record_from_payload(payload: dict[str, Any]) -> MetricRecord:
     return MetricRecord(
         run_id=str(payload['run_id']),
