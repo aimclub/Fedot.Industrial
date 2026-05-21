@@ -92,6 +92,17 @@ class ForecastingSeriesRecord:
 
 
 @dataclass(frozen=True)
+class ForecastResult:
+    mean: Sequence[float] | None = None
+    quantiles: dict[float, Sequence[float]] = field(default_factory=dict)
+    intervals: dict[float, tuple[Sequence[float], Sequence[float]]] = field(default_factory=dict)
+    samples: Sequence[Sequence[float]] | None = None
+    fitted_values: Sequence[float] | None = None
+    residuals: Sequence[float] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class PredictionRecord:
     run_id: str
     benchmark: str
@@ -100,6 +111,20 @@ class PredictionRecord:
     series_id: str
     model_name: str
     horizon_index: int
+    y_true: float
+    y_pred: float
+    status: RunStatus
+
+@dataclass(frozen=True)
+class QuantilePredictionRecord:
+    run_id: str
+    benchmark: str
+    dataset_name: str
+    subset: str
+    series_id: str
+    model_name: str
+    horizon_index: int
+    quantile: float
     y_true: float
     y_pred: float
     status: RunStatus
@@ -160,6 +185,7 @@ class ForecastingBenchmarkResult:
     metric_records: tuple[MetricRecord, ...]
     aggregate_report: BenchmarkAggregateReport
     artifact_manifest: tuple[ArtifactRecord, ...] = ()
+    quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = ()
 
 
 @dataclass(frozen=True)

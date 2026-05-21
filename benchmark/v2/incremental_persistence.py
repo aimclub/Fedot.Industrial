@@ -12,6 +12,7 @@ from .core import (
     BenchmarkSuiteConfig,
     ForecastingSeriesRecord,
     MetricRecord,
+    QuantilePredictionRecord,
     PredictionRecord,
     RunStatus,
     ensure_directory,
@@ -77,6 +78,21 @@ def _run_record_from_payload(payload: dict[str, Any]) -> BenchmarkRunRecord:
     )
 
 
+def _quantile_prediction_record_from_payload(payload: dict[str, Any]) -> QuantilePredictionRecord:
+    return QuantilePredictionRecord(
+        run_id=str(payload['run_id']),
+        benchmark=str(payload['benchmark']),
+        dataset_name=str(payload['dataset_name']),
+        subset=str(payload['subset']),
+        series_id=str(payload['series_id']),
+        model_name=str(payload['model_name']),
+        horizon_index=int(payload['horizon_index']),
+        quantile=float(payload['quantile']),
+        y_true=float(payload['y_true']),
+        y_pred=float(payload['y_pred']),
+        status=RunStatus(str(payload['status'])),
+    )
+
 def _metric_record_from_payload(payload: dict[str, Any]) -> MetricRecord:
     return MetricRecord(
         run_id=str(payload['run_id']),
@@ -118,6 +134,7 @@ class ForecastingResumeState:
     item_artifact_paths: dict[str, str]
     status_counts: dict[str, int]
     completed_items: int
+    quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = ()
 
 
 class ForecastingIncrementalPersistenceCoordinator:
@@ -247,6 +264,7 @@ class ForecastingIncrementalPersistenceCoordinator:
             run_record: BenchmarkRunRecord,
             metric_records: tuple[MetricRecord, ...] = (),
             prediction_records: tuple[PredictionRecord, ...] = (),
+            quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = (),
     ) -> None:
         """Atomically persist one completed series/model item result."""
         if not self.enabled:
@@ -270,6 +288,7 @@ class ForecastingIncrementalPersistenceCoordinator:
                 'run_record': to_plain_data(run_record),
                 'metric_records': [to_plain_data(record) for record in metric_records],
                 'prediction_records': [to_plain_data(record) for record in prediction_records],
+                'quantile_prediction_records': [to_plain_data(record) for record in quantile_prediction_records],
             },
         )
         self.item_artifact_paths[item_key] = str(artifact_path)
@@ -279,6 +298,72 @@ class ForecastingIncrementalPersistenceCoordinator:
         if is_new_item:
             self.completed_items = len(self.item_artifact_paths)
         self._write_progress_index()
+
+    # def load_resume_state(self) -> ForecastingResumeState | None:
+    #     """Load previously persisted item records when resume mode is enabled."""
+    #     if not self.enabled or not bool(getattr(self.config.run_spec, 'resume_enabled', False)):
+    #         return None
+    #     if not self.progress_dir.exists() or not self.progress_index_path.exists():
+    #         return None
+    #
+    #     progress_payload = _read_json(self.progress_index_path)
+    #     item_artifact_paths = {
+    #         str(key): str(value)
+    #         for key, value in dict(progress_payload.get('item_artifacts', {})).items()
+    #     }
+    #     status_counts = {
+    #         str(key): int(value)
+    #         for key, value in dict(progress_payload.get('status_counts', {})).items()
+    #     }
+    #     completed_items = int(progress_payload.get('completed_items', len(item_artifact_paths)))
+    #
+    #     series_records: list[ForecastingSeriesRecord] = []
+    #     if self.series_catalog_path.exists():
+    #         series_records = [
+    #             _series_record_from_payload(payload)
+    #             for payload in list(_read_json(self.series_catalog_path) or [])
+    #         ]
+    #
+    #     run_records: list[BenchmarkRunRecord] = []
+    #     metric_records: list[MetricRecord] = []
+    #     prediction_records: list[PredictionRecord] = []
+    #     seen_run_keys: set[tuple[str, str, str, str, str]] = set()
+    #
+    #     for artifact_path in item_artifact_paths.values():
+    #         payload = _read_json(artifact_path)
+    #         run_record = _run_record_from_payload(dict(payload.get('run_record', {})))
+    #         run_key = (
+    #             run_record.benchmark,
+    #             run_record.dataset_name,
+    #             run_record.subset,
+    #             run_record.series_id,
+    #             run_record.model_name,
+    #         )
+    #         if run_key not in seen_run_keys:
+    #             run_records.append(run_record)
+    #             seen_run_keys.add(run_key)
+    #         metric_records.extend(
+    #             _metric_record_from_payload(item)
+    #             for item in list(payload.get('metric_records', ()))
+    #         )
+    #         prediction_records.extend(
+    #             _prediction_record_from_payload(item)
+    #             for item in list(payload.get('prediction_records', ()))
+    #         )
+    #
+    #     self.item_artifact_paths = dict(item_artifact_paths)
+    #     self.status_counts = dict(status_counts)
+    #     self.completed_items = int(completed_items)
+    #     self._write_progress_index()
+    #     return ForecastingResumeState(
+    #         series_records=tuple(series_records),
+    #         run_records=tuple(run_records),
+    #         metric_records=tuple(metric_records),
+    #         prediction_records=tuple(prediction_records),
+    #         item_artifact_paths=dict(item_artifact_paths),
+    #         status_counts=dict(status_counts),
+    #         completed_items=int(completed_items),
+    #     )
 
     def load_resume_state(self) -> ForecastingResumeState | None:
         """Load previously persisted item records when resume mode is enabled."""
@@ -308,6 +393,7 @@ class ForecastingIncrementalPersistenceCoordinator:
         run_records: list[BenchmarkRunRecord] = []
         metric_records: list[MetricRecord] = []
         prediction_records: list[PredictionRecord] = []
+        quantile_prediction_records: list[QuantilePredictionRecord] = []  # НОВОЕ
         seen_run_keys: set[tuple[str, str, str, str, str]] = set()
 
         for artifact_path in item_artifact_paths.values():
@@ -331,6 +417,10 @@ class ForecastingIncrementalPersistenceCoordinator:
                 _prediction_record_from_payload(item)
                 for item in list(payload.get('prediction_records', ()))
             )
+            quantile_prediction_records.extend(  # НОВОЕ
+                _quantile_prediction_record_from_payload(item)
+                for item in list(payload.get('quantile_prediction_records', ()))
+            )
 
         self.item_artifact_paths = dict(item_artifact_paths)
         self.status_counts = dict(status_counts)
@@ -341,6 +431,7 @@ class ForecastingIncrementalPersistenceCoordinator:
             run_records=tuple(run_records),
             metric_records=tuple(metric_records),
             prediction_records=tuple(prediction_records),
+            quantile_prediction_records=tuple(quantile_prediction_records),  # НОВОЕ
             item_artifact_paths=dict(item_artifact_paths),
             status_counts=dict(status_counts),
             completed_items=int(completed_items),

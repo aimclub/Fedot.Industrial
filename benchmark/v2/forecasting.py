@@ -82,6 +82,16 @@ from benchmark.v2.core import (
     TaskType,
     new_run_id,
 )
+
+from .forecasting_result import (
+    ForecastResultValidationError,
+    coerce_forecast_result,
+    describe_forecast_result_kind,
+    iter_quantile_prediction_records,
+    resolve_point_forecast,
+    validate_forecast_result_shapes,
+)
+
 from benchmark.v2.verbosity import (
     ForecastingVerbosityPolicy,
     resolve_forecasting_verbosity_policy,
@@ -1788,6 +1798,7 @@ class ForecastingSeriesArtifactsRecorder:
     metric_names: tuple[str, ...]
     metric_records: list[MetricRecord]
     prediction_records: list[PredictionRecord]
+    quantile_prediction_records: list[QuantilePredictionRecord]
 
     def validate_forecast_length(
             self,
@@ -1899,6 +1910,23 @@ class ForecastingSeriesArtifactsRecorder:
                     status=RunStatus.SUCCESS,
                 )
             )
+
+    def record_quantile_predictions(
+            self,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast_result: ForecastResult,
+    ) -> None:
+        self.quantile_prediction_records.extend(
+            iter_quantile_prediction_records(
+                run_id=self.run_id,
+                series_record=series_record,
+                model_name=model_name,
+                actual=actual,
+                forecast_result=forecast_result,
+            )
+        )
 
 
 @dataclass
@@ -2146,6 +2174,7 @@ class ForecastingSuiteRunner:
         self.run_records: list[BenchmarkRunRecord] = []
         self.prediction_records: list[PredictionRecord] = []
         self.metric_records: list[MetricRecord] = []
+        self.quantile_prediction_records: list[QuantilePredictionRecord] = []
         self.known_series_keys: set[tuple[str, str, str, str]] = set()
         self.resumed_item_keys: set[str] = set()
         self.progress_policy = resolve_forecasting_progress_policy(
@@ -2166,6 +2195,7 @@ class ForecastingSuiteRunner:
             metric_names=tuple(self.config.metrics),
             metric_records=self.metric_records,
             prediction_records=self.prediction_records,
+            quantile_prediction_records=self.quantile_prediction_records,
         )
         self.post_fit_tuning = ForecastingPostFitTuningCoordinator(
             config=self.config,
@@ -2202,12 +2232,19 @@ class ForecastingSuiteRunner:
         self.run_records = list(resume_state.run_records)
         self.metric_records = list(resume_state.metric_records)
         self.prediction_records = list(resume_state.prediction_records)
+        self.quantile_prediction_records = list(resume_state.quantile_prediction_records)
         self.known_series_keys = {self._series_key(record) for record in self.series_records}
         self.resumed_item_keys = set(resume_state.item_artifact_paths)
         self.progress.seed_resume_state(
             completed_items=resume_state.completed_items,
             status_counts=resume_state.status_counts,
         )
+        self._sync_artifacts_recorder_lists()
+
+    def _sync_artifacts_recorder_lists(self) -> None:
+        self.artifacts_recorder.metric_records = self.metric_records
+        self.artifacts_recorder.prediction_records = self.prediction_records
+        self.artifacts_recorder.quantile_prediction_records = self.quantile_prediction_records
 
     def _augment_model_spec_with_progress_policy(self, model_spec: ModelSpec) -> ModelSpec:
         params = dict(model_spec.params)
@@ -2254,6 +2291,7 @@ class ForecastingSuiteRunner:
             series_records=tuple(self.series_records),
             run_records=tuple(self.run_records),
             prediction_records=tuple(self.prediction_records),
+            quantile_prediction_records=tuple(self.quantile_prediction_records),
             metric_records=tuple(self.metric_records),
             aggregate_report=aggregate_report,
             artifact_manifest=self.incremental_persistence.build_artifact_manifest(),
@@ -2557,8 +2595,16 @@ class ForecastingSuiteRunner:
     ) -> None:
         metric_count_before = len(self.metric_records)
         prediction_count_before = len(self.prediction_records)
-        prediction, metadata = model.forecast(series_record)
-        actual, forecast = self._validate_forecast_length(series_record, prediction)
+        quantile_prediction_count_before = len(self.quantile_prediction_records)
+        # prediction, metadata = model.forecast(series_record)
+        # actual, forecast = self._validate_forecast_length(series_record, prediction)
+
+        raw_prediction = model.forecast(series_record)
+        forecast_result = coerce_forecast_result(raw_prediction)
+        validate_forecast_result_shapes(forecast_result, horizon=len(series_record.test_values))
+        point_prediction, metadata = resolve_point_forecast(forecast_result)
+        actual, forecast = self._validate_forecast_length(series_record, point_prediction)
+
         metrics_summary, event_metrics = self._record_metric_bundle(
             series_record=series_record,
             model_name=model.name,
@@ -2572,6 +2618,14 @@ class ForecastingSuiteRunner:
             actual=actual,
             forecast=forecast,
         )
+
+        self.artifacts_recorder.record_quantile_predictions(
+            series_record=series_record,
+            model_name=model.name,
+            actual=actual,
+            forecast_result=forecast_result,
+        )
+
         metadata = self._maybe_run_post_fit_tuning_comparison(
             model_spec=model_spec,
             model=model,
@@ -2600,6 +2654,7 @@ class ForecastingSuiteRunner:
                     **metadata,
                     'active_forecast_steps': int(event_metrics.get('active_forecast_steps', 0)),
                     'calm_forecast_steps': int(event_metrics.get('calm_forecast_steps', 0)),
+                    'forecast_result_kind': describe_forecast_result_kind(forecast_result),
                 },
             ),
         )
@@ -2609,6 +2664,7 @@ class ForecastingSuiteRunner:
             run_record=run_record,
             metric_records=tuple(self.metric_records[metric_count_before:]),
             prediction_records=tuple(self.prediction_records[prediction_count_before:]),
+            quantile_prediction_records=tuple(self.quantile_prediction_records[quantile_prediction_count_before:]),
         )
 
 

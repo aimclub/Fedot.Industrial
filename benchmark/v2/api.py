@@ -94,6 +94,7 @@ def run_forecasting_benchmark_suite(config: BenchmarkSuiteConfig) -> Forecasting
             metric_records=result.metric_records,
             aggregate_report=result.aggregate_report,
             artifact_manifest=tuple(manifest),
+            quantile_prediction_records=result.quantile_prediction_records,
         )
     return result
 
