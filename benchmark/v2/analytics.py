@@ -11,6 +11,7 @@ import pandas as pd
 from .core import (
     ArtifactRecord,
     ForecastingBenchmarkResult,
+    DetectionBenchmarkResult,
     MetricRecord,
     PredictionRecord,
     RunStatus,
@@ -115,6 +116,27 @@ def runs_to_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:
         rows.append(row)
     return pd.DataFrame(rows)
 
+def detection_runs_to_frame(result: DetectionBenchmarkResult) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in result.run_records:
+        metadata = dict(record.metadata or {})
+        row = {
+            'run_id': record.run_id,
+            'benchmark': record.benchmark,
+            'dataset_name': record.dataset_name,
+            'subset': record.subset,
+            'series_id': record.series_id,
+            'model_name': record.model_name,
+            'adapter_name': metadata.get('adapter_name'),
+            'canonical_name': metadata.get('canonical_name'),
+            'family': metadata.get('family'),
+            'threshold': metadata.get('threshold'),
+            'status': record.status.value,
+            'message': record.message,
+        }
+        row.update(record.metrics_summary)
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 def _routing_aliases(adapter_name: str | None) -> set[str]:
     normalized = str(adapter_name or '').lower()
@@ -1219,3 +1241,6 @@ def render_publication_pack(
         manifest.extend(comparison.artifact_manifest)
 
     return tuple(manifest)
+
+def render_detection_pack():
+    pass

@@ -290,7 +290,7 @@ def _default_regression_models() -> tuple[ModelSpec, ...]:
     )
 
 
-def _default_detection_models() -> tuple[ModelSpec, ...]: # TODO: определить дефолтные модели для детекции
+def _default_detection_models() -> tuple[ModelSpec, ...]:
     return (
         ModelSpec(adapter_name ='feature_iforest_detector', display_name='IsolationForestDetectionModel'),
         ModelSpec(adapter_name='feature_oneclass_detector', display_name='OneClassDetectionModel'),

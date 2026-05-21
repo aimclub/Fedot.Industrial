@@ -5,7 +5,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from .analytics import compare_models_on_series, render_publication_pack
+from .analytics import compare_models_on_series, render_publication_pack, render_detection_pack
 from .classification import render_tsc_publication_pack, run_tsc_suite
 from .core import (
     ArtifactRecord,
@@ -107,14 +107,16 @@ def run_detection_benchmark_suite(config: BenchmarkSuiteConfig) -> DetectionBenc
     result = run_anomaly_detection_suite(config) # запуск detection benchmark suite
     if config.artifact_spec.persist_on_run: # нужно ли сохранять artifact
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
-        manifest = list(render_publication_pack(result, output_dir=output_dir)) # создание publication pack c artifacts. render_publication_pack написан под структуру форкастинг для detection нужны другие артефакты и render_detection_pack
-        # manifest = list(render_detection_pack(result, output_dir=output_dir)) # TODO
+        manifest = list(result.artifact_manifest)
+        # manifest = list(render_publication_pack(result, output_dir=output_dir)) # создание publication pack c artifacts. render_publication_pack написан под структуру форкастинг для detection нужны другие артефакты и render_detection_pack
+        manifest.extend(render_detection_pack(result, output_dir=output_dir)) # TODO
         manifest.extend(_build_issue_artifacts(result, output_dir))
         result = DetectionBenchmarkResult(
             run_id=result.run_id,
             config=result.config,
             series_records=result.series_records,
             run_records=result.run_records,
+            prediction_records=result.prediction_records,
             metric_records=result.metric_records,
             aggregate_report=result.aggregate_report,
             artifact_manifest=tuple(manifest),
