@@ -81,6 +81,8 @@ from benchmark.v2.core import (
     RunStatus,
     TaskType,
     new_run_id,
+    ForecastingScenarioSpec,
+    RunMode,
 )
 
 from .forecasting_result import (
@@ -2295,6 +2297,7 @@ class ForecastingSuiteRunner:
             metric_records=tuple(self.metric_records),
             aggregate_report=aggregate_report,
             artifact_manifest=self.incremental_persistence.build_artifact_manifest(),
+            scenario_spec=self.config.scenario_spec,
         )
 
     def _iter_over_datasets(self) -> None:
@@ -2598,6 +2601,19 @@ class ForecastingSuiteRunner:
         quantile_prediction_count_before = len(self.quantile_prediction_records)
         # prediction, metadata = model.forecast(series_record)
         # actual, forecast = self._validate_forecast_length(series_record, prediction)
+
+        scenario = self.config.scenario_spec
+
+        if scenario is not None:
+            if scenario.run_mode == RunMode.ZERO_SHOT:
+                series_record = dataclasses.replace(series_record, train_values=())
+            elif scenario.run_mode == RunMode.FEW_SHOT:
+                train = series_record.train_values
+                if train:
+                    n = len(train)
+                    k = max(3, min(n // 5, 50))
+                    series_record = dataclasses.replace(series_record, train_values=train[-k:])
+
 
         raw_prediction = model.forecast(series_record)
         forecast_result = coerce_forecast_result(raw_prediction)

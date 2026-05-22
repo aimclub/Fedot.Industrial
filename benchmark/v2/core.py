@@ -20,6 +20,50 @@ class RunStatus(str, Enum):
     SKIPPED = 'skipped'
     NOT_AVAILABLE = 'not_available'
 
+class RunMode(str, Enum):
+    ZERO_SHOT = 'zero_shot'
+    FEW_SHOT = 'few_shot'
+    FULL_SHOT = 'full_shot'
+
+
+class Track(str, Enum):
+    DEFAULT = 'default'
+    EXTENDED = 'extended'
+    CUSTOM = 'custom'
+
+
+class HorizonPolicy(str, Enum):
+    FIXED = 'fixed'
+    DYNAMIC = 'dynamic'
+    ROLLING = 'rolling'
+
+
+class CovariateMode(str, Enum):
+    NONE = 'none'
+    KNOWN_FUTURE = 'known_future'
+    STATIC = 'static'
+    PANEL = 'panel'
+    HIERARCHY = 'hierarchy'
+
+
+class ProbabilisticMode(str, Enum):
+    NONE = 'none'
+    QUANTILES = 'quantiles'
+    INTERVALS = 'intervals'
+    SAMPLES = 'samples'
+    FULL = 'full'
+
+
+class LeakagePolicy(str, Enum):
+    STRICT = 'strict'
+    CONTROLLED = 'controlled'
+    ALLOWED = 'allowed'
+
+
+class BudgetPolicy(str, Enum):
+    UNLIMITED = 'unlimited'
+    TIME_BUDGET = 'time_budget'
+    ITERATION_BUDGET = 'iteration_budget'
 
 @dataclass(frozen=True)
 class DatasetSpec:
@@ -68,6 +112,16 @@ class ArtifactSpec:
 
 
 @dataclass(frozen=True)
+class ForecastingScenarioSpec:
+    run_mode: RunMode | str = RunMode.FULL_SHOT
+    track: Track | str = Track.DEFAULT
+    horizon_policy: HorizonPolicy | str = HorizonPolicy.FIXED
+    covariate_mode: CovariateMode | str = CovariateMode.NONE
+    probabilistic: ProbabilisticMode | str = ProbabilisticMode.NONE
+    leakage_policy: LeakagePolicy | str = LeakagePolicy.STRICT
+    budget_policy: BudgetPolicy | str = BudgetPolicy.UNLIMITED
+
+@dataclass(frozen=True)
 class BenchmarkSuiteConfig:
     task_type: TaskType
     datasets: tuple[DatasetSpec, ...]
@@ -75,6 +129,7 @@ class BenchmarkSuiteConfig:
     artifact_spec: ArtifactSpec
     run_spec: RunSpec = field(default_factory=RunSpec)
     metrics: tuple[str, ...] = ('mase', 'smape', 'owa', 'rmse', 'mae')
+    scenario_spec: Optional[ForecastingScenarioSpec] = None
 
 
 @dataclass(frozen=True)
@@ -186,6 +241,7 @@ class ForecastingBenchmarkResult:
     aggregate_report: BenchmarkAggregateReport
     artifact_manifest: tuple[ArtifactRecord, ...] = ()
     quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = ()
+    scenario_spec: ForecastingScenarioSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -282,6 +338,10 @@ class ForecastingModelAdapter(Protocol):
             series_record: ForecastingSeriesRecord,
     ) -> tuple[Sequence[float], dict[str, Any]]:
         ...
+
+
+def default_scenario() -> ForecastingScenarioSpec:
+    return ForecastingScenarioSpec()
 
 
 def new_run_id(prefix: str = 'benchmark_v2') -> str:
