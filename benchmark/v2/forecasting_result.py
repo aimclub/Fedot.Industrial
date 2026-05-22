@@ -10,7 +10,6 @@ from .core import ForecastResult, ForecastingSeriesRecord, QuantilePredictionRec
 
 class ForecastResultValidationError(ValueError):
     """Raised when ForecastResult cannot be aligned with requested forecast horizon."""
-    pass
 
 
 def _as_1d_float_array(value: Any, *, field_name: str) -> np.ndarray:

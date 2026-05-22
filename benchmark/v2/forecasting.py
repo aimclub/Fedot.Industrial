@@ -86,7 +86,6 @@ from benchmark.v2.core import (
 )
 
 from .forecasting_result import (
-    ForecastResultValidationError,
     coerce_forecast_result,
     describe_forecast_result_kind,
     iter_quantile_prediction_records,
