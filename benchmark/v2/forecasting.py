@@ -81,7 +81,6 @@ from benchmark.v2.core import (
     RunStatus,
     TaskType,
     new_run_id,
-    ForecastingScenarioSpec,
     RunMode,
 )
 
@@ -2612,7 +2611,6 @@ class ForecastingSuiteRunner:
                     n = len(train)
                     k = max(3, min(n // 5, 50))
                     series_record = dataclasses.replace(series_record, train_values=train[-k:])
-
 
         raw_prediction = model.forecast(series_record)
         forecast_result = coerce_forecast_result(raw_prediction)

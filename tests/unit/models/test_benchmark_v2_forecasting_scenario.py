@@ -1,4 +1,3 @@
-import pytest
 from dataclasses import replace
 from benchmark.v2.core import (
     BenchmarkSuiteConfig,
@@ -16,7 +15,6 @@ from benchmark.v2.core import (
     ProbabilisticMode,
     default_scenario,
 )
-from benchmark.v2.forecasting import ForecastingSuiteRunner
 
 
 def test_old_config_runs_without_changes(tmp_path):

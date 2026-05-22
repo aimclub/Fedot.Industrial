@@ -20,6 +20,7 @@ class RunStatus(str, Enum):
     SKIPPED = 'skipped'
     NOT_AVAILABLE = 'not_available'
 
+
 class RunMode(str, Enum):
     ZERO_SHOT = 'zero_shot'
     FEW_SHOT = 'few_shot'
@@ -64,6 +65,7 @@ class BudgetPolicy(str, Enum):
     UNLIMITED = 'unlimited'
     TIME_BUDGET = 'time_budget'
     ITERATION_BUDGET = 'iteration_budget'
+
 
 @dataclass(frozen=True)
 class DatasetSpec:
@@ -120,6 +122,7 @@ class ForecastingScenarioSpec:
     probabilistic: ProbabilisticMode | str = ProbabilisticMode.NONE
     leakage_policy: LeakagePolicy | str = LeakagePolicy.STRICT
     budget_policy: BudgetPolicy | str = BudgetPolicy.UNLIMITED
+
 
 @dataclass(frozen=True)
 class BenchmarkSuiteConfig:
