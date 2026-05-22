@@ -65,7 +65,8 @@ try:  # pragma: no cover - optional heavyweight dependency tree in test envs
 except Exception:  # pragma: no cover - lightweight fallback for benchmark-v2
     M4_FORECASTING_LENGTH = {'D': 14, 'W': 13, 'M': 18, 'Q': 8, 'Y': 6}
     M4_SEASONALITY = {'D': 1, 'W': 1, 'M': 12, 'Q': 4, 'Y': 1}
-    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly', 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
+    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly',
+                 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
 
 from benchmark.v2.core import (
     BenchmarkAggregateReport,
@@ -82,6 +83,7 @@ from benchmark.v2.core import (
     TaskType,
     new_run_id,
     RunMode,
+    ModelFamily,
 )
 
 from .forecasting_result import (
@@ -102,7 +104,8 @@ from benchmark.v2.incremental_persistence import ForecastingIncrementalPersisten
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
-DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
+DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / \
+    'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
 
 class BenchmarkConfigurationError(ValueError):
@@ -122,14 +125,18 @@ class ModelExecutionError(RuntimeError):
 def validate_forecasting_suite_config(config: BenchmarkSuiteConfig) -> None:
     """Validate that a suite config can be executed as a forecasting benchmark."""
     if config.task_type is not TaskType.FORECASTING:
-        raise BenchmarkConfigurationError('Forecasting suite expects task_type=forecasting.')
+        raise BenchmarkConfigurationError(
+            'Forecasting suite expects task_type=forecasting.')
     if not config.datasets:
-        raise BenchmarkConfigurationError('Benchmark suite must contain at least one dataset spec.')
+        raise BenchmarkConfigurationError(
+            'Benchmark suite must contain at least one dataset spec.')
     if not config.models:
-        raise BenchmarkConfigurationError('Benchmark suite must contain at least one model spec.')
+        raise BenchmarkConfigurationError(
+            'Benchmark suite must contain at least one model spec.')
     unsupported = set(config.metrics) - set(SUPPORTED_FORECASTING_METRICS)
     if unsupported:
-        raise BenchmarkConfigurationError(f'Unsupported forecasting metrics: {sorted(unsupported)}')
+        raise BenchmarkConfigurationError(
+            f'Unsupported forecasting metrics: {sorted(unsupported)}')
 
 
 def _normalize_subset_name(subset: str) -> str:
@@ -163,10 +170,12 @@ def _sample_records(
     filtered = records
     if spec.series_ids:
         requested = set(spec.series_ids)
-        filtered = [record for record in filtered if record.series_id in requested]
+        filtered = [
+            record for record in filtered if record.series_id in requested]
     if spec.sample_size is not None and len(filtered) > spec.sample_size:
         rng = np.random.default_rng(spec.random_seed)
-        indices = rng.choice(len(filtered), size=spec.sample_size, replace=False)
+        indices = rng.choice(
+            len(filtered), size=spec.sample_size, replace=False)
         filtered = [filtered[index] for index in sorted(indices)]
     return tuple(filtered)
 
@@ -257,8 +266,10 @@ def _maybe_attach_stage_tuning_report(
         verbosity_policy
         if isinstance(verbosity_policy, ForecastingVerbosityPolicy)
         else resolve_forecasting_verbosity_policy(
-            (verbosity_policy or {}).get('level') if isinstance(verbosity_policy, dict) else verbosity_policy,
-            options=verbosity_policy if isinstance(verbosity_policy, dict) else None,
+            (verbosity_policy or {}).get('level') if isinstance(
+                verbosity_policy, dict) else verbosity_policy,
+            options=verbosity_policy if isinstance(
+                verbosity_policy, dict) else None,
         )
     )
 
@@ -276,7 +287,8 @@ def _maybe_attach_stage_tuning_report(
             max_stage_candidates=max_stage_candidates,
             progress_policy=progress_policy,
         )
-        stage_tuning_report = resolved_verbosity_policy.prune_stage_tuning_report(report.to_dict())
+        stage_tuning_report = resolved_verbosity_policy.prune_stage_tuning_report(
+            report.to_dict())
         if stage_tuning_report is not None:
             metadata['stage_tuning_report'] = stage_tuning_report
         stage_tuning_runtime = {
@@ -289,7 +301,8 @@ def _maybe_attach_stage_tuning_report(
             'best_score': report.metadata.get('best_score'),
             'progress_policy': resolve_forecasting_progress_policy(progress_policy).to_dict(),
         }
-        pruned_runtime = resolved_verbosity_policy.prune_stage_tuning_runtime(stage_tuning_runtime)
+        pruned_runtime = resolved_verbosity_policy.prune_stage_tuning_runtime(
+            stage_tuning_runtime)
         if pruned_runtime is not None:
             metadata['stage_tuning_runtime'] = pruned_runtime
     except Exception as exc:  # pragma: no cover - benchmark should keep the main run alive
@@ -327,7 +340,8 @@ def _parse_frame_records(
             identifier_column = candidate
             break
     if identifier_column not in frame.columns:
-        raise BenchmarkConfigurationError('Dataset frame must include series_id or unique_id column.')
+        raise BenchmarkConfigurationError(
+            'Dataset frame must include series_id or unique_id column.')
 
     value_column = 'value'
     for candidate in ('value', 'y', 'target'):
@@ -335,24 +349,30 @@ def _parse_frame_records(
             value_column = candidate
             break
     if value_column not in frame.columns:
-        raise BenchmarkConfigurationError('Dataset frame must include value/y/target column.')
+        raise BenchmarkConfigurationError(
+            'Dataset frame must include value/y/target column.')
 
-    sort_columns = [candidate for candidate in ('timestamp', 'datetime', 'ds') if candidate in frame.columns]
+    sort_columns = [candidate for candidate in (
+        'timestamp', 'datetime', 'ds') if candidate in frame.columns]
     records: list[ForecastingSeriesRecord] = []
     for series_id, group in frame.groupby(identifier_column):
         ordered = group.sort_values(sort_columns) if sort_columns else group
         series_values = ordered[value_column].astype(float).to_numpy()
-        horizon = int(ordered['horizon'].iloc[0]) if 'horizon' in ordered.columns else default_horizon
+        horizon = int(ordered['horizon'].iloc[0]
+                      ) if 'horizon' in ordered.columns else default_horizon
         seasonal_period = (
             int(ordered['seasonal_period'].iloc[0])
             if 'seasonal_period' in ordered.columns
             else default_seasonal_period
         )
-        frequency = str(ordered['frequency'].iloc[0]) if 'frequency' in ordered.columns else default_frequency
+        frequency = str(ordered['frequency'].iloc[0]
+                        ) if 'frequency' in ordered.columns else default_frequency
         record_dataset_name = (
-            str(ordered['dataset_name'].iloc[0]) if 'dataset_name' in ordered.columns else dataset_name
+            str(ordered['dataset_name'].iloc[0]
+                ) if 'dataset_name' in ordered.columns else dataset_name
         )
-        train_values, test_values = _series_split_from_full_values(series_values, horizon)
+        train_values, test_values = _series_split_from_full_values(
+            series_values, horizon)
         records.append(
             ForecastingSeriesRecord(
                 benchmark=benchmark,
@@ -382,20 +402,26 @@ def _parse_sequence_records(
 ) -> list[ForecastingSeriesRecord]:
     records: list[ForecastingSeriesRecord] = []
     for index, item in enumerate(payload):
-        series_id = str(item.get('series_id', item.get('unique_id', f'{dataset_name}_{index}')))
+        series_id = str(item.get('series_id', item.get(
+            'unique_id', f'{dataset_name}_{index}')))
         frequency = str(item.get('frequency', default_frequency))
         horizon = int(item.get('horizon', default_horizon))
-        seasonal_period = int(item.get('seasonal_period', default_seasonal_period))
+        seasonal_period = int(
+            item.get('seasonal_period', default_seasonal_period))
         values = item.get('values')
         train = item.get('train_values')
         test = item.get('test_values')
         if values is not None:
-            train_values, test_values = _series_split_from_full_values(np.asarray(values, dtype=float), horizon)
+            train_values, test_values = _series_split_from_full_values(
+                np.asarray(values, dtype=float), horizon)
         elif train is not None and test is not None:
-            train_values = tuple(float(value) for value in np.asarray(train, dtype=float).reshape(-1))
-            test_values = tuple(float(value) for value in np.asarray(test, dtype=float).reshape(-1))
+            train_values = tuple(float(value) for value in np.asarray(
+                train, dtype=float).reshape(-1))
+            test_values = tuple(float(value) for value in np.asarray(
+                test, dtype=float).reshape(-1))
         else:
-            raise BenchmarkConfigurationError('Sequence payload must include values or train_values/test_values.')
+            raise BenchmarkConfigurationError(
+                'Sequence payload must include values or train_values/test_values.')
 
         records.append(
             ForecastingSeriesRecord(
@@ -408,7 +434,8 @@ def _parse_sequence_records(
                 seasonal_period=seasonal_period,
                 train_values=train_values,
                 test_values=test_values,
-                metadata={'split_provenance': item.get('split_provenance', 'adapter_provided')},
+                metadata={'split_provenance': item.get(
+                    'split_provenance', 'adapter_provided')},
             )
         )
     return records
@@ -450,7 +477,8 @@ class M4Adapter:
             subset: str,
             key: str,
     ) -> list[ForecastingSeriesRecord]:
-        base_dir = Path(spec.adapter_options.get('local_csv_dir', DEFAULT_LOCAL_M4_DIR))
+        base_dir = Path(spec.adapter_options.get(
+            'local_csv_dir', DEFAULT_LOCAL_M4_DIR))
         train_path = base_dir / f'{subset}-train.csv'
         test_path = base_dir / f'{subset}-test.csv'
         if not train_path.exists() or not test_path.exists():
@@ -461,18 +489,23 @@ class M4Adapter:
         train_frame = pd.read_csv(train_path)
         test_frame = pd.read_csv(test_path)
         if 'V1' not in train_frame.columns or 'V1' not in test_frame.columns:
-            raise BenchmarkConfigurationError('Local M4 CSV files must include the V1 identifier column.')
+            raise BenchmarkConfigurationError(
+                'Local M4 CSV files must include the V1 identifier column.')
 
         train_frame = train_frame.set_index('V1')
         test_frame = test_frame.set_index('V1')
-        common_ids = [series_id for series_id in train_frame.index if series_id in test_frame.index]
+        common_ids = [
+            series_id for series_id in train_frame.index if series_id in test_frame.index]
         if not common_ids:
-            raise BenchmarkConfigurationError('Local M4 train/test files do not share any series identifiers.')
+            raise BenchmarkConfigurationError(
+                'Local M4 train/test files do not share any series identifiers.')
 
         records: list[ForecastingSeriesRecord] = []
         for series_id in common_ids:
-            train_values = train_frame.loc[series_id].dropna().astype(float).to_numpy()
-            test_values = test_frame.loc[series_id].dropna().astype(float).to_numpy()
+            train_values = train_frame.loc[series_id].dropna().astype(
+                float).to_numpy()
+            test_values = test_frame.loc[series_id].dropna().astype(
+                float).to_numpy()
             if len(test_values) == 0 or len(train_values) == 0:
                 continue
             records.append(
@@ -496,7 +529,8 @@ class M4Adapter:
         try:
             from datasetsforecast.m4 import M4
         except Exception as exc:  # pragma: no cover
-            raise BenchmarkConfigurationError(f'M4 adapter is unavailable: {exc}') from exc
+            raise BenchmarkConfigurationError(
+                f'M4 adapter is unavailable: {exc}') from exc
 
         subset = _normalize_subset_name(spec.subset)
         data_directory = spec.adapter_options.get('data_dir')
@@ -527,9 +561,12 @@ class MonashAdapter:
                     benchmark=self.benchmark_name,
                     dataset_name=spec.dataset_name,
                     subset=spec.subset,
-                    default_frequency=str(spec.adapter_options.get('frequency', spec.subset)),
-                    default_horizon=int(spec.adapter_options.get('forecast_horizon', 1)),
-                    default_seasonal_period=int(spec.adapter_options.get('seasonal_period', 1)),
+                    default_frequency=str(
+                        spec.adapter_options.get('frequency', spec.subset)),
+                    default_horizon=int(
+                        spec.adapter_options.get('forecast_horizon', 1)),
+                    default_seasonal_period=int(
+                        spec.adapter_options.get('seasonal_period', 1)),
                 )
             else:
                 records = _parse_sequence_records(
@@ -537,16 +574,20 @@ class MonashAdapter:
                     benchmark=self.benchmark_name,
                     dataset_name=spec.dataset_name,
                     subset=spec.subset,
-                    default_frequency=str(spec.adapter_options.get('frequency', spec.subset)),
-                    default_horizon=int(spec.adapter_options.get('forecast_horizon', 1)),
-                    default_seasonal_period=int(spec.adapter_options.get('seasonal_period', 1)),
+                    default_frequency=str(
+                        spec.adapter_options.get('frequency', spec.subset)),
+                    default_horizon=int(
+                        spec.adapter_options.get('forecast_horizon', 1)),
+                    default_seasonal_period=int(
+                        spec.adapter_options.get('seasonal_period', 1)),
                 )
         return _sample_records(records, spec)
 
     def _load_local_records(self, spec: DatasetSpec) -> list[ForecastingSeriesRecord]:
         local_path = spec.adapter_options.get('local_csv_path')
         if local_path is None:
-            file_candidates = sorted(DEFAULT_LOCAL_MONASH_DIR.glob(f'*{spec.dataset_name}*.csv'))
+            file_candidates = sorted(
+                DEFAULT_LOCAL_MONASH_DIR.glob(f'*{spec.dataset_name}*.csv'))
             if not file_candidates:
                 raise BenchmarkConfigurationError(
                     f'No local Monash file matching dataset_name={spec.dataset_name} was found in {DEFAULT_LOCAL_MONASH_DIR}.'
@@ -554,25 +595,32 @@ class MonashAdapter:
             local_path = file_candidates[0]
         csv_path = Path(local_path)
         if not csv_path.exists():
-            raise BenchmarkConfigurationError(f'Local Monash CSV file was not found: {csv_path}')
+            raise BenchmarkConfigurationError(
+                f'Local Monash CSV file was not found: {csv_path}')
 
         frame = pd.read_csv(csv_path)
         if 'label' not in frame.columns or 'value' not in frame.columns:
-            raise BenchmarkConfigurationError('Local Monash CSV must include `label` and `value` columns.')
+            raise BenchmarkConfigurationError(
+                'Local Monash CSV must include `label` and `value` columns.')
 
         frequency = str(spec.adapter_options.get('frequency', spec.subset))
-        horizon = int(spec.adapter_options.get('forecast_horizon', self._infer_horizon_from_filename(csv_path)))
-        seasonal_period = int(spec.adapter_options.get('seasonal_period', self._infer_seasonal_period(frequency)))
+        horizon = int(spec.adapter_options.get('forecast_horizon',
+                      self._infer_horizon_from_filename(csv_path)))
+        seasonal_period = int(spec.adapter_options.get(
+            'seasonal_period', self._infer_seasonal_period(frequency)))
         dataset_name = spec.dataset_name or csv_path.stem
 
         records: list[ForecastingSeriesRecord] = []
-        sort_columns = [column for column in ('datetime', 'timestamp', 'ds') if column in frame.columns]
+        sort_columns = [column for column in (
+            'datetime', 'timestamp', 'ds') if column in frame.columns]
         for series_id, group in frame.groupby('label'):
-            ordered = group.sort_values(sort_columns) if sort_columns else group
+            ordered = group.sort_values(
+                sort_columns) if sort_columns else group
             values = ordered['value'].astype(float).to_numpy()
             if len(values) <= horizon:
                 continue
-            train_values, test_values = _series_split_from_full_values(values, horizon)
+            train_values, test_values = _series_split_from_full_values(
+                values, horizon)
             records.append(
                 ForecastingSeriesRecord(
                     benchmark=self.benchmark_name,
@@ -620,9 +668,11 @@ class MonashAdapter:
         try:
             from datasets import load_dataset
         except Exception as exc:  # pragma: no cover
-            raise BenchmarkConfigurationError(f'Monash adapter is unavailable: {exc}') from exc
+            raise BenchmarkConfigurationError(
+                f'Monash adapter is unavailable: {exc}') from exc
 
-        dataset_path = spec.adapter_options.get('dataset_path', spec.dataset_name)
+        dataset_path = spec.adapter_options.get(
+            'dataset_path', spec.dataset_name)
         split_name = spec.adapter_options.get('split', 'train')
         dataset = load_dataset(dataset_path, split=split_name)
         payload: list[dict[str, Any]] = []
@@ -653,15 +703,19 @@ class InMemoryForecastingAdapter:
         """Convert in-memory payload records into ForecastingSeriesRecord values."""
         payload = list(spec.adapter_options.get('records', ()))
         if not payload:
-            raise BenchmarkConfigurationError('InMemory adapter requires adapter_options["records"].')
+            raise BenchmarkConfigurationError(
+                'InMemory adapter requires adapter_options["records"].')
         records = _parse_sequence_records(
             payload=payload,
             benchmark=self.benchmark_name,
             dataset_name=spec.dataset_name,
             subset=spec.subset,
-            default_frequency=str(spec.adapter_options.get('frequency', spec.subset)),
-            default_horizon=int(spec.adapter_options.get('forecast_horizon', 1)),
-            default_seasonal_period=int(spec.adapter_options.get('seasonal_period', 1)),
+            default_frequency=str(
+                spec.adapter_options.get('frequency', spec.subset)),
+            default_horizon=int(
+                spec.adapter_options.get('forecast_horizon', 1)),
+            default_seasonal_period=int(
+                spec.adapter_options.get('seasonal_period', 1)),
         )
         return _sample_records(records, spec)
 
@@ -680,14 +734,16 @@ def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
         from fedot.core.repository.dataset_types import DataTypesEnum
         from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
     except Exception as exc:  # pragma: no cover - depends on full FEDOT runtime
-        raise ModelExecutionError(RunStatus.NOT_AVAILABLE, f'FEDOT forecasting runtime is unavailable: {exc}') from exc
+        raise ModelExecutionError(
+            RunStatus.NOT_AVAILABLE, f'FEDOT forecasting runtime is unavailable: {exc}') from exc
 
     train = np.asarray(series_record.train_values, dtype=float).reshape(-1, 1)
     return InputData(
         idx=np.arange(len(train)),
         features=train,
         target=train.reshape(-1),
-        task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=series_record.forecast_horizon)),
+        task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
+            forecast_length=series_record.forecast_horizon)),
         data_type=DataTypesEnum.ts,
     )
 
@@ -697,6 +753,7 @@ class NaiveLastValueModel(ForecastingModelAdapter):
     """Simple baseline that repeats the last observed value."""
 
     name: str = 'NaiveLastValue'
+    family: ModelFamily = ModelFamily.CLASSICAL_BASELINE
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
@@ -715,6 +772,7 @@ class NaiveMeanModel(ForecastingModelAdapter):
     """Simple baseline that repeats the train mean."""
 
     name: str = 'NaiveMean'
+    family: ModelFamily = ModelFamily.CLASSICAL_BASELINE
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
@@ -733,6 +791,7 @@ class NaiveDriftModel(ForecastingModelAdapter):
     """Simple baseline that extrapolates a linear end-to-end drift."""
 
     name: str = 'NaiveDrift'
+    family: ModelFamily = ModelFamily.CLASSICAL_BASELINE
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
@@ -756,6 +815,7 @@ class MovingAverageModel(ForecastingModelAdapter):
 
     window_size: int = 3
     name: str = 'MovingAverage'
+    family: ModelFamily = ModelFamily.CLASSICAL_BASELINE
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
@@ -775,6 +835,7 @@ class LinearTrendModel(ForecastingModelAdapter):
     """Simple baseline that extrapolates a fitted linear trend."""
 
     name: str = 'LinearTrend'
+    family: ModelFamily = ModelFamily.CLASSICAL_BASELINE
     tags: tuple[str, ...] = ('baseline', 'forecasting')
     optional: bool = False
 
@@ -789,7 +850,8 @@ class LinearTrendModel(ForecastingModelAdapter):
             return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'constant'}
         index = np.arange(len(train), dtype=float)
         slope, intercept = np.polyfit(index, train, deg=1)
-        future_index = np.arange(len(train), len(train) + series_record.forecast_horizon, dtype=float)
+        future_index = np.arange(len(train), len(
+            train) + series_record.forecast_horizon, dtype=float)
         return intercept + slope * future_index, {'slope': float(slope), 'intercept': float(intercept)}
 
 
@@ -800,6 +862,7 @@ class ClassicalDMDModel(ForecastingModelAdapter):
     window_size: int = 12
     n_modes: int | None = None
     name: str = 'ClassicalDMD'
+    family: ModelFamily = ModelFamily.CLASSICAL_BASELINE
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'dmd')
     optional: bool = False
 
@@ -812,11 +875,14 @@ class ClassicalDMDModel(ForecastingModelAdapter):
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit DMD on Hankel trajectories and return the forecast horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
-        window_size = min(max(self.window_size, series_record.forecast_horizon + 1), len(train) - 1)
+        window_size = min(
+            max(self.window_size, series_record.forecast_horizon + 1), len(train) - 1)
         if window_size <= series_record.forecast_horizon:
-            raise ModelExecutionError(RunStatus.SKIPPED, 'Series is too short for ClassicalDMD windowing.')
+            raise ModelExecutionError(
+                RunStatus.SKIPPED, 'Series is too short for ClassicalDMD windowing.')
         trajectories = np.array(
-            [train[index:index + window_size] for index in range(len(train) - window_size + 1)],
+            [train[index:index + window_size]
+                for index in range(len(train) - window_size + 1)],
             dtype=float,
         )
         model = DMDForecaster(
@@ -827,7 +893,8 @@ class ClassicalDMDModel(ForecastingModelAdapter):
             device='cpu',
         )
         model.fit(trajectories, window_size=window_size)
-        prediction = np.asarray(model.predict(train[-window_size:]), dtype=float).reshape(-1)
+        prediction = np.asarray(model.predict(
+            train[-window_size:]), dtype=float).reshape(-1)
         return prediction[:series_record.forecast_horizon], {'window_size': window_size}
 
 
@@ -860,9 +927,11 @@ class OKHSModel(ForecastingModelAdapter):
     anti_smoothing_decay: float = 2.5
     anti_smoothing_target_amplitude_ratio: float = 0.8
     name: str = 'OKHS'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('okhs', 'forecasting')
     optional: bool = False
-    device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
+    device = 'cuda' if _safe_import(
+        'torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
         """Check whether OKHS runtime dependencies are available."""
@@ -875,7 +944,8 @@ class OKHSModel(ForecastingModelAdapter):
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(max(self.window_size, 4), len(train) - 1)
         if window_size < 2:
-            raise ModelExecutionError(RunStatus.SKIPPED, 'Series is too short for OKHS forecasting.')
+            raise ModelExecutionError(
+                RunStatus.SKIPPED, 'Series is too short for OKHS forecasting.')
         method = normalize_okhs_method(self.method)
         model = OKHSForecaster(
             q=self.q,
@@ -921,9 +991,11 @@ class OKHSModel(ForecastingModelAdapter):
             'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
         }
         if metadata['first_prediction_value'] is not None:
-            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
+            metadata['first_step_delta'] = float(
+                metadata['first_prediction_value'] - metadata['last_train_value'])
         if metadata['first_actual_value'] is not None:
-            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+            metadata['first_actual_delta'] = float(
+                metadata['first_actual_value'] - metadata['last_train_value'])
         return forecast, metadata
 
 
@@ -959,9 +1031,11 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
     anti_smoothing_target_amplitude_ratio: float = 0.8
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'okhs_fdmd_forecaster'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('okhs', 'operator_model', 'forecasting')
     optional: bool = False
-    device = 'cuda' if _safe_import('torch') and torch.cuda.is_available() else 'cpu'
+    device = 'cuda' if _safe_import(
+        'torch') and torch.cuda.is_available() else 'cpu'
 
     def availability(self) -> tuple[RunStatus, str]:
         """Check whether the OKHS fDMD runtime is importable."""
@@ -1014,7 +1088,8 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
             forecast_horizon=series_record.forecast_horizon,
             params=dict(spec.params),
         )
-        forecast = np.asarray(run_result.forecast, dtype=float).reshape(-1)[:series_record.forecast_horizon]
+        forecast = np.asarray(
+            run_result.forecast, dtype=float).reshape(-1)[:series_record.forecast_horizon]
         metadata = dict(run_result.diagnostics)
         metadata.update(
             {
@@ -1026,9 +1101,11 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
             }
         )
         if metadata['first_prediction_value'] is not None:
-            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
+            metadata['first_step_delta'] = float(
+                metadata['first_prediction_value'] - metadata['last_train_value'])
         if metadata['first_actual_value'] is not None:
-            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+            metadata['first_actual_delta'] = float(
+                metadata['first_actual_value'] - metadata['last_train_value'])
         metadata = _maybe_attach_stage_tuning_report(
             metadata,
             adapter_name='okhs_fdmd_forecaster',
@@ -1057,6 +1134,7 @@ class MSSAModel(ForecastingModelAdapter):
     progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'mSSA'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'mssa')
     optional: bool = False
 
@@ -1129,6 +1207,7 @@ class SSACompatModel(ForecastingModelAdapter):
     progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'ssa_forecaster'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'ssa')
     optional: bool = False
 
@@ -1201,6 +1280,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
     alpha: float = 1.0
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'lagged_forecaster'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'lagged_linear')
     optional: bool = False
 
@@ -1269,6 +1349,7 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
     rank_truncation_policy: str = 'explained_variance'
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'low_rank_lagged_ridge_forecaster'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'low_rank_linear')
     optional: bool = False
 
@@ -1330,6 +1411,7 @@ class HybridEnsembleModel(ForecastingModelAdapter):
     complex_params: dict[str, Any] = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'hybrid_ensemble_forecaster'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('ensemble', 'forecasting', 'operator_model')
     optional: bool = False
 
@@ -1390,6 +1472,7 @@ class HAVOKModel(ForecastingModelAdapter):
     progress_policy: dict[str, Any] | bool | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'HAVOK'
+    family: ModelFamily = ModelFamily.INTERNAL_INDUSTRIAL
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'havok')
     optional: bool = False
 
@@ -1496,6 +1579,7 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
     degree_of_polynomial: int | None = None
     stage_tuning_runtime: dict[str, Any] | None = None
     name: str = 'NeuralForecastHead'
+    family: ModelFamily = ModelFamily.SUPERVISED_SOTA
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'neural_forecaster')
     optional: bool = False
 
@@ -1543,6 +1627,7 @@ class OptionalExternalModel(ForecastingModelAdapter):
 
     dependency_name: str
     name: str
+    family: ModelFamily = ModelFamily.EXTERNAL
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'external')
     optional: bool = True
     scaffold_reason: str = 'Adapter scaffold is registered but backend training is not wired yet.'
@@ -1569,7 +1654,8 @@ def build_dataset_adapter(spec: DatasetSpec):
         return MonashAdapter(loader=custom_loader)
     if benchmark == 'in_memory':
         return InMemoryForecastingAdapter()
-    raise BenchmarkConfigurationError(f'Unsupported forecasting benchmark adapter: {spec.benchmark}')
+    raise BenchmarkConfigurationError(
+        f'Unsupported forecasting benchmark adapter: {spec.benchmark}')
 
 
 def _instantiate_model_adapter(adapter_cls, spec: ModelSpec, default_tags: tuple[str, ...]):
@@ -1638,13 +1724,16 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
         return OptionalExternalModel(
             dependency_name='autogluon',
             name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'external', 'autogluon'),
+            family=ModelFamily.AUTOML,
+            tags=spec.tags or ('baseline', 'forecasting',
+                               'external', 'autogluon'),
         )
     if adapter_name == 'nbeats':
         return OptionalExternalModel(
             dependency_name='neuralforecast',
             name=spec.display_name,
-            tags=spec.tags or ('baseline', 'forecasting', 'external', 'nbeats'),
+            tags=spec.tags or ('baseline', 'forecasting',
+                               'external', 'nbeats'),
         )
     if adapter_name == 'tft':
         return OptionalExternalModel(
@@ -1652,18 +1741,25 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
             name=spec.display_name,
             tags=spec.tags or ('baseline', 'forecasting', 'external', 'tft'),
         )
-    raise BenchmarkConfigurationError(f'Unsupported forecasting model adapter: {spec.adapter_name}')
+
+    if spec.family is not None:
+        adapter.family = spec.family
+
+    raise BenchmarkConfigurationError(
+        f'Unsupported forecasting model adapter: {spec.adapter_name}')
 
 
 def _seasonal_naive_forecast(train: np.ndarray, horizon: int, seasonal_period: int) -> np.ndarray:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
+    lag = seasonal_period if seasonal_period > 1 and len(
+        train) > seasonal_period else 1
     base = train[-lag:]
     repeats = int(math.ceil(horizon / lag))
     return np.tile(base, repeats)[:horizon]
 
 
 def _mase_scale(train: np.ndarray, seasonal_period: int) -> float:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
+    lag = seasonal_period if seasonal_period > 1 and len(
+        train) > seasonal_period else 1
     if len(train) <= lag:
         return 1.0
     scale = np.mean(np.abs(train[lag:] - train[:-lag]))
@@ -1682,7 +1778,8 @@ def compute_forecasting_metric(
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     train = np.asarray(y_train, dtype=float).reshape(-1)
     if len(actual) != len(predicted):
-        raise BenchmarkConfigurationError('Metric inputs must have the same length.')
+        raise BenchmarkConfigurationError(
+            'Metric inputs must have the same length.')
     if metric_name == 'mae':
         return float(np.mean(np.abs(actual - predicted)))
     if metric_name == 'rmse':
@@ -1694,11 +1791,16 @@ def compute_forecasting_metric(
     if metric_name == 'mase':
         return float(np.mean(np.abs(actual - predicted)) / _mase_scale(train, seasonal_period))
     if metric_name == 'owa':
-        baseline = _seasonal_naive_forecast(train, len(actual), seasonal_period)
-        smape = compute_forecasting_metric('smape', actual, predicted, train, seasonal_period)
-        mase = compute_forecasting_metric('mase', actual, predicted, train, seasonal_period)
-        baseline_smape = compute_forecasting_metric('smape', actual, baseline, train, seasonal_period)
-        baseline_mase = compute_forecasting_metric('mase', actual, baseline, train, seasonal_period)
+        baseline = _seasonal_naive_forecast(
+            train, len(actual), seasonal_period)
+        smape = compute_forecasting_metric(
+            'smape', actual, predicted, train, seasonal_period)
+        mase = compute_forecasting_metric(
+            'mase', actual, predicted, train, seasonal_period)
+        baseline_smape = compute_forecasting_metric(
+            'smape', actual, baseline, train, seasonal_period)
+        baseline_mase = compute_forecasting_metric(
+            'mase', actual, baseline, train, seasonal_period)
         baseline_smape = baseline_smape if baseline_smape > 1e-8 else 1.0
         baseline_mase = baseline_mase if baseline_mase > 1e-8 else 1.0
         return float(0.5 * ((smape / baseline_smape) + (mase / baseline_mase)))
@@ -1727,11 +1829,16 @@ def compute_pointwise_metric(
         return np.abs(actual - predicted) / _mase_scale(np.asarray(y_train, dtype=float), seasonal_period)
     if metric_name == 'owa':
         train = np.asarray(y_train, dtype=float)
-        baseline = _seasonal_naive_forecast(train, len(actual), seasonal_period)
-        pointwise_smape = compute_pointwise_metric('smape', actual, predicted, train, seasonal_period)
-        pointwise_mase = compute_pointwise_metric('mase', actual, predicted, train, seasonal_period)
-        baseline_smape = compute_pointwise_metric('smape', actual, baseline, train, seasonal_period)
-        baseline_mase = compute_pointwise_metric('mase', actual, baseline, train, seasonal_period)
+        baseline = _seasonal_naive_forecast(
+            train, len(actual), seasonal_period)
+        pointwise_smape = compute_pointwise_metric(
+            'smape', actual, predicted, train, seasonal_period)
+        pointwise_mase = compute_pointwise_metric(
+            'mase', actual, predicted, train, seasonal_period)
+        baseline_smape = compute_pointwise_metric(
+            'smape', actual, baseline, train, seasonal_period)
+        baseline_mase = compute_pointwise_metric(
+            'mase', actual, baseline, train, seasonal_period)
         baseline_smape = np.where(baseline_smape <= 1e-8, 1.0, baseline_smape)
         baseline_mase = np.where(baseline_mase <= 1e-8, 1.0, baseline_mase)
         return 0.5 * ((pointwise_smape / baseline_smape) + (pointwise_mase / baseline_mase))
@@ -1764,7 +1871,8 @@ def _append_event_interval_metrics(
     mask = _extract_forecast_event_mask(metadata, len(actual))
     if mask is None:
         return {}
-    pointwise_mae = np.abs(np.asarray(actual, dtype=float).reshape(-1) - np.asarray(forecast, dtype=float).reshape(-1))
+    pointwise_mae = np.abs(np.asarray(
+        actual, dtype=float).reshape(-1) - np.asarray(forecast, dtype=float).reshape(-1))
     event_metrics: dict[str, float] = {}
     for suffix, subset_mask in (('active', mask), ('calm', ~mask)):
         if not np.any(subset_mask):
@@ -1807,7 +1915,8 @@ class ForecastingSeriesArtifactsRecorder:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Validate model forecast length and return aligned actual/forecast arrays."""
         actual = np.asarray(series_record.test_values, dtype=float)
-        forecast = np.asarray(prediction, dtype=float).reshape(-1)[: len(actual)]
+        forecast = np.asarray(
+            prediction, dtype=float).reshape(-1)[: len(actual)]
         if len(forecast) != len(actual):
             raise ModelExecutionError(
                 RunStatus.FAILED,
@@ -1883,7 +1992,8 @@ class ForecastingSeriesArtifactsRecorder:
             metadata=metadata,
             metric_name_suffix=metric_name_suffix,
         )
-        metrics_summary.update({key: value for key, value in event_metrics.items() if key.startswith('mae_')})
+        metrics_summary.update(
+            {key: value for key, value in event_metrics.items() if key.startswith('mae_')})
         return metrics_summary, event_metrics
 
     def record_predictions(
@@ -1957,23 +2067,28 @@ class ForecastingPostFitTuningCoordinator:
             baseline_metadata: dict[str, Any],
     ) -> dict[str, Any]:
         raw_config = dict(model_spec.params.get('stage_tuning_runtime') or {})
-        metadata_runtime = dict(baseline_metadata.get('stage_tuning_runtime') or {})
-        raw_progress_policy = raw_config.get('progress_policy', metadata_runtime.get('progress_policy'))
-        raw_verbosity_policy = raw_config.get('verbosity_policy', self.verbosity_policy.to_dict())
+        metadata_runtime = dict(
+            baseline_metadata.get('stage_tuning_runtime') or {})
+        raw_progress_policy = raw_config.get(
+            'progress_policy', metadata_runtime.get('progress_policy'))
+        raw_verbosity_policy = raw_config.get(
+            'verbosity_policy', self.verbosity_policy.to_dict())
         if raw_progress_policy is None:
             resolved_progress_policy = resolve_forecasting_progress_policy(
                 None,
                 show_progress=self.config.run_spec.show_progress,
             )
         else:
-            resolved_progress_policy = resolve_forecasting_progress_policy(raw_progress_policy)
+            resolved_progress_policy = resolve_forecasting_progress_policy(
+                raw_progress_policy)
         resolved_verbosity_policy = (
             raw_verbosity_policy
             if isinstance(raw_verbosity_policy, ForecastingVerbosityPolicy)
             else resolve_forecasting_verbosity_policy(
                 (raw_verbosity_policy or {}).get('level') if isinstance(raw_verbosity_policy, dict)
                 else raw_verbosity_policy,
-                options=raw_verbosity_policy if isinstance(raw_verbosity_policy, dict) else None,
+                options=raw_verbosity_policy if isinstance(
+                    raw_verbosity_policy, dict) else None,
             )
         )
         return {
@@ -2009,7 +2124,8 @@ class ForecastingPostFitTuningCoordinator:
             routing_recommendation,
     ) -> dict[str, Any]:
         """Execute stage tuning after baseline validation and return enriched metadata."""
-        runtime_config = self._resolve_runtime_config(model_spec, baseline_metadata)
+        runtime_config = self._resolve_runtime_config(
+            model_spec, baseline_metadata)
         if run_forecasting_stage_tuning_on_series is None:
             return {
                 **baseline_metadata,
@@ -2019,7 +2135,8 @@ class ForecastingPostFitTuningCoordinator:
         try:
             report = run_forecasting_stage_tuning_on_series(
                 model_spec.adapter_name,
-                time_series=np.asarray(series_record.train_values, dtype=float),
+                time_series=np.asarray(
+                    series_record.train_values, dtype=float),
                 forecast_horizon=series_record.forecast_horizon,
                 base_params={
                     key: value
@@ -2030,14 +2147,20 @@ class ForecastingPostFitTuningCoordinator:
                 metric_name=str(runtime_config['metric_name']),
                 split_spec=runtime_config.get('split_spec'),
                 seasonal_period=series_record.seasonal_period,
-                max_values_per_parameter=int(runtime_config['max_values_per_parameter']),
-                max_stage_candidates=int(runtime_config['max_stage_candidates']),
+                max_values_per_parameter=int(
+                    runtime_config['max_values_per_parameter']),
+                max_stage_candidates=int(
+                    runtime_config['max_stage_candidates']),
                 progress_policy=runtime_config.get('progress_policy'),
             )
-            verbosity_policy = runtime_config.get('verbosity_policy', self.verbosity_policy)
-            report_dict = verbosity_policy.prune_stage_tuning_report(report.to_dict()) or {}
-            sequential_result = dict(report_dict.get('sequential_result') or {})
-            best_parameters = dict(sequential_result.get('best_parameters') or {})
+            verbosity_policy = runtime_config.get(
+                'verbosity_policy', self.verbosity_policy)
+            report_dict = verbosity_policy.prune_stage_tuning_report(
+                report.to_dict()) or {}
+            sequential_result = dict(
+                report_dict.get('sequential_result') or {})
+            best_parameters = dict(
+                sequential_result.get('best_parameters') or {})
             enriched_baseline_metadata = {
                 **baseline_metadata,
                 'stage_tuning_report': report_dict,
@@ -2058,7 +2181,8 @@ class ForecastingPostFitTuningCoordinator:
             if not best_parameters:
                 return enriched_baseline_metadata
 
-            tuned_model_spec = self._build_tuned_model_spec(model_spec, best_parameters)
+            tuned_model_spec = self._build_tuned_model_spec(
+                model_spec, best_parameters)
             tuned_model = build_model_adapter(tuned_model_spec)
             tuned_status, tuned_message = tuned_model.availability()
             if tuned_status is not RunStatus.SUCCESS:
@@ -2067,8 +2191,10 @@ class ForecastingPostFitTuningCoordinator:
                     'stage_tuning_comparison_error': tuned_message,
                 }
 
-            tuned_prediction, tuned_metadata = tuned_model.forecast(series_record)
-            actual, tuned_forecast = self.artifacts_recorder.validate_forecast_length(series_record, tuned_prediction)
+            tuned_prediction, tuned_metadata = tuned_model.forecast(
+                series_record)
+            actual, tuned_forecast = self.artifacts_recorder.validate_forecast_length(
+                series_record, tuned_prediction)
             tuned_metrics_summary, tuned_event_metrics = self.artifacts_recorder.record_metric_bundle(
                 series_record=series_record,
                 model_name=model.name,
@@ -2078,7 +2204,8 @@ class ForecastingPostFitTuningCoordinator:
                 metric_name_suffix='_tuned',
             )
             tuned_metrics_summary.update(
-                {key: value for key, value in tuned_event_metrics.items() if key.startswith('mae_')}
+                {key: value for key, value in tuned_event_metrics.items()
+                 if key.startswith('mae_')}
             )
             comparison_payload = verbosity_policy.prune_stage_tuning_comparison(
                 {
@@ -2094,7 +2221,8 @@ class ForecastingPostFitTuningCoordinator:
                         if metric_name in tuned_metrics_summary
                     },
                     'absolute_gain': {
-                        metric_name: float(baseline_metrics_summary[metric_name] - tuned_metrics_summary[metric_name])
+                        metric_name: float(
+                            baseline_metrics_summary[metric_name] - tuned_metrics_summary[metric_name])
                         for metric_name in baseline_metrics_summary
                         if metric_name in tuned_metrics_summary
                     },
@@ -2121,13 +2249,16 @@ def build_leaderboard(
         primary_metric: str,
 ) -> BenchmarkAggregateReport:
     """Aggregate successful run records into a benchmark leaderboard."""
-    successful = [record for record in run_records if record.status is RunStatus.SUCCESS]
-    grouped: dict[tuple[str, str, str], list[float]] = {}
+    successful = [
+        record for record in run_records if record.status is RunStatus.SUCCESS]
+    grouped: dict[tuple[str, str, str, str], list[float]] = {}
     for record in successful:
         metric_value = record.metrics_summary.get(primary_metric)
+        family = record.family if hasattr(record, 'family') else 'unknown'
         if metric_value is None:
             continue
-        grouped.setdefault((record.benchmark, record.dataset_name, record.model_name), []).append(metric_value)
+        grouped.setdefault((record.benchmark, record.dataset_name,
+                           record.model_name), []).append(metric_value)
 
     leaderboard_rows = []
     for (benchmark, dataset_name, model_name), values in grouped.items():
@@ -2136,18 +2267,21 @@ def build_leaderboard(
                 'benchmark': benchmark,
                 'dataset_name': dataset_name,
                 'model_name': model_name,
+                'family': family,
                 primary_metric: float(np.mean(values)),
                 'n_series': len(values),
             }
         )
 
-    leaderboard_rows = sorted(leaderboard_rows, key=lambda row: row[primary_metric])
+    leaderboard_rows = sorted(
+        leaderboard_rows, key=lambda row: row[primary_metric])
     for rank, row in enumerate(leaderboard_rows, start=1):
         row['rank'] = rank
 
     status_counts: dict[str, int] = {}
     for record in run_records:
-        status_counts[record.status.value] = status_counts.get(record.status.value, 0) + 1
+        status_counts[record.status.value] = status_counts.get(
+            record.status.value, 0) + 1
 
     run_id = run_records[0].run_id if run_records else new_run_id('empty')
     return BenchmarkAggregateReport(
@@ -2232,8 +2366,10 @@ class ForecastingSuiteRunner:
         self.run_records = list(resume_state.run_records)
         self.metric_records = list(resume_state.metric_records)
         self.prediction_records = list(resume_state.prediction_records)
-        self.quantile_prediction_records = list(resume_state.quantile_prediction_records)
-        self.known_series_keys = {self._series_key(record) for record in self.series_records}
+        self.quantile_prediction_records = list(
+            resume_state.quantile_prediction_records)
+        self.known_series_keys = {self._series_key(
+            record) for record in self.series_records}
         self.resumed_item_keys = set(resume_state.item_artifact_paths)
         self.progress.seed_resume_state(
             completed_items=resume_state.completed_items,
@@ -2253,7 +2389,8 @@ class ForecastingSuiteRunner:
             params['stage_tuning_runtime'] = {
                 **dict(params['stage_tuning_runtime']),
                 'verbosity_policy': dict(
-                    params['stage_tuning_runtime'].get('verbosity_policy', self.verbosity_policy.to_dict())
+                    params['stage_tuning_runtime'].get(
+                        'verbosity_policy', self.verbosity_policy.to_dict())
                 ),
             }
         return ModelSpec(
@@ -2291,7 +2428,8 @@ class ForecastingSuiteRunner:
             series_records=tuple(self.series_records),
             run_records=tuple(self.run_records),
             prediction_records=tuple(self.prediction_records),
-            quantile_prediction_records=tuple(self.quantile_prediction_records),
+            quantile_prediction_records=tuple(
+                self.quantile_prediction_records),
             metric_records=tuple(self.metric_records),
             aggregate_report=aggregate_report,
             artifact_manifest=self.incremental_persistence.build_artifact_manifest(),
@@ -2312,9 +2450,12 @@ class ForecastingSuiteRunner:
             if record_key not in self.known_series_keys:
                 self.series_records.append(record)
                 self.known_series_keys.add(record_key)
-        self.incremental_persistence.persist_series_catalog(self.series_records)
-        self.progress.extend_total(len(dataset_series) * len(self.config.models))
-        self.progress.dataset_loaded(dataset_spec.dataset_name, len(dataset_series))
+        self.incremental_persistence.persist_series_catalog(
+            self.series_records)
+        self.progress.extend_total(
+            len(dataset_series) * len(self.config.models))
+        self.progress.dataset_loaded(
+            dataset_spec.dataset_name, len(dataset_series))
         return dataset_series
 
     def _iter_over_models(
@@ -2323,7 +2464,8 @@ class ForecastingSuiteRunner:
             dataset_series: tuple[ForecastingSeriesRecord, ...],
     ) -> None:
         for model_spec in self.config.models:
-            resolved_model_spec = self._augment_model_spec_with_progress_policy(model_spec)
+            resolved_model_spec = self._augment_model_spec_with_progress_policy(
+                model_spec)
             model = build_model_adapter(resolved_model_spec)
             self.progress.model_started(dataset_spec.dataset_name, model.name)
             try:
@@ -2337,7 +2479,8 @@ class ForecastingSuiteRunner:
                         availability_message=availability_message,
                     )
                     continue
-                self._iter_over_series(resolved_model_spec, model, dataset_series)
+                self._iter_over_series(
+                    resolved_model_spec, model, dataset_series)
             finally:
                 self.progress.model_finished()
 
@@ -2348,7 +2491,8 @@ class ForecastingSuiteRunner:
             dataset_series: tuple[ForecastingSeriesRecord, ...],
     ) -> None:
         for series_record in dataset_series:
-            item_key = self.incremental_persistence.item_key(series_record, model.name)
+            item_key = self.incremental_persistence.item_key(
+                series_record, model.name)
             if item_key in self.resumed_item_keys:
                 existing_record = next(
                     (
@@ -2368,10 +2512,13 @@ class ForecastingSuiteRunner:
                     existing_record.status.value if existing_record is not None else 'success',
                 )
                 continue
-            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
-            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
+            self.progress.item_started(
+                series_record.dataset_name, model.name, series_record.series_id)
+            regime_diagnostics, routing_recommendation = self._build_series_context(
+                series_record)
             try:
-                self._evaluate_series(model_spec, model, series_record, regime_diagnostics, routing_recommendation)
+                self._evaluate_series(
+                    model_spec, model, series_record, regime_diagnostics, routing_recommendation)
                 self.progress.advance(RunStatus.SUCCESS.value)
             except ModelExecutionError as exc:
                 self._append_failed_run_record(
@@ -2406,7 +2553,8 @@ class ForecastingSuiteRunner:
             availability_message: str,
     ) -> None:
         for series_record in dataset_series:
-            item_key = self.incremental_persistence.item_key(series_record, model.name)
+            item_key = self.incremental_persistence.item_key(
+                series_record, model.name)
             if item_key in self.resumed_item_keys:
                 existing_record = next(
                     (
@@ -2426,8 +2574,10 @@ class ForecastingSuiteRunner:
                     existing_record.status.value if existing_record is not None else availability_status.value,
                 )
                 continue
-            self.progress.item_started(series_record.dataset_name, model.name, series_record.series_id)
-            regime_diagnostics, routing_recommendation = self._build_series_context(series_record)
+            self.progress.item_started(
+                series_record.dataset_name, model.name, series_record.series_id)
+            regime_diagnostics, routing_recommendation = self._build_series_context(
+                series_record)
             self.run_records.append(
                 BenchmarkRunRecord(
                     run_id=self.run_id,
@@ -2452,11 +2602,14 @@ class ForecastingSuiteRunner:
                 series_record=series_record,
                 run_record=self.run_records[-1],
             )
-            self.progress.advance(availability_status.value, availability_message)
+            self.progress.advance(
+                availability_status.value, availability_message)
 
     def _build_series_context(self, series_record: ForecastingSeriesRecord):
-        regime_diagnostics = analyze_regime_diagnostics(np.asarray(series_record.train_values, dtype=float))
-        routing_recommendation = recommend_forecasting_model(regime_diagnostics)
+        regime_diagnostics = analyze_regime_diagnostics(
+            np.asarray(series_record.train_values, dtype=float))
+        routing_recommendation = recommend_forecasting_model(
+            regime_diagnostics)
         return regime_diagnostics, routing_recommendation
 
     def _build_common_metadata(
@@ -2596,7 +2749,8 @@ class ForecastingSuiteRunner:
     ) -> None:
         metric_count_before = len(self.metric_records)
         prediction_count_before = len(self.prediction_records)
-        quantile_prediction_count_before = len(self.quantile_prediction_records)
+        quantile_prediction_count_before = len(
+            self.quantile_prediction_records)
         # prediction, metadata = model.forecast(series_record)
         # actual, forecast = self._validate_forecast_length(series_record, prediction)
 
@@ -2604,19 +2758,23 @@ class ForecastingSuiteRunner:
 
         if scenario is not None:
             if scenario.run_mode == RunMode.ZERO_SHOT:
-                series_record = dataclasses.replace(series_record, train_values=())
+                series_record = dataclasses.replace(
+                    series_record, train_values=())
             elif scenario.run_mode == RunMode.FEW_SHOT:
                 train = series_record.train_values
                 if train:
                     n = len(train)
                     k = max(3, min(n // 5, 50))
-                    series_record = dataclasses.replace(series_record, train_values=train[-k:])
+                    series_record = dataclasses.replace(
+                        series_record, train_values=train[-k:])
 
         raw_prediction = model.forecast(series_record)
         forecast_result = coerce_forecast_result(raw_prediction)
-        validate_forecast_result_shapes(forecast_result, horizon=len(series_record.test_values))
+        validate_forecast_result_shapes(
+            forecast_result, horizon=len(series_record.test_values))
         point_prediction, metadata = resolve_point_forecast(forecast_result)
-        actual, forecast = self._validate_forecast_length(series_record, point_prediction)
+        actual, forecast = self._validate_forecast_length(
+            series_record, point_prediction)
 
         metrics_summary, event_metrics = self._record_metric_bundle(
             series_record=series_record,
@@ -2655,6 +2813,7 @@ class ForecastingSuiteRunner:
             subset=series_record.subset,
             series_id=series_record.series_id,
             model_name=model.name,
+            family=family.name,
             status=RunStatus.SUCCESS,
             tags=model.tags,
             metrics_summary=metrics_summary,
@@ -2676,8 +2835,10 @@ class ForecastingSuiteRunner:
             series_record=series_record,
             run_record=run_record,
             metric_records=tuple(self.metric_records[metric_count_before:]),
-            prediction_records=tuple(self.prediction_records[prediction_count_before:]),
-            quantile_prediction_records=tuple(self.quantile_prediction_records[quantile_prediction_count_before:]),
+            prediction_records=tuple(
+                self.prediction_records[prediction_count_before:]),
+            quantile_prediction_records=tuple(
+                self.quantile_prediction_records[quantile_prediction_count_before:]),
         )
 
 

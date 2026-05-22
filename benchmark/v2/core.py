@@ -67,6 +67,15 @@ class BudgetPolicy(str, Enum):
     ITERATION_BUDGET = 'iteration_budget'
 
 
+class ModelFamily(str, Enum):
+    CLASSICAL_BASELINE = 'classical_baseline'
+    INTERNAL_INDUSTRIAL = 'internal_industrial'
+    AUTOML = 'automl'
+    SUPERVISED_SOTA = 'supervised_sota'
+    FOUNDATION = 'foundation'
+    EXTERNAL = 'external'
+
+
 @dataclass(frozen=True)
 class DatasetSpec:
     benchmark: str
@@ -85,6 +94,7 @@ class ModelSpec:
     tags: tuple[str, ...] = ()
     optional: bool = False
     params: dict[str, Any] = field(default_factory=dict)
+    family: ModelFamily | str | None = None
 
 
 @dataclass(frozen=True)
@@ -153,7 +163,8 @@ class ForecastingSeriesRecord:
 class ForecastResult:
     mean: Sequence[float] | None = None
     quantiles: dict[float, Sequence[float]] = field(default_factory=dict)
-    intervals: dict[float, tuple[Sequence[float], Sequence[float]]] = field(default_factory=dict)
+    intervals: dict[float, tuple[Sequence[float],
+                                 Sequence[float]]] = field(default_factory=dict)
     samples: Sequence[Sequence[float]] | None = None
     fitted_values: Sequence[float] | None = None
     residuals: Sequence[float] | None = None
@@ -211,6 +222,7 @@ class BenchmarkRunRecord:
     subset: str
     series_id: str
     model_name: str
+    family: str
     status: RunStatus
     tags: tuple[str, ...] = ()
     message: str = ''
