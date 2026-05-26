@@ -303,11 +303,7 @@ class AtomizedModel(Enum):
         'xcm_model': XCModel,
         # variational models
         'deepar_model': DeepAR,
-        # detection models # TODO: оставить один source of truth для detection: ANOMALY_DETECTION_MODEL
-        'conv_ae_detector': ConvolutionalAutoEncoderDetector,
-        'conv_autoencoder_detector': ConvAutoencoderDetector,
-        'tcn_autoencoder_detector': TCNAutoencoderDetector,
-        'lstm_ae_detector': LSTMAutoEncoderDetector,
+        # detection models source of truth для detection: ANOMALY_DETECTION_MODEL
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,
         # linear_dummy_model

@@ -259,10 +259,10 @@ industrial_search_space = {
         {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]}},
-    'iforest_detector':
-        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.05, 0.5, 0.05))]},
-         'window_length': {'hyperopt-dist': hp.choice,
-                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    # 'iforest_detector':
+    #     {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.05, 0.5, 0.05))]},
+    #      'window_length': {'hyperopt-dist': hp.choice,
+    #                        'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'feature_iforest_detector':
         {'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]},
@@ -270,10 +270,10 @@ industrial_search_space = {
                                 'sampling-scope': [list(np.arange(0.9, 1.0, 0.02))]},
          'calibration_strategy': {'hyperopt-dist': hp.choice,
                                   'sampling-scope': [['mad', 'quantile', 'regime_conditional']]}},
-    'conv_ae_detector':
-        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
-         'window_length': {'hyperopt-dist': hp.choice,
-                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    # 'conv_ae_detector':
+    #     {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+    #      'window_length': {'hyperopt-dist': hp.choice,
+    #                        'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'conv_autoencoder_detector':
         {'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]},
