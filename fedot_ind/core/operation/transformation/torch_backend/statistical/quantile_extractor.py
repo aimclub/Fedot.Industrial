@@ -85,6 +85,8 @@ class TorchQuantileExtractor(BaseExtractor):
                 else:
                     window_stat_features = window_stat_features.reshape(window_stat_features.shape[-1] *
                                                                         window_stat_features.shape[-2]).squeeze()
+                if window_stat_features.ndim == 1:
+                    window_stat_features = window_stat_features.reshape(1, -1)
             return torch.cat([global_features, window_stat_features], dim=-1)
         else:
             return window_stat_features
@@ -99,6 +101,10 @@ class TorchQuantileExtractor(BaseExtractor):
         Returns:
             torch.Tensor: Extracted statistical features as a CPU tensor.
         """
+        if not isinstance(ts, torch.Tensor):
+            ts = torch.as_tensor(ts, dtype=torch.float32)
+        elif not torch.is_floating_point(ts):
+            ts = ts.float()
         if ts.ndim == 1:
             ts = ts.unsqueeze(0)
         if ts.ndim > 2:

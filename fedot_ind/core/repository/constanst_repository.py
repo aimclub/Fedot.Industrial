@@ -42,16 +42,18 @@ from fedot_ind.core.operation.transformation.representation.statistical.stat_fea
     crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, max_torch, min_torch, \
-    autocorrelation_torch, ben_corr_torch, std_torch, \
-    crest_factor_torch, energy_torch, \
-    hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
-    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
-
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
+from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, \
+    max_torch, min_torch, \
+    autocorrelation_torch, ben_corr_torch, std_torch, \
+    crest_factor_torch, energy_torch, \
+    hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, \
+    mean_ema_torch, mean_moving_median_torch, \
+    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, \
+    shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
 from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
@@ -939,6 +941,7 @@ class BenchmarkDatasets(Enum):
         "Yoga",
     ]
     MULTI_CLF_BENCH = [
+        "AtrialFibrillation",
         "ArticularyWordRecognition",
         "AtrialFibrillation",
         "BasicMotions",
