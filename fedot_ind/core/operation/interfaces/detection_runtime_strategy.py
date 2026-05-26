@@ -89,7 +89,9 @@ class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
 
     def predict_for_fit(self, trained_operation, predict_data: InputData,
                         output_mode: str = 'default') -> OutputData:
-        prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
+        # На fit FEDOT merge ждёт табличные признаки (proba), не бинарные labels.
+        fit_output_mode = 'probs' if output_mode == 'default' else output_mode
+        prediction = self._predict_by_mode(trained_operation, predict_data, fit_output_mode)
         return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
 
     def _predict_by_mode(self, trained_operation, input_data: InputData, output_mode: str):

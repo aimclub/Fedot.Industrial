@@ -37,8 +37,11 @@ from golem.utilities.data_structures import ComparableEnum as Enum
 from golem.utilities.data_structures import ensure_wrapped_in_sequence
 
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation, \
-    PRIMARY_FORECASTING_MODELS
+from fedot_ind.core.repository.model_repository import (
+    default_industrial_availiable_operation,
+    PRIMARY_FORECASTING_MODELS,
+    PRIMARY_ANOMALY_DETECTION_MODELS,
+)
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -62,13 +65,45 @@ def get_mutation_prob(mut_id: MutationStrengthEnumIndustrial, node: Optional[Gra
     return mutation_prob
 
 
+def _extract_industrial_task_type(params) -> str | None:
+    """Контекст Industrial task определяется из FEDOT optimizer params.
+
+    FEDOT получает значение anomaly_detection в качестве классификации на уровне задачи, поэтому используется
+    available_operations в качестве сигнала стабильной границы.
+    """
+    if not isinstance(params, dict):
+        return None
+
+    direct_task = (
+        params.get('industrial_task_type')
+        or params.get('industrial_task')
+        or params.get('task')
+        or params.get('problem')
+    )
+    if direct_task:
+        return str(direct_task)
+
+    available_operations = set(str(operation) for operation in params.get('available_operations', ()))
+    anomaly_operations = set(PRIMARY_ANOMALY_DETECTION_MODELS)
+
+    if available_operations and available_operations.issubset(anomaly_operations):
+        return 'anomaly_detection'
+
+    return None
+
+
 class IndustrialMutations:
-    def __init__(self, task_type):
+    def __init__(self, task_type, industrial_task_type: str | None = None):
         self.node_adapter = PipelineAdapter()
         self.task_type = Task(task_type)
+
+        self.industrial_task_type = industrial_task_type or self.task_type.task_type.value
         self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
+        
         self.industrial_data_operations = default_industrial_availiable_operation(
-            self.task_type.task_type.value)
+            self.industrial_task_type
+        )
+
         self._define_operation_space()
         self._define_basis_and_extractor_space()
 
@@ -79,7 +114,10 @@ class IndustrialMutations:
         self.excluded = self.excluded + self.excluded_mutation
         self.industrial_data_operations = [
             operation for operation in self.industrial_data_operations if operation not in self.excluded]
-        self.primary_models = {'ts_forecasting': PRIMARY_FORECASTING_MODELS}
+        self.primary_models = {
+            'ts_forecasting': PRIMARY_FORECASTING_MODELS,
+            'anomaly_detection': PRIMARY_ANOMALY_DETECTION_MODELS,
+        }
 
     def _define_basis_and_extractor_space(self):
         self.basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
@@ -283,7 +321,8 @@ class IndustrialMutations:
         :param graph: graph to mutate
         """
         node = choice(graph.nodes)
-        task = graph_gen_params.advisor.task.task_type.name
+        # task = graph_gen_params.advisor.task.task_type.name
+        task = self.industrial_task_type
         if task in self.primary_models.keys():
             graph_gen_params.node_factory.graph_model_repository.operations_by_keys['primary'] \
                 = self.primary_models[task]
@@ -378,10 +417,26 @@ class IndustrialMutations:
             return pipeline
 
 
+def _task_type_to_name(task_type) -> str:
+    """Normalize FEDOT/Golem task type to repository task name."""
+    if hasattr(task_type, 'task_type'):
+        return str(task_type.task_type.value)
+    if hasattr(task_type, 'value'):
+        return str(task_type.value)
+    if hasattr(task_type, 'name'):
+        return str(task_type.name).lower()
+    return str(task_type)
+
+
 def _get_default_industrial_mutations(
         task_type: TaskTypesEnum,
         params) -> Sequence[MutationTypesEnum]:
-    ind_mutations = IndustrialMutations(task_type=task_type)
+    # граница для anomaly_detection
+    industrial_task_type = _extract_industrial_task_type(params)
+    ind_mutations = IndustrialMutations(
+        task_type=task_type,
+        industrial_task_type=industrial_task_type,
+    )
     mutations = [
         ind_mutations.parameter_change_mutation,
         ind_mutations.single_change,

@@ -245,10 +245,10 @@ industrial_search_space = {
          "degree_of_polynomial": {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8]]}},
     'bagging': {'method':
                 {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
-    'stat_detector':
-        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
-         'window_length': {'hyperopt-dist': hp.choice,
-                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    # 'stat_detector':
+    #     {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+    #      'window_length': {'hyperopt-dist': hp.choice,
+    #                        'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'feature_oneclass_detector':
         {'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]},
@@ -280,10 +280,10 @@ industrial_search_space = {
          'threshold_quantile': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [list(np.arange(0.9, 1.0, 0.02))]},
          'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 5, 10]]}},
-    'lstm_ae_detector':
-        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
-         'window_length': {'hyperopt-dist': hp.choice,
-                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    # 'lstm_ae_detector':
+    #     {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+    #      'window_length': {'hyperopt-dist': hp.choice,
+    #                        'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'tcn_autoencoder_detector':
         {'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]},

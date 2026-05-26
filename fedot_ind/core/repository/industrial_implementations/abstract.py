@@ -316,10 +316,20 @@ def merge_industrial_targets(self) -> np.array:
     return filtered_main_target
 
 
+def _prediction_to_merge_tensor(prediction: np.ndarray) -> np.ndarray:
+    """Приводит predict родителя к 3D для merge_industrial_predicts."""
+    converter = NumpyConverter(data=prediction)
+    array = np.asarray(prediction)
+    if array.ndim <= 2:
+        return converter.convert_to_3d_array()
+    return converter.convert_to_torch_format()
+
+
 def merge_industrial_predicts(*args) -> np.array:
     predicts = args[1]
-    predicts = [NumpyConverter(
-        data=prediction).convert_to_torch_format() for prediction in predicts]
+    # predicts = [NumpyConverter(
+    #     data=prediction).convert_to_torch_format() for prediction in predicts]
+    predicts = [_prediction_to_merge_tensor(prediction) for prediction in predicts]
     sample_shape, channel_shape, elem_shape = [
         (x.shape[0], x.shape[1], x.shape[2]) for x in predicts][0]
 

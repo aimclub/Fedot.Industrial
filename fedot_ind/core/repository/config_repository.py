@@ -51,7 +51,7 @@ class LearningConfigConstant(Enum):
     DEFAULT_CLF_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'accuracy'}, **DEFAULT_SUBCONFIG}
     DEFAULT_REG_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'rmse'}, **DEFAULT_SUBCONFIG}
     DEFAULT_TSF_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'rmse'}, **DEFAULT_SUBCONFIG}
-    DEFAULT_ADN_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'accuracy'}, **DEFAULT_SUBCONFIG}
+    DEFAULT_ADN_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'f1'}, **DEFAULT_SUBCONFIG}
     TASK_MAPPING = {
         'classification': {
             'task': 'classification',

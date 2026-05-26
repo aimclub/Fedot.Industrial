@@ -16,8 +16,8 @@ def prepare_skab_benchmark():
                                'device': 'cpu'
                                }
     model_to_compare = [
-        #{0: ['iforest_detector']},
-        {0: [('conv_ae_detector', ENCODER_LEARNING_PARAMS)]},
+        # {0: ['feature_iforest_detector']}
+        {0: [('conv_autoencoder_detector', ENCODER_LEARNING_PARAMS)]}
         # {0: ['stat_detector']},
         # {}
     ]
@@ -43,7 +43,7 @@ def prepare_skab_benchmark():
     return BENCHMARK, BENCHMARK_PARAMS
 
 
-METRIC_NAMES = ('f1', 'accuracy')
+METRIC_NAMES = ('f1', 'balanced_accuracy', 'precision', 'recall')
 EVAL_REGIME = True
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
