@@ -445,28 +445,19 @@ def _safe_import(module_name: str) -> bool:
 
 def compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Compute benchmark detection metric from integer point labels."""
-    actual = np.asarray(y_true, dtype=int).reshape(-1)
-    predicted = np.asarray(y_pred, dtype=int).reshape(-1)
-    labels = sorted(set(actual.tolist()) | set(predicted.tolist()))
-    if metric_name == 'accuracy':
-        return float(np.mean(actual == predicted))
-    recalls = []
-    f1_scores = []
-    for label in labels:
-        true_positive = int(np.sum((actual == label) & (predicted == label)))
-        false_positive = int(np.sum((actual != label) & (predicted == label)))
-        false_negative = int(np.sum((actual == label) & (predicted != label)))
-        label_support = int(np.sum(actual == label))
-        recall = true_positive / label_support if label_support else 0.0
-        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-        recalls.append(recall)
-        f1_scores.append(f1)
-    if metric_name == 'balanced_accuracy':
-        return float(np.mean(recalls)) if recalls else 0.0
-    if metric_name == 'f1_macro':
-        return float(np.mean(f1_scores)) if f1_scores else 0.0
-    raise BenchmarkConfigurationError(f'Unsupported detection metric: {metric_name}')
+    from fedot_ind.core.metrics.metrics import calculate_detection_metric
+
+    result = calculate_detection_metric(
+        np.asarray(y_true, dtype=int).reshape(-1),
+        np.asarray(y_pred, dtype=int).reshape(-1),
+        metrics=metric_name,
+    )
+    value = result[metric_name]
+    if isinstance(value, dict):
+        raise BenchmarkConfigurationError(
+            f'Detection metric "{metric_name}" returned a structured value; use calculate_detection_metric directly.',
+        )
+    return float(value)
 
 
 @dataclass

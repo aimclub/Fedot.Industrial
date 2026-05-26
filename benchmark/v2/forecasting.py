@@ -92,6 +92,7 @@ from benchmark.v2.incremental_persistence import ForecastingIncrementalPersisten
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
+# DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'm4_daily'
 DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
 
@@ -449,7 +450,12 @@ class M4Adapter:
             )
 
         train_frame = pd.read_csv(train_path)
-        test_frame = pd.read_csv(test_path)
+        # test_frame = pd.read_csv(test_path)
+        test_frame = pd.read_csv(test_path,header=None)
+        test_frame.columns = train_frame.columns[:test_frame.shape[1]]
+        test_frame = test_frame.drop(test_frame.index[-1])
+        # print(train_frame.columns)
+        # print(test_frame.columns)
         if 'V1' not in train_frame.columns or 'V1' not in test_frame.columns:
             raise BenchmarkConfigurationError('Local M4 CSV files must include the V1 identifier column.')
 
@@ -1645,21 +1651,6 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     raise BenchmarkConfigurationError(f'Unsupported forecasting model adapter: {spec.adapter_name}')
 
 
-def _seasonal_naive_forecast(train: np.ndarray, horizon: int, seasonal_period: int) -> np.ndarray:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
-    base = train[-lag:]
-    repeats = int(math.ceil(horizon / lag))
-    return np.tile(base, repeats)[:horizon]
-
-
-def _mase_scale(train: np.ndarray, seasonal_period: int) -> float:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
-    if len(train) <= lag:
-        return 1.0
-    scale = np.mean(np.abs(train[lag:] - train[:-lag]))
-    return float(scale if scale > 1e-8 else 1.0)
-
-
 def compute_forecasting_metric(
         metric_name: str,
         y_true: np.ndarray,
@@ -1668,31 +1659,27 @@ def compute_forecasting_metric(
         seasonal_period: int,
 ) -> float:
     """Compute an aggregate forecasting metric for one horizon vector."""
+    from fedot_ind.core.metrics.metrics import calculate_forecasting_metric
+
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     train = np.asarray(y_train, dtype=float).reshape(-1)
     if len(actual) != len(predicted):
         raise BenchmarkConfigurationError('Metric inputs must have the same length.')
-    if metric_name == 'mae':
-        return float(np.mean(np.abs(actual - predicted)))
-    if metric_name == 'rmse':
-        return float(np.sqrt(np.mean((actual - predicted) ** 2)))
-    if metric_name == 'smape':
-        denominator = np.abs(actual) + np.abs(predicted)
-        denominator = np.where(denominator == 0, 1e-8, denominator)
-        return float(100.0 * np.mean(2.0 * np.abs(predicted - actual) / denominator))
-    if metric_name == 'mase':
-        return float(np.mean(np.abs(actual - predicted)) / _mase_scale(train, seasonal_period))
-    if metric_name == 'owa':
-        baseline = _seasonal_naive_forecast(train, len(actual), seasonal_period)
-        smape = compute_forecasting_metric('smape', actual, predicted, train, seasonal_period)
-        mase = compute_forecasting_metric('mase', actual, predicted, train, seasonal_period)
-        baseline_smape = compute_forecasting_metric('smape', actual, baseline, train, seasonal_period)
-        baseline_mase = compute_forecasting_metric('mase', actual, baseline, train, seasonal_period)
-        baseline_smape = baseline_smape if baseline_smape > 1e-8 else 1.0
-        baseline_mase = baseline_mase if baseline_mase > 1e-8 else 1.0
-        return float(0.5 * ((smape / baseline_smape) + (mase / baseline_mase)))
-    raise BenchmarkConfigurationError(f'Unsupported metric: {metric_name}')
+    result = calculate_forecasting_metric(
+        actual,
+        predicted,
+        # metrics=(metric_name,),
+        metrics=metric_name,
+        train_data=train,
+        seasonality=seasonal_period,
+    )
+    value = result[metric_name]
+    if isinstance(value, np.ndarray):
+        raise BenchmarkConfigurationError(
+            f'Forecasting metric "{metric_name}" returned pointwise values; use compute_pointwise_metric.',
+        )
+    return value
 
 
 def compute_pointwise_metric(
@@ -1703,29 +1690,26 @@ def compute_pointwise_metric(
         seasonal_period: int,
 ) -> np.ndarray:
     """Compute horizon-wise metric values for publication artifacts."""
+    from fedot_ind.core.metrics.metrics import calculate_forecasting_metric
+
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
-    if metric_name == 'mae':
-        return np.abs(actual - predicted)
-    if metric_name == 'rmse':
-        return np.sqrt((actual - predicted) ** 2)
-    if metric_name == 'smape':
-        denominator = np.abs(actual) + np.abs(predicted)
-        denominator = np.where(denominator == 0, 1e-8, denominator)
-        return 100.0 * 2.0 * np.abs(predicted - actual) / denominator
-    if metric_name == 'mase':
-        return np.abs(actual - predicted) / _mase_scale(np.asarray(y_train, dtype=float), seasonal_period)
-    if metric_name == 'owa':
-        train = np.asarray(y_train, dtype=float)
-        baseline = _seasonal_naive_forecast(train, len(actual), seasonal_period)
-        pointwise_smape = compute_pointwise_metric('smape', actual, predicted, train, seasonal_period)
-        pointwise_mase = compute_pointwise_metric('mase', actual, predicted, train, seasonal_period)
-        baseline_smape = compute_pointwise_metric('smape', actual, baseline, train, seasonal_period)
-        baseline_mase = compute_pointwise_metric('mase', actual, baseline, train, seasonal_period)
-        baseline_smape = np.where(baseline_smape <= 1e-8, 1.0, baseline_smape)
-        baseline_mase = np.where(baseline_mase <= 1e-8, 1.0, baseline_mase)
-        return 0.5 * ((pointwise_smape / baseline_smape) + (pointwise_mase / baseline_mase))
-    raise BenchmarkConfigurationError(f'Unsupported metric: {metric_name}')
+    train = np.asarray(y_train, dtype=float).reshape(-1)
+    metric_name = f"pw_{metric_name}"
+    result = calculate_forecasting_metric(
+        actual,
+        predicted,
+        # metrics=[{'name': metric_name, 'params': {'pointwise': True}}],
+        metrics=metric_name,
+        train_data=train,
+        seasonality=seasonal_period,
+    )
+    values = result[metric_name]
+    if not isinstance(values, np.ndarray):
+        raise BenchmarkConfigurationError(
+            f'Forecasting metric "{metric_name}" did not return pointwise values.',
+        )
+    return values
 
 
 def _extract_forecast_event_mask(metadata: dict[str, Any], horizon: int) -> np.ndarray | None:

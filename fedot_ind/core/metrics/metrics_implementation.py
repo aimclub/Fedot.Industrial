@@ -238,110 +238,84 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
+def _flatten_metric_result(result: dict) -> dict:
+    flat = {}
+    for key, value in result.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                flat[f'{key}_{sub_key}'] = sub_value
+        elif isinstance(value, list):
+            flat[key] = value
+        else:
+            flat[key] = value
+    return flat
+
+
+def _result_to_dataframe(result: dict, rounding_order: int) -> pd.DataFrame:
+    return pd.DataFrame([_flatten_metric_result(result)], index=[0]).round(rounding_order)
+
+
 def calculate_regression_metric(target,
-                                labels,
-                                rounding_order=3,
+                                predicted_labels=None,
                                 metric_names=None,
+                                rounding_order=3,
                                 **kwargs):
+    from fedot_ind.core.metrics.metrics import calculate_regression_metric as _calculate
 
-    # Set default metrics
-    if metric_names is None:
-        metric_names = ('r2', 'rmse', 'mae')
-
-    target = target.astype(float)
-
-    # def mean_squared_error(y_true, y_pred):
-    #     return root_mean_squared_error(y_true, y_pred) ** 2
-
-    metric_dict = {'r2': r2_score,
-                   'mse': mean_squared_error,
-                   'rmse': root_mean_squared_error,
-                   'mae': mean_absolute_error,
-                   'msle': mean_squared_log_error,
-                   'mape': mean_absolute_percentage_error,
-                   'median_absolute_error': median_absolute_error,
-                   'explained_variance_score': explained_variance_score,
-                   'max_error': max_error,
-                   'd2_absolute_error_score': d2_absolute_error_score}
-
-    df = pd.DataFrame({name: func(target,
-                                  labels) for name,
-                       func in metric_dict.items() if name in metric_names},
-                      index=[0])
-    return df.round(rounding_order)
+    result = _calculate(
+        target=target,
+        predicted=predicted_labels,
+        metrics=metric_names,
+        rounding_order=rounding_order,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', False):
+        return result
+    return _result_to_dataframe(result, rounding_order)
 
 
 def calculate_forecasting_metric(target,
-                                 labels,
-                                 rounding_order=3,
+                                 predicted_labels=None,
                                  metric_names=None,
+                                 rounding_order=3,
                                  train_data=None,
                                  seasonality=None,
                                  **kwargs):
-    target = target.astype(float)
+    from fedot_ind.core.metrics.metrics import calculate_forecasting_metric as _calculate
 
-    # Set default metrics
-    if metric_names is None:
-        metric_names = ('smape', 'rmse', 'mape')
-
-    def rmse(y_true, y_pred, T, _=None):
-        return root_mean_squared_error(y_true, y_pred)
-
-    def mae(A, F, T, _=None):
-        return tsf_mae(A, F)
-
-    def mdae(A, F, T, _=None):
-        return tsf_mdae(A, F)
-
-    def mase(A, F, y_train, sp):
-        return mean_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
-
-    def mdase(A, F, y_train, sp):
-        return median_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
-
-    def mape(A, F, T, _=None):
-        return tsf_mape(A, F) * 100
-
-    def smape(A, F, T, _=None):
-        return tsf_mape(A, F, symmetric=True) * 100
-
-    metric_dict = {
-        'rmse': rmse,
-        'mae': mae,
-        'mdae': mdae,
-        'mase': mase,
-        'mdase': mdase,
-        'mape': mape,
-        'smape': smape,
-    }
-
-    df = pd.DataFrame({name: func(target,
-                                  labels, train_data, seasonality) for name,
-                       func in metric_dict.items() if name in metric_names},
-                      index=[0])
-    return df.round(rounding_order)
+    result = _calculate(
+        target=target,
+        predicted=predicted_labels,
+        metrics=metric_names,
+        rounding_order=rounding_order,
+        train_data=train_data,
+        seasonality=seasonality,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', False):
+        return result
+    return _result_to_dataframe(result, rounding_order)
 
 
 def calculate_classification_metric(target,
-                                    labels,
-                                    probs,
+                                    predicted_labels=None,
+                                    predicted_probs=None,
+                                    metric_names=None,
                                     rounding_order=3,
-                                    metric_names=('f1', 'accuracy'),
                                     **kwargs):
+    from fedot_ind.core.metrics.metrics import calculate_classification_metric as _calculate
 
-    # Set default metrics
-    if metric_names is None:
-        metric_names = ('f1', 'accuracy')
-
-    metric_dict = {'accuracy': Accuracy,
-                   'f1': F1,
-                   # 'roc_auc': ROCAUC,
-                   'precision': Precision,
-                   'logloss': Logloss}
-
-    df = pd.DataFrame({name: func(target, labels, probs).metric()
-                      for name, func in metric_dict.items() if name in metric_names}, index=[0])
-    return df.round(rounding_order)
+    result = _calculate(
+        target=target,
+        predicted_labels=predicted_labels,
+        predicted_probs=predicted_probs,
+        metrics=metric_names,
+        rounding_order=rounding_order,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', False):
+        return result
+    return _result_to_dataframe(result, rounding_order)
 
 
 def kl_divergence(solution: pd.DataFrame,
@@ -650,7 +624,27 @@ class AnomalyMetric(QualityMetric):
         metric_dict = _metric_dict[self.metric](detecting_boundaries)
         return metric_dict
 
+# Legacy public function
+# def calculate_detection_metric(target, labels, **kwargs):
+#     metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
+#     return metric_dict
 
-def calculate_detection_metric(target, labels, **kwargs):
-    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
-    return metric_dict
+def calculate_detection_metric(target,
+                               predicted_labels=None,
+                               predicted_probs=None,
+                               metric_names=None,
+                               rounding_order=3,
+                               **kwargs):
+    from fedot_ind.core.metrics.metrics import calculate_detection_metric as _calculate
+
+    result = _calculate(
+        target=target,
+        predicted_labels=predicted_labels,
+        predicted_probs=predicted_probs,
+        metrics=metric_names,
+        rounding_order=rounding_order,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', False):
+        return result
+    return _result_to_dataframe(result, rounding_order)
