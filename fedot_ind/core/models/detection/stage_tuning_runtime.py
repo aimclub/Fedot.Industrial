@@ -16,6 +16,10 @@ from fedot_ind.core.models.detection.runtime import (
     DetectionSplitSpec,
     ensure_detection_array,
 )
+from fedot_ind.core.metrics.metrics_implementation import (
+    DETECTION_METRICS_TO_MINIMIZE,
+    calculate_detection_metric,
+)
 from fedot_ind.core.models.detection.stage_tuning import build_detection_stage_tuning_plan
 from fedot_ind.core.operation.interfaces.detection_runtime_strategy import DETECTION_RUNTIME_MODELS
 from fedot_ind.core.repository.detection_registry import canonical_detection_model_name, detection_family_for
@@ -141,32 +145,6 @@ def _split_series(
     return train_values, train_labels, calibration_values, calibration_labels
 
 
-def _compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Compute detection metric used during candidate comparison."""
-    actual = np.asarray(y_true, dtype=int).reshape(-1)
-    predicted = np.asarray(y_pred, dtype=int).reshape(-1)
-    labels = sorted(set(actual.tolist()) | set(predicted.tolist()))
-    if metric_name == 'accuracy':
-        return float(np.mean(actual == predicted))
-    recalls = []
-    f1_scores = []
-    for label in labels:
-        true_positive = int(np.sum((actual == label) & (predicted == label)))
-        false_positive = int(np.sum((actual != label) & (predicted == label)))
-        false_negative = int(np.sum((actual == label) & (predicted != label)))
-        label_support = int(np.sum(actual == label))
-        recall = true_positive / label_support if label_support else 0.0
-        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-        recalls.append(recall)
-        f1_scores.append(f1)
-    if metric_name == 'balanced_accuracy':
-        return float(np.mean(recalls)) if recalls else 0.0
-    if metric_name == 'f1_macro':
-        return float(np.mean(f1_scores)) if f1_scores else 0.0
-    raise ValueError(f'Unsupported detection metric: {metric_name}')
-
-
 def _build_detector(model_name: str, params: dict[str, Any]):
     """Instantiate runtime detector by canonical name from registry map."""
     canonical_name = canonical_detection_model_name(model_name)
@@ -194,7 +172,13 @@ def _evaluate_parameters(
     detector.fit(train_values)
     score_series = detector.score_series_on_values(calibration_values)
     predicted = np.asarray(score_series.labels, dtype=int).reshape(-1)
-    metric_value = _compute_detection_metric(metric_name, calibration_labels, predicted)
+    # metric_value = _compute_detection_metric(metric_name, calibration_labels, predicted)
+    metric_values = calculate_detection_metric(
+        target=calibration_labels,
+        labels=predicted,
+        metric_names=(metric_name,),
+    )
+    metric_value = float(metric_values[metric_name])
     return DetectionSeriesEvaluation(
         model_name=model_name,
         canonical_model_name=canonical_name,
@@ -260,6 +244,14 @@ def _stage_candidate_grid(
     return tuple(grid[:max_stage_candidates])
 
 
+def _is_better_detection_score(candidate_score: float, best_score: float, metric_name: str) -> bool:
+    """Сравнение значения метрик учитывая направление, 
+    указанное в реестре общих метрик."""
+    if metric_name in DETECTION_METRICS_TO_MINIMIZE:
+        return candidate_score <= best_score
+    return candidate_score >= best_score
+
+
 def run_detection_stage_tuning_on_series(
         model_name: str,
         *,
@@ -267,7 +259,7 @@ def run_detection_stage_tuning_on_series(
         labels: np.ndarray,
         base_params: dict[str, Any] | None = None,
         stage_updates: dict[str, Any] | None = None,
-        metric_name: str = 'f1_macro',
+        metric_name: str,
         split_spec: DetectionSplitSpec | None = None,
         max_values_per_parameter: int = 3,
         max_stage_candidates: int = 16,
@@ -377,12 +369,14 @@ def run_detection_stage_tuning_on_series(
                 'parameters': dict(candidate),
                 'score': float(evaluation.metric_value),
             })
-            if evaluation.metric_value >= stage_best_score:
+            # if evaluation.metric_value >= stage_best_score:
+            if _is_better_detection_score(evaluation.metric_value, stage_best_score, metric_name):
                 stage_best_score = evaluation.metric_value
                 stage_best_parameters = dict(candidate_parameters)
         # Sequential tuning semantics: next stage starts from best params of previous stage.
         current_parameters = stage_best_parameters
-        if stage_best_score >= best_score:
+        # if stage_best_score >= best_score:
+        if _is_better_detection_score(stage_best_score, best_score, metric_name):
             best_score = stage_best_score
             best_parameters = dict(current_parameters)
         stage_history.append({
@@ -418,7 +412,7 @@ def run_detection_stage_tuning_on_series(
         baseline_evaluation=baseline_evaluation,
         best_evaluation=best_evaluation,
         metadata={
-            'improved': bool(best_score > baseline_evaluation.metric_value),
+            'improved': bool(_is_better_detection_score(best_score, baseline_evaluation.metric_value, metric_name)),
             'baseline_score': float(baseline_evaluation.metric_value),
             'best_score': float(best_score),
         },

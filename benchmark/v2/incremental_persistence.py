@@ -13,6 +13,7 @@ from .core import (
     DetectionSeriesRecord,
     ForecastingSeriesRecord,
     LabelPredictionRecord,
+    DetectionPredictionRecord,
     MetricRecord,
     PredictionRecord,
     RunStatus,
@@ -134,17 +135,20 @@ def _detection_series_record_from_payload(payload: dict[str, Any]) -> DetectionS
     )
 
 
-def _label_prediction_record_from_payload(payload: dict[str, Any]) -> LabelPredictionRecord:
+def _detection_prediction_record_from_payload(payload: dict[str, Any]) -> LabelPredictionRecord:
     """Restore detection LabelPredictionRecord from persisted JSON payload."""
-    return LabelPredictionRecord(
+    return DetectionPredictionRecord(
         run_id=str(payload['run_id']),
         benchmark=str(payload['benchmark']),
         dataset_name=str(payload['dataset_name']),
         subset=str(payload['subset']),
+        series_id=str(payload['series_id']),
         model_name=str(payload['model_name']),
         sample_index=int(payload['sample_index']),
         y_true=str(payload['y_true']),
         y_pred=str(payload['y_pred']),
+        y_score=None if payload.get('y_score') is None else float(payload['y_score']),
+        timestamp=None if payload.get('timestamp') is None else str(payload['timestamp']),
         status=RunStatus(str(payload['status'])),
     )
 
@@ -169,7 +173,7 @@ class DetectionResumeState:
     series_records: tuple[DetectionSeriesRecord, ...]
     run_records: tuple[BenchmarkRunRecord, ...]
     metric_records: tuple[MetricRecord, ...]
-    prediction_records: tuple[LabelPredictionRecord, ...]
+    prediction_records: tuple[DetectionPredictionRecord, ...]
     item_artifact_paths: dict[str, str]
     status_counts: dict[str, int]
     completed_items: int
@@ -455,8 +459,8 @@ class DetectionIncrementalPersistenceCoordinator(_BaseIncrementalPersistenceCoor
     def _series_record_from_payload(self, payload: dict[str, Any]) -> DetectionSeriesRecord:
         return _detection_series_record_from_payload(payload)
 
-    def _prediction_record_from_payload(self, payload: dict[str, Any]) -> LabelPredictionRecord:
-        return _label_prediction_record_from_payload(payload)
+    def _prediction_record_from_payload(self, payload: dict[str, Any]) -> DetectionPredictionRecord:
+        return _detection_prediction_record_from_payload(payload)
 
     def _build_resume_state(self, **kwargs: Any) -> DetectionResumeState:
         return DetectionResumeState(**kwargs)

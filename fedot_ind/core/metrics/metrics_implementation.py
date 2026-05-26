@@ -7,6 +7,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from golem.core.dag.graph import Graph
 from sklearn.metrics import (
     accuracy_score,
+    balanced_accuracy_score,
     d2_absolute_error_score,
     explained_variance_score,
     f1_score,
@@ -18,6 +19,7 @@ from sklearn.metrics import (
     mean_squared_log_error,
     median_absolute_error,
     precision_score,
+    recall_score,
     r2_score,
     roc_auc_score,
 )
@@ -391,8 +393,139 @@ def kl_divergence(solution: pd.DataFrame,
         return np.average(solution.mean())
 
 
-class AnomalyMetric(QualityMetric):
+class DetectionQualityMetric:
+    """Бзовый класс для pure detection метрик.
+    источник правдя для любого запуска: 
+    benchmark, CLI, example, AutoML, тесты API shells.
+    """
+    default_value = 0.0
+    need_to_minimize = False # метрику нужно максимизировать (f1, precision, recall, balanced_accuracy)
+    output_mode = 'labels'
 
+    @classmethod
+    def _to_1d_int_array(cls, values):
+        """приводение входных значений к единому формату: 
+        одномерный numpy-массив целых чисел."""
+        if hasattr(values, 'detach'):
+            values = values.detach().cpu().numpy()
+        return np.asarray(values, dtype=int).reshape(-1)
+
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        """каждый класс-метрика обязан реализовать свой metric, 
+        иначе код упадёт явно"""
+        raise NotImplementedError
+
+
+class DetectionAccuracy(DetectionQualityMetric):
+    """Point-level accuracy."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(accuracy_score(target, predict))
+
+
+class DetectionBalancedAccuracy(DetectionQualityMetric):
+    """Point-level balanced accuracy."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(balanced_accuracy_score(target, predict))
+
+
+class DetectionPrecision(DetectionQualityMetric):
+    """Point-level anomaly precision."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(precision_score(target, predict, zero_division=0))
+
+
+class DetectionRecall(DetectionQualityMetric):
+    """Point-level anomaly recall."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(recall_score(target, predict, zero_division=0))
+
+
+class DetectionF1(DetectionQualityMetric):
+    """Binary point-level F1 для label = 1."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(f1_score(target, predict, zero_division=0))
+
+
+class DetectionF1Macro(DetectionQualityMetric):
+    """Macro F1 отдельно для класса 0 и для класса 1 
+    с последующим усреднением.
+    """
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(f1_score(target, predict, average='macro', zero_division=0))
+
+
+DETECTION_METRICS = {
+    'accuracy': DetectionAccuracy,
+    'balanced_accuracy': DetectionBalancedAccuracy,
+    'precision': DetectionPrecision,
+    'recall': DetectionRecall,
+    'f1': DetectionF1,
+    'f1_macro': DetectionF1Macro,
+
+    # TODO: реализовать event-level Delay-Aware detection метрики
+    # 'event_precision': DetectionEventPrecision,
+    # 'event_recall': DetectionEventRecall,
+    # 'event_f1': DetectionEventF1,
+    # 'detection_delay': DetectionDelay,
+    # 'fp_per_series': DetectionFalsePositivePerSeries,
+    # 'nab': DetectionNAB,
+}
+
+SUPPORTED_DETECTION_METRICS = tuple(DETECTION_METRICS)
+
+
+def calculate_detection_metric(
+        target,
+        labels,
+        rounding_order=6,
+        metric_names=None,
+        **kwargs):
+    """Единая функция-фасад для расчёта detection-метрик."""
+    if metric_names is None:
+        metric_names = ('f1_macro', 'balanced_accuracy')
+
+    unsupported_metrics = set(metric_names) - set(DETECTION_METRICS)
+    if unsupported_metrics:
+        raise ValueError(f'Unsupported detection metrics: {sorted(unsupported_metrics)}')
+
+    return {
+        name: round(float(DETECTION_METRICS[name].metric(target, labels)), rounding_order)
+        for name in metric_names
+    }
+
+
+DETECTION_METRICS_TO_MINIMIZE = tuple(
+    name for name, metric in DETECTION_METRICS.items()
+    if metric.need_to_minimize
+)
+
+DETECTION_METRICS_TO_MAXIMIZE = tuple(
+    name for name, metric in DETECTION_METRICS.items()
+    if not metric.need_to_minimize
+)
+
+
+class AnomalyMetric(QualityMetric):
+    """Legacy NAB/window-based anomaly metric"""
     def __init__(self,
                  target,
                  predicted_labels,
@@ -648,9 +781,4 @@ class AnomalyMetric(QualityMetric):
         detecting_boundaries = self._detect_boundary()
 
         metric_dict = _metric_dict[self.metric](detecting_boundaries)
-        return metric_dict
-
-
-def calculate_detection_metric(target, labels, **kwargs):
-    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
-    return metric_dict
+        return metric_dict 

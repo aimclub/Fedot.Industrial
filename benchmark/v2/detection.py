@@ -8,7 +8,6 @@ from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
-from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.models.detection.progress_policy import (
@@ -37,7 +36,7 @@ from benchmark.v2.core import (
     DatasetSpec,
     DetectionBenchmarkResult,
     DetectionSeriesRecord,
-    LabelPredictionRecord,
+    DetectionPredictionRecord,
     MetricRecord,
     ModelSpec,
     RunStatus,
@@ -50,9 +49,13 @@ from benchmark.v2.verbosity import (
     DetectionVerbosityPolicy,
     resolve_detection_verbosity_policy,
 )
+from fedot_ind.core.metrics.metrics_implementation import (
+    DETECTION_METRICS_TO_MINIMIZE,
+    SUPPORTED_DETECTION_METRICS,
+    calculate_detection_metric,
+)
 
-SUPPORTED_ANOMALY_DETECTION_METRICS = ('accuracy', 'balanced_accuracy', 'f1_macro')
-_HIGHER_IS_BETTER_METRICS = frozenset(SUPPORTED_ANOMALY_DETECTION_METRICS)
+SUPPORTED_ANOMALY_DETECTION_METRICS = SUPPORTED_DETECTION_METRICS
 
 try:  # pragma: no cover
     import torch  # noqa: F401
@@ -443,32 +446,6 @@ def _safe_import(module_name: str) -> bool:
         return False
 
 
-def compute_detection_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Compute benchmark detection metric from integer point labels."""
-    actual = np.asarray(y_true, dtype=int).reshape(-1)
-    predicted = np.asarray(y_pred, dtype=int).reshape(-1)
-    labels = sorted(set(actual.tolist()) | set(predicted.tolist()))
-    if metric_name == 'accuracy':
-        return float(np.mean(actual == predicted))
-    recalls = []
-    f1_scores = []
-    for label in labels:
-        true_positive = int(np.sum((actual == label) & (predicted == label)))
-        false_positive = int(np.sum((actual != label) & (predicted == label)))
-        false_negative = int(np.sum((actual == label) & (predicted != label)))
-        label_support = int(np.sum(actual == label))
-        recall = true_positive / label_support if label_support else 0.0
-        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-        recalls.append(recall)
-        f1_scores.append(f1)
-    if metric_name == 'balanced_accuracy':
-        return float(np.mean(recalls)) if recalls else 0.0
-    if metric_name == 'f1_macro':
-        return float(np.mean(f1_scores)) if f1_scores else 0.0
-    raise BenchmarkConfigurationError(f'Unsupported detection metric: {metric_name}')
-
-
 @dataclass
 class ConstantZeroDetectionModel:
     """Minimal baseline that predicts all points as non-anomalous."""
@@ -522,7 +499,6 @@ class RuntimeDetectionModelAdapter:
         fit_values = _train_fit_values(series_record)
         eval_values = _record_values_array(series_record)
         detector = detector_cls(OperationParameters(**dict(self.params)))
-        # detector.fit(InputData(features=fit_values))
         detector.fit(fit_values)
         score_series = detector.score_series_on_values(eval_values)
         labels = np.asarray(score_series.labels, dtype=int).reshape(-1)
@@ -533,7 +509,7 @@ class RuntimeDetectionModelAdapter:
             'threshold': float(score_series.threshold),
             'stage_diagnostics': detector.get_stage_diagnostics(),
         }
-        return {'labels': labels, 'scores': scores}, metadata
+        return {'labels': labels, 'scores': scores}, metadata # TODO: # TODO: event payload for event-level 
 
 
 class OptionalExternalModel:
@@ -596,7 +572,7 @@ class DetectionSeriesArtifactsRecorder:
     run_id: str
     metric_names: tuple[str, ...]
     metric_records: list[MetricRecord]
-    prediction_records: list[LabelPredictionRecord]
+    prediction_records: list[DetectionPredictionRecord]
 
     def validate_detection_output(
             self,
@@ -633,8 +609,12 @@ class DetectionSeriesArtifactsRecorder:
         """Record aggregate metric rows and return metric summary dict."""
         # del metadata
         metrics_summary: dict[str, float] = {}
-        for metric_name in self.metric_names:
-            metric_value = compute_detection_metric(metric_name, actual, labels)
+        metric_values = calculate_detection_metric(
+            target=actual,
+            labels=labels,
+            metric_names=self.metric_names,
+        )
+        for metric_name, metric_value in metric_values.items():
             metrics_summary[metric_name] = metric_value
             self.metric_records.append(
                 MetricRecord(
@@ -658,19 +638,23 @@ class DetectionSeriesArtifactsRecorder:
             model_name: str,
             actual: np.ndarray,
             labels: np.ndarray,
+            scores: np.ndarray | None,
     ) -> None:
         """Append one LabelPredictionRecord per series point."""
         for sample_index, (true_label, pred_label) in enumerate(zip(actual, labels)):
             self.prediction_records.append(
-                LabelPredictionRecord(
+                DetectionPredictionRecord(
                     run_id=self.run_id,
                     benchmark=series_record.benchmark,
                     dataset_name=series_record.dataset_name,
                     subset=series_record.subset,
+                    series_id=series_record.series_id,
                     model_name=model_name,
                     sample_index=sample_index,
                     y_true=str(int(true_label)),
                     y_pred=str(int(pred_label)),
+                    y_score=None if scores is None else float(scores[sample_index]),
+                    timestamp=series_record.timestamps[sample_index] if sample_index < len(series_record.timestamps) else None,
                     status=RunStatus.SUCCESS,
                 )
             )
@@ -863,8 +847,12 @@ def build_leaderboard(
             }
         )
 
-    ascending = primary_metric not in _HIGHER_IS_BETTER_METRICS
-    leaderboard_rows = sorted(leaderboard_rows, key=lambda row: row[primary_metric], reverse=not ascending)
+    ascending = primary_metric in DETECTION_METRICS_TO_MINIMIZE
+    leaderboard_rows = sorted(
+    leaderboard_rows,
+    key=lambda row: row[primary_metric],
+    reverse=not ascending,
+    )
     for rank, row in enumerate(leaderboard_rows, start=1):
         row['rank'] = rank
 
@@ -899,7 +887,7 @@ class DetectionSuiteRunner:
         )
         self.series_records: list[DetectionSeriesRecord] = []
         self.run_records: list[BenchmarkRunRecord] = []
-        self.prediction_records: list[LabelPredictionRecord] = []
+        self.prediction_records: list[DetectionPredictionRecord] = []
         self.metric_records: list[MetricRecord] = []
         self.known_series_keys: set[tuple[str, str, str, str]] = set()
         self.resumed_item_keys: set[str] = set()
@@ -1270,7 +1258,7 @@ class DetectionSuiteRunner:
         metric_count_before = len(self.metric_records)
         prediction_count_before = len(self.prediction_records)
         output, metadata = model.detect(series_record)
-        actual, labels, _ = self.artifacts_recorder.validate_detection_output(series_record, output)
+        actual, labels, scores = self.artifacts_recorder.validate_detection_output(series_record, output)
         metrics_summary = self.artifacts_recorder.record_metric_bundle(
             series_record=series_record,
             model_name=model.name,
@@ -1283,6 +1271,7 @@ class DetectionSuiteRunner:
             model_name=model.name,
             actual=actual,
             labels=labels,
+            scores=scores,
         )
         metadata = self.post_fit_tuning.run(
             model_spec=model_spec,

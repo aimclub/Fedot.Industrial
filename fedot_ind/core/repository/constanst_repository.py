@@ -360,6 +360,8 @@ class FedotOperationConstant(Enum):
     FEDOT_TUNING_METRICS = {
         'classification': ClassificationMetricsEnum.f1,
         'ts_forecasting': RegressionMetricsEnum.RMSE,  # RegressionMetricsEnum.MAPE,
+        # FEDOT boundary
+        # Detection metric проходит в calculate_detection_metric
         'anomaly_detection': ClassificationMetricsEnum.f1,
         'regression': RegressionMetricsEnum.RMSE}
     FEDOT_DATA_TYPE = {

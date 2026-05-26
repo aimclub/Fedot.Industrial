@@ -32,9 +32,10 @@ def build_local_skab_suite_config(
                 },
             ),),
         models=models or _default_detection_models(),
-        metrics=('accuracy', 'balanced_accuracy', 'f1_macro'),
+        # TODO: Event-Level И Delay-Aware метрики
+        metrics=('f1_macro', 'balanced_accuracy', 'precision', 'recall'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'skab'),
-        run_spec=RunSpec(run_name=f'skab_{dataset_name.lower()}_suite', primary_metric='accuracy'),
+        run_spec=RunSpec(run_name=f'skab_{dataset_name.lower()}_suite', primary_metric='f1_macro'),
     )
 
 
@@ -292,7 +293,7 @@ def _default_regression_models() -> tuple[ModelSpec, ...]:
 
 def _default_detection_models() -> tuple[ModelSpec, ...]:
     return (
-        ModelSpec(adapter_name ='feature_iforest_detector', display_name='IsolationForestDetectionModel'),
+        ModelSpec(adapter_name='feature_iforest_detector', display_name='IsolationForestDetectionModel'),
         ModelSpec(adapter_name='feature_oneclass_detector', display_name='OneClassDetectionModel'),
         ModelSpec(adapter_name='conv_autoencoder_detector', display_name='ConvAutoEncoderDetectionModel'),
         ModelSpec(adapter_name='tcn_autoencoder_detector', display_name='TCN_AutoEncoderDetectionModel'),

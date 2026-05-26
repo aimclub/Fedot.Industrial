@@ -122,6 +122,7 @@ class MetricRecord:
 
 @dataclass(frozen=True)
 class BenchmarkRunRecord:
+    """один запуск: dataset series + model -> status + metrics_summary + metadata"""
     run_id: str
     benchmark: str
     dataset_name: str
@@ -230,10 +231,13 @@ class DetectionPredictionRecord:
     benchmark: str
     dataset_name: str
     subset: str
+    series_id: str
     model_name: str
     sample_index: int
     y_true: str
     y_pred: str
+    y_score: float | None
+    timestamp: str | None
     status: RunStatus
 
 

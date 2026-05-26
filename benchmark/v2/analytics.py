@@ -22,7 +22,9 @@ from .core import (
 from .markdown import dataframe_to_markdown
 from .verbosity import (
     ForecastingVerbosityPolicy,
+    DetectionVerbosityPolicy,
     resolve_forecasting_verbosity_policy,
+    resolve_detection_verbosity_policy,
 )
 
 
@@ -38,6 +40,13 @@ class SeriesComparisonResult:
 
 def _resolve_result_verbosity_policy(result: ForecastingBenchmarkResult) -> ForecastingVerbosityPolicy:
     return resolve_forecasting_verbosity_policy(
+        result.config.run_spec.verbosity,
+        options=result.config.run_spec.verbosity_options,
+    )
+
+
+def _resolve_detection_result_verbosity_policy(result: DetectionBenchmarkResult) -> DetectionVerbosityPolicy:
+    return resolve_detection_verbosity_policy(
         result.config.run_spec.verbosity,
         options=result.config.run_spec.verbosity_options,
     )
@@ -90,7 +99,7 @@ def _intervals_from_mask(mask: np.ndarray, offset: int = 0) -> list[tuple[int, i
     return intervals
 
 
-def predictions_to_frame(records: tuple[PredictionRecord, ...]) -> pd.DataFrame:
+def predictions_to_frame(records: tuple[Any, ...]) -> pd.DataFrame:
     return pd.DataFrame([to_plain_data(record) for record in records])
 
 
@@ -128,6 +137,7 @@ def detection_runs_to_frame(result: DetectionBenchmarkResult) -> pd.DataFrame:
             'series_id': record.series_id,
             'model_name': record.model_name,
             'adapter_name': metadata.get('adapter_name'),
+            'model_adapter_family': metadata.get('model_adapter_family'),
             'canonical_name': metadata.get('canonical_name'),
             'family': metadata.get('family'),
             'threshold': metadata.get('threshold'),
@@ -137,6 +147,7 @@ def detection_runs_to_frame(result: DetectionBenchmarkResult) -> pd.DataFrame:
         row.update(record.metrics_summary)
         rows.append(row)
     return pd.DataFrame(rows)
+
 
 def _routing_aliases(adapter_name: str | None) -> set[str]:
     normalized = str(adapter_name or '').lower()
@@ -263,6 +274,52 @@ def build_routing_family_summary_frame(
     return grouped
 
 
+def build_detection_family_summary_frame(
+        result: DetectionBenchmarkResult,
+        primary_metric: str | None = None,
+) -> pd.DataFrame:
+    """
+    как отработало каждое семейство моделей?
+    семейство детектора:
+    feature_baseline
+    neural_reconstruction
+    baseline
+    """
+    # result.run_records -> таблица, один запуск модели на одной серии
+    runs_frame = detection_runs_to_frame(result)
+    if runs_frame.empty:
+        return pd.DataFrame() # если запусков нет, возвращаем пустую таблицу
+
+    # family summary считает качество моделей только на успешных запусках
+    successful = runs_frame[runs_frame['status'] == RunStatus.SUCCESS.value].copy()
+    if successful.empty:
+        return pd.DataFrame()
+    metric_names = [metric for metric in result.config.metrics if metric in successful.columns]
+    # frame = regime_frame.copy()
+    # frame['best_primary_metric'] = pd.to_numeric(frame['best_primary_metric'], errors='coerce')
+    # frame['routing_confidence'] = pd.to_numeric(frame['routing_confidence'], errors='coerce')
+    rows: list[dict[str, Any]] = []
+    
+    for group_key, group in successful.groupby(['benchmark', 'dataset_name', 'family'], dropna=False):
+        benchmark, dataset_name, family = group_key
+        row = {
+            'benchmark': benchmark,
+            'dataset_name': dataset_name,
+            'family': family,
+            'n_runs': int(len(group)),
+            'n_models': int(group['model_name'].nunique()),
+        }
+        # среднее значение метрики внутри family-группы
+        for metric_name in metric_names:
+            row[f'mean_{metric_name}'] = float(group[metric_name].mean())
+        rows.append(row)
+    
+    return pd.DataFrame(rows).sort_values(
+        ['benchmark', 'dataset_name', 'family'],
+        kind='stable',
+    ).reset_index(drop=True)
+
+
 def _extract_okhs_fdmd_stage_payload(metadata: dict[str, Any]) -> dict[str, Any] | None:
     stage_payload = _extract_forecasting_stage_payload(metadata)
     if stage_payload is None:
@@ -281,6 +338,13 @@ def _extract_forecasting_stage_payload(metadata: dict[str, Any]) -> dict[str, An
         if metadata.get(key)
     }
     return stage_payload or None
+
+
+def _extract_detection_stage_payload(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    """извлечение detection stage payload из metadata"""
+    stage_payload = dict(metadata.get('stage_diagnostics') or {})
+    return stage_payload or None
+
 
 
 def _stringify_stage_value(value: Any) -> Any:
@@ -410,6 +474,62 @@ def build_forecasting_stage_frame(result: ForecastingBenchmarkResult) -> pd.Data
                 'trajectory_transform_json': _stringify_stage_value(trajectory),
                 'decomposition_json': _stringify_stage_value(decomposition),
                 'rank_truncation_json': _stringify_stage_value(rank_truncation),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_detection_stage_frame(result: DetectionBenchmarkResult) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in result.run_records:
+        # только успешные запуски
+        if record.status is not RunStatus.SUCCESS:
+            continue
+        # metadata['stage_diagnostics']
+        stage_payload = _extract_detection_stage_payload(record.metadata)
+        if stage_payload is None:
+            continue
+
+        data_quality = dict(stage_payload.get('data_quality') or {})
+        regime_segmentation = dict(stage_payload.get('regime_segmentation') or {})
+        representation = dict(stage_payload.get('representation') or {})
+        anomaly_scoring = dict(stage_payload.get('anomaly_scoring') or {})
+        calibration = dict(stage_payload.get('calibration') or {})
+        event_aggregation = dict(stage_payload.get('event_aggregation') or {})
+        transfer_alignment = dict(stage_payload.get('transfer_alignment') or {})
+        interpretation = dict(stage_payload.get('interpretation') or {})
+
+
+        rows.append(
+            {
+                'benchmark': record.benchmark,
+                'dataset_name': record.dataset_name,
+                'subset': record.subset,
+                'series_id': record.series_id,
+                'model_name': record.model_name,
+                'adapter_name': record.metadata.get('adapter_name'),
+                'model_adapter_family': record.metadata.get('model_adapter_family'),
+                'routing_recommendation_family': record.metadata.get('routing_recommendation_family'),
+                'canonical_name': record.metadata.get('canonical_name'),
+                'family': record.metadata.get('family') or record.metadata.get('model_adapter_family'),
+                'threshold': record.metadata.get('threshold'),
+                'n_samples': data_quality.get('n_samples'),
+                'n_channels': data_quality.get('n_channels'),
+                'window_size': data_quality.get('window_size'),
+                'stride': data_quality.get('stride'),
+                'n_regime_segments': regime_segmentation.get('n_segments'),
+                'segment_labels_json': _stringify_stage_value(regime_segmentation.get('segment_labels')),
+                'representation_mode': representation.get('representation_mode'),
+                'feature_shape': _stringify_stage_value(representation.get('feature_shape')),
+                'anomaly_scoring_json': _stringify_stage_value(anomaly_scoring),
+                'calibration_strategy': calibration.get('strategy'),
+                'calibration_threshold': calibration.get('threshold'),
+                'threshold_quantile': calibration.get('threshold_quantile'),
+                'n_events': event_aggregation.get('n_events'),
+                'min_event_length': event_aggregation.get('min_event_length'),
+                'transfer_alignment_json': _stringify_stage_value(transfer_alignment),
+                'risk_feature_rows': interpretation.get('risk_feature_rows'),
+                'risk_feature_columns_json': _stringify_stage_value(interpretation.get('risk_feature_columns')),
             }
         )
     return pd.DataFrame(rows)
@@ -566,6 +686,16 @@ def build_benchmark_leaderboard(
     )
     leaderboard['rank'] = leaderboard[metric_name].rank(method='dense')
     return leaderboard
+
+
+def build_detection_leaderboard(result: DetectionBenchmarkResult) -> pd.DataFrame:
+    """detection runner уже:
+    какие runs успешные;
+    как сгруппировать по model/dataset;
+    как посчитать среднюю primary metric;
+    как отсортировать;
+    какой rank поставить"""
+    return pd.DataFrame([to_plain_data(row) for row in result.aggregate_report.leaderboard_rows])
 
 
 def _stable_write_table(frame: pd.DataFrame, path_without_suffix: Path) -> list[ArtifactRecord]:
@@ -979,6 +1109,167 @@ def compare_models_on_series(
     )
 
 
+def render_detection_series_artifacts(
+        result: DetectionBenchmarkResult,
+        series_dir: Path,
+) -> tuple[ArtifactRecord, ...]:
+    """
+    Обработка результата:
+    1. Группировка по series_id и model_name.
+    2. Для каждой группы сохранить таблицу:
+        sample_index;
+        timestamp;
+        y_true;
+        y_pred;
+        y_score.
+    3. Соответствующий run_record.
+    4. Сохранить diagnostics.json:
+        run_id;
+        series_id;
+        model_name;
+        metrics_summary;
+        stage_diagnostics;
+        regime_diagnostics;
+        threshold;
+        canonical_name;
+        family.
+    5. Построить график:
+        y_score;
+        y_true;
+        y_pred;
+        threshold.
+    """
+    manifest: list[ArtifactRecord] = []
+    predictions_frame = predictions_to_frame(result.prediction_records)
+    if predictions_frame.empty:
+        return tuple(manifest)
+    # поля для per-series artifacts
+    required_columns = {'benchmark', 'dataset_name', 'subset', 'series_id', 'model_name'}
+    missing_columns = required_columns - set(predictions_frame.columns)
+    if missing_columns:
+        raise ValueError(f'Detection predictions are missing required columns: {sorted(missing_columns)}')
+
+    metrics_frame = metrics_to_frame(result.metric_records)
+    # для каждой predictions найти соответствующий BenchmarkRunRecord
+    run_lookup = {
+        (
+            record.benchmark,
+            record.dataset_name,
+            record.subset,
+            record.series_id,
+            record.model_name,
+        ): record
+        for record in result.run_records
+    }
+    group_columns = ['benchmark', 'dataset_name', 'subset', 'series_id', 'model_name']
+    
+    for group_key, group in predictions_frame.groupby(group_columns, dropna=False, sort=False):
+        # benchmark + dataset_name + subset + series_id + model_name
+        benchmark, dataset_name, subset, series_id, model_name = (str(value) for value in group_key)
+        model_slug = _slugify_model_name(model_name)
+        target_dir = ensure_directory(series_dir / series_id / model_slug)
+
+        prediction_table = group.sort_values('sample_index', kind='stable').reset_index(drop=True)
+        prediction_path = target_dir / 'predictions.csv'
+        # debug artifact для конкретного ряда (sample_index, timestamp, y_true, y_pred, y_score)
+        prediction_table.to_csv(prediction_path, index=False)
+        # metrics.csv метрики модели на серии
+        manifest.append(ArtifactRecord(kind='table', path=str(prediction_path), format='csv'))
+        series_metrics = metrics_frame[
+            (metrics_frame['benchmark'].astype(str) == benchmark)
+            & (metrics_frame['dataset_name'].astype(str) == dataset_name)
+            & (metrics_frame['subset'].astype(str) == subset)
+            & (metrics_frame['series_id'].astype(str) == series_id)
+            & (metrics_frame['model_name'].astype(str) == model_name)
+        ].copy() if not metrics_frame.empty else pd.DataFrame()
+        if not series_metrics.empty:
+            metrics_path = target_dir / 'metrics.csv'
+            series_metrics.to_csv(metrics_path, index=False)
+            manifest.append(ArtifactRecord(kind='table', path=str(metrics_path), format='csv'))
+        run_record = run_lookup.get((benchmark, dataset_name, subset, series_id, model_name))
+        metadata = dict(run_record.metadata or {}) if run_record is not None else {}
+        # diagnostics (run, модель, серия, summary metrics, threshold, stage diagnostics, regime diagnostics)
+        diagnostics_payload = {
+            'run_id': result.run_id,
+            'benchmark': benchmark,
+            'dataset_name': dataset_name,
+            'subset': subset,
+            'series_id': series_id,
+            'model_name': model_name,
+            'status': run_record.status.value if run_record is not None else None,
+            'message': run_record.message if run_record is not None else '',
+            'metrics_summary': dict(run_record.metrics_summary) if run_record is not None else {},
+            'canonical_name': metadata.get('canonical_name'),
+            'family': metadata.get('family') or metadata.get('model_adapter_family'),
+            'adapter_name': metadata.get('adapter_name'),
+            'threshold': metadata.get('threshold'),
+            'stage_diagnostics': metadata.get('stage_diagnostics'),
+            'regime_diagnostics': metadata.get('regime_diagnostics'),
+            'routing_recommendation': metadata.get('routing_recommendation'),
+            'prediction_count': int(len(prediction_table)),
+            'score_available': bool(
+                'y_score' in prediction_table.columns
+                and prediction_table['y_score'].notna().any()
+            ),
+        }
+        diagnostics_path = target_dir / 'diagnostics.json'
+        write_json(diagnostics_path, diagnostics_payload)
+        manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
+
+        if 'y_score' not in prediction_table.columns or not prediction_table['y_score'].notna().any():
+            continue
+
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+
+        x_values = prediction_table['sample_index'].astype(int).to_numpy()
+        scores = pd.to_numeric(prediction_table['y_score'], errors='coerce').to_numpy(dtype=float)
+        true_labels = pd.to_numeric(prediction_table['y_true'], errors='coerce').fillna(0).to_numpy(dtype=int)
+        predicted_labels = pd.to_numeric(prediction_table['y_pred'], errors='coerce').fillna(0).to_numpy(dtype=int)
+        # anomaly score
+        # threshold
+        # оранжевые зоны true anomaly
+        # зелёные зоны predicted anomaly
+        figure, axis = plt.subplots(figsize=(12, 5))
+        axis.plot(x_values, scores, color='tab:blue', linewidth=1.4, label='Anomaly score')
+        threshold = metadata.get('threshold')
+        if threshold is not None:
+            axis.axhline(float(threshold), color='tab:red', linestyle='--', linewidth=1.1, label='Threshold')
+        true_legend_added = False
+        for start, end in _intervals_from_mask(true_labels == 1):
+            axis.axvspan(
+                x_values[start],
+                x_values[end],
+                color='tab:orange',
+                alpha=0.18,
+                label='True anomaly' if not true_legend_added else None,
+            )
+            true_legend_added = True
+        pred_legend_added = False
+        for start, end in _intervals_from_mask(predicted_labels == 1):
+            axis.axvspan(
+                x_values[start],
+                x_values[end],
+                color='tab:green',
+                alpha=0.14,
+                label='Predicted anomaly' if not pred_legend_added else None,
+            )
+            pred_legend_added = True
+        axis.set_title(f'Detection score timeline | {dataset_name} | {series_id} | {model_name}')
+        axis.set_xlabel('Sample index')
+        axis.set_ylabel('Anomaly score')
+        axis.grid(alpha=0.2)
+        axis.legend(loc='best')
+        figure.tight_layout()
+        for extension in result.config.artifact_spec.plot_formats:
+            plot_path = target_dir / f'score_timeline.{extension}'
+            figure.savefig(plot_path, dpi=200, bbox_inches='tight')
+            manifest.append(ArtifactRecord(kind='plot', path=str(plot_path), format=extension))
+        plt.close(figure)
+    return tuple(manifest)
+
+
 def render_publication_pack(
         result: ForecastingBenchmarkResult,
         output_dir: str | Path | None = None,
@@ -1242,5 +1533,82 @@ def render_publication_pack(
 
     return tuple(manifest)
 
-def render_detection_pack():
-    pass
+
+def render_detection_pack(
+        result: DetectionBenchmarkResult,
+        output_dir: str | Path | None = None,
+) -> tuple[ArtifactRecord, ...]:
+    """
+    главный artifact writer для detection
+    преобразование готового DetectionBenchmarkResult: records в таблицы.
+    сохранение таблиц/summary/metadata в aggregate/.
+    возврат список ArtifactRecord, чтобы result знал, какие файлы были созданы.
+    Per-series diagnostics: для каждой пары series_id + model_name отдельный набор артефактов
+    """
+    verbosity_policy = _resolve_detection_result_verbosity_policy(result)
+    target_dir = ensure_directory(output_dir or Path(result.config.artifact_spec.output_dir) / result.run_id)
+    aggregate_dir = ensure_directory(target_dir / 'aggregate')
+    series_dir = ensure_directory(target_dir / 'series')
+
+    manifest: list[ArtifactRecord] = []
+    metrics_frame = metrics_to_frame(result.metric_records)
+    predictions_frame = predictions_to_frame(result.prediction_records)
+    detection_runs_frame = detection_runs_to_frame(result)
+    leaderboard = build_detection_leaderboard(result)
+    detection_stage_frame = build_detection_stage_frame(result)
+    family_summary = build_detection_family_summary_frame(result)
+    
+    for base_name, frame in (
+            ('metrics', metrics_frame),
+            ('predictions', predictions_frame),
+            ('runs', detection_runs_frame),
+            ('leaderboard', leaderboard),
+            ('detection_stage_diagnostics', detection_stage_frame),
+            ('detection_family_summary', family_summary),
+    ):
+        if not frame.empty:
+            manifest.extend(_stable_write_table(frame, aggregate_dir / base_name))
+    manifest.extend(render_detection_series_artifacts(result, series_dir))
+    metadata_path = aggregate_dir / 'run_metadata.json'
+    metadata_payload = {
+        'run_id': result.run_id,
+        'task_type': result.config.task_type.value,
+        'primary_metric': result.aggregate_report.primary_metric,
+        'status_counts': result.aggregate_report.status_counts,
+        'dataset_specs': [to_plain_data(spec) for spec in result.config.datasets],
+        'model_specs': [to_plain_data(spec) for spec in result.config.models],
+        'verbosity_policy': verbosity_policy.to_dict(),
+    }
+    write_json(metadata_path, metadata_payload)
+    manifest.append(ArtifactRecord(kind='structured', path=str(metadata_path), format='json'))
+    summary_path = aggregate_dir / 'summary.md'
+    summary_lines = [
+        f'# Detection Benchmark Summary: {result.run_id}',
+        '',
+        f'- Task type: `{result.config.task_type.value}`',
+        f'- Primary metric: `{result.aggregate_report.primary_metric}`',
+        f'- Successful runs: `{result.aggregate_report.status_counts.get("success", 0)}`',
+        f'- Failed runs: `{result.aggregate_report.status_counts.get("failed", 0)}`',
+        f'- Skipped runs: `{result.aggregate_report.status_counts.get("skipped", 0)}`',
+        f'- Not available runs: `{result.aggregate_report.status_counts.get("not_available", 0)}`',
+        '',
+        '## Leaderboard',
+        '',
+    ]
+    summary_lines.append(
+        'No successful detection benchmark runs were recorded.'
+        if leaderboard.empty
+        else dataframe_to_markdown(leaderboard, index=False)
+    )
+    if not family_summary.empty:
+        summary_lines.extend(
+            [
+                '',
+                '## Detection Family Summary',
+                '',
+                dataframe_to_markdown(family_summary, index=False),
+            ]
+        )
+    summary_path.write_text('\n'.join(summary_lines), encoding='utf-8')
+    manifest.append(ArtifactRecord(kind='summary', path=str(summary_path), format='md'))
+    return tuple(manifest)
