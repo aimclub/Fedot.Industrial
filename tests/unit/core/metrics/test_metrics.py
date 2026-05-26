@@ -46,8 +46,12 @@ Y_PRED_MC = np.array([0, 1, 1, 1, 2, 0, 2, 2])
 Y_TRUE_PROB = np.array([0, 1, 0, 1, 0, 1])
 Y_PRED_PROB = np.array([0, 1, 1, 1, 0, 0])
 PROBS_2D = np.array([
-    [0.9, 0.1], [0.2, 0.8], [0.4, 0.6],
-    [0.3, 0.7], [0.85, 0.15], [0.75, 0.25],
+    [0.9, 0.1], 
+    [0.2, 0.8], 
+    [0.4, 0.6],
+    [0.3, 0.7], 
+    [0.85, 0.15], 
+    [0.75, 0.25],
 ])
 
 # --- Данные для регрессии ---
@@ -69,42 +73,63 @@ Y_PRED_ANOM = np.zeros(30, dtype=int)
 Y_PRED_ANOM[13] = 1
 
 
-def assert_new_equals_legacy(new_dict: dict, legacy_df: pd.DataFrame, key: str) -> float:
+def assert_new_equals_legacy(new_dict: dict, legacy_df: pd.DataFrame, keys: str) -> float:
     """Новый API и legacy должны совпасть по ключу метрики."""
-    assert key in new_dict
-    new_val = new_dict[key]
-    leg_val = legacy_df[key].iloc[0]
-    if isinstance(new_val, dict):
-        assert leg_val == new_val
-    elif isinstance(new_val, (list, np.ndarray)):
-        np.testing.assert_allclose(np.asarray(new_val), np.asarray(leg_val), rtol=1e-6)
-    else:
-        assert float(new_val) == float(leg_val)
-    return float(new_val) if np.isscalar(new_val) or isinstance(new_val, (int, float)) else new_val
+    res = []
+    for key in keys:
+        assert key in new_dict
+        assert key in legacy_df
+        new_val = new_dict[key]
+        leg_val = legacy_df[key].iloc[0]
+        if isinstance(new_val, dict):
+            assert leg_val == new_val
+        elif isinstance(new_val, (list, np.ndarray)):
+            np.testing.assert_allclose(np.asarray(new_val), np.asarray(leg_val), rtol=1e-6)
+        elif isinstance(new_val, (int, float, np.floating)):
+            assert float(new_val) == float(leg_val)
+        else:
+            raise Exception(f'wrong type: new_val - {type(new_val)} ; leg_val - {type(leg_val)}')
+        res.append(float(new_val) if np.isscalar(new_val) or isinstance(new_val, (int, float)) else new_val)
+    return res
 
 
 def run_classification(metric, y_true=Y_TRUE_BIN, y_pred=Y_PRED_BIN, **kwargs):
     """Вызов нового и legacy API для классификации."""
     spec = metric if isinstance(metric, (list, tuple)) else (metric,)
-    new = calculate_classification_metric(
-        y_true, y_pred, metrics=spec, rounding_order=ROUND, **kwargs,
-    )
+    new = calculate_classification_metric(y_true, y_pred, metrics=spec, rounding_order=ROUND, **kwargs,)
     legacy = legacy_classification(
         target=y_true, predicted_labels=y_pred,
         metric_names=spec, rounding_order=ROUND, **kwargs,
     )
-    name = spec[0] if isinstance(spec[0], str) else spec[0]['name']
+    # if len(spec) == 1:
+    #     name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
+    # else:
+    #     name = list(spec)
+    # name = spec[0] if isinstance(spec[0], str) else spec[0]['name']
+    name = []
+    for s in spec:
+        if isinstance(s, str):
+            name.append(s)
+        elif isinstance(s, dict):
+            name.append(s['name'])
+        else:
+            raise Exception(f'wrong spec element type: {type(s)}')
+
     return new, legacy, name
 
 
 def run_regression(metric, y_true=Y_TRUE_REG, y_pred=Y_PRED_REG):
-    spec = (metric,) if isinstance(metric, str) else (metric,)
+    """Вызов нового и legacy API для регрессии."""
+    spec = metric if isinstance(metric, (list, tuple)) else (metric,)
     new = calculate_regression_metric(y_true, y_pred, metrics=spec, rounding_order=ROUND)
     legacy = legacy_regression(
         target=y_true, predicted_labels=y_pred,
         metric_names=spec, rounding_order=ROUND,
     )
-    name = spec[0] if isinstance(spec[0], str) else spec[0]['name']
+    if len(spec) == 1:
+        name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
+    else:
+        name = list(spec)
     return new, legacy, name
 
 
@@ -118,7 +143,10 @@ def run_forecasting(metric, y_true=Y_TRUE_FC, y_pred=Y_PRED_FC):
         target=y_true, predicted_labels=y_pred, metric_names=spec,
         rounding_order=ROUND, train_data=TRAIN_SERIES, seasonality=SEASONALITY,
     )
-    name = spec[0] if isinstance(spec[0], str) else spec[0]['name']
+    if len(metric) == 1:
+        name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
+    else:
+        name = list(spec)
     return new, legacy, name
 
 
@@ -128,7 +156,10 @@ def run_detection(metric, y_true=Y_TRUE_ANOM, y_pred=Y_PRED_ANOM):
     legacy = legacy_detection(
         target=y_true, predicted_labels=y_pred, metric_names=spec, rounding_order=ROUND,
     )
-    name = spec[0] if isinstance(spec[0], str) else spec[0]['name']
+    if len(metric) == 1:
+        name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
+    else:
+        name = list(spec)
     return new, legacy, name
 
 
@@ -142,18 +173,18 @@ class TestClassificationMetrics:
     def test_accuracy(self):
         new, leg, name = run_classification('accuracy')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
+        assert val[0] == pytest.approx(accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
 
     def test_balanced_accuracy(self):
         new, leg, name = run_classification('balanced_accuracy')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(balanced_accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
+        assert val[0] == pytest.approx(balanced_accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
 
     def test_f1_binary(self):
         spec = {'name': 'f1', 'params': {'average': 'binary', 'pos_label': 1}}
         new, leg, name = run_classification(spec)
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(
+        assert val[0] == pytest.approx(
             sklearn_f1(Y_TRUE_BIN, Y_PRED_BIN, average='binary', pos_label=1), rel=1e-4,
         )
 
@@ -172,14 +203,14 @@ class TestClassificationMetrics:
             'logloss', y_true=Y_TRUE_PROB, y_pred=Y_PRED_PROB, predicted_probs=PROBS_2D,
         )
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(sklearn_log_loss(Y_TRUE_PROB, PROBS_2D), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_log_loss(Y_TRUE_PROB, PROBS_2D), rel=1e-4)
 
     def test_roc_auc_with_probs(self):
         new, leg, name = run_classification(
             'roc_auc', y_true=Y_TRUE_PROB, y_pred=Y_PRED_PROB, predicted_probs=PROBS_2D,
         )
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(
+        assert val[0] == pytest.approx(
             sklearn_roc_auc(Y_TRUE_PROB, PROBS_2D[:, 1]), rel=1e-4,
         )
 
@@ -190,7 +221,17 @@ class TestClassificationMetrics:
         assert leg['per_class_scores_f1'].iloc[0] == block['f1']
         assert 'recall' in block and 'precision' in block
 
-
+    def test_multi_metrics(self):
+        new, leg, name = run_classification(('accuracy',
+                                             {'name': 'f1', 
+                                              'params': {
+                                                  'average': 'binary', 
+                                                  'pos_label': 1}}))
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
+        assert val[1] == pytest.approx(
+            sklearn_f1(Y_TRUE_BIN, Y_PRED_BIN, average='binary', pos_label=1), rel=1e-4,
+        )
 # =============================================================================
 # Регрессия
 # =============================================================================
@@ -199,23 +240,28 @@ class TestRegressionMetrics:
     def test_mse(self):
         new, leg, name = run_regression('mse')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(sklearn_mse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_mse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
     def test_rmse(self):
         new, leg, name = run_regression('rmse')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(sklearn_rmse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_rmse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
     def test_mae(self):
         new, leg, name = run_regression('mae')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(sklearn_mae(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_mae(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
     def test_r2(self):
         new, leg, name = run_regression('r2')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(sklearn_r2(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_r2(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
+    def test_multi_metrics(self):
+        new, leg, name = run_regression(('mse','mae'))
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(sklearn_mse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
+        assert val[1] == pytest.approx(sklearn_mae(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
 # =============================================================================
 # Прогнозирование
@@ -225,7 +271,7 @@ class TestForecastingMetrics:
     def test_mse(self):
         new, leg, name = run_forecasting('mse')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val == pytest.approx(sklearn_mse(Y_TRUE_FC, Y_PRED_FC), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_mse(Y_TRUE_FC, Y_PRED_FC), rel=1e-4)
 
     def test_smape(self):
         new, leg, name = run_forecasting('smape')
