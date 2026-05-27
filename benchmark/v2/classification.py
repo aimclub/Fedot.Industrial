@@ -29,8 +29,12 @@ from .local_io import LocalDatasetParseError, load_local_supervised_split
 from .markdown import dataframe_to_markdown
 from .progress import BenchmarkProgressMonitor
 
-SUPPORTED_CLASSIFICATION_METRICS = ('accuracy', 'balanced_accuracy', 'f1_macro')
+# SUPPORTED_CLASSIFICATION_METRICS = ('accuracy', 'balanced_accuracy', 'f1_macro')
 
+from fedot_ind.core.repository.constanst_repository import FEDOT_GET_METRICS
+from fedot_ind.core.metrics.metric_library import METRIC_REGISTRY
+
+SUPPORTED_CLASSIFICATION_METRICS = tuple(METRIC_REGISTRY['shared_cls_det'])
 
 class BenchmarkClassificationError(ValueError):
     pass
@@ -153,21 +157,21 @@ def build_classification_dataset_adapter(spec: DatasetSpec):
     raise BenchmarkClassificationError(f'Unsupported classification adapter: {spec.benchmark}')
 
 
-def compute_classification_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    from fedot_ind.core.metrics.metrics import calculate_classification_metric
+# def compute_classification_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+#     from fedot_ind.core.metrics.metrics import calculate_classification_metric
 
-    result = calculate_classification_metric(
-        _normalize_labels(y_true),
-        _normalize_labels(y_pred),
-        # metrics=(metric_name,),
-        metrics=metric_name,
-    )
-    value = result[metric_name]
-    if isinstance(value, dict):
-        raise BenchmarkClassificationError(
-            f'Classification metric "{metric_name}" returned a structured value.',
-        )
-    return float(value)
+#     result = calculate_classification_metric(
+#         _normalize_labels(y_true),
+#         _normalize_labels(y_pred),
+#         metrics=tuple(metric_name),
+#         # metrics=metric_name,
+#     )
+#     value = result[metric_name]
+#     if isinstance(value, dict):
+#         raise BenchmarkClassificationError(
+#             f'Classification metric "{metric_name}" returned a structured value.',
+#         )
+#     return float(value)
 
 
 @dataclass
@@ -339,10 +343,16 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
                         test_y = np.asarray(record.test_target, dtype=object)
                         model.fit(train_x, train_y)
                         prediction = np.asarray(model.predict(test_x), dtype=object)
-                        metrics_summary = {
-                            metric_name: compute_classification_metric(metric_name, test_y, prediction)
-                            for metric_name in config.metrics
-                        }
+                        # metrics_summary = {
+                        #     metric_name: compute_classification_metric(metric_name, test_y, prediction)
+                        #     for metric_name in config.metrics
+                        # }
+
+                        metrics_summary = FEDOT_GET_METRICS['classification'](target=_normalize_labels(test_y),
+                                                                              predicted_labels=_normalize_labels(prediction),
+                                                                              metric_names=tuple(config.metrics),
+                                                                              return_dataframe = False,)
+
                         run_records.append(
                             BenchmarkRunRecord(
                                 run_id=run_id,

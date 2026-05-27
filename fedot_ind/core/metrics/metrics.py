@@ -218,7 +218,7 @@ class ForecastingMetric(QualityMetric):
 class AnomalyMetric(QualityMetric):
     """Anomaly detection on binary label sequences (0/1)."""
 
-    task = 'detection'
+    task = 'anomaly_detection'
 
     def __init__(
             self,

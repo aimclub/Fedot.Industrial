@@ -311,12 +311,10 @@ class FeatureConstant(Enum):
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
     FEDOT_TASK = {
-        'classification': Task(
-            TaskTypesEnum.classification), 'regression': Task(
-            TaskTypesEnum.regression), 'ts_forecasting': Task(
-            TaskTypesEnum.ts_forecasting, TsForecastingParams(
-                forecast_length=1)), 'anomaly_detection': Task(
-            TaskTypesEnum.classification)}
+        'classification': Task(TaskTypesEnum.classification), 
+        'regression': Task(TaskTypesEnum.regression), 
+        'ts_forecasting': Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=1)), 
+        'anomaly_detection': Task(TaskTypesEnum.classification)}
 
     FEDOT_API_PARAMS = default_param_values_dict = dict(
         problem=None,

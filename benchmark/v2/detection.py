@@ -49,13 +49,18 @@ from benchmark.v2.verbosity import (
     DetectionVerbosityPolicy,
     resolve_detection_verbosity_policy,
 )
-from fedot_ind.core.metrics.metrics_implementation import (
-    DETECTION_METRICS_TO_MINIMIZE,
-    SUPPORTED_DETECTION_METRICS,
-    calculate_detection_metric,
-)
+# from fedot_ind.core.metrics.metrics_implementation import (
+#     DETECTION_METRICS_TO_MINIMIZE,
+#     SUPPORTED_DETECTION_METRICS,
+#     calculate_detection_metric,
+# )
+# SUPPORTED_ANOMALY_DETECTION_METRICS = SUPPORTED_DETECTION_METRICS
 
-SUPPORTED_ANOMALY_DETECTION_METRICS = SUPPORTED_DETECTION_METRICS
+from fedot_ind.core.repository.constanst_repository import FEDOT_GET_METRICS
+from fedot_ind.core.metrics.metric_library import METRIC_REGISTRY, METRICS_TO_MINIMIZE
+
+SUPPORTED_ANOMALY_DETECTION_METRICS = tuple(METRIC_REGISTRY['anomaly_detection'])
+DETECTION_METRICS_TO_MINIMIZE = tuple(set(METRICS_TO_MINIMIZE) & set(SUPPORTED_ANOMALY_DETECTION_METRICS))
 
 try:  # pragma: no cover
     import torch  # noqa: F401
@@ -609,11 +614,15 @@ class DetectionSeriesArtifactsRecorder:
         """Record aggregate metric rows and return metric summary dict."""
         # del metadata
         metrics_summary: dict[str, float] = {}
-        metric_values = calculate_detection_metric(
-            target=actual,
-            labels=labels,
-            metric_names=self.metric_names,
-        )
+        # metric_values = calculate_detection_metric(
+        #     target=actual,
+        #     labels=labels,
+        #     metric_names=self.metric_names,
+        # )
+        metric_values = FEDOT_GET_METRICS['anomaly_detection'](target=actual,
+                                                               predicted_labels=labels,
+                                                               metric_names=tuple(self.metric_names,),
+                                                               return_dataframe = False)
         for metric_name, metric_value in metric_values.items():
             metrics_summary[metric_name] = metric_value
             self.metric_records.append(
@@ -849,10 +858,9 @@ def build_leaderboard(
 
     ascending = primary_metric in DETECTION_METRICS_TO_MINIMIZE
     leaderboard_rows = sorted(
-    leaderboard_rows,
-    key=lambda row: row[primary_metric],
-    reverse=not ascending,
-    )
+        leaderboard_rows,
+        key=lambda row: row[primary_metric],
+        reverse=not ascending,)
     for rank, row in enumerate(leaderboard_rows, start=1):
         row['rank'] = rank
 

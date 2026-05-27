@@ -29,8 +29,12 @@ from .local_io import LocalDatasetParseError, load_local_supervised_split
 from .markdown import dataframe_to_markdown
 from .progress import BenchmarkProgressMonitor
 
-SUPPORTED_REGRESSION_METRICS = ('rmse', 'mae', 'r2')
+# SUPPORTED_REGRESSION_METRICS = ('rmse', 'mae', 'r2')
 
+from fedot_ind.core.repository.constanst_repository import FEDOT_GET_METRICS
+from fedot_ind.core.metrics.metric_library import METRIC_REGISTRY
+
+SUPPORTED_REGRESSION_METRICS = tuple(METRIC_REGISTRY['shared_reg_forecast'])
 
 class BenchmarkRegressionError(ValueError):
     pass
@@ -153,16 +157,16 @@ def build_regression_dataset_adapter(spec: DatasetSpec):
     raise BenchmarkRegressionError(f'Unsupported regression adapter: {spec.benchmark}')
 
 
-def compute_regression_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    from fedot_ind.core.metrics.metrics import calculate_regression_metric
+# def compute_regression_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+#     from fedot_ind.core.metrics.metrics import calculate_regression_metric
 
-    result = calculate_regression_metric(
-        _normalize_vector(y_true),
-        _normalize_vector(y_pred),
-        # metrics=(metric_name,),
-        metrics=metric_name,
-    )
-    return float(result[metric_name])
+#     result = calculate_regression_metric(
+#         _normalize_vector(y_true),
+#         _normalize_vector(y_pred),
+#         metrics=tuple(metric_name),
+#         # metrics=metric_name,
+#     )
+#     return float(result[metric_name])
 
 
 @dataclass
@@ -327,10 +331,16 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                         test_y = np.asarray(record.test_target, dtype=float)
                         model.fit(train_x, train_y)
                         prediction = np.asarray(model.predict(test_x), dtype=float).reshape(-1)
-                        metrics_summary = {
-                            metric_name: compute_regression_metric(metric_name, test_y, prediction)
-                            for metric_name in config.metrics
-                        }
+                        # metrics_summary = {
+                        #     metric_name: compute_regression_metric(metric_name, test_y, prediction)
+                        #     for metric_name in config.metrics
+                        # }
+
+                        metrics_summary = FEDOT_GET_METRICS['classification'](target=_normalize_vector(test_y),
+                                                                              predicted_labels=_normalize_vector(prediction),
+                                                                              metric_names=tuple(config.metrics),
+                                                                              return_dataframe = False,)
+
                         run_records.append(
                             BenchmarkRunRecord(
                                 run_id=run_id,

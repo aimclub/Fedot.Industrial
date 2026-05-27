@@ -271,9 +271,9 @@ def calculate_regression_metric(target,
         rounding_order=rounding_order,
         **kwargs,
     )
-    if kwargs.get('return_dataframe', False):
-        return result
-    return _result_to_dataframe(result, rounding_order)
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 
 def calculate_forecasting_metric(target,
@@ -294,9 +294,9 @@ def calculate_forecasting_metric(target,
         seasonality=seasonality,
         **kwargs,
     )
-    if kwargs.get('return_dataframe', False):
-        return result
-    return _result_to_dataframe(result, rounding_order)
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 
 def calculate_classification_metric(target,
@@ -315,9 +315,9 @@ def calculate_classification_metric(target,
         rounding_order=rounding_order,
         **kwargs,
     )
-    if kwargs.get('return_dataframe', False):
-        return result
-    return _result_to_dataframe(result, rounding_order)
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 
 def kl_divergence(solution: pd.DataFrame,
@@ -447,55 +447,55 @@ class DetectionF1Macro(DetectionQualityMetric):
         return float(f1_score(target, predict, average='macro', zero_division=0))
 
 
-DETECTION_METRICS = {
-    'accuracy': DetectionAccuracy,
-    'balanced_accuracy': DetectionBalancedAccuracy,
-    'precision': DetectionPrecision,
-    'recall': DetectionRecall,
-    'f1': DetectionF1,
-    'f1_macro': DetectionF1Macro,
+# DETECTION_METRICS = {
+#     'accuracy': DetectionAccuracy,
+#     'balanced_accuracy': DetectionBalancedAccuracy,
+#     'precision': DetectionPrecision,
+#     'recall': DetectionRecall,
+#     'f1': DetectionF1,
+#     'f1_macro': DetectionF1Macro,
 
-    # TODO: реализовать event-level Delay-Aware detection метрики
-    # 'event_precision': DetectionEventPrecision,
-    # 'event_recall': DetectionEventRecall,
-    # 'event_f1': DetectionEventF1,
-    # 'detection_delay': DetectionDelay,
-    # 'fp_per_series': DetectionFalsePositivePerSeries,
-    # 'nab': DetectionNAB,
-}
+#     # TODO: реализовать event-level Delay-Aware detection метрики
+#     # 'event_precision': DetectionEventPrecision,
+#     # 'event_recall': DetectionEventRecall,
+#     # 'event_f1': DetectionEventF1,
+#     # 'detection_delay': DetectionDelay,
+#     # 'fp_per_series': DetectionFalsePositivePerSeries,
+#     # 'nab': DetectionNAB,
+# }
 
-SUPPORTED_DETECTION_METRICS = tuple(DETECTION_METRICS)
-
-
-def calculate_detection_metric(
-        target,
-        labels,
-        rounding_order=6,
-        metric_names=None,
-        **kwargs):
-    """Единая функция-фасад для расчёта detection-метрик."""
-    if metric_names is None:
-        metric_names = ('f1_macro', 'balanced_accuracy')
-
-    unsupported_metrics = set(metric_names) - set(DETECTION_METRICS)
-    if unsupported_metrics:
-        raise ValueError(f'Unsupported detection metrics: {sorted(unsupported_metrics)}')
-
-    return {
-        name: round(float(DETECTION_METRICS[name].metric(target, labels)), rounding_order)
-        for name in metric_names
-    }
+# SUPPORTED_DETECTION_METRICS = tuple(DETECTION_METRICS)
 
 
-DETECTION_METRICS_TO_MINIMIZE = tuple(
-    name for name, metric in DETECTION_METRICS.items()
-    if metric.need_to_minimize
-)
+# def calculate_detection_metric(
+#         target,
+#         labels,
+#         rounding_order=6,
+#         metric_names=None,
+#         **kwargs):
+#     """Единая функция-фасад для расчёта detection-метрик."""
+#     if metric_names is None:
+#         metric_names = ('f1_macro', 'balanced_accuracy')
 
-DETECTION_METRICS_TO_MAXIMIZE = tuple(
-    name for name, metric in DETECTION_METRICS.items()
-    if not metric.need_to_minimize
-)
+#     unsupported_metrics = set(metric_names) - set(DETECTION_METRICS)
+#     if unsupported_metrics:
+#         raise ValueError(f'Unsupported detection metrics: {sorted(unsupported_metrics)}')
+
+#     return {
+#         name: round(float(DETECTION_METRICS[name].metric(target, labels)), rounding_order)
+#         for name in metric_names
+#     }
+
+
+# DETECTION_METRICS_TO_MINIMIZE = tuple(
+#     name for name, metric in DETECTION_METRICS.items()
+#     if metric.need_to_minimize
+# )
+
+# DETECTION_METRICS_TO_MAXIMIZE = tuple(
+#     name for name, metric in DETECTION_METRICS.items()
+#     if not metric.need_to_minimize
+# )
 
 
 class AnomalyMetric(QualityMetric):
@@ -778,6 +778,6 @@ def calculate_detection_metric(target,
         rounding_order=rounding_order,
         **kwargs,
     )
-    if kwargs.get('return_dataframe', False):
-        return result
-    return _result_to_dataframe(result, rounding_order)
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result

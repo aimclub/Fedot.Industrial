@@ -17,7 +17,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from fedot_ind.core.metrics._exceptions import MetricNotFoundError, MetricValidationError
+from fedot_ind.core.metrics._exceptions import MetricNotFoundError, MetricValidationError, MetricError
 from fedot_ind.core.metrics.anomaly_detection.function import (
     single_average_delay,
     single_detecting_boundaries,
@@ -28,13 +28,17 @@ MetricFn = Callable[..., float | list | dict]
 
 # ---------------------------------------------------------------------------
 # Registry — register new metrics here
+# Dont forget to add it in METRICS_TO_MINIMIZE or METRICS_TO_MAXIMIZE !!!
 # ---------------------------------------------------------------------------
 METRIC_REGISTRY: dict[str, dict[str, MetricFn]] = {
     'shared_cls_det': {},
-    'detection': {},
+    'anomaly_detection': {},
     'shared_reg_forecast': {},
     'forecasting': {},
 }
+
+METRICS_TO_MINIMIZE = []
+METRICS_TO_MAXIMIZE = []
 
 def get_metric(task: str, name: str) -> MetricFn:
     """Return metric function for *task*; fall back to ``shared``."""
@@ -690,6 +694,46 @@ def owa(y_true: np.ndarray, y_pred: np.ndarray,
 # Populate registry
 # ---------------------------------------------------------------------------
 
+def validate_metric_registry(metric_registry):
+    """
+    Проверяет, что все метрики, зарегистрированные в metric_registry,
+    присутствуют либо в METRICS_TO_MINIMIZE, либо в METRICS_TO_MAXIMIZE.
+
+    Args:
+        metric_registry: Словарь, где ключи — названия категорий (например, 'shared_cls_det'),
+                         значения — словари вида {имя_метрики: функция}.
+
+    Raises:
+        ValueError: Если найдены метрики, не попавшие ни в один из кортежей,
+                    или если метрика попала одновременно в оба кортежа.
+    """
+    # Собираем все имена метрик из всех категорий реестра
+    all_registered = set()
+    for category_dict in metric_registry.values():
+        all_registered.update(category_dict.keys())
+
+    covered = set(METRICS_TO_MINIMIZE) | set(METRICS_TO_MAXIMIZE)
+    missing_in_minmax = all_registered - covered
+    if missing_in_minmax:
+        raise MetricError(
+            f"Следующие метрики зарегистрированы в реестре, но отсутствуют в кортежах "
+            f"METRICS_TO_MINIMIZE или METRICS_TO_MAXIMIZE: {missing_in_minmax}"
+        )
+
+    missing_in_reg = covered - all_registered
+    if missing_in_reg:
+        raise MetricError(
+            f"Следующие метрики присутствуют в кортеже METRICS_TO_MINIMIZE или "
+            f"METRICS_TO_MAXIMIZE, но отсутствуют в реестре : {missing_in_reg}"
+        )
+
+    duplicate = set(METRICS_TO_MINIMIZE) & set(METRICS_TO_MAXIMIZE)
+    if duplicate:
+        raise MetricError(
+            f"Следующие метрики одновременно присутствуют в METRICS_TO_MINIMIZE "
+            f"и METRICS_TO_MAXIMIZE: {duplicate}"
+        )
+   
 def _register_all() -> None:
     METRIC_REGISTRY['shared_cls_det'].update({
         'accuracy': accuracy,
@@ -701,7 +745,7 @@ def _register_all() -> None:
         'logloss': metric_logloss,
         'roc_auc': metric_roc_auc,
     })
-    METRIC_REGISTRY['detection'].update({
+    METRIC_REGISTRY['anomaly_detection'].update({
     # Распаковка всех метрик классификации
         **METRIC_REGISTRY['shared_cls_det'],
     # Бинарные метрики для случая с классами 0 и 1, где 1 - положительный класс. 
@@ -748,5 +792,57 @@ def _register_all() -> None:
         'pw_mase': mase_error,
         'pw_owa': owa_error,
     })
+
+    # Константы для минимизации (чем меньше, тем лучше)
+    global METRICS_TO_MINIMIZE
+    METRICS_TO_MINIMIZE = (
+        *METRICS_TO_MINIMIZE, 
+        'logloss',                # логистическая потеря
+        'bin_far',                # доля ложных срабатываний (False Acceptance Rate)
+        'bin_mar',                # доля пропущенных тревог (Missed Alarm Rate)
+        'average_time',           # среднее время обработки
+        'mse',                    # среднеквадратичная ошибка
+        'rmse',                   # корень из среднеквадратичной ошибки
+        'mae',                    # средняя абсолютная ошибка
+        'msle',                   # среднеквадратичная логарифмическая ошибка
+        'mape',                   # средняя абсолютная процентная ошибка
+        'median_absolute_error',  # медианная абсолютная ошибка
+        'max_error',              # максимальная ошибка
+        'smape',                  # симметричная MAPE
+        'mase',                   # масштабированная абсолютная ошибка
+        'owa',                    # общий взвешенный средний (Overall Weighted Average)
+        'pw_mae',                 # поточечная MAE
+        'pw_rmse',                # поточечная RMSE
+        'pw_smape',               # поточечная SMAPE
+        'pw_mase',                # поточечная MASE
+        'pw_owa',                 # поточечная OWA
+    )
+
+    # Константы для максимизации (чем больше, тем лучше)
+    global METRICS_TO_MAXIMIZE
+    METRICS_TO_MAXIMIZE = (
+        *METRICS_TO_MAXIMIZE,
+        'accuracy',
+        'balanced_accuracy',
+        'f1',
+        'precision',
+        'recall',
+        'roc_auc',
+        'per_class_scores',        # сложная метрика (словарь), включается для полноты
+        'bin_precision',
+        'bin_recall',
+        'bin_f1',
+        'bin_confusion_matrix',    # матрица ошибок, не скаляр
+        'bin_metrics',             # агрегированный словарь метрик
+        'nab',                     # Numenta Anomaly Benchmark score (основной)
+        'nab_standard',            # NAB со стандартным профилем
+        'nab_low_fp',              # NAB с низкой частотой ложных срабатываний
+        'nab_low_fn',              # NAB с низкой частотой пропусков
+        'r2',                      # коэффициент детерминации R²
+        'explained_variance_score',
+        'd2_absolute_error_score', # аналог R² для абсолютной ошибки
+    )
+
+    validate_metric_registry(METRIC_REGISTRY)
 
 _register_all()

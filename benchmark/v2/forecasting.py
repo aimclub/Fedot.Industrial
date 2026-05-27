@@ -89,12 +89,18 @@ from benchmark.v2.verbosity import (
 from benchmark.v2.progress import BenchmarkProgressMonitor
 from benchmark.v2.incremental_persistence import ForecastingIncrementalPersistenceCoordinator
 
-SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
+# SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
 # DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'm4_daily'
 DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
+
+from fedot_ind.core.repository.constanst_repository import FEDOT_GET_METRICS
+from fedot_ind.core.metrics.metric_library import METRIC_REGISTRY
+
+SUPPORTED_FORECASTING_METRICS = tuple(METRIC_REGISTRY['forecasting'])
+# DETECTION_METRICS_TO_MINIMIZE = tuple(set(METRICS_TO_MINIMIZE) & set(SUPPORTED_ANOMALY_DETECTION_METRICS))
 
 class BenchmarkConfigurationError(ValueError):
     """Raised when a forecasting benchmark configuration is invalid."""
@@ -1659,21 +1665,29 @@ def compute_forecasting_metric(
         seasonal_period: int,
 ) -> float:
     """Compute an aggregate forecasting metric for one horizon vector."""
-    from fedot_ind.core.metrics.metrics import calculate_forecasting_metric
+    # from fedot_ind.core.metrics.metrics import calculate_forecasting_metric
 
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     train = np.asarray(y_train, dtype=float).reshape(-1)
     if len(actual) != len(predicted):
         raise BenchmarkConfigurationError('Metric inputs must have the same length.')
-    result = calculate_forecasting_metric(
-        actual,
-        predicted,
-        # metrics=(metric_name,),
-        metrics=metric_name,
-        train_data=train,
-        seasonality=seasonal_period,
-    )
+    # result = calculate_forecasting_metric(
+    #     actual,
+    #     predicted,
+    #     metrics=(metric_name,),
+    #     # metrics=metric_name,
+    #     train_data=train,
+    #     seasonality=seasonal_period,
+    # )
+    
+    result = FEDOT_GET_METRICS['forecasting'](target=actual,
+                                              predicted_labels=predicted,
+                                              metric_names=tuple(metric_name),
+                                              return_dataframe = False,
+                                              train_data=train,
+                                              seasonality=seasonal_period,)
+
     value = result[metric_name]
     if isinstance(value, np.ndarray):
         raise BenchmarkConfigurationError(
@@ -1690,20 +1704,27 @@ def compute_pointwise_metric(
         seasonal_period: int,
 ) -> np.ndarray:
     """Compute horizon-wise metric values for publication artifacts."""
-    from fedot_ind.core.metrics.metrics import calculate_forecasting_metric
+    # from fedot_ind.core.metrics.metrics import calculate_forecasting_metric
 
     actual = np.asarray(y_true, dtype=float).reshape(-1)
     predicted = np.asarray(y_pred, dtype=float).reshape(-1)
     train = np.asarray(y_train, dtype=float).reshape(-1)
     metric_name = f"pw_{metric_name}"
-    result = calculate_forecasting_metric(
-        actual,
-        predicted,
-        # metrics=[{'name': metric_name, 'params': {'pointwise': True}}],
-        metrics=metric_name,
-        train_data=train,
-        seasonality=seasonal_period,
-    )
+    # result = calculate_forecasting_metric(
+    #     actual,
+    #     predicted,
+    #     # metrics=[{'name': metric_name, 'params': {'pointwise': True}}],
+    #     metrics=metric_name,
+    #     train_data=train,
+    #     seasonality=seasonal_period,
+    # )
+    result = FEDOT_GET_METRICS['forecasting'](target=actual,
+                                              predicted_labels=predicted,
+                                              metric_names=tuple(metric_name),
+                                              return_dataframe = False,
+                                              train_data=train,
+                                              seasonality=seasonal_period,)
+    
     values = result[metric_name]
     if not isinstance(values, np.ndarray):
         raise BenchmarkConfigurationError(

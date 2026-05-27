@@ -16,10 +16,17 @@ from fedot_ind.core.models.detection.runtime import (
     DetectionSplitSpec,
     ensure_detection_array,
 )
-from fedot_ind.core.metrics.metrics_implementation import (
-    DETECTION_METRICS_TO_MINIMIZE,
-    calculate_detection_metric,
-)
+# from fedot_ind.core.metrics.metrics_implementation import (
+#     DETECTION_METRICS_TO_MINIMIZE,
+#     calculate_detection_metric,
+# )
+
+from fedot_ind.core.repository.constanst_repository import FEDOT_GET_METRICS
+from fedot_ind.core.metrics.metric_library import METRIC_REGISTRY, METRICS_TO_MINIMIZE
+
+SUPPORTED_ANOMALY_DETECTION_METRICS = tuple(METRIC_REGISTRY['anomaly_detection'])
+DETECTION_METRICS_TO_MINIMIZE = tuple(set(METRICS_TO_MINIMIZE) & set(SUPPORTED_ANOMALY_DETECTION_METRICS))
+
 from fedot_ind.core.models.detection.stage_tuning import build_detection_stage_tuning_plan
 from fedot_ind.core.operation.interfaces.detection_runtime_strategy import DETECTION_RUNTIME_MODELS
 from fedot_ind.core.repository.detection_registry import canonical_detection_model_name, detection_family_for
@@ -173,11 +180,17 @@ def _evaluate_parameters(
     score_series = detector.score_series_on_values(calibration_values)
     predicted = np.asarray(score_series.labels, dtype=int).reshape(-1)
     # metric_value = _compute_detection_metric(metric_name, calibration_labels, predicted)
-    metric_values = calculate_detection_metric(
-        target=calibration_labels,
-        labels=predicted,
-        metric_names=(metric_name,),
-    )
+    
+    # metric_values = calculate_detection_metric(
+    #     target=calibration_labels,
+    #     labels=predicted,
+    #     metric_names=(metric_name,),
+    # )
+
+    metric_values = FEDOT_GET_METRICS['anomaly_detection'](target=calibration_labels,
+                                                           predicted_labels=predicted,
+                                                           metric_names=tuple(metric_name),
+                                                           return_dataframe = False)
     metric_value = float(metric_values[metric_name])
     return DetectionSeriesEvaluation(
         model_name=model_name,
