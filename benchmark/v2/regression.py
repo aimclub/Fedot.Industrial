@@ -154,17 +154,15 @@ def build_regression_dataset_adapter(spec: DatasetSpec):
 
 
 def compute_regression_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    actual = _normalize_vector(y_true)
-    predicted = _normalize_vector(y_pred)
-    if metric_name == 'mae':
-        return float(np.mean(np.abs(actual - predicted)))
-    if metric_name == 'rmse':
-        return float(np.sqrt(np.mean((actual - predicted) ** 2)))
-    if metric_name == 'r2':
-        total = float(np.sum((actual - np.mean(actual)) ** 2))
-        residual = float(np.sum((actual - predicted) ** 2))
-        return float(1.0 - residual / total) if total > 1e-12 else 0.0
-    raise BenchmarkRegressionError(f'Unsupported regression metric: {metric_name}')
+    from fedot_ind.core.metrics.metrics import calculate_regression_metric
+
+    result = calculate_regression_metric(
+        _normalize_vector(y_true),
+        _normalize_vector(y_pred),
+        # metrics=(metric_name,),
+        metrics=metric_name,
+    )
+    return float(result[metric_name])
 
 
 @dataclass

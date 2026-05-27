@@ -154,31 +154,20 @@ def build_classification_dataset_adapter(spec: DatasetSpec):
 
 
 def compute_classification_metric(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    actual = _normalize_labels(y_true)
-    predicted = _normalize_labels(y_pred)
-    labels = sorted(set(actual) | set(predicted))
+    from fedot_ind.core.metrics.metrics import calculate_classification_metric
 
-    if metric_name == 'accuracy':
-        return float(np.mean(actual == predicted))
-
-    recalls = []
-    f1_scores = []
-    for label in labels:
-        true_positive = int(np.sum((actual == label) & (predicted == label)))
-        false_positive = int(np.sum((actual != label) & (predicted == label)))
-        false_negative = int(np.sum((actual == label) & (predicted != label)))
-        label_support = int(np.sum(actual == label))
-        recall = true_positive / label_support if label_support else 0.0
-        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-        recalls.append(recall)
-        f1_scores.append(f1)
-
-    if metric_name == 'balanced_accuracy':
-        return float(np.mean(recalls)) if recalls else 0.0
-    if metric_name == 'f1_macro':
-        return float(np.mean(f1_scores)) if f1_scores else 0.0
-    raise BenchmarkClassificationError(f'Unsupported classification metric: {metric_name}')
+    result = calculate_classification_metric(
+        _normalize_labels(y_true),
+        _normalize_labels(y_pred),
+        # metrics=(metric_name,),
+        metrics=metric_name,
+    )
+    value = result[metric_name]
+    if isinstance(value, dict):
+        raise BenchmarkClassificationError(
+            f'Classification metric "{metric_name}" returned a structured value.',
+        )
+    return float(value)
 
 
 @dataclass

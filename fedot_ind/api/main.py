@@ -221,11 +221,11 @@ class FedotIndustrial(Fedot):
         valid_shape = target.shape
         if isinstance(predicted_labels, dict):
             metric_dict = {model_name: FEDOT_GET_METRICS[problem](target=target,
+                                                                  predicted_labels=model_result,
+                                                                  predicted_probs=predicted_probs,
                                                                   metric_names=metric_names,
                                                                   rounding_order=rounding_order,
-                                                                  labels=model_result,
-                                                                  probs=predicted_probs) for model_name, model_result
-                           in predicted_labels.items()}
+                                                                  ) for model_name, model_result in predicted_labels.items()}
             return metric_dict
         else:
             if self.manager.condition_check.solver_have_target_encoder(self.target_encoder):
@@ -236,10 +236,10 @@ class FedotIndustrial(Fedot):
                 labels = predicted_labels.reshape(valid_shape)
 
             return FEDOT_GET_METRICS[problem](target=new_target,
+                                              predicted_labels=labels,
+                                              predicted_probs=predicted_probs,
                                               metric_names=metric_names,
                                               rounding_order=rounding_order,
-                                              labels=labels,
-                                              probs=predicted_probs,
                                               train_data=train_data,
                                               seasonality=seasonality)
 
