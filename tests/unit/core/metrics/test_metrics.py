@@ -74,7 +74,7 @@ Y_PRED_ANOM[13] = 1
 
 
 def assert_new_equals_legacy(new_dict: dict, legacy_df: pd.DataFrame, keys: str) -> float:
-    """Новый API и legacy должны совпасть по ключу метрики."""
+    """Новый API и legacy должны совпасть по ключу метрики и по значению."""
     res = []
     for key in keys:
         assert key in new_dict
@@ -101,11 +101,6 @@ def run_classification(metric, y_true=Y_TRUE_BIN, y_pred=Y_PRED_BIN, **kwargs):
         target=y_true, predicted_labels=y_pred,
         metric_names=spec, rounding_order=ROUND, **kwargs,
     )
-    # if len(spec) == 1:
-    #     name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
-    # else:
-    #     name = list(spec)
-    # name = spec[0] if isinstance(spec[0], str) else spec[0]['name']
     name = []
     for s in spec:
         if isinstance(s, str):
@@ -114,7 +109,6 @@ def run_classification(metric, y_true=Y_TRUE_BIN, y_pred=Y_PRED_BIN, **kwargs):
             name.append(s['name'])
         else:
             raise Exception(f'wrong spec element type: {type(s)}')
-
     return new, legacy, name
 
 
@@ -126,15 +120,19 @@ def run_regression(metric, y_true=Y_TRUE_REG, y_pred=Y_PRED_REG):
         target=y_true, predicted_labels=y_pred,
         metric_names=spec, rounding_order=ROUND,
     )
-    if len(spec) == 1:
-        name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
-    else:
-        name = list(spec)
+    name = []
+    for s in spec:
+        if isinstance(s, str):
+            name.append(s)
+        elif isinstance(s, dict):
+            name.append(s['name'])
+        else:
+            raise Exception(f'wrong spec element type: {type(s)}')
     return new, legacy, name
 
 
 def run_forecasting(metric, y_true=Y_TRUE_FC, y_pred=Y_PRED_FC):
-    spec = (metric,) if isinstance(metric, str) else (metric,)
+    spec = metric if isinstance(metric, (list, tuple)) else (metric,)
     new = calculate_forecasting_metric(
         y_true, y_pred, metrics=spec, rounding_order=ROUND,
         train_data=TRAIN_SERIES, seasonality=SEASONALITY,
@@ -143,23 +141,31 @@ def run_forecasting(metric, y_true=Y_TRUE_FC, y_pred=Y_PRED_FC):
         target=y_true, predicted_labels=y_pred, metric_names=spec,
         rounding_order=ROUND, train_data=TRAIN_SERIES, seasonality=SEASONALITY,
     )
-    if len(metric) == 1:
-        name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
-    else:
-        name = list(spec)
+    name = []
+    for s in spec:
+        if isinstance(s, str):
+            name.append(s)
+        elif isinstance(s, dict):
+            name.append(s['name'])
+        else:
+            raise Exception(f'wrong spec element type: {type(s)}')
     return new, legacy, name
 
 
 def run_detection(metric, y_true=Y_TRUE_ANOM, y_pred=Y_PRED_ANOM):
-    spec = (metric,) if isinstance(metric, str) else (metric,)
+    spec = metric if isinstance(metric, (list, tuple)) else (metric,)
     new = calculate_detection_metric(y_true, y_pred, metrics=spec, rounding_order=ROUND)
     legacy = legacy_detection(
         target=y_true, predicted_labels=y_pred, metric_names=spec, rounding_order=ROUND,
     )
-    if len(metric) == 1:
-        name = list(spec[0] if isinstance(spec[0], str) else spec[0]['name'])
-    else:
-        name = list(spec)
+    name = []
+    for s in spec:
+        if isinstance(s, str):
+            name.append(s)
+        elif isinstance(s, dict):
+            name.append(s['name'])
+        else:
+            raise Exception(f'wrong spec element type: {type(s)}')
     return new, legacy, name
 
 
@@ -188,11 +194,43 @@ class TestClassificationMetrics:
             sklearn_f1(Y_TRUE_BIN, Y_PRED_BIN, average='binary', pos_label=1), rel=1e-4,
         )
 
+# везде добавить sklearn
+    # F1 binary при количестсе классов больше 2
+        # ValueError("binary average для F1 возможна только при 2 классах")
+    
+    # F1 подача на вход последовательности 1 или 0
+        # Должно обработать, что там не один класс (хз, как, мб стоит лезть в реализацию метрики)
+
+# TODO - В prec/recall/f1 есть  raise ValueError(f"Неизвестный тип усреднения: {average}")
+
+# TODO
+    def test_f1_micro(self):
+        pass
+
+# TODO
+    def test_f1_macro(self):
+        pass
+    
+# TODO
+    def test_f1_weighted(self):
+        pass
+    
+# TODO
+    def test_f1_auto_auto(self):
+        # если всё будет auto (average = default [auto] | pos_label = default [auto])
+        pass
+
+# добавить из sklearn
     def test_precision_macro_multiclass(self):
         spec = {'name': 'precision', 'params': {'average': 'macro'}}
         new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
         assert_new_equals_legacy(new, leg, name)
 
+# добавить из sklearn
+    def test_precision_weighted(self):
+        pass
+
+# добавить из sklearn
     def test_recall_macro_multiclass(self):
         spec = {'name': 'recall', 'params': {'average': 'macro'}}
         new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
@@ -205,7 +243,24 @@ class TestClassificationMetrics:
         val = assert_new_equals_legacy(new, leg, name)
         assert val[0] == pytest.approx(sklearn_log_loss(Y_TRUE_PROB, PROBS_2D), rel=1e-4)
 
-    def test_roc_auc_with_probs(self):
+# TODO
+    def test_logloss_without_predicted_and_probs(self):
+        # MetricValidationError('logloss requires predicted_probs. Or at least predicted (one-hot and get similar at probs)') 
+        pass
+
+# TODO
+    def test_log_loss_without_probs(self):
+        pass # Должно сделать one-hot от predicted и использовать, как probs
+
+# TODO
+    def test_roc_auc_with_probs_multiclass(self):
+        pass # Должно пойти по ветке, типа больше, чем 2 класса
+
+# TODO
+    def test_roc_auc_without_probs_multiclass(self):
+        pass # Должно пойти по ветке, типа больше, чем 2 класса и сделать one-hot из predicted_labels
+
+    def test_roc_auc_with_probs_bin(self):
         new, leg, name = run_classification(
             'roc_auc', y_true=Y_TRUE_PROB, y_pred=Y_PRED_PROB, predicted_probs=PROBS_2D,
         )
@@ -214,6 +269,7 @@ class TestClassificationMetrics:
             sklearn_roc_auc(Y_TRUE_PROB, PROBS_2D[:, 1]), rel=1e-4,
         )
 
+# TODO - доработать, чтобы он сравнил поточечно типа
     def test_per_class_scores(self):
         new, leg, name = run_classification('per_class_scores', y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
         block = new[name]
@@ -221,17 +277,14 @@ class TestClassificationMetrics:
         assert leg['per_class_scores_f1'].iloc[0] == block['f1']
         assert 'recall' in block and 'precision' in block
 
-    def test_multi_metrics(self):
-        new, leg, name = run_classification(('accuracy',
-                                             {'name': 'f1', 
-                                              'params': {
-                                                  'average': 'binary', 
-                                                  'pos_label': 1}}))
-        val = assert_new_equals_legacy(new, leg, name)
-        assert val[0] == pytest.approx(accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
-        assert val[1] == pytest.approx(
-            sklearn_f1(Y_TRUE_BIN, Y_PRED_BIN, average='binary', pos_label=1), rel=1e-4,
-        )
+# TODO
+    def test_binary_metrics(self):
+        pass # Тут надо проверить far/mar - Хотя мб проверять что-то, кроме 
+
+# TODO
+    def test_binary_conf_matrix_for_multiclass(self):
+        pass # raise ValueError("Матрица должна быть 2x2 для бинарного случая.")
+
 # =============================================================================
 # Регрессия
 # =============================================================================
@@ -262,6 +315,34 @@ class TestRegressionMetrics:
         val = assert_new_equals_legacy(new, leg, name)
         assert val[0] == pytest.approx(sklearn_mse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
         assert val[1] == pytest.approx(sklearn_mae(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
+
+# TODO из sklearn добавить
+    def test_msle(self):
+        pass
+
+# TODO из sklearn добавить
+    def test_mape(self):
+        pass
+
+# TODO из sklearn добавить
+    def test_median_abs_er(self):
+        pass
+
+# TODO из sklearn добавить
+    def test_explained_variance_score(self):
+        pass
+
+# TODO из sklearn добавить
+    def test_max_error(self):
+        pass
+
+# TODO из sklearn добавить      FOR ABSOLUTE ERROR
+    def test_d2_absolute_error_score(self):
+        pass
+
+# TODO Проверка на форму данных и разный размер
+    def test_shape_size(self):
+        pass
 
 # =============================================================================
 # Прогнозирование
@@ -313,10 +394,12 @@ class TestDetectionMetrics:
         assert leg['bin_confusion_matrix_TP'].iloc[0] == cm['TP']
         assert set(cm) == {'TP', 'TN', 'FP', 'FN'}
 
+# ПРОВЕРЯТЬ
     def test_nab_standard(self):
         new, leg, name = run_detection('nab_standard')
         assert_new_equals_legacy(new, leg, name)
 
+# ПРОВЕРЯТЬ
     def test_average_time(self):
         new, leg, name = run_detection('average_time')
         assert_new_equals_legacy(new, leg, name)
@@ -327,6 +410,8 @@ class TestDetectionMetrics:
 # =============================================================================
 
 class TestMetricSpecifications:
+
+# Добавить из sklearn
     def test_metric_as_dict_with_params(self):
         """Метрика задаётся словарём ``{'name': ..., 'params': ...}``."""
         spec = {'name': 'f1', 'params': {'average': 'binary', 'pos_label': 1}}
@@ -337,6 +422,7 @@ class TestMetricSpecifications:
         )
         assert_new_equals_legacy(new, legacy, 'f1')
 
+# Лучше бы переделать на мультикласс
     def test_two_metrics_same_name_different_params(self):
         """Два ``f1`` с разными params → ключи ``f1`` и ``f1__1`` (бинарный случай)."""
         specs = [
@@ -364,12 +450,30 @@ class TestMetricSpecifications:
         new = calculate_detection_metric(Y_TRUE_ANOM, Y_PRED_ANOM, metrics=specs, rounding_order=ROUND)
         assert 'nab' in new and 'nab__1' in new
 
+    def test_multi_metrics(self):
+        new, leg, name = run_classification(('accuracy',
+                                             {'name': 'f1', 
+                                              'params': {
+                                                  'average': 'binary', 
+                                                  'pos_label': 1}}))
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(accuracy_score(Y_TRUE_BIN, Y_PRED_BIN), rel=1e-4)
+        assert val[1] == pytest.approx(
+            sklearn_f1(Y_TRUE_BIN, Y_PRED_BIN, average='binary', pos_label=1), rel=1e-4,
+        )
 
 # =============================================================================
 # Ошибки и граничные случаи
 # =============================================================================
 
 class TestMetricsValidation:
+    
+# TODO - классификация _probs()    raise MetricValidationError('predicted_probs must be 1D or 2D with shape (n_samples, n_classes).')
+
+# TODO - классификация _probs()    а если probs будет другой длины, нежели target и predicted_labels
+
+# TODO - ещё можно сделать тест на _labels типа, там делается аргмакс (только классификация и аномалии)
+
     def test_regression_length_mismatch(self):
         with pytest.raises(MetricValidationError, match='same length'):
             calculate_regression_metric([1.0, 2.0], [1.0])
@@ -390,10 +494,11 @@ class TestMetricsValidation:
         with pytest.raises(MetricValidationError, match='Invalid metric spec'):
             calculate_regression_metric([1.0], [1.0], metrics=[123])  # type: ignore[list-item]
 
+# TODO - ещё тогда уж можно проверить _parse_spec(), как ниже, но для другого   raise MetricValidationError('Metric spec "params" must be a mapping.')
+
     def test_dict_spec_without_name(self):
         with pytest.raises(MetricValidationError, match='must include "name"'):
             calculate_regression_metric([1.0], [1.0], metrics=[{'params': {}}])
-
 
 class TestInputTypes:
     """Разные типы входных данных (list / numpy)."""
@@ -407,3 +512,7 @@ class TestInputTypes:
     def test_classification_with_numpy(self):
         new, leg, name = run_classification('accuracy')
         assert_new_equals_legacy(new, leg, name)
+
+
+
+# TODO - Надо сделать тест на проверку округления, нормально ли оно работает, а то мало ли забыл где-то округлять, а где-то норм

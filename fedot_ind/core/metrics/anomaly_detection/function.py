@@ -396,3 +396,89 @@ def single_evaluate_nab(detecting_boundaries,
 
     return np.array([np.array(Scores), np.array(
         Scores_null), np.array(Scores_perfect)])
+
+
+
+
+
+
+
+# LEGACY FROM NAB/AVERAGE_TIME BLOCK FROM METRIC_LIB.PY
+
+# from fedot_ind.core.metrics.anomaly_detection.function import (
+#     single_average_delay,
+#     single_detecting_boundaries,
+#     single_evaluate_nab,
+# )
+
+
+# def _labels_to_series(values: np.ndarray) -> pd.Series:
+#     array = np.asarray(values, dtype=int).reshape(-1)
+#     return pd.Series(array, index=pd.RangeIndex(len(array)))
+
+
+# def _detecting_boundaries_from_binary(
+#         target: np.ndarray,
+#         predicted: np.ndarray,
+#         **params: Any,
+# ) -> list[list]:
+#     target_series = _labels_to_series(target)
+#     boundaries = single_detecting_boundaries(
+#         target_series=target_series,
+#         target_list_ts=None,
+#         predicted_labels=_labels_to_series(predicted),
+#         share=float(params.get('share', 0.1)),
+#         window_width=params.get('window_width', 1),
+#         anomaly_window_destination=str(params.get('anomaly_window_destination', 'lefter')),
+#         intersection_mode=str(params.get('intersection_mode', 'cut right window')),
+#     )
+#     return boundaries
+
+
+# def metric_nab(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float | dict[str, float]:
+#     boundaries = _detecting_boundaries_from_binary(target, predicted, **params)
+#     matrix = single_evaluate_nab(
+#         boundaries,
+#         _labels_to_series(predicted),
+#         table_of_val=params.get('table_of_val'),
+#         clear_anomalies_mode=bool(params.get('clear_anomalies_mode', True)),
+#         scale_val=float(params.get('scale_val', 1.0)),
+#     )
+#     profile = str(params.get('profile', 'all'))
+#     names = ['Standard', 'LowFP', 'LowFN']
+#     results = {}
+#     for t, profile_name in enumerate(names):
+#         val = round(100 * (matrix[0, t] - matrix[1, t]) / (matrix[2, t] - matrix[1, t]), 2)
+#         results[profile_name] = val
+#     if profile != 'all':
+#         return results[profile]
+#     return results
+
+
+# def metric_average_time(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float | dict[str, Any]:
+#     boundaries = _detecting_boundaries_from_binary(target, predicted, **params)
+#     missing, detect_history, fp, all_target = single_average_delay(
+#         boundaries,
+#         _labels_to_series(predicted),
+#         anomaly_window_destination=str(params.get('anomaly_window_destination', 'lefter')),
+#         clear_anomalies_mode=bool(params.get('clear_anomalies_mode', True)),
+#     )
+#     # mean_delay = float(np.mean(detect_history)) if detect_history else 0.0
+#     if detect_history:
+#         delays = [
+#             float(item.total_seconds()) if hasattr(item, 'total_seconds') else float(item)
+#             for item in detect_history
+#         ]
+#         mean_delay = float(np.mean(delays))
+#     else:
+#         mean_delay = 0.0
+#     if params.get('return_breakdown'):
+#         return {
+#             'false_positive': int(fp),
+#             'missed_anomaly': int(missing),
+#             'all_detection_hist': mean_delay,
+#             'all_anomaly_history': int(all_target),
+#         }
+#     return mean_delay
+
+
