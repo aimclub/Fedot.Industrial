@@ -256,7 +256,7 @@ def calculate_classification_metric(
                                 predicted_labels, 
                                 predicted_probs,
                                 rounding_order=rounding_order,
-                                default_value=float(kwargs.get('default_value', 0.0))
+                                default_value=float(kwargs.get('default_value', -42))
                                 ).metric_evaluation(specs)
 
 

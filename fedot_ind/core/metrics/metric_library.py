@@ -8,7 +8,7 @@ It also can return ``np.ndarray`` ONLY for point-wise metrics for forcasting. Th
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Optional, Tuple, Dict, Union
+from typing import Any, Optional, Tuple, Dict, Union, List, Optional
 
 import numpy as np
 import pandas as pd # НУЖЕН ТОЛЬКО ДЛЯ LEGACY NAB metric
@@ -18,11 +18,7 @@ from sklearn.metrics import (
 )
 
 from fedot_ind.core.metrics._exceptions import MetricNotFoundError, MetricValidationError
-from fedot_ind.core.metrics.anomaly_detection.function import (
-    single_average_delay,
-    single_detecting_boundaries,
-    single_evaluate_nab,
-)
+
 
 MetricFn = Callable[..., float | list | dict]
 
@@ -37,7 +33,7 @@ METRIC_REGISTRY: dict[str, dict[str, MetricFn]] = {
 }
 
 def get_metric(task: str, name: str) -> MetricFn:
-    """Return metric function for *task*; fall back to ``shared``."""
+    """Return metric function for *task*."""
     # Подмена задач, ради обобщения метрик для разных задач
     if task == 'classification':
         taskk = 'shared_cls_det' 
@@ -353,6 +349,7 @@ def recall(
 def f1_score(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
     average: str = 'auto',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -428,86 +425,538 @@ def metric_roc_auc(target: np.ndarray, predicted: np.ndarray, *, predicted_probs
 # Detection — NAB / average_time (legacy pandas helpers, binary labels only)
 # ---------------------------------------------------------------------------
 
-def _labels_to_series(values: np.ndarray) -> pd.Series:
-    array = np.asarray(values, dtype=int).reshape(-1)
-    return pd.Series(array, index=pd.RangeIndex(len(array)))
+# Вспомогательные (приватные) функции
 
+def _filter_detecting_boundaries(
+    boundaries: List[List[int]]
+) -> List[List[int]]:
+    """
+    Удаляет пустые окна ([]) из списка границ.
 
-def _detecting_boundaries_from_binary(
-        target: np.ndarray,
-        predicted: np.ndarray,
-        **params: Any,
-) -> list[list]:
-    target_series = _labels_to_series(target)
-    boundaries = single_detecting_boundaries(
-        target_series=target_series,
-        target_list_ts=None,
-        predicted_labels=_labels_to_series(predicted),
-        share=float(params.get('share', 0.1)),
-        window_width=params.get('window_width', 1),
-        anomaly_window_destination=str(params.get('anomaly_window_destination', 'lefter')),
-        intersection_mode=str(params.get('intersection_mode', 'cut right window')),
+    Parameters
+    ----------
+    boundaries : list of lists
+        Список, где каждый элемент либо пустой [], либо пара [left, right].
+
+    Returns
+    -------
+    list of lists
+        Только непустые окна.
+    """
+    return [b for b in boundaries if len(b) == 2]
+
+def _compute_detecting_boundaries(
+    true_array: np.ndarray,
+    prediction_len: int,
+    window_width: Optional[int] = None,
+    portion: float = 0.1,
+    anomaly_window_destination: str = "lefter",
+    intersection_mode: str = "cut right window",
+) -> List[List[int]]:
+    """
+    Строит окна обнаружения вокруг истинных аномалий.
+
+    Parameters
+    ----------
+    true_array : np.ndarray (1D, бинарный)
+        Маска истинных событий (1 = аномалия).
+    prediction_len : int
+        Длина массива предсказаний (для расчёта ширины окна по умолчанию).
+    window_width : int, optional
+        Ширина окна в числе отсчётов (индексов). Если None, вычисляется как
+        int(prediction_len / (кол-во аномалий + 1) * portion).
+    portion : float
+        Используется, если window_width не задан.
+    anomaly_window_destination : {'lefter', 'righter', 'center'}
+        Положение окна относительно истинной аномалии:
+        'lefter' : окно слева от аномалии [val - width, val]
+        'righter': окно справа от аномалии [val, val + width]
+        'center' : окно симметрично вокруг аномалии.
+    intersection_mode : {'cut left window', 'cut right window', 'cut both'}
+        Способ разрешения пересекающихся окон (см. документацию оригинального NAB).
+
+    Returns
+    -------
+    list of lists
+        Список окон; каждое окно – [left_index, right_index]. Может быть пустой список,
+        если аномалий нет.
+    """
+    # Индексы истинных аномалий
+    true_indices = np.flatnonzero(true_array)
+    if len(true_indices) == 0:
+        return [[]]
+
+    # Расчёт ширины окна, если не задана явно
+    if window_width is None:
+        width = int(prediction_len / (len(true_indices) + 1) * portion)
+    else:
+        width = window_width
+
+    # Построение начальных границ
+    boundaries = []
+    for val in true_indices:
+        if anomaly_window_destination == "lefter":
+            left = val - width 
+            right = val
+        elif anomaly_window_destination == "righter":
+            left = val
+            right = val + width
+        elif anomaly_window_destination == "center":
+            half = width // 2
+            left = val - half
+            right = val + half
+        else:
+            raise ValueError(
+                "anomaly_window_destination должен быть 'lefter', 'righter' или 'center'"
+            )
+        boundaries.append([left, right])
+
+    # Разрешение пересечений окон
+    if len(boundaries) <= 1:
+    # if len(boundaries) == 1:
+        return boundaries
+
+    new_boundaries = boundaries.copy()
+    for i in range(len(new_boundaries) - 1):
+        if new_boundaries[i][1] >= new_boundaries[i + 1][0]:
+            if intersection_mode == "cut left window":
+                new_boundaries[i][1] = new_boundaries[i + 1][0]
+            elif intersection_mode == "cut right window":
+                new_boundaries[i + 1][0] = new_boundaries[i][1]
+            elif intersection_mode == "cut both":
+                a = new_boundaries[i][1]
+                new_boundaries[i][1] = new_boundaries[i + 1][0]
+                new_boundaries[i + 1][0] = a
+            else:
+                raise ValueError(
+                    "intersection_mode должен быть 'cut left window', "
+                    "'cut right window' или 'cut both'"
+                )
+    return new_boundaries
+
+def _extract_cp_confusion_matrix(
+    boundaries: List[List[int]],
+    prediction: np.ndarray,
+    point: int = 0,
+    binary: bool = False,
+) -> Dict:
+    """
+    Извлекает матрицу «окна обнаружения – предсказания».
+
+    Parameters
+    ----------
+    boundaries : list of lists
+        Отфильтрованный список окон [[left, right], ...].
+    prediction : np.ndarray (1D, бинарный)
+        Предсказания модели.
+    point : int
+        Индекс срабатывания внутри окна (0 – первое, -1 – последнее) для не-бинарного режима.
+    binary : bool
+        Если True, в TP сохраняются все предсказания внутри окна.
+
+    Returns
+    -------
+    dict
+        Словарь с ключами:
+        'TPs' : dict {номер_окна: [left, позиция_срабатывания, right]}
+        'FPs' : np.ndarray индексов ложных срабатываний.
+        'FNs' : список номеров окон без предсказаний (или все индексы окна для binary).
+    """
+    # Индексы всех предсказаний
+    times_pred = np.flatnonzero(prediction)
+    # Фильтруем границы – оставляем только реальные окна
+    boundaries = _filter_detecting_boundaries(boundaries)
+
+    TPs = {}
+    FPs = []
+    FNs = []
+
+    if len(boundaries) == 0:
+        # Все предсказания – ложные
+        return {"TPs": TPs, "FPs": times_pred, "FNs": FNs}
+
+    # Обрабатываем промежутки между окнами и внутри них
+    for i, (left, right) in enumerate(boundaries):
+        # Предсказания, попавшие в окно
+        mask = (times_pred >= left) & (times_pred <= right)
+        in_window = times_pred[mask]
+
+        if len(in_window) == 0:
+            if binary:
+                # В binary режиме FN – все индексы внутри окна
+                all_indices = np.arange(max(0, left), min(len(prediction), right + 1))
+                FNs.append(all_indices)
+            else:
+                FNs.append(i)
+        else:
+            if binary:
+                TPs[i] = [left, in_window, right]
+                # FN – те индексы окна, которые не попали в предсказания
+                all_in_window = np.arange(
+                    max(0, left), min(len(prediction), right + 1)
+                )
+                FNs.append(all_in_window[~np.isin(all_in_window, in_window)])
+            else:
+                idx = in_window[point]  # первое или последнее срабатывание
+                TPs[i] = [left, idx, right]
+
+        # Ложные срабатывания между текущим правым и следующим левым окном
+        if i < len(boundaries) - 1:
+            next_left = boundaries[i + 1][0]
+            inter_fp = times_pred[(times_pred > right) & (times_pred < next_left)]
+            FPs.append(inter_fp)
+
+    # FPs до первого окна
+    first_left = boundaries[0][0]
+    FPs.insert(0, times_pred[times_pred < first_left])
+    # FPs после последнего окна
+    last_right = boundaries[-1][1]
+    FPs.append(times_pred[times_pred > last_right])
+
+    # Склеиваем все FPs в один массив
+    if FPs:
+        FPs = np.concatenate([fp if len(fp) > 0 else np.array([], dtype=int) for fp in FPs])
+    else:
+        FPs = np.array([], dtype=int)
+
+    if binary:
+        if FNs:
+            FNs = np.concatenate(FNs) if all(isinstance(f, np.ndarray) for f in FNs) else FNs
+        else:
+            FNs = np.array([], dtype=int)
+
+    return {"TPs": TPs, "FPs": FPs, "FNs": FNs}
+
+def _my_scale(
+    fp_case_window: List[int],
+    A_tp: float = 1.0,
+    A_fp: float = 0.0,
+    koef: float = 1.0,
+    detalization: int = 1000,
+    clear_anomalies_mode: bool = True,
+) -> float:
+    """
+    Улучшенная оконная функция NAB (tanh-профиль).
+
+    Parameters
+    ----------
+    fp_case_window : list из трёх int [left, pred_pos, right]
+        Координаты окна и позиция предсказания.
+    A_tp, A_fp : float
+        Веса для истинно-положительного и ложно-положительного исходов.
+    koef : float
+        Коэффициент крутизны tanh.
+    detalization : int
+        Число точек дискретизации окна (влияет на точность вычисления скора).
+    clear_anomalies_mode : bool
+        True – левый край окна = A_tp, правый = A_fp; False – наоборот.
+
+    Returns
+    -------
+    float
+        Взвешенный скор для данного предсказания.
+    """
+    left, pred_pos, right = fp_case_window
+    if right == left:
+        return A_fp  # вырожденное окно
+
+    # Положение предсказания в окне в диапазоне [0, 1]
+    relative_pos = (pred_pos - left) / (right - left)
+    event = int(relative_pos * (detalization - 1))  # переводим в индекс массива x
+
+    x = np.linspace(-np.pi / 2, np.pi / 2, detalization)
+    if not clear_anomalies_mode:
+        x = x[::-1]
+
+    y = (
+        (A_tp - A_fp)
+        / 2
+        * (-np.tanh(koef * x) / np.tanh(np.pi * koef / 2))
+        + (A_tp - A_fp) / 2
+        + A_fp
     )
-    return boundaries
 
+    # Защита от выхода за границы (маловероятно, но возможно при округлении)
+    event = min(event, detalization - 1)
+    return y[event]
 
-def metric_nab(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float | dict[str, float]:
-    boundaries = _detecting_boundaries_from_binary(target, predicted, **params)
-    matrix = single_evaluate_nab(
-        boundaries,
-        _labels_to_series(predicted),
-        table_of_val=params.get('table_of_val'),
-        clear_anomalies_mode=bool(params.get('clear_anomalies_mode', True)),
-        scale_val=float(params.get('scale_val', 1.0)),
+# Основные вычислительные функции (приватные)
+
+def _single_average_delay(
+    boundaries: List[List[int]],
+    prediction: np.ndarray,
+    anomaly_window_destination: str,
+    clear_anomalies_mode: bool,
+) -> Tuple[int, List[float], int, int]:
+    """
+    Вычисляет среднюю задержку обнаружения для одного набора границ.
+
+    Возвращает:
+        missing      : int – количество пропущенных аномалий
+        detectHistory: list[float] – задержки (в числе отсчётов) для обнаруженных аномалий
+        FP           : int – количество ложных срабатываний
+        all_true_anom: int – общее число истинных аномалий
+    """
+    boundaries = _filter_detecting_boundaries(boundaries)
+    point = 0 if clear_anomalies_mode else -1
+    confusion = _extract_cp_confusion_matrix(boundaries, prediction, point=point)
+
+    missing = len(confusion["FNs"])
+    FP = len(confusion["FPs"])
+    all_true_anom = len(confusion["TPs"]) + missing
+
+    # Выбор формулы задержки в зависимости от положения окна
+    if anomaly_window_destination == "lefter":
+        def delay(tp_entry): return tp_entry[2] - tp_entry[1]
+    elif anomaly_window_destination == "righter":
+        def delay(tp_entry): return tp_entry[1] - tp_entry[0]
+    elif anomaly_window_destination == "center":
+        def delay(tp_entry):
+            center = tp_entry[0] + (tp_entry[2] - tp_entry[0]) / 2.0
+            return tp_entry[1] - center
+    else:
+        raise ValueError("anomaly_window_destination должен быть 'lefter', 'righter' или 'center'")
+
+    detectHistory = [delay(confusion["TPs"][i]) for i in confusion["TPs"]]
+    return missing, detectHistory, FP, all_true_anom
+
+def _single_evaluate_nab(
+    boundaries: List[List[int]],
+    prediction: np.ndarray,
+    table_of_coef: Optional[Dict] = None,
+    clear_anomalies_mode: bool = True,
+    scale_func: Callable = _my_scale,
+    scale_koef: float = 1.0,
+) -> np.ndarray:
+    """
+    Вычисляет NAB скор для одного набора границ.
+
+    Возвращает np.array формы (3,3):
+        [Scores, Scores_null, Scores_perfect] для профилей Standard, LowFP, LowFN.
+    """
+    boundaries = _filter_detecting_boundaries(boundaries)
+
+    # Таблица коэффициентов по умолчанию
+    if table_of_coef is None:
+        table_of_coef = {
+            "Standard": {"A_tp": 1.0, "A_fp": -0.11, "A_fn": -1.0},
+            "LowFP":    {"A_tp": 1.0, "A_fp": -0.22, "A_fn": -1.0},
+            "LowFN":    {"A_tp": 1.0, "A_fp": -0.11, "A_fn": -2.0},
+        }
+
+    point = 0 if clear_anomalies_mode else -1
+    confusion = _extract_cp_confusion_matrix(boundaries, prediction, point=point)
+
+    scores = []
+    scores_perfect = []
+    scores_null = []
+
+    for profile in ["Standard", "LowFP", "LowFN"]:
+        A_tp = table_of_coef[profile]["A_tp"]
+        A_fp = table_of_coef[profile]["A_fp"]
+        A_fn = table_of_coef[profile]["A_fn"]
+
+        score = 0.0
+        score += A_fp * len(confusion["FPs"])
+        score += A_fn * len(confusion["FNs"])
+        for win_id, tp_entry in confusion["TPs"].items():
+            score += scale_func(tp_entry, A_tp, A_fp, koef=scale_koef)
+
+        scores.append(score)
+        scores_perfect.append(len(boundaries) * A_tp)
+        scores_null.append(len(boundaries) * A_fn)
+
+    return np.array([scores, scores_null, scores_perfect])
+
+# Публичный API
+
+def compute_nab_score(
+    true: np.ndarray,
+    prediction: np.ndarray,
+    *,
+    window_width: Optional[int] = None,
+    portion: float = 0.1,
+    anomaly_window_destination: str = "lefter",
+    clear_anomalies_mode: bool = True,
+    intersection_mode: str = "cut right window",
+    scale_func: Union[str, Callable] = "my_scale",
+    scale_koef: float = 1.0,
+    table_of_coef: Optional[Dict] = None,
+    **_
+) -> Dict[str, float]:
+    """
+    Вычисление NAB метрики для одной последовательности.
+
+    Parameters
+    ----------
+    true : np.ndarray (1D, int)
+        Бинарная маска истинных аномалий (1 – аномалия, 0 – норма).
+    prediction : np.ndarray (1D, int)
+        Бинарные предсказания модели.
+    window_width : int, optional
+        Ширина окна обнаружения в отсчётах. Если None, вычисляется автоматически
+        как int(len(prediction) / (число аномалий + 1) * portion).
+    portion : float
+        Доля длины последовательности, используемая при автоматическом расчёте окна.
+    anomaly_window_destination : {'lefter', 'righter', 'center'}
+        Положение окна относительно аномалии.
+    clear_anomalies_mode : bool
+        True – левый край окна соответствует A_tp, правый A_fp.
+    intersection_mode : {'cut left window', 'cut right window', 'cut both'}
+        Правило разрешения пересекающихся окон.
+    scale_func : {'my_scale'} или Callable
+        Оконная функция NAB.
+        Если 'my_scale' – используется встроенная :func:`_my_scale`.
+        Если передан Callable, он должен иметь сигнатуру
+        `func(fp_case_window, A_tp, A_fp, koef) -> float`.
+    scale_koef : float
+        Параметр крутизны для масштабирующей функции.
+    table_of_coef : dict, optional
+        Профили коэффициентов. По умолчанию – стандартные NAB.
+
+    Returns
+    -------
+    dict
+        {'Standard': float, 'LowFP': float, 'LowFN': float} – NAB скоры в процентах.
+
+    Raises
+    ------
+    ValueError
+        Если истинных аномалий нет (нечего оценивать).
+    """
+    # Проверка и приведение типов
+    true = np.asarray(true, dtype=int).ravel()
+    prediction = np.asarray(prediction, dtype=int).ravel()
+    if true.shape != prediction.shape:
+        raise ValueError("true и prediction должны иметь одинаковую длину")
+
+    # Выбор оконной функции
+    if isinstance(scale_func, str):
+        if scale_func == "my_scale":
+            scale_func_callable = _my_scale
+        else:
+            raise ValueError(
+                "scale_func как строка может быть только 'my_scale'. "
+                "Для кастомной функции передайте Callable."
+            )
+    elif callable(scale_func):
+        scale_func_callable = scale_func
+    else:
+        raise TypeError("scale_func должен быть строкой 'my_scale' или Callable")
+
+    boundaries = _compute_detecting_boundaries(
+        true,
+        len(prediction),
+        window_width=window_width,
+        portion=portion,
+        anomaly_window_destination=anomaly_window_destination,
+        intersection_mode=intersection_mode,
     )
-    profile = str(params.get('profile', 'all'))
-    names = ['Standard', 'LowFP', 'LowFN']
+
+    # Фильтрованные границы (без пустых)
+    filtered = _filter_detecting_boundaries(boundaries)
+    if len(filtered) == 0:
+        raise ValueError(
+            "Не обнаружено ни одной истинной аномалии. "
+            "Расчёт NAB невозможен."
+        )
+
+    # filtered = [[44,50],[50,51]]
+
+    matrix = _single_evaluate_nab(
+        filtered,
+        prediction,
+        table_of_coef=table_of_coef,
+        clear_anomalies_mode=clear_anomalies_mode,
+        scale_func=scale_func_callable,
+        scale_koef=scale_koef,
+    )
+
     results = {}
-    for t, profile_name in enumerate(names):
-        val = round(100 * (matrix[0, t] - matrix[1, t]) / (matrix[2, t] - matrix[1, t]), 2)
-        results[profile_name] = val
-    if profile != 'all':
-        return results[profile]
+    for t, profile in enumerate(["Standard", "LowFP", "LowFN"]):
+        # Формула NAB: 100 * (Score - Score_null) / (Score_perfect - Score_null)
+        num = matrix[0, t] - matrix[1, t]
+        den = matrix[2, t] - matrix[1, t]
+        # Защита от деления на ноль (теоретически не должно случаться, но для безопасности)
+        if den == 0:
+            results[profile] = 0.0
+        else:
+            results[profile] = round(100.0 * num / den, 2)
+
     return results
 
+def compute_average_time(
+    true: np.ndarray,
+    prediction: np.ndarray,
+    *,
+    window_width: Optional[int] = None,
+    portion: float = 0.1,
+    anomaly_window_destination: str = "lefter",
+    clear_anomalies_mode: bool = True,
+    intersection_mode: str = "cut right window",
+    **_
+) -> Tuple[float, int, int, int]:
+    """
+    Вычисление средней задержки обнаружения.
 
-def metric_average_time(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float | dict[str, Any]:
-    boundaries = _detecting_boundaries_from_binary(target, predicted, **params)
-    missing, detect_history, fp, all_target = single_average_delay(
-        boundaries,
-        _labels_to_series(predicted),
-        anomaly_window_destination=str(params.get('anomaly_window_destination', 'lefter')),
-        clear_anomalies_mode=bool(params.get('clear_anomalies_mode', True)),
+    Parameters
+    ----------
+    true : np.ndarray (1D, int)
+        Бинарная маска истинных аномалий.
+    prediction : np.ndarray (1D, int)
+        Бинарные предсказания.
+    window_width : int, optional
+        Ширина окна обнаружения в отсчётах.
+    portion : float
+        Используется при автоматическом расчёте окна.
+    anomaly_window_destination : {'lefter', 'righter', 'center'}
+        Положение окна.
+    clear_anomalies_mode : bool
+        Определяет, какое срабатывание (первое или последнее) считается.
+    intersection_mode : str
+        Правило разрешения пересечений.
+
+    Returns
+    -------
+    tuple
+        (average_delay : float,  # средняя задержка в отсчётах (0, если аномалий не найдено)
+         missing : int,          # количество пропущенных аномалий
+         FP : int,               # количество ложных срабатываний
+         total_anomalies : int)  # общее число истинных аномалий
+    """
+    true = np.asarray(true, dtype=int).ravel()
+    prediction = np.asarray(prediction, dtype=int).ravel()
+    if true.shape != prediction.shape:
+        raise ValueError("true и prediction должны иметь одинаковую длину")
+
+    boundaries = _compute_detecting_boundaries(
+        true,
+        len(prediction),
+        window_width=window_width,
+        portion=portion,
+        anomaly_window_destination=anomaly_window_destination,
+        intersection_mode=intersection_mode,
     )
-    # mean_delay = float(np.mean(detect_history)) if detect_history else 0.0
-    if detect_history:
-        delays = [
-            float(item.total_seconds()) if hasattr(item, 'total_seconds') else float(item)
-            for item in detect_history
-        ]
-        mean_delay = float(np.mean(delays))
-    else:
-        mean_delay = 0.0
-    if params.get('return_breakdown'):
-        return {
-            'false_positive': int(fp),
-            'missed_anomaly': int(missing),
-            'all_detection_hist': mean_delay,
-            'all_anomaly_history': int(all_target),
-        }
-    return mean_delay
+
+    missing, detect_history, fp, total = _single_average_delay(
+        boundaries,
+        prediction,
+        anomaly_window_destination,
+        clear_anomalies_mode,
+    )
+
+    avg_delay = float(np.mean(detect_history)) if detect_history else 0.0
+    return avg_delay, missing, fp, total
 
 
-def metric_nab_standard(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
-    return float(metric_nab(target, predicted, profile='Standard', **params))
+# def metric_nab_standard(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
+#     return float(metric_nab(target, predicted, profile='Standard', **params))
 
+# def metric_nab_low_fp(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
+#     return float(metric_nab(target, predicted, profile='LowFP', **params))
 
-def metric_nab_low_fp(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
-    return float(metric_nab(target, predicted, profile='LowFP', **params))
-
-
-def metric_nab_low_fn(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
-    return float(metric_nab(target, predicted, profile='LowFN', **params))
+# def metric_nab_low_fn(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
+#     return float(metric_nab(target, predicted, profile='LowFN', **params))
 
 
 # ---------------------------------------------------------------------------
@@ -714,11 +1163,11 @@ def _register_all() -> None:
         'bin_mar': binary_mar,
         'bin_metrics': binary_metrics,
     # Специфичные для Обнаружения Аномалий метрики - NAB и average_time
-        'nab': metric_nab,
-        'nab_standard': metric_nab_standard,
-        'nab_low_fp': metric_nab_low_fp,
-        'nab_low_fn': metric_nab_low_fn,
-        'average_time': metric_average_time,
+        'nab': compute_nab_score,
+        # 'nab_standard': metric_nab_standard,
+        # 'nab_low_fp': metric_nab_low_fp,
+        # 'nab_low_fn': metric_nab_low_fn,
+        'average_time': compute_average_time,
     })
     METRIC_REGISTRY['shared_reg_forecast'].update({
         'mse': mse,
