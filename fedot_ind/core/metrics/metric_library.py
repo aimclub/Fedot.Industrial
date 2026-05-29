@@ -84,6 +84,14 @@ def confusion_matrix(
         labels = np.unique(np.concatenate([y_true, y_pred]))
     else:
         labels = np.asarray(labels)
+
+    if len(labels) == 1:
+        if labels[0] == 1:
+            labels = np.append(labels, 0)
+        elif labels[0] == 0:
+            labels = np.append(labels, 1)
+        else:
+            raise MetricValidationError("Please add labels parameter for metric. Default labels for autocomplete is 0 and 1 - integer.")
     labels = np.sort(labels)
 
     # маппинг реальных меток в индексы матрицы
@@ -131,13 +139,13 @@ def _per_class_f1(cm: np.ndarray) -> np.ndarray:
 
 # Публичные per‑class метрики
 
-def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, **_) -> Dict[str, list]:
+def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, *, labels:np.ndarray = None, **_) -> Dict[str, list]:
     """
     Возвращает словарь с массивами:
         'recall', 'precision', 'f1', 'support'
     по всем классам (порядок соответствует labels из confusion_matrix).
     """
-    cm, _ = confusion_matrix(y_true, y_pred)
+    cm, _ = confusion_matrix(y_true, y_pred, labels)
     return {
         'recall': _per_class_recall(cm).tolist(),
         'precision': _per_class_precision(cm).tolist(),
@@ -147,9 +155,9 @@ def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, **_) -> Dict[str, l
 
 # Агрегации
 
-def accuracy(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
+def accuracy(y_true: np.ndarray, y_pred: np.ndarray, *, labels:np.ndarray=None, **_) -> float:
     """Общая доля правильных ответов."""
-    cm, _ = confusion_matrix(y_true, y_pred)
+    cm, _ = confusion_matrix(y_true, y_pred, labels)
     return float(np.trace(cm) / cm.sum())
 
 def balanced_accuracy(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
@@ -198,17 +206,20 @@ def _binary_components(
 def binary_confusion_matrix(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    labels: np.ndarray = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> Dict[str, int]:
     """Возвращает словарь {'TP': ..., 'TN': ..., 'FP': ..., 'FN': ...}."""
-    cm, labels = confusion_matrix(y_true, y_pred)
+    cm, labels = confusion_matrix(y_true, y_pred, labels)
     tp, tn, fp, fn, _ = _binary_components(cm, labels, pos_label)
     return {'TP': tp, 'TN': tn, 'FP': fp, 'FN': fn}
 
 def binary_precision(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
@@ -217,6 +228,7 @@ def binary_precision(
 def binary_recall(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
@@ -225,6 +237,7 @@ def binary_recall(
 def binary_f1(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
@@ -233,28 +246,34 @@ def binary_f1(
 def binary_far(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    labels: np.ndarray = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
     """False Alarm Rate (FAR) в процентах: FP / (FP + TN) * 100."""
-    cm, labels = confusion_matrix(y_true, y_pred)
+    cm, labels = confusion_matrix(y_true, y_pred, labels)
     _, tn, fp, _, _ = _binary_components(cm, labels, pos_label)
     return 100.0 * fp / (fp + tn) if (fp + tn) else 0.0
 
 def binary_mar(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    labels: np.ndarray = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
     """Miss Alarm Rate (MAR) в процентах: FN / (FN + TP) * 100."""
-    cm, labels = confusion_matrix(y_true, y_pred)
+    cm, labels = confusion_matrix(y_true, y_pred, labels)
     tp, _, _, fn, _ = _binary_components(cm, labels, pos_label)
     return 100.0 * fn / (fn + tp) if (fn + tp) else 0.0
 
 def binary_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    labels: np.ndarray = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> Dict[str, float]:
@@ -264,7 +283,7 @@ def binary_metrics(
     
             FAR = FP/(FP+TN)*100, MAR = FN/(FN+TP)*100.
     """
-    cm_dict = binary_confusion_matrix(y_true, y_pred, pos_label)
+    cm_dict = binary_confusion_matrix(y_true, y_pred, labels=labels, pos_label=pos_label)
     return {
         **cm_dict,
         'precision': binary_precision(y_true, y_pred, pos_label),
@@ -279,6 +298,8 @@ def binary_metrics(
 def precision(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    labels: np.ndarray = None,
     average: str = 'macro',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -288,7 +309,7 @@ def precision(
     
     'auto' → macro для >2 классов, иначе binary.
     """
-    cm, labels = confusion_matrix(y_true, y_pred)
+    cm, labels = confusion_matrix(y_true, y_pred, labels=labels)
     n_classes  = cm.shape[0]
     if average == 'auto':
         average = 'binary' if n_classes == 2 else 'macro'
@@ -314,6 +335,8 @@ def precision(
 def recall(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    labels: np.ndarray = None,
     average: str = 'macro',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -328,7 +351,7 @@ def recall(
 
     pos_label: для average='binary' – как определить положительный класс.
     """
-    cm, labels = confusion_matrix(y_true, y_pred)
+    cm, labels = confusion_matrix(y_true, y_pred, labels=labels)
     n_classes = cm.shape[0]
     if average == 'auto':
         average = 'binary' if n_classes == 2 else 'macro'
@@ -354,6 +377,7 @@ def f1_score(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
+    labels: np.ndarray = None,
     average: str = 'auto',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -368,7 +392,7 @@ def f1_score(
         
         pos_label: для average='binary' – как определить положительный класс.
     """
-    cm, labels = confusion_matrix(y_true, y_pred)
+    cm, labels = confusion_matrix(y_true, y_pred, labels=labels)
     n_classes = cm.shape[0]
 
     if average == 'auto':
@@ -993,7 +1017,7 @@ def msle(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
     """Mean Squared Logarithmic Error."""
     return float(np.mean((np.log1p(y_true) - np.log1p(y_pred)) ** 2))
 
-def mape(y_true: np.ndarray, y_pred: np.ndarray, epsilon: float = 1e-8, **_) -> float:
+def mape(y_true: np.ndarray, y_pred: np.ndarray, *, epsilon: float = 1e-8, **_) -> float:
     """
     Mean Absolute Percentage Error (возвращает долю, не проценты).
     Совпадает с поведением sklearn.metrics.mean_absolute_percentage_error.
@@ -1061,7 +1085,7 @@ def squared_error(y_true: np.ndarray, y_pred: np.ndarray, **_) -> np.ndarray:
 #
     # поэлементное RMSE тождественно absolute_error()
 
-def smape_error(y_true: np.ndarray, y_pred: np.ndarray, epsilon: float = 1e-8, **_) -> np.ndarray:
+def smape_error(y_true: np.ndarray, y_pred: np.ndarray, *, epsilon: float = 1e-8, **_) -> np.ndarray:
     """
     Поэлементные значения sMAPE (symmetric MAPE), умножаются на 200.
     Возвращает массив той же длины, что и входы.
@@ -1072,15 +1096,15 @@ def smape_error(y_true: np.ndarray, y_pred: np.ndarray, epsilon: float = 1e-8, *
 
 def mase_error(y_true: np.ndarray, 
                y_pred: np.ndarray,
-               y_train: np.ndarray, 
-               seasonal_period: int, **_) -> np.ndarray:
+               *, y_train: np.ndarray, 
+                  seasonal_period: int, **_) -> np.ndarray:
     """Поэлементные значения MASE."""
     return absolute_error(y_true, y_pred) / _mase_scale(y_train, seasonal_period)
 
 def owa_error(y_true: np.ndarray, 
               y_pred: np.ndarray,
-              y_train: np.ndarray, 
-              seasonal_period: int, **_) -> np.ndarray:
+              *, y_train: np.ndarray, 
+                 seasonal_period: int, **_) -> np.ndarray:
     """
     Поэлементные значения OWA (Overall Weighted Average).
     Возвращает массив, каждый элемент которого вычислен по формуле
@@ -1113,13 +1137,13 @@ def smape(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
 
 def mase(y_true: np.ndarray, 
          y_pred: np.ndarray,
-         y_train: np.ndarray, 
-         seasonal_period: int, **_) -> float:
+         *, y_train: np.ndarray, 
+            seasonal_period: int, **_) -> float:
     """MASE, усреднённый по всем точкам."""
     return float(np.mean(mase_error(y_true, y_pred, y_train, seasonal_period)))
 
 def owa(y_true: np.ndarray, y_pred: np.ndarray,
-        y_train: np.ndarray, seasonal_period: int, **_) -> float:
+        *, y_train: np.ndarray, seasonal_period: int, **_) -> float:
     """
     Агрегированный OWA по всему горизонту:
     0.5 * (smape / smape_baseline + mase / mase_baseline).
@@ -1284,9 +1308,9 @@ def _register_all() -> None:
         'bin_confusion_matrix',    # матрица ошибок, не скаляр
         'bin_metrics',             # агрегированный словарь метрик
         'nab',                     # Numenta Anomaly Benchmark score (основной)
-        'nab_standard',            # NAB со стандартным профилем
-        'nab_low_fp',              # NAB с низкой частотой ложных срабатываний
-        'nab_low_fn',              # NAB с низкой частотой пропусков
+        # 'nab_standard',            # NAB со стандартным профилем
+        # 'nab_low_fp',              # NAB с низкой частотой ложных срабатываний
+        # 'nab_low_fn',              # NAB с низкой частотой пропусков
         'r2',                      # коэффициент детерминации R²
         'explained_variance_score',
         'd2_absolute_error_score', # аналог R² для абсолютной ошибки

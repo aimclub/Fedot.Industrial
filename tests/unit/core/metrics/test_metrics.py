@@ -11,12 +11,20 @@ from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
     f1_score as sklearn_f1,
+    precision_score as sklearn_prec,
+    recall_score as sklearn_recall,
     log_loss as sklearn_log_loss,
     mean_absolute_error as sklearn_mae,
     mean_squared_error as sklearn_mse,
     r2_score as sklearn_r2,
     roc_auc_score as sklearn_roc_auc,
     root_mean_squared_error as sklearn_rmse,
+    mean_squared_log_error,
+    mean_absolute_percentage_error,
+    median_absolute_error,
+    explained_variance_score,
+    max_error,
+    d2_absolute_error_score,
 )
 
 from fedot_ind.core.metrics._exceptions import MetricNotFoundError, MetricValidationError
@@ -194,47 +202,93 @@ class TestClassificationMetrics:
             sklearn_f1(Y_TRUE_BIN, Y_PRED_BIN, average='binary', pos_label=1), rel=1e-4,
         )
 
-# везде добавить sklearn
-    # F1 binary при количестсе классов больше 2
-        # ValueError("binary average для F1 возможна только при 2 классах")
+    def test_f1_bin_with_multiclass(self):
+        spec = {'name': 'f1', 'params': {'average': 'binary', 'pos_label': 1}}
+        with pytest.raises(ValueError, match='binary average для F1 возможна только при 2 классах'):
+            run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
     
-    # F1 подача на вход последовательности 1 или 0
-        # Должно обработать, что там не один класс (хз, как, мб стоит лезть в реализацию метрики)
+    def test_f1_bin_with_uniform_zeroes(self):
+        spec = {'name': 'f1', 'params': {'average': 'binary', 'pos_label': 1}}
+        new, leg, name = run_classification(spec, y_true=np.ones(10),y_pred=np.ones(10))
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_f1(np.ones(10), np.ones(10), average='binary', pos_label=1), rel=1e-4,
+        )
+    
+    def test_f1_bin_with_uniform_number(self):
+        with pytest.raises(MetricValidationError, match="Please add labels parameter for metric. Default labels for autocomplete is 0 and 1 - integer."):
+            spec = {'name': 'f1', 'params': {'average': 'binary', 'pos_label': 1}}
+            a = np.empty(10, dtype=int)
+            a.fill(7)
+            run_classification(spec, y_true=a,y_pred=a)
 
-# TODO - В prec/recall/f1 есть  raise ValueError(f"Неизвестный тип усреднения: {average}")
+    def test_f1_bin_with_uniform_number_and_labels_argument(self):
+        spec = {'name': 'f1', 'params': {'average': 'binary', 'pos_label': 7, 'labels': [0,7]}}
+        a = np.empty(10, dtype=int)
+        a.fill(7)
+        new, leg, name = run_classification(spec, y_true=a,y_pred=a)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_f1(a, a, average='binary', pos_label=7), rel=1e-4,
+        )
 
-# TODO
+    def test_f1_with_unknown_average(self):
+        spec = {'name': 'f1', 'params': {'average': 'aaaaa', 'pos_label': 1}}
+        with pytest.raises(ValueError, match='Неизвестный тип усреднения:'):
+            run_classification(spec)
+
     def test_f1_micro(self):
-        pass
+        spec = {'name': 'f1', 'params': {'average': 'micro'}}
+        new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_f1(Y_TRUE_MC, Y_PRED_MC, average='micro'), rel=1e-4,
+        )
 
-# TODO
     def test_f1_macro(self):
-        pass
-    
-# TODO
+        spec = {'name': 'f1', 'params': {'average': 'macro'}}
+        new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_f1(Y_TRUE_MC, Y_PRED_MC, average='macro'), rel=1e-4,
+        )
+        
     def test_f1_weighted(self):
-        pass
+        spec = {'name': 'f1', 'params': {'average': 'weighted'}}
+        new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_f1(Y_TRUE_MC, Y_PRED_MC, average='weighted'), rel=1e-4,
+        )
     
 # TODO
-    def test_f1_auto_auto(self):
-        # если всё будет auto (average = default [auto] | pos_label = default [auto])
-        pass
+    # def test_f1_auto_auto(self):
+    #     # если всё будет auto (average = default [auto] | pos_label = default [auto])
+    #     pass
 
-# добавить из sklearn
     def test_precision_macro_multiclass(self):
         spec = {'name': 'precision', 'params': {'average': 'macro'}}
         new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
-        assert_new_equals_legacy(new, leg, name)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_prec(Y_TRUE_MC, Y_PRED_MC, average='macro'), rel=1e-4,
+        )
 
-# добавить из sklearn
     def test_precision_weighted(self):
-        pass
+        spec = {'name': 'precision', 'params': {'average': 'weighted'}}
+        new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_prec(Y_TRUE_MC, Y_PRED_MC, average='weighted'), rel=1e-4,
+        )
 
-# добавить из sklearn
     def test_recall_macro_multiclass(self):
         spec = {'name': 'recall', 'params': {'average': 'macro'}}
         new, leg, name = run_classification(spec, y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
-        assert_new_equals_legacy(new, leg, name)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_recall(Y_TRUE_MC, Y_PRED_MC, average='macro'), rel=1e-4,
+        )
 
     def test_logloss_with_probs(self):
         new, leg, name = run_classification(
@@ -243,22 +297,62 @@ class TestClassificationMetrics:
         val = assert_new_equals_legacy(new, leg, name)
         assert val[0] == pytest.approx(sklearn_log_loss(Y_TRUE_PROB, PROBS_2D), rel=1e-4)
 
-# TODO
-    def test_logloss_without_predicted_and_probs(self):
-        # MetricValidationError('logloss requires predicted_probs. Or at least predicted (one-hot and get similar at probs)') 
-        pass
+    # Тут скорее вылетает ошибка, что разные размеры у предиктед_лейблс и таргета. 
+    # В целом, это хорошо, но я добавлю проверку на то, если предиктед_лейблс = None. Или не добавлю, хз пока что
 
-# TODO
+    # def test_logloss_without_predicted_and_probs(self):
+    #     with pytest.raises(MetricValidationError, match='(one-hot and get similar at probs)'):
+    #         run_classification(
+    #             'logloss', y_true=Y_TRUE_PROB, y_pred=None, predicted_probs=None,
+    #     )
+
+    # Должно сделать one-hot от predicted и использовать, как probs
     def test_log_loss_without_probs(self):
-        pass # Должно сделать one-hot от predicted и использовать, как probs
+        new, leg, name = run_classification(
+            'logloss', y_true=Y_TRUE_PROB, y_pred=Y_PRED_PROB)
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(sklearn_log_loss(Y_TRUE_PROB, 
+                                                        np.array([[1.0, 0.0],[0.0, 1.0],[0.0, 1.0],[0.0, 1.0],[1.0, 0.0],[1.0, 0.0]]))
+                                                        , rel=1e-4)
 
-# TODO
     def test_roc_auc_with_probs_multiclass(self):
-        pass # Должно пойти по ветке, типа больше, чем 2 класса
+        # Должно пойти по ветке, типа больше, чем 2 класса
+        probs_MC = np.array([np.array([0.8,0.1,0.1]),
+                             np.array([0.1,0.8,0.1]),
+                             np.array([0.1,0.8,0.1]),
+                             np.array([0.1,0.8,0.1]),
+                             np.array([0.1,0.1,0.8]),
+                             np.array([0.8,0.1,0.1]),
+                             np.array([0.1,0.1,0.8]),
+                             np.array([0.1,0.1,0.8])])
+        new, leg, name = run_classification(
+            'roc_auc', 
+            y_true=Y_TRUE_MC, 
+            # y_pred=Y_PRED_MC, 
+            predicted_probs=probs_MC,
+        )
+        val = assert_new_equals_legacy(new, leg, name)
+        # assert val[0] == pytest.approx(
+        #     sklearn_roc_auc(Y_TRUE_MC, probs_MC), rel=1e-4,
+        # )
 
-# TODO
     def test_roc_auc_without_probs_multiclass(self):
-        pass # Должно пойти по ветке, типа больше, чем 2 класса и сделать one-hot из predicted_labels
+        # Должно пойти по ветке, типа больше, чем 2 класса и сделать one-hot из predicted_labels
+        probs_MC_OH = np.array([[1.0,0.0,0.0],
+                             [0.0,1.0,0.0],
+                             [0.0,1.0,0.0],
+                             [0.0,1.0,0.0],
+                             [0.0,0.0,1.0],
+                             [1.0,0.0,0.0],
+                             [0.0,0.0,1.0],
+                             [0.0,0.0,1.0]])
+        new, leg, name = run_classification(
+            'roc_auc', y_true=Y_TRUE_MC, y_pred=Y_PRED_MC,
+        )
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(
+            sklearn_roc_auc(Y_TRUE_MC, probs_MC_OH, multi_class='ovr', average='macro'), rel=1e-4,
+        )
 
     def test_roc_auc_with_probs_bin(self):
         new, leg, name = run_classification(
@@ -272,7 +366,7 @@ class TestClassificationMetrics:
 # TODO - доработать, чтобы он сравнил поточечно типа
     def test_per_class_scores(self):
         new, leg, name = run_classification('per_class_scores', y_true=Y_TRUE_MC, y_pred=Y_PRED_MC)
-        block = new[name]
+        block = new[name[0]]
         # legacy разворачивает вложенный dict в колонки per_class_scores_f1, ...
         assert leg['per_class_scores_f1'].iloc[0] == block['f1']
         assert 'recall' in block and 'precision' in block
@@ -281,9 +375,12 @@ class TestClassificationMetrics:
     def test_binary_metrics(self):
         pass # Тут надо проверить far/mar - Хотя мб проверять что-то, кроме 
 
-# TODO
     def test_binary_conf_matrix_for_multiclass(self):
-        pass # raise ValueError("Матрица должна быть 2x2 для бинарного случая.")
+        # raise ValueError("Матрица должна быть 2x2 для бинарного случая.")
+        with pytest.raises(ValueError, match='Матрица должна быть 2x2 для бинарного случая.'):
+            run_detection(
+                'bin_confusion_matrix', y_true=Y_TRUE_MC, y_pred=Y_PRED_MC,
+        )
 
 # =============================================================================
 # Регрессия
@@ -316,33 +413,43 @@ class TestRegressionMetrics:
         assert val[0] == pytest.approx(sklearn_mse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
         assert val[1] == pytest.approx(sklearn_mae(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
-# TODO из sklearn добавить
     def test_msle(self):
-        pass
+        new, leg, name = run_regression('msle')
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(mean_squared_log_error(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
-# TODO из sklearn добавить
     def test_mape(self):
-        pass
+        new, leg, name = run_regression('mape')
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(mean_absolute_percentage_error(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
-# TODO из sklearn добавить
     def test_median_abs_er(self):
-        pass
+        new, leg, name = run_regression('median_absolute_error')
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(median_absolute_error(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
-# TODO из sklearn добавить
     def test_explained_variance_score(self):
-        pass
+        new, leg, name = run_regression('explained_variance_score')
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(explained_variance_score(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
-# TODO из sklearn добавить
     def test_max_error(self):
-        pass
+        new, leg, name = run_regression('max_error')
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(max_error(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
-# TODO из sklearn добавить      FOR ABSOLUTE ERROR
     def test_d2_absolute_error_score(self):
-        pass
+        new, leg, name = run_regression('d2_absolute_error_score')
+        val = assert_new_equals_legacy(new, leg, name)
+        assert val[0] == pytest.approx(d2_absolute_error_score(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
 # TODO Проверка на форму данных и разный размер
-    def test_shape_size(self):
-        pass
+#     def test_different_length(self):
+#         pass
+
+#     def test_different_shape(self):
+#         pass
+
 
 # =============================================================================
 # Прогнозирование
