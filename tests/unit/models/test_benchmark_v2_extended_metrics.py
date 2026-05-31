@@ -1,7 +1,5 @@
 import pytest
 import numpy as np
-from unittest.mock import MagicMock, patch
-from dataclasses import replace
 
 from benchmark.v2.core import (
     BenchmarkSuiteConfig,
@@ -12,7 +10,6 @@ from benchmark.v2.core import (
     RunSpec,
     RunStatus,
     MetricKind,
-    MetricRecord,
     ForecastResult,
     ForecastingSeriesRecord,
 )

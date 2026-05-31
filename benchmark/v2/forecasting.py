@@ -102,7 +102,6 @@ from benchmark.v2.verbosity import (
 )
 from benchmark.v2.progress import BenchmarkProgressMonitor
 from benchmark.v2.incremental_persistence import ForecastingIncrementalPersistenceCoordinator
-from benchmark.v2.probabilistic_metrics import pinball_loss, weighted_quantile_loss, crps, interval_coverage, calibration
 
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae', 'rmsse', 'wrmsse')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

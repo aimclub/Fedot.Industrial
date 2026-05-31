@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import Any
 
 
 class ProbabilisticMetricError(ValueError):
     """Raised when a probabilistic metric cannot be computed."""
-    pass
 
 
 def pinball_loss(

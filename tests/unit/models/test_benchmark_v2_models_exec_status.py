@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest.mock import MagicMock
 import numpy as np
 
 from benchmark.v2.core import (
@@ -12,9 +11,8 @@ from benchmark.v2.core import (
     RunSpec,
     RunStatus,
     ModelFamily,
-    BenchmarkAggregateReport,
 )
-from benchmark.v2.forecasting import build_model_adapter, ForecastingSuiteRunner, ForecastingSeriesRecord, BenchmarkRunRecord
+from benchmark.v2.forecasting import build_model_adapter, ForecastingSeriesRecord, BenchmarkRunRecord
 from benchmark.v2.api import run_forecasting_benchmark_suite
 
 
@@ -120,6 +118,7 @@ def test_external_models_do_not_cause_crash_when_import_fails(monkeypatch):
         run_spec=RunSpec(show_progress=False),
         metrics=('mae',),
     )
+
     class DummyDatasetAdapter:
         def load_series(self, spec):
             return ()
@@ -243,8 +242,10 @@ def test_budget_exceeded_status_and_budget_info(tmp_path, monkeypatch):
         tags = ('test',)
         optional = False
         family = ModelFamily.SUPERVISED_SOTA
+
         def availability(self):
             return RunStatus.SUCCESS, 'ready'
+
         def forecast(self, series_record):
             from benchmark.v2.forecasting import ModelExecutionError
             raise ModelExecutionError(
@@ -252,6 +253,7 @@ def test_budget_exceeded_status_and_budget_info(tmp_path, monkeypatch):
                 message='Time budget exceeded',
                 budget_info={'time_limit_sec': 10, 'time_used_sec': 12},
             )
+
     def build_mock(spec):
         return BudgetModel()
     monkeypatch.setattr('benchmark.v2.forecasting.build_model_adapter', build_mock)
@@ -264,13 +266,14 @@ def test_budget_exceeded_status_and_budget_info(tmp_path, monkeypatch):
         run_spec=RunSpec(show_progress=False),
         metrics=('mae',),
     )
+
     class DummyAdapter:
         def load_series(self, spec):
             return (
                 ForecastingSeriesRecord(
                     benchmark='in_memory', dataset_name='test', subset='default',
                     series_id='s1', frequency='D', forecast_horizon=3, seasonal_period=1,
-                    train_values=(1,2,3,4), test_values=(5,6,7),
+                    train_values=(1, 2, 3, 4), test_values=(5, 6, 7),
                 ),
             )
     monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: DummyAdapter())
@@ -290,15 +293,16 @@ def test_dependency_status_populated_for_external_model(tmp_path, monkeypatch):
         tags = ('external',)
         optional = True
         family = ModelFamily.EXTERNAL
+
         def availability(self):
             return RunStatus.NOT_AVAILABLE, 'missing deps'
-
 
         def get_dependency_status(self):
             return {'dep1': 'missing', 'dep2': 'present'}
 
         def forecast(self, series_record):
             pass
+
     def build_mock(spec):
         return CustomExternalModel()
     monkeypatch.setattr('benchmark.v2.forecasting.build_model_adapter', build_mock)
@@ -309,7 +313,7 @@ def test_dependency_status_populated_for_external_model(tmp_path, monkeypatch):
                 ForecastingSeriesRecord(
                     benchmark='in_memory', dataset_name='test', subset='default',
                     series_id='s1', frequency='D', forecast_horizon=3, seasonal_period=1,
-                    train_values=(1,2,3,4), test_values=(5,6,7),
+                    train_values=(1, 2, 3, 4), test_values=(5, 6, 7),
                 ),
             )
     monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: DummyAdapter())
