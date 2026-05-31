@@ -21,7 +21,20 @@ def build_local_m4_suite_config(
         persist_on_run: bool = True,
         models: tuple[ModelSpec, ...] | None = None,
         include_optional_external: bool = False,
+        family_filter: list[str] | None = None,
 ) -> BenchmarkSuiteConfig:
+
+    if models is not None:
+        base_models = models
+
+    if family_filter:
+        filtered_models = [
+            model for model in base_models
+            if getattr(model, 'family', None) in family_filter
+        ]
+    else:
+        filtered_models = base_models
+
     return BenchmarkSuiteConfig(
         task_type=TaskType.FORECASTING,
         datasets=(
@@ -34,10 +47,12 @@ def build_local_m4_suite_config(
                 adapter_options={'use_local_files': True},
             ),
         ),
-        models=models or _default_forecasting_models(include_optional_external=include_optional_external),
+        models=filtered_models or _default_forecasting_models(
+            include_optional_external=include_optional_external),
         metrics=('mase', 'smape', 'owa', 'rmse', 'mae'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'm4'),
-        run_spec=RunSpec(run_name=f'm4_{subset.lower()}_suite', primary_metric='mae'),
+        run_spec=RunSpec(
+            run_name=f'm4_{subset.lower()}_suite', primary_metric='mae'),
     )
 
 
@@ -51,7 +66,20 @@ def build_local_monash_suite_config(
         persist_on_run: bool = True,
         models: tuple[ModelSpec, ...] | None = None,
         include_optional_external: bool = False,
+        family_filter: list[str] | None = None,
 ) -> BenchmarkSuiteConfig:
+
+    if models is not None:
+        base_models = models
+
+    if family_filter:
+        filtered_models = [
+            model for model in base_models
+            if getattr(model, 'family', None) in family_filter
+        ]
+    else:
+        filtered_models = base_models
+
     return BenchmarkSuiteConfig(
         task_type=TaskType.FORECASTING,
         datasets=(
@@ -64,10 +92,12 @@ def build_local_monash_suite_config(
                 adapter_options={'use_local_files': True},
             ),
         ),
-        models=models or _default_forecasting_models(include_optional_external=include_optional_external),
+        models=filtered_models or _default_forecasting_models(
+            include_optional_external=include_optional_external),
         metrics=('mase', 'smape', 'owa', 'rmse', 'mae'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'monash'),
-        run_spec=RunSpec(run_name=f'monash_{dataset_name.lower()}_suite', primary_metric='mae'),
+        run_spec=RunSpec(
+            run_name=f'monash_{dataset_name.lower()}_suite', primary_metric='mae'),
     )
 
 
@@ -84,7 +114,8 @@ def build_local_ucr_suite_config(
         models=models or _default_classification_models(),
         metrics=('accuracy', 'balanced_accuracy', 'f1_macro'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'ucr'),
-        run_spec=RunSpec(run_name=f'ucr_{dataset_name.lower()}_suite', primary_metric='accuracy'),
+        run_spec=RunSpec(
+            run_name=f'ucr_{dataset_name.lower()}_suite', primary_metric='accuracy'),
     )
 
 
@@ -97,11 +128,13 @@ def build_local_tser_suite_config(
 ) -> BenchmarkSuiteConfig:
     return BenchmarkSuiteConfig(
         task_type=TaskType.TS_REGRESSION,
-        datasets=(DatasetSpec(benchmark='local_tser', dataset_name=dataset_name),),
+        datasets=(DatasetSpec(benchmark='local_tser',
+                  dataset_name=dataset_name),),
         models=models or _default_regression_models(),
         metrics=('rmse', 'mae', 'r2'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'tser'),
-        run_spec=RunSpec(run_name=f'tser_{dataset_name.lower()}_suite', primary_metric='rmse'),
+        run_spec=RunSpec(
+            run_name=f'tser_{dataset_name.lower()}_suite', primary_metric='rmse'),
     )
 
 
@@ -126,8 +159,10 @@ def build_local_okhs_smoothing_suite_config(
             ),
         ),
         models=models or (
-            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
-            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+            ModelSpec(adapter_name='naive_last_value',
+                      display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average',
+                      display_name='MovingAverage', params={'window_size': 3}),
             ModelSpec(adapter_name='linear_trend', display_name='LinearTrend'),
             ModelSpec(
                 adapter_name='okhs',
@@ -142,8 +177,10 @@ def build_local_okhs_smoothing_suite_config(
             ),
         ),
         metrics=('mase', 'smape', 'owa', 'rmse', 'mae'),
-        artifact_spec=_artifact_spec(output_dir, persist_on_run, 'okhs_smoothing'),
-        run_spec=RunSpec(run_name=f'm4_{subset.lower()}_okhs_smoothing', primary_metric='mae'),
+        artifact_spec=_artifact_spec(
+            output_dir, persist_on_run, 'okhs_smoothing'),
+        run_spec=RunSpec(
+            run_name=f'm4_{subset.lower()}_okhs_smoothing', primary_metric='mae'),
     )
 
 
@@ -158,6 +195,7 @@ def run_local_benchmark_preset(
         random_seed: int = 42,
         include_optional_external: bool = False,
         models: tuple[ModelSpec, ...] | None = None,
+        family_filter: list[str] | None = None,
 ):
     normalized = preset_name.lower()
     if normalized == 'm4':
@@ -169,6 +207,7 @@ def run_local_benchmark_preset(
             persist_on_run=persist_on_run,
             models=models,
             include_optional_external=include_optional_external,
+            family_filter=family_filter,
         )
         return run_forecasting_benchmark_suite(config)
     if normalized == 'monash':
@@ -181,6 +220,7 @@ def run_local_benchmark_preset(
             persist_on_run=persist_on_run,
             models=models,
             include_optional_external=include_optional_external,
+            family_filter=family_filter,
         )
         return run_forecasting_benchmark_suite(config)
     if normalized == 'okhs_smoothing':
@@ -207,7 +247,8 @@ def run_local_benchmark_preset(
             models=models,
         )
         return run_tser_benchmark_suite(config)
-    raise BenchmarkPresetError(f'Unsupported local benchmark preset: {preset_name}')
+    raise BenchmarkPresetError(
+        f'Unsupported local benchmark preset: {preset_name}')
 
 
 def _artifact_spec(
@@ -216,15 +257,18 @@ def _artifact_spec(
         preset_name: str,
 ) -> ArtifactSpec:
     return ArtifactSpec(
-        output_dir=str(Path(output_dir) if output_dir is not None else DEFAULT_PRESET_OUTPUT_DIR / preset_name),
+        output_dir=str(Path(
+            output_dir) if output_dir is not None else DEFAULT_PRESET_OUTPUT_DIR / preset_name),
         persist_on_run=persist_on_run,
     )
 
 
 def _default_forecasting_models(*, include_optional_external: bool) -> tuple[ModelSpec, ...]:
     models = [
-        ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
-        ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+        ModelSpec(adapter_name='naive_last_value',
+                  display_name='NaiveLastValue'),
+        ModelSpec(adapter_name='moving_average',
+                  display_name='MovingAverage', params={'window_size': 3}),
         ModelSpec(adapter_name='linear_trend', display_name='LinearTrend'),
         ModelSpec(
             adapter_name='okhs',
@@ -235,9 +279,12 @@ def _default_forecasting_models(*, include_optional_external: bool) -> tuple[Mod
     if include_optional_external:
         models.extend(
             [
-                ModelSpec(adapter_name='autogluon', display_name='AutoGluon', optional=True),
-                ModelSpec(adapter_name='nbeats', display_name='N-BEATS', optional=True),
-                ModelSpec(adapter_name='tft', display_name='TFT', optional=True),
+                ModelSpec(adapter_name='autogluon',
+                          display_name='AutoGluon', optional=True),
+                ModelSpec(adapter_name='nbeats',
+                          display_name='N-BEATS', optional=True),
+                ModelSpec(adapter_name='tft',
+                          display_name='TFT', optional=True),
             ]
         )
     return tuple(models)
@@ -246,12 +293,14 @@ def _default_forecasting_models(*, include_optional_external: bool) -> tuple[Mod
 def _default_classification_models() -> tuple[ModelSpec, ...]:
     return (
         ModelSpec(adapter_name='majority_class', display_name='MajorityClass'),
-        ModelSpec(adapter_name='nearest_centroid', display_name='NearestCentroid'),
+        ModelSpec(adapter_name='nearest_centroid',
+                  display_name='NearestCentroid'),
     )
 
 
 def _default_regression_models() -> tuple[ModelSpec, ...]:
     return (
         ModelSpec(adapter_name='mean_regressor', display_name='MeanRegressor'),
-        ModelSpec(adapter_name='linear_regressor', display_name='LinearRegressor'),
+        ModelSpec(adapter_name='linear_regressor',
+                  display_name='LinearRegressor'),
     )

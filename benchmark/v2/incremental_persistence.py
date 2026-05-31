@@ -12,6 +12,7 @@ from .core import (
     BenchmarkSuiteConfig,
     ForecastingSeriesRecord,
     MetricRecord,
+    QuantilePredictionRecord,
     PredictionRecord,
     RunStatus,
     ensure_directory,
@@ -77,6 +78,22 @@ def _run_record_from_payload(payload: dict[str, Any]) -> BenchmarkRunRecord:
     )
 
 
+def _quantile_prediction_record_from_payload(payload: dict[str, Any]) -> QuantilePredictionRecord:
+    return QuantilePredictionRecord(
+        run_id=str(payload['run_id']),
+        benchmark=str(payload['benchmark']),
+        dataset_name=str(payload['dataset_name']),
+        subset=str(payload['subset']),
+        series_id=str(payload['series_id']),
+        model_name=str(payload['model_name']),
+        horizon_index=int(payload['horizon_index']),
+        quantile=float(payload['quantile']),
+        y_true=float(payload['y_true']),
+        y_pred=float(payload['y_pred']),
+        status=RunStatus(str(payload['status'])),
+    )
+
+
 def _metric_record_from_payload(payload: dict[str, Any]) -> MetricRecord:
     return MetricRecord(
         run_id=str(payload['run_id']),
@@ -118,6 +135,7 @@ class ForecastingResumeState:
     item_artifact_paths: dict[str, str]
     status_counts: dict[str, int]
     completed_items: int
+    quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = ()
 
 
 class ForecastingIncrementalPersistenceCoordinator:
@@ -247,6 +265,7 @@ class ForecastingIncrementalPersistenceCoordinator:
             run_record: BenchmarkRunRecord,
             metric_records: tuple[MetricRecord, ...] = (),
             prediction_records: tuple[PredictionRecord, ...] = (),
+            quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = (),
     ) -> None:
         """Atomically persist one completed series/model item result."""
         if not self.enabled:
@@ -270,6 +289,7 @@ class ForecastingIncrementalPersistenceCoordinator:
                 'run_record': to_plain_data(run_record),
                 'metric_records': [to_plain_data(record) for record in metric_records],
                 'prediction_records': [to_plain_data(record) for record in prediction_records],
+                'quantile_prediction_records': [to_plain_data(record) for record in quantile_prediction_records],
             },
         )
         self.item_artifact_paths[item_key] = str(artifact_path)
@@ -308,6 +328,7 @@ class ForecastingIncrementalPersistenceCoordinator:
         run_records: list[BenchmarkRunRecord] = []
         metric_records: list[MetricRecord] = []
         prediction_records: list[PredictionRecord] = []
+        quantile_prediction_records: list[QuantilePredictionRecord] = []  # НОВОЕ
         seen_run_keys: set[tuple[str, str, str, str, str]] = set()
 
         for artifact_path in item_artifact_paths.values():
@@ -331,6 +352,10 @@ class ForecastingIncrementalPersistenceCoordinator:
                 _prediction_record_from_payload(item)
                 for item in list(payload.get('prediction_records', ()))
             )
+            quantile_prediction_records.extend(  # НОВОЕ
+                _quantile_prediction_record_from_payload(item)
+                for item in list(payload.get('quantile_prediction_records', ()))
+            )
 
         self.item_artifact_paths = dict(item_artifact_paths)
         self.status_counts = dict(status_counts)
@@ -341,6 +366,7 @@ class ForecastingIncrementalPersistenceCoordinator:
             run_records=tuple(run_records),
             metric_records=tuple(metric_records),
             prediction_records=tuple(prediction_records),
+            quantile_prediction_records=tuple(quantile_prediction_records),  # НОВОЕ
             item_artifact_paths=dict(item_artifact_paths),
             status_counts=dict(status_counts),
             completed_items=int(completed_items),

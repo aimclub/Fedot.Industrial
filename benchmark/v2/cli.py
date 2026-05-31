@@ -15,8 +15,10 @@ from . import (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Run benchmark-v2 presets or manifest-driven jobs.')
-    parser.add_argument('preset', nargs='?', choices=('m4', 'monash', 'ucr', 'tser'))
+    parser = argparse.ArgumentParser(
+        description='Run benchmark-v2 presets or manifest-driven jobs.')
+    parser.add_argument('preset', nargs='?', choices=(
+        'm4', 'monash', 'ucr', 'tser'))
     parser.add_argument('--manifest', default=None)
     parser.add_argument('--registered', action='store_true')
     parser.add_argument('--print-resolved-manifest', action='store_true')
@@ -27,6 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--no-persist', action='store_true')
     parser.add_argument('--random-seed', type=int, default=42)
     parser.add_argument('--include-optional-external', action='store_true')
+    parser.add_argument('--family', choices=['classical_baseline',
+                        'internal_industrial', 'automl', 'supervised_sota', 'foundation', 'external'])
     return parser
 
 
@@ -47,7 +51,8 @@ def main() -> int:
             result = run_manifest_path(args.manifest)
     else:
         if args.preset is None:
-            parser.error('Either a preset positional argument or --manifest must be provided.')
+            parser.error(
+                'Either a preset positional argument or --manifest must be provided.')
         if args.registered:
             bundle = run_registered_preset(
                 args.preset,
@@ -73,7 +78,8 @@ def main() -> int:
                 include_optional_external=args.include_optional_external,
             )
 
-    successful_runs = sum(1 for record in result.run_records if record.status.value == 'success')
+    successful_runs = sum(
+        1 for record in result.run_records if record.status.value == 'success')
     output_dir = Path(result.config.artifact_spec.output_dir)
     if args.manifest:
         print(f'Manifest: {args.manifest}')

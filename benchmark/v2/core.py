@@ -19,6 +19,72 @@ class RunStatus(str, Enum):
     FAILED = 'failed'
     SKIPPED = 'skipped'
     NOT_AVAILABLE = 'not_available'
+    BUDGET_EXCEEDED = 'budget_exceeded'
+    BACKEND_UNAVAILABLE = 'backend_unavailable'
+    AUTH_FAILED = 'auth_failed'
+    NOT_APPLICABLE = 'not_applicable'
+
+
+class RunMode(str, Enum):
+    ZERO_SHOT = 'zero_shot'
+    FEW_SHOT = 'few_shot'
+    FULL_SHOT = 'full_shot'
+
+
+class Track(str, Enum):
+    DEFAULT = 'default'
+    EXTENDED = 'extended'
+    CUSTOM = 'custom'
+
+
+class HorizonPolicy(str, Enum):
+    FIXED = 'fixed'
+    DYNAMIC = 'dynamic'
+    ROLLING = 'rolling'
+
+
+class CovariateMode(str, Enum):
+    NONE = 'none'
+    KNOWN_FUTURE = 'known_future'
+    STATIC = 'static'
+    PANEL = 'panel'
+    HIERARCHY = 'hierarchy'
+
+
+class ProbabilisticMode(str, Enum):
+    NONE = 'none'
+    QUANTILES = 'quantiles'
+    INTERVALS = 'intervals'
+    SAMPLES = 'samples'
+    FULL = 'full'
+
+
+class LeakagePolicy(str, Enum):
+    STRICT = 'strict'
+    CONTROLLED = 'controlled'
+    ALLOWED = 'allowed'
+
+
+class BudgetPolicy(str, Enum):
+    UNLIMITED = 'unlimited'
+    TIME_BUDGET = 'time_budget'
+    ITERATION_BUDGET = 'iteration_budget'
+
+
+class ModelFamily(str, Enum):
+    CLASSICAL_BASELINE = 'classical_baseline'
+    INTERNAL_INDUSTRIAL = 'internal_industrial'
+    AUTOML = 'automl'
+    SUPERVISED_SOTA = 'supervised_sota'
+    FOUNDATION = 'foundation'
+    EXTERNAL = 'external'
+
+
+class MetricKind(str, Enum):
+    POINT = "point"
+    PROBABILISTIC = "probabilistic"
+    RESOURCE = "resource"
+    DIAGNOSTIC = "diagnostic"
 
 
 @dataclass(frozen=True)
@@ -39,6 +105,7 @@ class ModelSpec:
     tags: tuple[str, ...] = ()
     optional: bool = False
     params: dict[str, Any] = field(default_factory=dict)
+    family: ModelFamily | str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +135,17 @@ class ArtifactSpec:
 
 
 @dataclass(frozen=True)
+class ForecastingScenarioSpec:
+    run_mode: RunMode | str = RunMode.FULL_SHOT
+    track: Track | str = Track.DEFAULT
+    horizon_policy: HorizonPolicy | str = HorizonPolicy.FIXED
+    covariate_mode: CovariateMode | str = CovariateMode.NONE
+    probabilistic: ProbabilisticMode | str = ProbabilisticMode.NONE
+    leakage_policy: LeakagePolicy | str = LeakagePolicy.STRICT
+    budget_policy: BudgetPolicy | str = BudgetPolicy.UNLIMITED
+
+
+@dataclass(frozen=True)
 class BenchmarkSuiteConfig:
     task_type: TaskType
     datasets: tuple[DatasetSpec, ...]
@@ -75,6 +153,7 @@ class BenchmarkSuiteConfig:
     artifact_spec: ArtifactSpec
     run_spec: RunSpec = field(default_factory=RunSpec)
     metrics: tuple[str, ...] = ('mase', 'smape', 'owa', 'rmse', 'mae')
+    scenario_spec: Optional[ForecastingScenarioSpec] = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +167,18 @@ class ForecastingSeriesRecord:
     seasonal_period: int
     train_values: tuple[float, ...]
     test_values: tuple[float, ...]
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ForecastResult:
+    mean: Sequence[float] | None = None
+    quantiles: dict[float, Sequence[float]] = field(default_factory=dict)
+    intervals: dict[float, tuple[Sequence[float],
+                                 Sequence[float]]] = field(default_factory=dict)
+    samples: Sequence[Sequence[float]] | None = None
+    fitted_values: Sequence[float] | None = None
+    residuals: Sequence[float] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -106,6 +197,21 @@ class PredictionRecord:
 
 
 @dataclass(frozen=True)
+class QuantilePredictionRecord:
+    run_id: str
+    benchmark: str
+    dataset_name: str
+    subset: str
+    series_id: str
+    model_name: str
+    horizon_index: int
+    quantile: float
+    y_true: float
+    y_pred: float
+    status: RunStatus
+
+
+@dataclass(frozen=True)
 class MetricRecord:
     run_id: str
     benchmark: str
@@ -117,6 +223,8 @@ class MetricRecord:
     metric_value: float
     status: RunStatus
     horizon_index: int | None = None
+    kind: MetricKind | str = MetricKind.POINT
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -127,11 +235,17 @@ class BenchmarkRunRecord:
     subset: str
     series_id: str
     model_name: str
+    family: str
     status: RunStatus
     tags: tuple[str, ...] = ()
     message: str = ''
     metrics_summary: dict[str, float] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    skip_reason: str | None = None
+    backend_error: str | None = None
+    dependency_status: dict[str, str] | None = None
+    api_status: dict[str, str] | None = None
+    budget_info: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -148,6 +262,7 @@ class BenchmarkAggregateReport:
     primary_metric: str
     leaderboard_rows: tuple[dict[str, Any], ...]
     status_counts: dict[str, int]
+    status_counts_by_family: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -160,6 +275,8 @@ class ForecastingBenchmarkResult:
     metric_records: tuple[MetricRecord, ...]
     aggregate_report: BenchmarkAggregateReport
     artifact_manifest: tuple[ArtifactRecord, ...] = ()
+    quantile_prediction_records: tuple[QuantilePredictionRecord, ...] = ()
+    scenario_spec: ForecastingScenarioSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -256,6 +373,10 @@ class ForecastingModelAdapter(Protocol):
             series_record: ForecastingSeriesRecord,
     ) -> tuple[Sequence[float], dict[str, Any]]:
         ...
+
+
+def default_scenario() -> ForecastingScenarioSpec:
+    return ForecastingScenarioSpec()
 
 
 def new_run_id(prefix: str = 'benchmark_v2') -> str:
