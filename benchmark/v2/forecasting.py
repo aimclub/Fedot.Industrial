@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+import time
 
 import numpy as np
 import pandas as pd
@@ -84,6 +85,7 @@ from benchmark.v2.core import (
     new_run_id,
     RunMode,
     ModelFamily,
+    MetricKind,
 )
 
 from .forecasting_result import (
@@ -100,8 +102,9 @@ from benchmark.v2.verbosity import (
 )
 from benchmark.v2.progress import BenchmarkProgressMonitor
 from benchmark.v2.incremental_persistence import ForecastingIncrementalPersistenceCoordinator
+from benchmark.v2.probabilistic_metrics import pinball_loss, weighted_quantile_loss, crps, interval_coverage, calibration
 
-SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
+SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae', 'rmsse', 'wrmsse')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
 DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / \
@@ -115,11 +118,21 @@ class BenchmarkConfigurationError(ValueError):
 class ModelExecutionError(RuntimeError):
     """Raised when a model run produces a benchmark-level failure status."""
 
-    def __init__(self, status: RunStatus, message: str):
+    def __init__(self, status: RunStatus, message: str,
+                 skip_reason: str | None = None,
+                 backend_error: str | None = None,
+                 dependency_status: dict[str, str] | None = None,
+                 api_status: dict[str, str] | None = None,
+                 budget_info: dict[str, Any] | None = None,):
         """Store the run status alongside the human-readable error message."""
         super().__init__(message)
         self.status = status
         self.message = message
+        self.skip_reason = skip_reason
+        self.backend_error = backend_error
+        self.dependency_status = dependency_status
+        self.api_status = api_status
+        self.budget_info = budget_info
 
 
 def validate_forecasting_suite_config(config: BenchmarkSuiteConfig) -> None:
@@ -1631,17 +1644,38 @@ class OptionalExternalModel(ForecastingModelAdapter):
     tags: tuple[str, ...] = ('baseline', 'forecasting', 'external')
     optional: bool = True
     scaffold_reason: str = 'Adapter scaffold is registered but backend training is not wired yet.'
+    api_key_env: str | None = None
 
     def availability(self) -> tuple[RunStatus, str]:
         """Check whether the optional external dependency can be imported."""
         if not _safe_import(self.dependency_name):
             return RunStatus.NOT_AVAILABLE, f'{self.dependency_name} is not installed.'
+
+        if self.api_key_env:
+            import os
+            if not os.environ.get(self.api_key_env):
+                return RunStatus.AUTH_FAILED, f'API key {self.api_key_env} is not set in environment.'
+
         return RunStatus.SUCCESS, 'dependency is available'
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Raise a skipped execution status until the external backend is wired."""
         del series_record
         raise ModelExecutionError(RunStatus.SKIPPED, self.scaffold_reason)
+
+    def get_dependency_status(self) -> dict[str, str]:
+        status = {}
+        if not _safe_import(self.dependency_name):
+            status[self.dependency_name] = 'missing'
+        else:
+            status[self.dependency_name] = 'present'
+        if self.api_key_env:
+            import os
+            if not os.environ.get(self.api_key_env):
+                status['api_key'] = 'missing'
+            else:
+                status['api_key'] = 'present'
+        return status
 
 
 def build_dataset_adapter(spec: DatasetSpec):
@@ -1772,6 +1806,7 @@ def compute_forecasting_metric(
         y_pred: np.ndarray,
         y_train: np.ndarray,
         seasonal_period: int,
+        weights: np.ndarray | None = None,
 ) -> float:
     """Compute an aggregate forecasting metric for one horizon vector."""
     actual = np.asarray(y_true, dtype=float).reshape(-1)
@@ -1804,6 +1839,16 @@ def compute_forecasting_metric(
         baseline_smape = baseline_smape if baseline_smape > 1e-8 else 1.0
         baseline_mase = baseline_mase if baseline_mase > 1e-8 else 1.0
         return float(0.5 * ((smape / baseline_smape) + (mase / baseline_mase)))
+    if metric_name == 'rmsse':
+        if len(train) <= seasonal_period:
+            return float('nan')
+        numerator = np.mean((actual - predicted) ** 2)
+        denominator = np.mean((train[seasonal_period:] - train[:-seasonal_period]) ** 2)
+        if denominator < 1e-8:
+            return float('nan')
+        return float(np.sqrt(numerator / denominator))
+    if metric_name == 'wrmsse':
+        pass
     raise BenchmarkConfigurationError(f'Unsupported metric: {metric_name}')
 
 
@@ -2249,12 +2294,19 @@ def build_leaderboard(
         primary_metric: str,
 ) -> BenchmarkAggregateReport:
     """Aggregate successful run records into a benchmark leaderboard."""
+    status_counts_by_family: dict[str, dict[str, int]] = {}
     successful = [
         record for record in run_records if record.status is RunStatus.SUCCESS]
     grouped: dict[tuple[str, str, str, str], list[float]] = {}
-    for record in successful:
+    for record in run_records:
         metric_value = record.metrics_summary.get(primary_metric)
         family = record.family if hasattr(record, 'family') else 'unknown'
+        status_key = record.status.value
+        if family not in status_counts_by_family:
+            status_counts_by_family[family] = {}
+        status_counts_by_family[family][status_key] = (
+            status_counts_by_family[family].get(status_key, 0) + 1
+        )
         if metric_value is None:
             continue
         grouped.setdefault((record.benchmark, record.dataset_name,
@@ -2290,6 +2342,7 @@ def build_leaderboard(
         primary_metric=primary_metric,
         leaderboard_rows=tuple(leaderboard_rows),
         status_counts=status_counts,
+        status_counts_by_family=status_counts_by_family,
     )
 
 
@@ -2529,6 +2582,7 @@ class ForecastingSuiteRunner:
                     message=exc.message,
                     regime_diagnostics=regime_diagnostics,
                     routing_recommendation=routing_recommendation,
+                    budget_info=exc.budget_info,
                 )
                 self.progress.advance(exc.status.value, exc.message)
             except Exception as exc:
@@ -2540,6 +2594,7 @@ class ForecastingSuiteRunner:
                     message=str(exc),
                     regime_diagnostics=regime_diagnostics,
                     routing_recommendation=routing_recommendation,
+                    budget_info=exc.budget_info,
                 )
                 self.progress.advance(RunStatus.FAILED.value, str(exc))
 
@@ -2552,6 +2607,21 @@ class ForecastingSuiteRunner:
             availability_status: RunStatus,
             availability_message: str,
     ) -> None:
+        dependency_status = None
+        skip_reason = None
+
+        if hasattr(model, 'get_dependency_status'):
+            dependency_status = model.get_dependency_status()
+
+        if availability_status == RunStatus.NOT_AVAILABLE:
+            skip_reason = 'dependency_missing'
+        elif availability_status == RunStatus.AUTH_FAILED:
+            skip_reason = 'authentication_failed'
+        elif availability_status == RunStatus.BACKEND_UNAVAILABLE:
+            skip_reason = 'backend_unavailable'
+        elif availability_status == RunStatus.SKIPPED:
+            skip_reason = 'explicitly_skipped'
+
         for series_record in dataset_series:
             item_key = self.incremental_persistence.item_key(
                 series_record, model.name)
@@ -2586,9 +2656,12 @@ class ForecastingSuiteRunner:
                     subset=series_record.subset,
                     series_id=series_record.series_id,
                     model_name=model.name,
+                    family=model.family.value if hasattr(model, 'family') else 'unknown',
                     status=availability_status,
                     tags=model.tags,
                     message=availability_message,
+                    skip_reason=skip_reason,
+                    dependency_status=dependency_status,
                     metadata=self._build_common_metadata(
                         model_spec=model_spec,
                         model=model,
@@ -2713,6 +2786,7 @@ class ForecastingSuiteRunner:
             message: str,
             regime_diagnostics,
             routing_recommendation,
+            budget_info: dict[str, Any] | None = None,
     ) -> BenchmarkRunRecord:
         run_record = BenchmarkRunRecord(
             run_id=self.run_id,
@@ -2721,6 +2795,7 @@ class ForecastingSuiteRunner:
             subset=series_record.subset,
             series_id=series_record.series_id,
             model_name=model.name,
+            family=model.family.value if hasattr(model, 'family') else 'unknown',
             status=status,
             tags=model.tags,
             message=message,
@@ -2731,6 +2806,7 @@ class ForecastingSuiteRunner:
                 routing_recommendation=routing_recommendation,
                 extra={'optional': model.optional},
             ),
+            budget_info=budget_info,
         )
         self.run_records.append(run_record)
         self.incremental_persistence.persist_item_result(
@@ -2738,6 +2814,208 @@ class ForecastingSuiteRunner:
             run_record=run_record,
         )
         return run_record
+
+    def _record_probabilistic_metrics(
+            self,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            actual: np.ndarray,
+            forecast_result: ForecastResult,
+    ) -> None:
+        from benchmark.v2.probabilistic_metrics import (
+            pinball_loss, weighted_quantile_loss, crps,
+            interval_coverage, calibration
+        )
+
+        if not forecast_result.quantiles and forecast_result.samples is None:
+            self.metric_records.append(
+                MetricRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model_name,
+                    metric_name='probabilistic_not_applicable',
+                    metric_value=0.0,
+                    status=RunStatus.NOT_APPLICABLE,
+                    kind=MetricKind.PROBABILISTIC,
+                    metadata={'reason': 'no quantiles or samples'},
+                )
+            )
+            return
+
+        # Pinball per quantile
+        for q, q_vals in forecast_result.quantiles.items():
+            try:
+                value = pinball_loss(actual, q_vals, q)
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name=f'pinball_q{q:.2f}',
+                        metric_value=value,
+                        status=RunStatus.SUCCESS,
+                        kind=MetricKind.PROBABILISTIC,
+                        metadata={'quantile': q},
+                    )
+                )
+            except Exception as e:
+                self._record_failed_metric(series_record, model_name, f'pinball_q{q:.2f}', str(e))
+
+        # WQL
+        if forecast_result.quantiles:
+            try:
+                wql = weighted_quantile_loss(actual, forecast_result.quantiles)
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name='wql',
+                        metric_value=wql,
+                        status=RunStatus.SUCCESS,
+                        kind=MetricKind.PROBABILISTIC,
+                    )
+                )
+            except Exception as e:
+                self._record_failed_metric(series_record, model_name, 'wql', str(e))
+
+        # CRPS
+        if forecast_result.samples is not None:
+            try:
+                crps_val = crps(actual, forecast_result.samples)
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name='crps',
+                        metric_value=crps_val,
+                        status=RunStatus.SUCCESS,
+                        kind=MetricKind.PROBABILISTIC,
+                    )
+                )
+            except Exception as e:
+                self._record_failed_metric(series_record, model_name, 'crps', str(e))
+
+        # Coverage for intervals
+        for nominal in forecast_result.intervals:
+            try:
+                cov = interval_coverage(actual, forecast_result.intervals, nominal)
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name=f'coverage_{nominal:.2f}',
+                        metric_value=cov,
+                        status=RunStatus.SUCCESS,
+                        kind=MetricKind.PROBABILISTIC,
+                        metadata={'nominal_coverage': nominal},
+                    )
+                )
+            except Exception as e:
+                self._record_failed_metric(series_record, model_name, f'coverage_{nominal:.2f}', str(e))
+
+        # Calibration for each quantile
+        for q in forecast_result.quantiles:
+            try:
+                cal = calibration(actual, forecast_result.quantiles, q)
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name=f'calibration_{q:.2f}',
+                        metric_value=cal,
+                        status=RunStatus.SUCCESS,
+                        kind=MetricKind.PROBABILISTIC,
+                        metadata={'quantile': q},
+                    )
+                )
+            except Exception as e:
+                self._record_failed_metric(series_record, model_name, f'calibration_{q:.2f}', str(e))
+
+    def _record_resource_metrics(
+            self,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            start_time: float,
+            end_time: float,
+    ) -> None:
+        """Record resource usage placeholders."""
+        wall_clock = end_time - start_time
+        self.metric_records.append(
+            MetricRecord(
+                run_id=self.run_id,
+                benchmark=series_record.benchmark,
+                dataset_name=series_record.dataset_name,
+                subset=series_record.subset,
+                series_id=series_record.series_id,
+                model_name=model_name,
+                metric_name='wall_clock_sec',
+                metric_value=wall_clock,
+                status=RunStatus.SUCCESS,
+                kind=MetricKind.RESOURCE,
+            )
+        )
+        # Placeholders
+        for name in ('memory_mb', 'gpu_hours', 'model_size_mb', 'api_cost_usd'):
+            self.metric_records.append(
+                MetricRecord(
+                    run_id=self.run_id,
+                    benchmark=series_record.benchmark,
+                    dataset_name=series_record.dataset_name,
+                    subset=series_record.subset,
+                    series_id=series_record.series_id,
+                    model_name=model_name,
+                    metric_name=name,
+                    metric_value=0.0,
+                    status=RunStatus.NOT_APPLICABLE,
+                    kind=MetricKind.RESOURCE,
+                    metadata={'reason': 'not implemented yet'},
+                )
+            )
+
+    def _record_failed_metric(
+            self,
+            series_record: ForecastingSeriesRecord,
+            model_name: str,
+            metric_name: str,
+            error_msg: str,
+    ) -> None:
+        self.metric_records.append(
+            MetricRecord(
+                run_id=self.run_id,
+                benchmark=series_record.benchmark,
+                dataset_name=series_record.dataset_name,
+                subset=series_record.subset,
+                series_id=series_record.series_id,
+                model_name=model_name,
+                metric_name=metric_name,
+                metric_value=0.0,
+                status=RunStatus.FAILED,
+                kind=MetricKind.PROBABILISTIC,
+                metadata={'error': error_msg},
+            )
+        )
 
     def _evaluate_series(
             self,
@@ -2767,8 +3045,9 @@ class ForecastingSuiteRunner:
                     k = max(3, min(n // 5, 50))
                     series_record = dataclasses.replace(
                         series_record, train_values=train[-k:])
-
+        start_time = time.time()
         raw_prediction = model.forecast(series_record)
+        end_time = time.time()
         forecast_result = coerce_forecast_result(raw_prediction)
         validate_forecast_result_shapes(
             forecast_result, horizon=len(series_record.test_values))
@@ -2789,6 +3068,10 @@ class ForecastingSuiteRunner:
             actual=actual,
             forecast=forecast,
         )
+
+        self._record_resource_metrics(series_record, model.name, start_time, end_time)
+
+        self._record_probabilistic_metrics(series_record, model.name, actual, forecast_result)
 
         self.artifacts_recorder.record_quantile_predictions(
             series_record=series_record,
@@ -2813,7 +3096,7 @@ class ForecastingSuiteRunner:
             subset=series_record.subset,
             series_id=series_record.series_id,
             model_name=model.name,
-            family=family.name,
+            family=model.family.value if hasattr(model, 'family') else 'unknown',
             status=RunStatus.SUCCESS,
             tags=model.tags,
             metrics_summary=metrics_summary,

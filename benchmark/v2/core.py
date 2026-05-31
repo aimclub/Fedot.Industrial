@@ -19,6 +19,10 @@ class RunStatus(str, Enum):
     FAILED = 'failed'
     SKIPPED = 'skipped'
     NOT_AVAILABLE = 'not_available'
+    BUDGET_EXCEEDED = 'budget_exceeded'
+    BACKEND_UNAVAILABLE = 'backend_unavailable'
+    AUTH_FAILED = 'auth_failed'
+    NOT_APPLICABLE = 'not_applicable'
 
 
 class RunMode(str, Enum):
@@ -74,6 +78,13 @@ class ModelFamily(str, Enum):
     SUPERVISED_SOTA = 'supervised_sota'
     FOUNDATION = 'foundation'
     EXTERNAL = 'external'
+
+
+class MetricKind(str, Enum):
+    POINT = "point"
+    PROBABILISTIC = "probabilistic"
+    RESOURCE = "resource"
+    DIAGNOSTIC = "diagnostic"
 
 
 @dataclass(frozen=True)
@@ -212,6 +223,8 @@ class MetricRecord:
     metric_value: float
     status: RunStatus
     horizon_index: int | None = None
+    kind: MetricKind | str = MetricKind.POINT
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -228,6 +241,11 @@ class BenchmarkRunRecord:
     message: str = ''
     metrics_summary: dict[str, float] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    skip_reason: str | None = None
+    backend_error: str | None = None
+    dependency_status: dict[str, str] | None = None
+    api_status: dict[str, str] | None = None
+    budget_info: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -244,6 +262,7 @@ class BenchmarkAggregateReport:
     primary_metric: str
     leaderboard_rows: tuple[dict[str, Any], ...]
     status_counts: dict[str, int]
+    status_counts_by_family: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
