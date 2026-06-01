@@ -189,7 +189,9 @@ def _evaluate_parameters(
 
     metric_values = FEDOT_GET_METRICS['anomaly_detection'](target=calibration_labels,
                                                            predicted_labels=predicted,
-                                                           metric_names=tuple(metric_name),
+                                                           predicted_probs=None, # Можно добавить, для некоторых метрик будет полезно
+                                                           metric_names=tuple(metric_name,),
+                                                        #    rounding_order=4,   # Можно добавить
                                                            return_dataframe = False)
     metric_value = float(metric_values[metric_name])
     return DetectionSeriesEvaluation(

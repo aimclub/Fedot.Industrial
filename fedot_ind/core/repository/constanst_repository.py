@@ -33,8 +33,10 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from torch import nn
 from xgboost import XGBRegressor
 
-from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
-    calculate_forecasting_metric, calculate_detection_metric
+# from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
+#     calculate_forecasting_metric, calculate_detection_metric
+from fedot_ind.core.metrics.metrics import calculate_classification_metric, calculate_regression_metric, calculate_forecasting_metric, calculate_detection_metric
+
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix

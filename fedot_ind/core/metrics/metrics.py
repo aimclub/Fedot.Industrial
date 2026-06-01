@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import pandas as pd
 import numpy as np
 
 from fedot_ind.core.metrics._exceptions import (
@@ -153,8 +154,28 @@ class QualityMetric:
             value = fn(self.target, self.predicted, **{**self._extra_kwargs(name), **params})
             if isinstance(value, (float, np.floating)):
                 out[key] = round(float(value), self.rounding_order)
+            elif isinstance(value, dict):
+                new_value = {}
+                for subkey, subvalue in value.items():
+                    if isinstance(subvalue, (float, np.floating)):
+                        new_value[subkey] = round(float(subvalue), self.rounding_order)
+                    elif isinstance(subvalue, (int,)):
+                        new_value[subkey] = subvalue
+                    elif isinstance(subvalue, (list, np.ndarray)):
+                        np_value = np.array(subvalue, dtype=float)
+                        new_value[subkey] = np.round(np_value, self.rounding_order).tolist()  # При необходимости можно переделать на чистый list или убрать это
+                    else:
+                        raise MetricValidationError(f'Undefined data type of the metric output in dict values: {type(subvalue).__name__}')
+                out[key] = new_value
+            # Тут я забыл, что единственное место, вроде бы, где я возвращаю список - это словарь спиское. 
+            # Поэтмоу этот код не испоьзуется, но пусть будет, если кто-то захочет в добавленной метрике 
+            # выводить список. И он тоже будет округлённым.
+            elif isinstance(value, (list, np.ndarray)):
+                np_value = np.array(value, dtype=float)
+                out[key] = np.round(np_value, self.rounding_order).tolist() # При необходимости можно переделать на чистый list
             else:
-                out[key] = value
+                # out[key] = value
+                raise MetricValidationError(f'Undefined data type of the metric output: {type(value).__name__}')
         return out
 
 
@@ -174,6 +195,8 @@ class ClassificationMetric(QualityMetric):
         super().__init__(rounding_order=rounding_order)
         self.target = _labels(target)
         self.predicted = _labels(predicted_labels)
+        if (self.predicted == None).any():
+            raise MetricValidationError('Predicted labels is None.')
         if len(self.target) != len(self.predicted):
             raise MetricValidationError('target and predicted_labels length mismatch.')
         self._probs = _probs(predicted_probs, n_samples=len(self.target))
@@ -224,19 +247,43 @@ class AnomalyMetric(QualityMetric):
             self,
             target: Any,
             predicted_labels: Any,
+            predicted_probs: Any | None = None,
             rounding_order: int = 4,
+            default_value: float = 0.0,
             **detection_params: Any,
     ) -> None:
         super().__init__(rounding_order=rounding_order)
         self.target = _labels(target)
         self.predicted = _labels(predicted_labels)
+        if (self.predicted == None).any():
+            raise MetricValidationError('Predicted labels is None.')
         if len(self.target) != len(self.predicted):
             raise MetricValidationError('target and predicted_labels length mismatch.')
+        self._probs = _probs(predicted_probs, n_samples=len(self.target))
+        self._default_value = default_value
         self._detection_params = detection_params
 
     def _extra_kwargs(self, _metric_name: str) -> dict[str, Any]:
-        return dict(self._detection_params)
+        return {**self._detection_params,'predicted_probs': self._probs, 'default_value': self._default_value}
 
+# PANDAS return adapter for legacy code in FedotIndustrial class
+
+def _flatten_metric_result(result: dict) -> dict:
+    flat = {}
+    for key, value in result.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                # flat[f'{key}_{sub_key}'] = sub_value
+                flat[f'{sub_key}'] = sub_value
+        elif isinstance(value, list):
+            flat[key] = value
+        else:
+            flat[key] = value
+    return flat
+
+
+def _result_to_dataframe(result: dict, rounding_order: int) -> pd.DataFrame:
+    return pd.DataFrame([_flatten_metric_result(result)], index=[0]).round(rounding_order)
 
 # ---------------------------------------------------------------------------
 # Public calculate_* API
@@ -246,64 +293,83 @@ def calculate_classification_metric(
         target: Any,
         predicted_labels: Any,
         predicted_probs: Any | None = None,
-        metrics: Sequence[str | Mapping[str, Any]] | str | None = None,
+        metric_names: Sequence[str | Mapping[str, Any]] | str | None = None,
         rounding_order: int = 4,
+        return_dataframe: bool = True,
         **kwargs: Any,
 ) -> dict[str, float | list | dict]:
     """Compute classification metrics for one dataset."""
-    specs = _normalize_metrics(metrics, ('f1','accuracy'))
-    return ClassificationMetric(target, 
+    specs = _normalize_metrics(metric_names, ('f1','accuracy'))
+    result = ClassificationMetric(target, 
                                 predicted_labels, 
                                 predicted_probs,
                                 rounding_order=rounding_order,
                                 default_value=float(kwargs.get('default_value', -42))
                                 ).metric_evaluation(specs)
-
-
-def calculate_regression_metric(
-        target: Any,
-        predicted: Any,
-        metrics: Sequence[str | Mapping[str, Any]] | str | None = None,
-        rounding_order: int = 4,
-        **kwargs: Any,
-) -> dict[str, float | list | dict]:
-    """Compute regression metrics for one dataset."""
-    del kwargs
-    specs = _normalize_metrics(metrics, ('r2', 'rmse', 'mae'))
-    return RegressionMetric(target, 
-                            predicted, 
-                            rounding_order=rounding_order
-                            ).metric_evaluation(specs)
-
-
-def calculate_forecasting_metric(
-        target: Any,
-        predicted: Any,
-        metrics: Sequence[str | Mapping[str, Any]] | str | None = None,
-        rounding_order: int = 4,
-        **kwargs: Any,
-) -> dict[str, float | list | dict]:
-    """Compute forecasting metrics for one horizon."""
-    specs = _normalize_metrics(metrics, ('smape', 'rmse', 'mape'))
-    return ForecastingMetric(
-        target, predicted,
-        rounding_order=rounding_order,
-        train_data=kwargs.get('train_data'),
-        seasonality=int(kwargs.get('seasonality', kwargs.get('seasonal_period', 1))),
-    ).metric_evaluation(specs)
-
+    if return_dataframe == True: #kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 def calculate_detection_metric(
         target: Any,
         predicted_labels: Any,
-        metrics: Sequence[str | Mapping[str, Any]] | str | None = None,
+        predicted_probs=None,
+        metric_names: Sequence[str | Mapping[str, Any]] | str | None = None,
         rounding_order: int = 4,
+        return_dataframe: bool = True,
         **kwargs: Any,
 ) -> dict[str, float | list | dict]:
     """Compute anomaly detection metrics on binary label sequences."""
-    specs = _normalize_metrics(metrics, ('f1','accuracy'))
-    return AnomalyMetric(
-        target, predicted_labels,
+    specs = _normalize_metrics(metric_names, ('f1','accuracy'))
+    result = AnomalyMetric(
+        target, 
+        predicted_labels,
+        predicted_probs,
         rounding_order=rounding_order,
         **kwargs,
     ).metric_evaluation(specs)
+    if return_dataframe == True: #kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
+
+def calculate_regression_metric(
+        target: Any,
+        predicted_labels: Any,
+        metric_names: Sequence[str | Mapping[str, Any]] | str | None = None,
+        rounding_order: int = 4,
+        return_dataframe: bool = True,
+        **kwargs: Any,
+) -> dict[str, float | list | dict]:
+    """Compute regression metrics for one dataset."""
+    del kwargs
+    specs = _normalize_metrics(metric_names, ('r2', 'rmse', 'mae'))
+    result = RegressionMetric(target, 
+                            predicted_labels, 
+                            rounding_order=rounding_order
+                            ).metric_evaluation(specs)
+    if return_dataframe == True: #kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
+
+def calculate_forecasting_metric(
+        target: Any,
+        predicted_labels: Any,
+        metric_names: Sequence[str | Mapping[str, Any]] | str | None = None,
+        rounding_order: int = 4,
+        return_dataframe: bool = True,
+        train_data=None,
+        seasonality=None,
+        **kwargs: Any,
+) -> dict[str, float | list | dict]:
+    """Compute forecasting metrics for one horizon."""
+    specs = _normalize_metrics(metric_names, ('smape', 'rmse', 'mape'))
+    result = ForecastingMetric(
+                target, 
+                predicted_labels,
+                rounding_order=rounding_order,
+                train_data=train_data, # kwargs.get('train_data'),
+                seasonality=(int(seasonality) if seasonality is not None else 1)  #int(kwargs.get('seasonality', kwargs.get('seasonal_period', 1))),
+            ).metric_evaluation(specs)
+    if return_dataframe == True: #kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result

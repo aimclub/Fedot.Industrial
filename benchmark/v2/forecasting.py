@@ -1681,9 +1681,10 @@ def compute_forecasting_metric(
     #     seasonality=seasonal_period,
     # )
     
-    result = FEDOT_GET_METRICS['forecasting'](target=actual,
+    result = FEDOT_GET_METRICS['ts_forecasting'](target=actual,
                                               predicted_labels=predicted,
                                               metric_names=tuple(metric_name),
+                                              rounding_order = 4,
                                               return_dataframe = False,
                                               train_data=train,
                                               seasonality=seasonal_period,)
@@ -1718,9 +1719,10 @@ def compute_pointwise_metric(
     #     train_data=train,
     #     seasonality=seasonal_period,
     # )
-    result = FEDOT_GET_METRICS['forecasting'](target=actual,
+    result = FEDOT_GET_METRICS['ts_forecasting'](target=actual,
                                               predicted_labels=predicted,
                                               metric_names=tuple(metric_name),
+                                              rounding_order = 4,
                                               return_dataframe = False,
                                               train_data=train,
                                               seasonality=seasonal_period,)

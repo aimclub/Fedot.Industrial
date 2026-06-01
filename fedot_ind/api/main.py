@@ -225,6 +225,9 @@ class FedotIndustrial(Fedot):
                                                                   predicted_probs=predicted_probs,
                                                                   metric_names=metric_names,
                                                                   rounding_order=rounding_order,
+                                                                #   return_dataframe: bool = True, # Можно контролировать вывод, по умолчанию True, чтобы выводить тут, как было
+                                                                  train_data=train_data,
+                                                                  seasonality=seasonality
                                                                   ) for model_name, model_result in predicted_labels.items()}
             return metric_dict
         else:
@@ -240,6 +243,7 @@ class FedotIndustrial(Fedot):
                                               predicted_probs=predicted_probs,
                                               metric_names=metric_names,
                                               rounding_order=rounding_order,
+                                            #   return_dataframe: bool = True, # Можно контролировать вывод, по умолчанию True, чтобы выводить тут, как было
                                               train_data=train_data,
                                               seasonality=seasonality)
 

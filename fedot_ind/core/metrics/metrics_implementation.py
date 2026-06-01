@@ -245,7 +245,8 @@ def _flatten_metric_result(result: dict) -> dict:
     for key, value in result.items():
         if isinstance(value, dict):
             for sub_key, sub_value in value.items():
-                flat[f'{key}_{sub_key}'] = sub_value
+                # flat[f'{key}_{sub_key}'] = sub_value
+                flat[f'{sub_key}'] = sub_value
         elif isinstance(value, list):
             flat[key] = value
         else:
@@ -266,8 +267,8 @@ def calculate_regression_metric(target,
 
     result = _calculate(
         target=target,
-        predicted=predicted_labels,
-        metrics=metric_names,
+        predicted_labels=predicted_labels,
+        metric_names=metric_names,
         rounding_order=rounding_order,
         **kwargs,
     )
@@ -287,7 +288,7 @@ def calculate_forecasting_metric(target,
 
     result = _calculate(
         target=target,
-        predicted=predicted_labels,
+        predicted_labels=predicted_labels,
         metrics=metric_names,
         rounding_order=rounding_order,
         train_data=train_data,
@@ -311,7 +312,7 @@ def calculate_classification_metric(target,
         target=target,
         predicted_labels=predicted_labels,
         predicted_probs=predicted_probs,
-        metrics=metric_names,
+        metric_names=metric_names,
         rounding_order=rounding_order,
         **kwargs,
     )
@@ -774,7 +775,7 @@ def calculate_detection_metric(target,
         target=target,
         predicted_labels=predicted_labels,
         predicted_probs=predicted_probs,
-        metrics=metric_names,
+        metric_names=metric_names,
         rounding_order=rounding_order,
         **kwargs,
     )

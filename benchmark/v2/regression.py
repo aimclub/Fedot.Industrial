@@ -336,10 +336,11 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                         #     for metric_name in config.metrics
                         # }
 
-                        metrics_summary = FEDOT_GET_METRICS['classification'](target=_normalize_vector(test_y),
-                                                                              predicted_labels=_normalize_vector(prediction),
-                                                                              metric_names=tuple(config.metrics),
-                                                                              return_dataframe = False,)
+                        metrics_summary = FEDOT_GET_METRICS['regression'](target=_normalize_vector(test_y),
+                                                                          predicted_labels=_normalize_vector(prediction),
+                                                                          metric_names=tuple(config.metrics),
+                                                                          rounding_order = 4,
+                                                                          return_dataframe = False,)
 
                         run_records.append(
                             BenchmarkRunRecord(

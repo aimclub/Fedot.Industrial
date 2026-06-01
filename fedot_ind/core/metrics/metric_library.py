@@ -11,7 +11,6 @@ from collections.abc import Callable
 from typing import Any, Optional, Tuple, Dict, Union, List, Optional
 
 import numpy as np
-import pandas as pd # НУЖЕН ТОЛЬКО ДЛЯ LEGACY NAB metric
 from sklearn.metrics import (
     log_loss,
     roc_auc_score,
@@ -53,16 +52,16 @@ def get_metric(task: str, name: str) -> MetricFn:
 # ---------------------------------------------------------------------------
 # shared_cls_det 
 # 
-# Унифицированный модуль метрик для классификации и обнаружения аномалий.
-# Поддерживает многоклассовый и бинарный случаи.
-# Легко мигрирует на PyTorch (см. комментарии).
+# A unified metrics module for classification and anomaly detection.
+# Supports multi-class and binary cases.
+# Easily migrates to PyTorch (see comments).
 # ---------------------------------------------------------------------------
 
-# ЯДРО: confusion matrix
+# CORE: confusion matrix
 def confusion_matrix(
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    labels: Optional[np.ndarray] = None,
+    labels: Optional[Union[np.ndarray, list]] = None,
     **_,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -137,9 +136,9 @@ def _per_class_f1(cm: np.ndarray) -> np.ndarray:
     rec = _per_class_recall(cm)
     return _safe_divide(2 * prec * rec, prec + rec)
 
-# Публичные per‑class метрики
+# Public per-class metrics
 
-def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, *, labels:np.ndarray = None, **_) -> Dict[str, list]:
+def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, *, labels: Union[np.ndarray, list, None] = None, **_) -> Dict[str, list]:
     """
     Возвращает словарь с массивами:
         'recall', 'precision', 'f1', 'support'
@@ -153,18 +152,21 @@ def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, *, labels:np.ndarra
         'support': _per_class_support(cm).tolist()
     }
 
-# Агрегации
+# Aggregations
 
-def accuracy(y_true: np.ndarray, y_pred: np.ndarray, *, labels:np.ndarray=None, **_) -> float:
+def accuracy(y_true: np.ndarray, y_pred: np.ndarray, *, labels: Union[np.ndarray, list, None] = None, **_) -> float:
     """Общая доля правильных ответов."""
     cm, _ = confusion_matrix(y_true, y_pred, labels)
     return float(np.trace(cm) / cm.sum())
 
-def balanced_accuracy(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
+def balanced_accuracy(y_true: np.ndarray, y_pred: np.ndarray,
+                      *, labels: Union[np.ndarray, list, None] = None, 
+                         pos_label: Union[int, str] = 'auto', 
+                         **_) -> float:
     """Balanced accuracy – средний recall по классам."""
-    return recall(y_true, y_pred, average='macro')
+    return recall(y_true, y_pred, labels=labels, average='macro', pos_label = pos_label)
 
-# Получение Confusion Matrix для бинарного случая с определением, что является положительным классом
+# Obtaining a Confusion Matrix for the binary case with a definition of what is the positive class
 
 def _binary_components(
     cm: np.ndarray,
@@ -201,13 +203,13 @@ def _binary_components(
     fn = cm[pos_idx, neg_idx]
     return int(tp), int(tn), int(fp), int(fn), pos_idx
 
-# Бинарные метрики (precision, recall, f1, FAR, MAR) + компоненты
+# Binary metrics (precision, recall, f1, FAR, MAR) + components
 
 def binary_confusion_matrix(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> Dict[str, int]:
@@ -220,34 +222,37 @@ def binary_precision(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
-    return precision(y_true, y_pred, average='binary', pos_label=pos_label)
+    return precision(y_true, y_pred, average='binary', labels = labels, pos_label=pos_label)
 
 def binary_recall(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
-    return recall(y_true, y_pred, average='binary', pos_label=pos_label)
+    return recall(y_true, y_pred, average='binary', labels=labels, pos_label=pos_label)
 
 def binary_f1(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
-    return f1_score(y_true, y_pred, average='binary', pos_label=pos_label)
+    return f1_score(y_true, y_pred, average='binary', labels=labels, pos_label=pos_label)
 
 def binary_far(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
@@ -260,7 +265,7 @@ def binary_mar(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> float:
@@ -273,7 +278,7 @@ def binary_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     pos_label: Union[int, str] = 1,
     **_,
 ) -> Dict[str, float]:
@@ -286,20 +291,20 @@ def binary_metrics(
     cm_dict = binary_confusion_matrix(y_true, y_pred, labels=labels, pos_label=pos_label)
     return {
         **cm_dict,
-        'precision': binary_precision(y_true, y_pred, pos_label),
-        'recall': binary_recall(y_true, y_pred, pos_label),
-        'f1': binary_f1(y_true, y_pred, pos_label),
-        'FAR': binary_far(y_true, y_pred, pos_label),
-        'MAR': binary_mar(y_true, y_pred, pos_label),
+        'precision': binary_precision(y_true, y_pred, labels=labels, pos_label=pos_label),
+        'recall': binary_recall(y_true, y_pred, labels=labels, pos_label=pos_label),
+        'f1': binary_f1(y_true, y_pred, labels=labels, pos_label=pos_label),
+        'FAR': binary_far(y_true, y_pred, labels=labels, pos_label=pos_label),
+        'MAR': binary_mar(y_true, y_pred, labels=labels, pos_label=pos_label),
     }
 
-# Универсальные precision / recall / f1 с выбором average
+# Universal precision/recall/f1 with average selection
 
 def precision(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     average: str = 'macro',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -336,7 +341,7 @@ def recall(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     average: str = 'macro',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -377,7 +382,7 @@ def f1_score(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
-    labels: np.ndarray = None,
+    labels: Union[np.ndarray, list, None] = None,
     average: str = 'auto',
     pos_label: Union[int, str] = 'auto',
     **_,
@@ -424,6 +429,7 @@ def metric_logloss(target: np.ndarray, predicted: np.ndarray, *, predicted_probs
     if predicted_probs is None and predicted is None:
         raise MetricValidationError('logloss requires predicted_probs. Or at least predicted (one-hot and get similar at probs)')
     if predicted_probs is None and predicted is not None:
+        # TODO Хорошо бы сделать логгирование, как описал в ROC-AUC
         classes = sorted(set(int(v) for v in np.unique(target)) | set(int(v) for v in np.unique(predicted)))
         predicted_probs = np.zeros((len(predicted), len(classes)))
         for i, c in enumerate(classes):
@@ -440,6 +446,7 @@ def metric_roc_auc(target: np.ndarray, predicted: np.ndarray, *, predicted_probs
         for i, c in enumerate(classes):
             encoded_target[:, i] = (target == c).astype(float)
         if predicted_probs is None and predicted is not None:
+            # TODO Тут бы логгировать, что типа нет данных вероятностей и будет делаться One-Hot для предсказаний и использоваться вместо вероятностей
             y_score = np.zeros((len(predicted), len(classes)))
             for i, c in enumerate(classes):
                 y_score[:, i] = (predicted == c).astype(float)
@@ -450,10 +457,10 @@ def metric_roc_auc(target: np.ndarray, predicted: np.ndarray, *, predicted_probs
     return float(roc_auc_score(y_true=target, y_score=y_score))
 
 # ---------------------------------------------------------------------------
-# Detection — NAB / average_time (legacy pandas helpers, binary labels only)
+# Detection — NAB / average_time (binary labels only)
 # ---------------------------------------------------------------------------
 
-# Вспомогательные (приватные) функции
+# Helper (private) functions
 
 def _filter_detecting_boundaries(
     boundaries: List[List[int]]
@@ -475,7 +482,6 @@ def _filter_detecting_boundaries(
 
 def _compute_detecting_boundaries(
     true_array: np.ndarray,
-    prediction_len: int,
     window_width: Optional[int] = None,
     portion: float = 0.1,
     anomaly_window_destination: str = "lefter",
@@ -488,11 +494,9 @@ def _compute_detecting_boundaries(
     ----------
     true_array : np.ndarray (1D, бинарный)
         Маска истинных событий (1 = аномалия).
-    prediction_len : int
-        Длина массива предсказаний (для расчёта ширины окна по умолчанию).
     window_width : int, optional
         Ширина окна в числе отсчётов (индексов). Если None, вычисляется как
-        int(prediction_len / (кол-во аномалий + 1) * portion).
+        int(len(true_array) / (кол-во аномалий + 1) * portion).
     portion : float
         Используется, если window_width не задан.
     anomaly_window_destination : {'lefter', 'righter', 'center'}
@@ -514,9 +518,11 @@ def _compute_detecting_boundaries(
     if len(true_indices) == 0:
         return [[]]
 
+    # TODO ХОРОШО БЫ СДЕЛАТЬ ЛОГГИРОВАНИЕ, ЧТО НЕТ НИ портион, НИ ширины И БУДУТ ИСПОЛЬЗОВАТЬСЯ ДЕФОЛТНЫЕ (ТАКОЕ БЫЛО У ПЕРВОНАЧАЛЬНЫХ АВТОРОВ)
+
     # Расчёт ширины окна, если не задана явно
     if window_width is None:
-        width = int(prediction_len / (len(true_indices) + 1) * portion)
+        width = int(len(true_array) / (len(true_indices) + 1) * portion)
     else:
         width = window_width
 
@@ -708,7 +714,7 @@ def _my_scale(
     event = min(event, detalization - 1)
     return y[event]
 
-# Основные вычислительные функции (приватные)
+# Main computing functions (private)
 
 def _single_average_delay(
     boundaries: List[List[int]],
@@ -796,7 +802,7 @@ def _single_evaluate_nab(
 
     return np.array([scores, scores_null, scores_perfect])
 
-# Публичный API
+# Public API
 
 def compute_nab_score(
     true: np.ndarray,
@@ -874,7 +880,6 @@ def compute_nab_score(
 
     boundaries = _compute_detecting_boundaries(
         true,
-        len(prediction),
         window_width=window_width,
         portion=portion,
         anomaly_window_destination=anomaly_window_destination,
@@ -888,8 +893,6 @@ def compute_nab_score(
             "Не обнаружено ни одной истинной аномалии. "
             "Расчёт NAB невозможен."
         )
-
-    # filtered = [[44,50],[50,51]]
 
     matrix = _single_evaluate_nab(
         filtered,
@@ -923,7 +926,7 @@ def compute_average_time(
     clear_anomalies_mode: bool = True,
     intersection_mode: str = "cut right window",
     **_
-) -> Tuple[float, int, int, int]:
+) -> Dict[str, (float| int)]:
     """
     Вычисление средней задержки обнаружения.
 
@@ -946,11 +949,11 @@ def compute_average_time(
 
     Returns
     -------
-    tuple
-        (average_delay : float,  # средняя задержка в отсчётах (0, если аномалий не найдено)
+    dict
+        {average_delay : float,  # средняя задержка в отсчётах (0, если аномалий не найдено)
          missing : int,          # количество пропущенных аномалий
          FP : int,               # количество ложных срабатываний
-         total_anomalies : int)  # общее число истинных аномалий
+         total_anomalies : int}  # общее число истинных аномалий
     """
     true = np.asarray(true, dtype=int).ravel()
     prediction = np.asarray(prediction, dtype=int).ravel()
@@ -959,7 +962,6 @@ def compute_average_time(
 
     boundaries = _compute_detecting_boundaries(
         true,
-        len(prediction),
         window_width=window_width,
         portion=portion,
         anomaly_window_destination=anomaly_window_destination,
@@ -974,27 +976,29 @@ def compute_average_time(
     )
 
     avg_delay = float(np.mean(detect_history)) if detect_history else 0.0
-    return avg_delay, missing, fp, total
+    return {
+        'average_delay': avg_delay, 
+        'missing': missing, 
+        'FP': fp, 
+        'total_anomalies': total}
 
+def metric_nab_standard(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
+    return float(compute_nab_score(target, predicted, **params)['Standard'])
 
-# def metric_nab_standard(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
-#     return float(metric_nab(target, predicted, profile='Standard', **params))
+def metric_nab_low_fp(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
+    return float(compute_nab_score(target, predicted, **params)['LowFP'])
 
-# def metric_nab_low_fp(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
-#     return float(metric_nab(target, predicted, profile='LowFP', **params))
-
-# def metric_nab_low_fn(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
-#     return float(metric_nab(target, predicted, profile='LowFN', **params))
-
+def metric_nab_low_fn(target: np.ndarray, predicted: np.ndarray, **params: Any) -> float:
+    return float(compute_nab_score(target, predicted, **params)['LowFN'])
 
 # ---------------------------------------------------------------------------
 # shared_reg_forecast
 
-# Унифицированные метрики для регрессии и прогнозирования временных рядов.
-# Все реализации на NumPy, готовы к замене на PyTorch (np -> torch, np.where -> torch.where и т.д.).
+# Unified metrics for time series regression and forecasting.
+# All implementations are in NumPy, ready for replacement with PyTorch (np -> torch, np.where -> torch.where, etc.).
 # ---------------------------------------------------------------------------
 
-# Регрессионные метрики
+# Regression metrics
 def mse(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
     """Mean Squared Error."""
     return float(np.mean((y_true - y_pred) ** 2))
@@ -1015,6 +1019,8 @@ def r2_score(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
 
 def msle(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
     """Mean Squared Logarithmic Error."""
+    if (y_true < 0).any() or (y_pred < 0).any():
+        raise MetricValidationError('There are negative values in GT or predicted sequence. MSLE does not support negative values')
     return float(np.mean((np.log1p(y_true) - np.log1p(y_pred)) ** 2))
 
 def mape(y_true: np.ndarray, y_pred: np.ndarray, *, epsilon: float = 1e-8, **_) -> float:
@@ -1051,7 +1057,7 @@ def d2_absolute_error_score(y_true: np.ndarray, y_pred: np.ndarray, **_) -> floa
 # Forecasting (from benchmark/v2/forecasting.py)
 # ---------------------------------------------------------------------------
 
-# Вспомогательные функции для прогнозирования
+# Helper functions for forecasting
 def _mase_scale(train: np.ndarray, seasonal_period: int) -> float:
     """
     Масштаб для MASE: среднее абсолютное изменение ряда с лагом seasonal_period (или 1).
@@ -1073,7 +1079,7 @@ def _seasonal_naive(train: np.ndarray, horizon: int, seasonal_period: int) -> np
     repeats = int(np.ceil(horizon / lag))
     return np.tile(base, repeats)[:horizon]
 
-# Поэлементные (pointwise) ошибки для прогнозирования
+# Pointwise errors for prediction
 def absolute_error(y_true: np.ndarray, y_pred: np.ndarray, **_) -> np.ndarray:
     """Поэлементные абсолютные ошибки."""
     return np.abs(y_true - y_pred)
@@ -1083,7 +1089,7 @@ def squared_error(y_true: np.ndarray, y_pred: np.ndarray, **_) -> np.ndarray:
     """Поэлементные квадраты ошибок."""
     return (absolute_error(y_true, y_pred) ** 2)
 #
-    # поэлементное RMSE тождественно absolute_error()
+    # Pointwise RMSE is identical to absolute_error()
 
 def smape_error(y_true: np.ndarray, y_pred: np.ndarray, *, epsilon: float = 1e-8, **_) -> np.ndarray:
     """
@@ -1125,25 +1131,28 @@ def owa_error(y_true: np.ndarray,
 
     return 0.5 * ((smape_actual / smape_base) + (mase_actual / mase_base))
 
-# Агрегированные прогнозные метрики
+# Aggregated forecast metrics
 
-    # агрегированная mae тождественна mae()
+    # aggregated mae is identical to mae()
 
-    # агрегированная rmse тождественна rmse()
+    # aggregated rmse is identical to rmse()
 
-def smape(y_true: np.ndarray, y_pred: np.ndarray, **_) -> float:
+def smape(y_true: np.ndarray, y_pred: np.ndarray, **params) -> float:
     """sMAPE, усреднённый по всем точкам."""
-    return float(np.mean(smape_error(y_true, y_pred)))
+    if params == None:
+        params = {}
+    epsilon = params.get('epsilon', 1e-8)
+    return float(np.mean(smape_error(y_true, y_pred, epsilon=epsilon)))
 
 def mase(y_true: np.ndarray, 
          y_pred: np.ndarray,
          *, y_train: np.ndarray, 
             seasonal_period: int, **_) -> float:
     """MASE, усреднённый по всем точкам."""
-    return float(np.mean(mase_error(y_true, y_pred, y_train, seasonal_period)))
+    return float(np.mean(mase_error(y_true, y_pred, y_train=y_train, seasonal_period=seasonal_period)))
 
 def owa(y_true: np.ndarray, y_pred: np.ndarray,
-        *, y_train: np.ndarray, seasonal_period: int, **_) -> float:
+        *, y_train: np.ndarray, seasonal_period: int, **params) -> float:
     """
     Агрегированный OWA по всему горизонту:
     0.5 * (smape / smape_baseline + mase / mase_baseline).
@@ -1153,10 +1162,10 @@ def owa(y_true: np.ndarray, y_pred: np.ndarray,
     horizon = len(y_true)
     baseline = _seasonal_naive(y_train, horizon, seasonal_period)
 
-    smape_val = smape(y_true, y_pred)
-    mase_val = mase(y_true, y_pred, y_train, seasonal_period)
-    smape_base = smape(y_true, baseline)
-    mase_base = mase(y_true, baseline, y_train, seasonal_period)
+    smape_val = smape(y_true, y_pred, **params)
+    mase_val = mase(y_true, y_pred, y_train=y_train, seasonal_period=seasonal_period)
+    smape_base = smape(y_true, baseline, **params)
+    mase_base = mase(y_true, baseline, y_train=y_train, seasonal_period=seasonal_period)
 
     smape_base = smape_base if smape_base > 1e-8 else 1.0
     mase_base = mase_base if mase_base > 1e-8 else 1.0
@@ -1219,10 +1228,10 @@ def _register_all() -> None:
         'roc_auc': metric_roc_auc,
     })
     METRIC_REGISTRY['anomaly_detection'].update({
-    # Распаковка всех метрик классификации
+    # Unpacking all classification metrics
         **METRIC_REGISTRY['shared_cls_det'],
-    # Бинарные метрики для случая с классами 0 и 1, где 1 - положительный класс. 
-    # ЕСТЬ АРГУМЕНТ ДЛЯ ЗАДАНИЯ pos_label, НО ЩАС ХАРДКОД НА 1
+    # Binary metrics for the case with classes 0 and 1, where 1 is the positive class.
+    # THERE IS AN ARGUMENT FOR SETTING pos_label, BUT IT'S HARDCODED FOR 1 NOW
         'bin_confusion_matrix': binary_confusion_matrix,
         'bin_precision': binary_precision,
         'bin_recall': binary_recall,
@@ -1230,11 +1239,11 @@ def _register_all() -> None:
         'bin_far': binary_far,
         'bin_mar': binary_mar,
         'bin_metrics': binary_metrics,
-    # Специфичные для Обнаружения Аномалий метрики - NAB и average_time
+    # Anomaly Detection-Specific Metrics - NAB and average_time
         'nab': compute_nab_score,
-        # 'nab_standard': metric_nab_standard,
-        # 'nab_low_fp': metric_nab_low_fp,
-        # 'nab_low_fn': metric_nab_low_fn,
+        'nab_standard': metric_nab_standard,
+        'nab_low_fp': metric_nab_low_fp,
+        'nab_low_fn': metric_nab_low_fn,
         'average_time': compute_average_time,
     })
     METRIC_REGISTRY['shared_reg_forecast'].update({
@@ -1250,15 +1259,15 @@ def _register_all() -> None:
         'd2_absolute_error_score': d2_absolute_error_score,
     })
     METRIC_REGISTRY['forecasting'].update({
-    # Распаковка всех метрик регрессии
+    # Unpacking all regression metrics
         **METRIC_REGISTRY['shared_reg_forecast'],
-    # Аггрегированные, как было сделано в forcasting
+    # Aggregated, as was done in forecasting
         # 'mae': mae, # есть в регрессии с таким же именем
         # 'rmse': rmse, # есть в регрессии с таким же именем
         'smape': smape,
         'mase': mase,
         'owa': owa,
-    # Поточечные, как было сделано в forcasting
+    # Pointwise, as was done in forecasting
         'pw_mae': absolute_error,
         'pw_rmse': absolute_error,
         'pw_smape': smape_error,
@@ -1266,7 +1275,7 @@ def _register_all() -> None:
         'pw_owa': owa_error,
     })
 
-    # Константы для минимизации (чем меньше, тем лучше)
+    # Constants for minimization (the smaller the better)
     global METRICS_TO_MINIMIZE
     METRICS_TO_MINIMIZE = (
         *METRICS_TO_MINIMIZE, 
@@ -1291,7 +1300,7 @@ def _register_all() -> None:
         'pw_owa',                 # поточечная OWA
     )
 
-    # Константы для максимизации (чем больше, тем лучше)
+    # Constants for maximization (the bigger the better)
     global METRICS_TO_MAXIMIZE
     METRICS_TO_MAXIMIZE = (
         *METRICS_TO_MAXIMIZE,
@@ -1308,9 +1317,9 @@ def _register_all() -> None:
         'bin_confusion_matrix',    # матрица ошибок, не скаляр
         'bin_metrics',             # агрегированный словарь метрик
         'nab',                     # Numenta Anomaly Benchmark score (основной)
-        # 'nab_standard',            # NAB со стандартным профилем
-        # 'nab_low_fp',              # NAB с низкой частотой ложных срабатываний
-        # 'nab_low_fn',              # NAB с низкой частотой пропусков
+        'nab_standard',            # NAB со стандартным профилем
+        'nab_low_fp',              # NAB с низкой частотой ложных срабатываний
+        'nab_low_fn',              # NAB с низкой частотой пропусков
         'r2',                      # коэффициент детерминации R²
         'explained_variance_score',
         'd2_absolute_error_score', # аналог R² для абсолютной ошибки

@@ -621,7 +621,9 @@ class DetectionSeriesArtifactsRecorder:
         # )
         metric_values = FEDOT_GET_METRICS['anomaly_detection'](target=actual,
                                                                predicted_labels=labels,
+                                                               predicted_probs=None, # Можно добавить для вычисления некоторых метрик
                                                                metric_names=tuple(self.metric_names,),
+                                                               rounding_order = 4,
                                                                return_dataframe = False)
         for metric_name, metric_value in metric_values.items():
             metrics_summary[metric_name] = metric_value
