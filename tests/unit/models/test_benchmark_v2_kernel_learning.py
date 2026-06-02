@@ -1,8 +1,10 @@
-from benchmark.v2.classification import (
-    BenchmarkClassificationError,
-    LocalClassificationAdapter,
-)
-from benchmark.v2.api import build_legacy_tsc_suite_config, build_legacy_tser_suite_config
+import sys
+import types
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -11,15 +13,15 @@ from benchmark.v2 import (
     RunSpec,
     RunStatus,
     TaskType,
+    run_forecasting_benchmark_suite,
     run_tsc_benchmark_suite,
     run_tser_benchmark_suite,
 )
-import sys
-import types
-from pathlib import Path
-
-import numpy as np
-import pytest
+from benchmark.v2.api import build_legacy_tsc_suite_config, build_legacy_tser_suite_config
+from benchmark.v2.classification import (
+    BenchmarkClassificationError,
+    LocalClassificationAdapter,
+)
 
 pytest.importorskip("fedot")
 
@@ -90,6 +92,52 @@ def test_tser_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
 
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
     assert result.run_records[0].model_name == "KernelEnsembleRegressor"
+
+
+def test_forecasting_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark="in_memory",
+                dataset_name="toy_kernel_forecasting",
+                subset="monthly",
+                adapter_options={
+                    "records": [
+                        {
+                            "series_id": "toy_series",
+                            "train_values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+                            "test_values": [8.0, 9.0],
+                            "horizon": 2,
+                        },
+                    ],
+                    "forecast_horizon": 2,
+                },
+            ),
+        ),
+        models=(
+            ModelSpec(
+                adapter_name="kernel_ensemble_forecaster",
+                display_name="KernelEnsembleForecaster",
+                params={
+                    "generator_names": ("identity",),
+                    "kernel": "linear",
+                    "window_size": 3,
+                    "alpha": 1e-6,
+                },
+            ),
+        ),
+        metrics=("rmse", "mae"),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name="toy_kernel_forecasting", primary_metric="rmse"),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert result.run_records[0].model_name == "KernelEnsembleForecaster"
+    assert result.run_records[0].metadata["model_adapter_family"] == "kernel_learning"
+    assert "kernel_selection" in result.run_records[0].metadata
 
 
 def test_legacy_builders_default_to_kernel_model_specs():

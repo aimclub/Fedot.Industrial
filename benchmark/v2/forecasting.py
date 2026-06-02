@@ -82,6 +82,7 @@ from benchmark.v2.core import (
     TaskType,
     new_run_id,
 )
+from benchmark.v2.kernel_artifacts import export_kernel_learning_artifacts
 from benchmark.v2.verbosity import (
     ForecastingVerbosityPolicy,
     resolve_forecasting_verbosity_policy,
@@ -781,6 +782,106 @@ class LinearTrendModel(ForecastingModelAdapter):
         slope, intercept = np.polyfit(index, train, deg=1)
         future_index = np.arange(len(train), len(train) + series_record.forecast_horizon, dtype=float)
         return intercept + slope * future_index, {'slope': float(slope), 'intercept': float(intercept)}
+
+
+@dataclass
+class KernelEnsembleForecasterModel(ForecastingModelAdapter):
+    """Benchmark adapter for the kernel-learning forecaster."""
+
+    name: str = 'KernelEnsembleForecaster'
+    tags: tuple[str, ...] = ('industrial', 'forecasting', 'kernel_learning')
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    window_size: int | None = None
+    stride: int = 1
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot_ind.core.kernel_learning import KernelEnsembleForecaster  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'Kernel ensemble forecaster is unavailable: {exc}'
+
+    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+        from fedot_ind.core.kernel_learning import KernelEnsembleForecaster
+
+        train = np.asarray(series_record.train_values, dtype=float).reshape(-1)
+        window = _resolve_kernel_forecast_window_size(
+            train_length=len(train),
+            forecast_horizon=series_record.forecast_horizon,
+            requested_window_size=self.window_size,
+        )
+        features, target = _build_kernel_forecasting_windows(
+            train,
+            forecast_horizon=series_record.forecast_horizon,
+            window_size=window,
+            stride=self.stride,
+        )
+        model_params = dict(self.params or {})
+        for benchmark_only_key in ('window_size', 'stride', 'progress_policy', 'stage_tuning_runtime'):
+            model_params.pop(benchmark_only_key, None)
+        model_params.setdefault('forecast_horizon', series_record.forecast_horizon)
+        model_params.setdefault('generator_names', ('identity', 'shapelet_extractor'))
+        model_params.setdefault('kernel', 'rbf')
+        model_params.setdefault('gamma', 'scale')
+        self.model_ = KernelEnsembleForecaster(**model_params)
+        self.model_.fit(features, target)
+        last_window = train[-window:].reshape(1, -1)
+        prediction = np.asarray(self.model_.predict(last_window), dtype=float).reshape(-1)
+        metadata = {
+            'strategy': 'kernel_ensemble_forecaster',
+            'window_size': int(window),
+            'stride': int(self.stride),
+            'n_training_windows': int(features.shape[0]),
+            'forecast_horizon': int(series_record.forecast_horizon),
+            **export_kernel_learning_artifacts(self.model_),
+        }
+        return prediction[:series_record.forecast_horizon], metadata
+
+
+def _resolve_kernel_forecast_window_size(
+        *,
+        train_length: int,
+        forecast_horizon: int,
+        requested_window_size: int | None,
+) -> int:
+    max_window = int(train_length) - int(forecast_horizon)
+    if max_window < 1:
+        raise ModelExecutionError(
+            RunStatus.SKIPPED,
+            'Series is too short for kernel ensemble supervised forecasting windows.',
+        )
+    if requested_window_size is not None:
+        window = int(requested_window_size)
+    else:
+        window = min(max_window, max(4, 2 * int(forecast_horizon)))
+    window = min(max(window, 1), max_window)
+    return int(window)
+
+
+def _build_kernel_forecasting_windows(
+        train: np.ndarray,
+        *,
+        forecast_horizon: int,
+        window_size: int,
+        stride: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    if stride < 1:
+        raise ModelExecutionError(RunStatus.SKIPPED, 'Kernel ensemble forecasting stride must be at least 1.')
+    max_start = len(train) - window_size - forecast_horizon + 1
+    if max_start < 1:
+        raise ModelExecutionError(
+            RunStatus.SKIPPED,
+            'Series is too short for the requested kernel ensemble forecasting window.',
+        )
+    starts = range(0, max_start, stride)
+    features = []
+    target = []
+    for start in starts:
+        features.append(train[start:start + window_size])
+        target.append(train[start + window_size:start + window_size + forecast_horizon])
+    return np.asarray(features, dtype=float), np.asarray(target, dtype=float)
 
 
 @dataclass
@@ -1581,6 +1682,15 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
     raw_adapter_name = spec.adapter_name.lower()
     adapter_name = canonical_forecasting_model_name(raw_adapter_name)
     dict(spec.params)
+    if raw_adapter_name == 'kernel_ensemble_forecaster':
+        return KernelEnsembleForecasterModel(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'forecasting', 'kernel_learning'),
+            optional=spec.optional,
+            params=dict(spec.params),
+            window_size=spec.params.get('window_size'),
+            stride=int(spec.params.get('stride', 1)),
+        )
     if raw_adapter_name == 'okhs':
         return _instantiate_model_adapter(OKHSModel, spec, ('okhs', 'forecasting'))
     if adapter_name == 'okhs_fdmd_forecaster':

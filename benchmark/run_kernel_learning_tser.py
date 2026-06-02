@@ -1,4 +1,8 @@
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -8,9 +12,6 @@ from benchmark.v2 import (
     TaskType,
     run_tser_benchmark_suite,
 )
-
-import sys
-from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -40,21 +41,51 @@ DATASETS = tuple(
 KERNEL_LEARNING_MODELS = (
     ModelSpec(
         adapter_name="kernel_ensemble_regressor",
-        display_name="KernelEnsembleRegressor_linear_summary",
+        display_name="KernelEnsembleRegressor_score_linear_summary",
         params={
             "generator_names": ("statistical_summary",),
             "kernel": "linear",
             "alpha": 1e-6,
+            "selector_optimizer": "score",
         },
     ),
     ModelSpec(
         adapter_name="kernel_ensemble_regressor",
-        display_name="KernelEnsembleRegressor_rbf_summary",
+        display_name="KernelEnsembleRegressor_adaptive_rbf_summary",
         params={
             "generator_names": ("statistical_summary",),
             "kernel": "rbf",
             "gamma": "scale",
             "alpha": 1.0,
+            "selector_optimizer": "projected_gradient",
+            "complexity_penalty": 0.01,
+            "redundancy_penalty": 0.05,
+        },
+    ),
+    ModelSpec(
+        adapter_name="kernel_ensemble_regressor",
+        display_name="KernelEnsembleRegressor_shapelet_rbf",
+        params={
+            "generator_names": ("shapelet_extractor", "statistical_summary"),
+            "kernel": "rbf",
+            "gamma": "scale",
+            "alpha": 1.0,
+            "selector_optimizer": "projected_gradient",
+            "complexity_penalty": 0.01,
+            "redundancy_penalty": 0.05,
+        },
+    ),
+    ModelSpec(
+        adapter_name="kernel_ensemble_regressor",
+        display_name="KernelEnsembleRegressor_embedding_nystrom",
+        params={
+            "generator_names": ("embedding_extractor", "statistical_summary"),
+            "kernel": "rbf",
+            "gamma": "scale",
+            "kernel_approximation": "nystrom",
+            "nystrom_components": 16,
+            "alpha": 1.0,
+            "selector_optimizer": "projected_gradient",
         },
     ),
 )

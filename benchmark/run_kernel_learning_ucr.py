@@ -1,5 +1,8 @@
 from __future__ import annotations
-from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
+
+import sys
+from pathlib import Path
+
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -10,28 +13,20 @@ from benchmark.v2 import (
     discover_local_ucr_datasets,
     run_tsc_benchmark_suite,
 )
-
-import sys
-from pathlib import Path
+from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-
-EXPERIMENT_DATE = "140526"
+EXPERIMENT_DATE = "020626"
 UCR_DATA_ROOT = PROJECT_ROOT / "data"
 UCR_DATASETS = ()
 NON_TOPOLOGICAL_GENERATORS = (
     "quantile_extractor_torch",
-    "wavelet_basis",
     "wavelet_extractor",
-    "fourier_basis",
     "fourier_extractor",
-    "eigen_basis",
-    "eigen_extractor",
     "recurrence_extractor",
-    "tabular_extractor",
 )
 
 
@@ -54,37 +49,58 @@ DATASETS = tuple(
 )
 
 KERNEL_LEARNING_MODELS = (
-    # ModelSpec(
-    #     adapter_name="kernel_ensemble_classifier",
-    #     display_name="KernelEnsembleClassifier_linear_summary",
-    #     params={
-    #         "generator_names": ("statistical_summary",),
-    #         "kernel": "linear",
-    #         "C": 10.0,
-    #     },
-    # ),
-    # ModelSpec(
-    #     adapter_name="kernel_ensemble_classifier",
-    #     display_name="KernelEnsembleClassifier_rbf_summary",
-    #     params={
-    #         "generator_names": ("statistical_summary",),
-    #         "kernel": "rbf",
-    #         "gamma": "scale",
-    #         "C": 1.0,
-    #     },
-    # ),
     ModelSpec(
         adapter_name="kernel_ensemble_classifier",
-        display_name="KernelEnsembleClassifier_all_non_topological",
+        display_name="KernelEnsembleClassifier_score_baseline_summary",
+        params={
+            "generator_names": ("statistical_summary",),
+            "kernel": "linear",
+            "C": 10.0,
+            "selector_optimizer": "score",
+            "importance_threshold": 0.05,
+        },
+    ),
+    ModelSpec(
+        adapter_name="kernel_ensemble_classifier",
+        display_name="KernelEnsembleClassifier_adaptive_all_non_topological",
         params={
             "generator_names": NON_TOPOLOGICAL_GENERATORS,
             "kernel": "rbf",
             "gamma": "scale",
             "torch_device": "auto",
             "C": 1.0,
+            "selector_optimizer": "projected_gradient",
             "complexity_penalty": 0.01,
             "redundancy_penalty": 0.05,
             "min_weight": 0.05,
+            "importance_threshold": 0.05,
+        },
+    ),
+    ModelSpec(
+        adapter_name="kernel_ensemble_classifier",
+        display_name="KernelEnsembleClassifier_shapelet_motif_rbf",
+        params={
+            "generator_names": ("shapelet_extractor", "statistical_summary"),
+            "kernel": "rbf",
+            "gamma": "scale",
+            "C": 1.0,
+            "selector_optimizer": "projected_gradient",
+            "complexity_penalty": 0.01,
+            "redundancy_penalty": 0.05,
+            "importance_threshold": 0.05,
+        },
+    ),
+    ModelSpec(
+        adapter_name="kernel_ensemble_classifier",
+        display_name="KernelEnsembleClassifier_embedding_nystrom",
+        params={
+            "generator_names": ("embedding_extractor", "statistical_summary"),
+            "kernel": "rbf",
+            "gamma": "scale",
+            "kernel_approximation": "nystrom",
+            "nystrom_components": 16,
+            "C": 1.0,
+            "selector_optimizer": "projected_gradient",
             "importance_threshold": 0.05,
         },
     ),

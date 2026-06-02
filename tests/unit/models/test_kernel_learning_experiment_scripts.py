@@ -17,7 +17,15 @@ def test_ucr_experiment_script_is_declarative_and_local_first():
     assert "UCR_DATASETS = ()" in source
     assert "kernel_ensemble_classifier" in source
     assert "NON_TOPOLOGICAL_GENERATORS" in source
-    assert "KernelEnsembleClassifier_all_non_topological" in source
+    assert "KernelEnsembleClassifier_score_baseline_summary" in source
+    assert "KernelEnsembleClassifier_adaptive_all_non_topological" in source
+    assert "KernelEnsembleClassifier_shapelet_motif_rbf" in source
+    assert "KernelEnsembleClassifier_embedding_nystrom" in source
+    assert '"selector_optimizer": "score"' in source
+    assert '"selector_optimizer": "projected_gradient"' in source
+    assert '"shapelet_extractor"' in source
+    assert '"embedding_extractor"' in source
+    assert '"kernel_approximation": "nystrom"' in source
     assert '"recurrence_extractor"' in source
     assert '"tabular_extractor"' in source
     non_topological_section = \
@@ -60,3 +68,25 @@ def test_tser_experiment_script_is_declarative_and_uses_local_data_root():
     assert '"local_data_root": str(TSER_DATA_ROOT)' in source
     assert '"download_if_missing": False' in source
     assert "kernel_ensemble_regressor" in source
+    assert "KernelEnsembleRegressor_score_linear_summary" in source
+    assert "KernelEnsembleRegressor_adaptive_rbf_summary" in source
+    assert "KernelEnsembleRegressor_shapelet_rbf" in source
+    assert "KernelEnsembleRegressor_embedding_nystrom" in source
+    assert '"selector_optimizer": "score"' in source
+    assert '"selector_optimizer": "projected_gradient"' in source
+    assert '"kernel_approximation": "nystrom"' in source
+
+
+def test_forecasting_experiment_script_is_declarative_and_uses_kernel_adapter():
+    source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_forecasting.py").read_text(encoding="utf-8")
+
+    assert "BenchmarkSuiteConfig(" in source
+    assert "run_forecasting_benchmark_suite(config)" in source
+    assert "TaskType.FORECASTING" in source
+    assert "kernel_ensemble_forecaster" in source
+    assert "KernelEnsembleForecaster_identity_shapelet" in source
+    assert "KernelEnsembleForecaster_embedding_nystrom_okhs" in source
+    assert '"use_local_files": True' in source
+    assert '"shapelet_extractor"' in source
+    assert '"embedding_extractor"' in source
+    assert '"kernel_approximation": "nystrom"' in source

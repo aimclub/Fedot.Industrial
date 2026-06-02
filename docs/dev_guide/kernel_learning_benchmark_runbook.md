@@ -40,6 +40,14 @@ Important defaults:
   when `download_if_missing=True`;
 - topology is excluded from the default MVP generator set.
 
+The UCR script now compares four kernel-learning variants:
+
+- `KernelEnsembleClassifier_score_baseline_summary`: score-based selector baseline on summary features;
+- `KernelEnsembleClassifier_adaptive_all_non_topological`: projected-gradient sparse MKL over the non-topological
+  generator set;
+- `KernelEnsembleClassifier_shapelet_motif_rbf`: shapelet/local-pattern features plus statistical summary features;
+- `KernelEnsembleClassifier_embedding_nystrom`: embedding-style features with opt-in Nystrom kernel approximation.
+
 Expected artifacts:
 
 ```text
@@ -116,6 +124,43 @@ benchmark/results/v2_kernel_learning/ucr_two_stage_optim_<date>/
 Runtime initial assumptions are passed to `FedotIndustrial` as lazy `PipelineBuilder` objects. They are built after the
 industrial operation repository is activated, so operations such as `wavelet_basis` resolve as data operations rather
 than models.
+
+## TSER Regression Suite
+
+Use the TSER script to validate the regression path and compare score-based selection against adaptive MKL:
+
+```powershell
+python benchmark/run_kernel_learning_tser.py
+```
+
+The TSER script compares:
+
+- `KernelEnsembleRegressor_score_linear_summary`;
+- `KernelEnsembleRegressor_adaptive_rbf_summary`;
+- `KernelEnsembleRegressor_shapelet_rbf`;
+- `KernelEnsembleRegressor_embedding_nystrom`.
+
+Expected artifacts follow the same `benchmark/results/v2_kernel_learning/<run_id>/` layout and include
+`kernel_selection` plus `kernel_diagnostics` for each successful model run.
+
+## Forecasting Suite
+
+Use the forecasting script to validate the public `KernelEnsembleForecaster` through the benchmark-v2 forecasting
+adapter:
+
+```powershell
+python benchmark/run_kernel_learning_forecasting.py
+```
+
+The forecasting script uses local M4 CSV files and a small sample size by default. It compares:
+
+- `NaiveLastValue`;
+- `LaggedRidgeForecaster`;
+- `KernelEnsembleForecaster_identity_shapelet`;
+- `KernelEnsembleForecaster_embedding_nystrom_okhs`.
+
+The kernel forecasting adapter turns each train series into supervised lag windows, fits `KernelEnsembleForecaster`,
+and stores kernel-learning artifacts in the run metadata.
 
 ## Stage 1 Analysis
 
