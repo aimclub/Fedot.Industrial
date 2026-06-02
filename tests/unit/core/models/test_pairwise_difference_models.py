@@ -1,14 +1,12 @@
+from fedot_ind.core.models.pdl import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
+from fedot.core.repository.tasks import Task, TaskTypesEnum
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.data.data import InputData
 import numpy as np
 import pytest
 
 pytest.importorskip("fedot")
-
-from fedot.core.data.data import InputData
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
-
-from fedot_ind.core.models.pdl import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
 
 
 def _classification_input(features, target):
