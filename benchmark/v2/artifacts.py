@@ -77,12 +77,17 @@ class IncrementalBenchmarkArtifactWriter:
             artifact_paths["kernel_diagnostics"] = str(run_dir / "kernel_diagnostics.json")
         if model_artifacts.get("kernel_selection") is not None:
             artifact_paths["kernel_selection"] = str(run_dir / "kernel_selection.json")
+        if model_artifacts.get("model_diagnostics") is not None:
+            artifact_paths["model_diagnostics"] = str(run_dir / "model_diagnostics.json")
 
         metadata = dict(run_record.metadata)
         metadata["artifact_paths"] = artifact_paths
         summary = model_artifacts.get("summary")
         if summary:
-            metadata["kernel_learning_summary"] = sanitize_artifact_payload(summary)
+            if model_artifacts.get("kernel_diagnostics") is not None or model_artifacts.get(
+                    "kernel_selection") is not None:
+                metadata["kernel_learning_summary"] = sanitize_artifact_payload(summary)
+            metadata["model_summary"] = sanitize_artifact_payload(summary)
         enriched_run_record = replace(run_record, metadata=metadata)
 
         self._write_per_run_files(
@@ -130,6 +135,12 @@ class IncrementalBenchmarkArtifactWriter:
             write_json(path, sanitize_artifact_payload(kernel_selection))
             self._remember("kernel_selection", path, "json")
 
+        model_diagnostics = model_artifacts.get("model_diagnostics")
+        if model_diagnostics is not None:
+            path = run_dir / "model_diagnostics.json"
+            write_json(path, sanitize_artifact_payload(model_diagnostics))
+            self._remember("model_diagnostics", path, "json")
+
     def _append_records(
             self,
             run_record: BenchmarkRunRecord,
@@ -171,6 +182,20 @@ class IncrementalBenchmarkArtifactWriter:
             }
             self._append_jsonl(self.records_dir / "kernel_selection.jsonl",
                                sanitize_artifact_payload(selection_payload))
+        if model_artifacts.get("model_diagnostics") is not None:
+            diagnostics_payload = {
+                "run_id": run_record.run_id,
+                "benchmark": run_record.benchmark,
+                "dataset_name": run_record.dataset_name,
+                "subset": run_record.subset,
+                "series_id": run_record.series_id,
+                "model_name": run_record.model_name,
+                "status": run_record.status,
+                "model_diagnostics": model_artifacts.get("model_diagnostics"),
+                "summary": model_artifacts.get("summary"),
+            }
+            self._append_jsonl(self.records_dir / "model_diagnostics.jsonl",
+                               sanitize_artifact_payload(diagnostics_payload))
 
     def _append_jsonl(self, path: Path, payload: Any) -> None:
         with path.open("a", encoding="utf-8") as stream:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -285,6 +286,176 @@ class KernelEnsembleClassifierAdapter:
         return export_kernel_learning_artifacts(self.model_)
 
 
+class QuantileFeatureMixin:
+    quantile_params: dict[str, Any] | None = None
+    quantile_extractor_: Any | None = None
+
+    def _fit_transform_quantile(self, features: np.ndarray) -> np.ndarray:
+        self.quantile_extractor_ = self._build_quantile_extractor()
+        return self._transform_quantile(features)
+
+    def _transform_quantile(self, features: np.ndarray) -> np.ndarray:
+        if self.quantile_extractor_ is None:
+            self.quantile_extractor_ = self._build_quantile_extractor()
+        transformed = self.quantile_extractor_.generate_features_from_ts(np.asarray(features, dtype=float))
+        matrix = np.asarray(transformed, dtype=float)
+        if matrix.ndim == 1:
+            matrix = matrix.reshape(np.asarray(features).shape[0], -1)
+        return matrix
+
+    def _build_quantile_extractor(self):
+        from fedot.core.operations.operation_parameters import OperationParameters
+        from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import (
+            TorchQuantileExtractor,
+        )
+
+        params = {
+            "window_size": 10,
+            "stride": 1,
+            "add_global_features": True,
+        }
+        params.update(self.quantile_params or {})
+        return TorchQuantileExtractor(OperationParameters(**params))
+
+
+@dataclass
+class PDLClassifierAdapter:
+    name: str
+    tags: tuple[str, ...] = ("industrial", "classification", "pdl")
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    use_quantile: bool = False
+    quantile_params: dict[str, Any] | None = None
+    model_: Any | None = None
+    diagnostics_: dict[str, Any] | None = None
+    _quantile: QuantileFeatureMixin | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot_ind.core.models.pdl import PairwiseDifferenceClassifier  # noqa: F401
+            return RunStatus.SUCCESS, "ready"
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f"PDL classifier is unavailable: {exc}"
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.models.pdl import PairwiseDifferenceClassifier
+
+        started = perf_counter()
+        train_features = self._prepare_features_for_fit(features)
+        self.model_ = PairwiseDifferenceClassifier(self.params or {})
+        self.model_.fit(train_features, target)
+        self.diagnostics_ = self.model_.get_diagnostics()
+        self.diagnostics_["fit_seconds"] = float(perf_counter() - started)
+        self.diagnostics_["feature_pipeline"] = "quantile_extractor_torch+pdl" if self.use_quantile else "pdl"
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None:
+            raise BenchmarkClassificationError("PDLClassifierAdapter must be fitted before prediction.")
+        started = perf_counter()
+        test_features = self._prepare_features_for_predict(features)
+        prediction = np.asarray(self.model_.predict(test_features), dtype=object).reshape(-1)
+        self.diagnostics_ = dict(self.diagnostics_ or self.model_.get_diagnostics())
+        self.diagnostics_["predict_seconds"] = float(perf_counter() - started)
+        return prediction
+
+    def export_artifacts(self) -> dict[str, Any]:
+        diagnostics = sanitize_pdl_diagnostics(self.diagnostics_ or {})
+        return {
+            "model_diagnostics": diagnostics,
+            "summary": {
+                "pdl_backend": diagnostics.get("backend"),
+                "pairing_policy": diagnostics.get("pairing_policy"),
+                "n_anchors": diagnostics.get("n_anchors"),
+                "n_pairs": diagnostics.get("n_pairs"),
+                "pair_feature_dim": diagnostics.get("pair_feature_dim"),
+                "feature_pipeline": diagnostics.get("feature_pipeline"),
+            },
+        }
+
+    def _prepare_features_for_fit(self, features: np.ndarray) -> np.ndarray:
+        if not self.use_quantile:
+            return np.asarray(features, dtype=float)
+        self._quantile = QuantileFeatureMixin()
+        self._quantile.quantile_params = self.quantile_params
+        return self._quantile._fit_transform_quantile(features)
+
+    def _prepare_features_for_predict(self, features: np.ndarray) -> np.ndarray:
+        if not self.use_quantile:
+            return np.asarray(features, dtype=float)
+        if self._quantile is None:
+            raise BenchmarkClassificationError("Quantile PDL adapter was not fitted before prediction.")
+        return self._quantile._transform_quantile(features)
+
+
+@dataclass
+class QuantileRFClassifierAdapter:
+    name: str
+    tags: tuple[str, ...] = ("baseline", "classification", "quantile")
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    quantile_params: dict[str, Any] | None = None
+    model_: Any | None = None
+    diagnostics_: dict[str, Any] | None = None
+    _quantile: QuantileFeatureMixin | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from sklearn.ensemble import RandomForestClassifier  # noqa: F401
+            return RunStatus.SUCCESS, "ready"
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f"RandomForestClassifier is unavailable: {exc}"
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from sklearn.ensemble import RandomForestClassifier
+
+        started = perf_counter()
+        self._quantile = QuantileFeatureMixin()
+        self._quantile.quantile_params = self.quantile_params
+        train_features = self._quantile._fit_transform_quantile(features)
+        model_params = {"n_estimators": 100, "random_state": 42, "n_jobs": -1}
+        model_params.update(self.params or {})
+        self.model_ = RandomForestClassifier(**model_params)
+        self.model_.fit(train_features, target)
+        self.diagnostics_ = {
+            "backend": "sklearn",
+            "feature_pipeline": "quantile_extractor_torch+rf",
+            "n_train": int(len(train_features)),
+            "n_classes": int(len(np.unique(target))),
+            "pairing_policy": None,
+            "n_anchors": None,
+            "n_pairs": None,
+            "pair_feature_dim": None,
+            "fit_seconds": float(perf_counter() - started),
+        }
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None or self._quantile is None:
+            raise BenchmarkClassificationError("QuantileRFClassifierAdapter must be fitted before prediction.")
+        started = perf_counter()
+        test_features = self._quantile._transform_quantile(features)
+        prediction = np.asarray(self.model_.predict(test_features), dtype=object).reshape(-1)
+        self.diagnostics_ = dict(self.diagnostics_ or {})
+        self.diagnostics_["predict_seconds"] = float(perf_counter() - started)
+        return prediction
+
+    def export_artifacts(self) -> dict[str, Any]:
+        diagnostics = sanitize_pdl_diagnostics(self.diagnostics_ or {})
+        return {
+            "model_diagnostics": diagnostics,
+            "summary": {
+                "feature_pipeline": diagnostics.get("feature_pipeline"),
+                "n_train": diagnostics.get("n_train"),
+                "n_classes": diagnostics.get("n_classes"),
+            },
+        }
+
+
+def sanitize_pdl_diagnostics(diagnostics: dict[str, Any]) -> dict[str, Any]:
+    from .artifacts import sanitize_artifact_payload
+
+    return sanitize_artifact_payload(dict(diagnostics))
+
+
 def build_classification_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'majority_class':
@@ -297,6 +468,34 @@ def build_classification_model(spec: ModelSpec):
             tags=spec.tags or ('industrial', 'classification', 'kernel_learning'),
             optional=spec.optional,
             params=dict(spec.params),
+        )
+    if name == 'pdl_classifier':
+        return PDLClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'pdl'),
+            optional=spec.optional,
+            params=dict(spec.params),
+        )
+    if name == 'pdl_quantile_classifier':
+        params = dict(spec.params)
+        quantile_params = params.pop('quantile_params', None)
+        return PDLClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'pdl', 'quantile'),
+            optional=spec.optional,
+            params=params,
+            use_quantile=True,
+            quantile_params=quantile_params,
+        )
+    if name == 'quantile_rf_classifier':
+        params = dict(spec.params)
+        quantile_params = params.pop('quantile_params', None)
+        return QuantileRFClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'classification', 'quantile'),
+            optional=spec.optional,
+            params=params,
+            quantile_params=quantile_params,
         )
     if name == 'fedot_industrial_classifier':
         return OptionalExternalClassifier(
