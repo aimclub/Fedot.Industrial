@@ -350,7 +350,9 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
 
                         metrics_summary = FEDOT_GET_METRICS['classification'](target=_normalize_labels(test_y),
                                                                               predicted_labels=_normalize_labels(prediction),
+                                                                              predicted_probs=None, # Можно добавить при необходимости для каких-то метрик
                                                                               metric_names=tuple(config.metrics),
+                                                                              rounding_order = 4,
                                                                               return_dataframe = False,)
 
                         run_records.append(
