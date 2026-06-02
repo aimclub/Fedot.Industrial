@@ -74,6 +74,16 @@ def test_initial_population_builder_materializes_basis_only_generators_to_tabula
     assert specs[0].operation_names == ("wavelet_basis", "quantile_extractor_torch", "rf")
 
 
+def test_initial_population_builder_supports_forecasting_task_heads():
+    builder = KernelInitialPopulationBuilder(task_type="ts_forecasting")
+
+    specs = builder.build_specs(_importance(("wavelet_basis",), (1.0,)))
+
+    assert builder.task_type == "forecasting"
+    assert builder.resolved_head_model == "ridge"
+    assert specs[0].operation_names == ("wavelet_basis", "quantile_extractor_torch", "ridge")
+
+
 def test_initial_population_builder_skips_identity_without_explicit_fedot_mapping():
     builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf")
 

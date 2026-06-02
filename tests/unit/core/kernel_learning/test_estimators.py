@@ -1,6 +1,6 @@
 import numpy as np
 
-from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleRegressor
+from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleForecaster, KernelEnsembleRegressor
 from fedot_ind.core.kernel_learning.contracts import KernelBundle, KernelSelectionReport
 
 
@@ -43,6 +43,38 @@ def test_kernel_ensemble_regressor_predicts_stable_shape():
     assert prediction.shape == (2,)
     assert np.all(np.isfinite(prediction))
     assert prediction[1] > prediction[0]
+
+
+def test_kernel_ensemble_forecaster_predicts_multi_horizon_shape():
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0],
+            [1.0, 2.0, 3.0],
+            [2.0, 3.0, 4.0],
+            [3.0, 4.0, 5.0],
+        ]
+    )
+    y = np.array(
+        [
+            [3.0, 4.0],
+            [4.0, 5.0],
+            [5.0, 6.0],
+            [6.0, 7.0],
+        ]
+    )
+
+    model = KernelEnsembleForecaster(
+        generator_names=("identity",),
+        kernel="linear",
+        alpha=1e-6,
+        forecast_horizon=2,
+    )
+    model.fit(X, y)
+    prediction = model.predict(np.array([[4.0, 5.0, 6.0], [5.0, 6.0, 7.0]]))
+
+    assert prediction.shape == (2, 2)
+    assert np.all(np.isfinite(prediction))
+    assert model.selection_report_.task_type == "forecasting"
 
 
 def test_kernel_mixing_still_uses_selector_weights_not_importance_threshold():

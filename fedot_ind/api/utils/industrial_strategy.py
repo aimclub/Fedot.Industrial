@@ -216,14 +216,20 @@ class IndustrialStrategy:
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
 
     def _kernel_warm_start_strategy(self, input_data):
-        from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleRegressor
+        from fedot_ind.core.kernel_learning import (
+            KernelEnsembleClassifier,
+            KernelEnsembleForecaster,
+            KernelEnsembleRegressor,
+        )
         from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationBuilder
 
         problem = self.config.get('problem', getattr(getattr(input_data, 'task', None), 'task_type', None))
         problem = getattr(problem, 'value', problem)
-        if problem not in ('classification', 'regression'):
+        problem = 'forecasting' if problem == 'ts_forecasting' else problem
+        if problem not in ('classification', 'regression', 'forecasting'):
             self.logger.warning(
-                'Kernel warm-start is only supported for classification/regression. Falling back to legacy strategy.')
+                'Kernel warm-start is only supported for classification/regression/forecasting. '
+                'Falling back to legacy strategy.')
             return self._legacy_kernel_strategy(input_data)
 
         kernel_learning_params = dict(self.industrial_strategy_params.get('kernel_learning_params') or {})
@@ -239,13 +245,23 @@ class IndustrialStrategy:
             'importance_max_union_size',
             self.industrial_strategy_params.get('max_union_size', 3),
         )
-        estimator_cls = KernelEnsembleClassifier if problem == 'classification' else KernelEnsembleRegressor
+        estimator_by_problem = {
+            'classification': KernelEnsembleClassifier,
+            'regression': KernelEnsembleRegressor,
+            'forecasting': KernelEnsembleForecaster,
+        }
+        estimator_cls = estimator_by_problem[problem]
         kernel_estimator = estimator_cls(**kernel_learning_params)
-        target = np.asarray(input_data.target).reshape(-1)
+        if getattr(input_data, 'target', None) is None:
+            self.logger.warning('Kernel warm-start requires a target. Falling back to legacy strategy.')
+            return self._legacy_kernel_strategy(input_data)
+        target = np.asarray(input_data.target)
+        if problem != 'forecasting':
+            target = target.reshape(-1)
         kernel_estimator.fit(input_data.features, target)
 
         head_model = self.industrial_strategy_params.get('head_model') or (
-            'rf' if problem == 'classification' else 'treg'
+            'rf' if problem == 'classification' else ('ridge' if problem == 'forecasting' else 'treg')
         )
         initial_population_builder = KernelInitialPopulationBuilder(
             task_type=problem,

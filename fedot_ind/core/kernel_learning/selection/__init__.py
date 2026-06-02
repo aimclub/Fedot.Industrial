@@ -4,13 +4,16 @@ from .importance import (
     KernelImportanceReport,
     select_significant_generators,
 )
-from .sparse_mkl import SparseMKLSelector, combine_kernels
-from .targets import TargetKernelBuilder
+from .sparse_mkl import MKLObjectiveConfig, MKLOptimizationResult, SparseMKLSelector, combine_kernels
+from .targets import ForecastTargetSpec, TargetKernelBuilder
 
 __all__ = [
     "KernelImportanceConfig",
     "KernelImportanceItem",
     "KernelImportanceReport",
+    "ForecastTargetSpec",
+    "MKLObjectiveConfig",
+    "MKLOptimizationResult",
     "SparseMKLSelector",
     "TargetKernelBuilder",
     "combine_kernels",

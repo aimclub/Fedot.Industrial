@@ -1,16 +1,35 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 from sklearn.kernel_ridge import KernelRidge
-from sklearn.svm import SVR
 
 from .base import KernelEnsembleBase
 
 
-class KernelEnsembleRegressor(KernelEnsembleBase):
-    task_type = "regression"
+@dataclass
+class OKHSForecastHeadAdapter:
+    alpha: float = 1.0
+    diagnostics_: dict[str, Any] = field(default_factory=dict, init=False)
+
+    def fit(self, kernel: np.ndarray, y: np.ndarray):
+        self.model_ = KernelRidge(kernel="precomputed", alpha=self.alpha)
+        self.model_.fit(kernel, y)
+        self.diagnostics_ = {
+            "head_type": "okhs_kernel_ridge_adapter",
+            "alpha": float(self.alpha),
+            "target_shape": tuple(int(size) for size in np.asarray(y).shape),
+        }
+        return self
+
+    def predict(self, kernel: np.ndarray) -> np.ndarray:
+        return np.asarray(self.model_.predict(kernel), dtype=float)
+
+
+class KernelEnsembleForecaster(KernelEnsembleBase):
+    task_type = "forecasting"
 
     def __init__(
             self,
@@ -34,10 +53,9 @@ class KernelEnsembleRegressor(KernelEnsembleBase):
             importance_threshold: float = 0.05,
             importance_fallback_top_n: int = 1,
             importance_max_union_size: int = 3,
-            alpha: float = 1.0,
+            forecast_horizon: int | None = None,
             head_type: str = "kernel_ridge",
-            C: float = 1.0,
-            epsilon: float = 0.1,
+            alpha: float = 1.0,
             head: Any | None = None,
             torch_device: Any = "auto",
     ):
@@ -64,27 +82,49 @@ class KernelEnsembleRegressor(KernelEnsembleBase):
             importance_max_union_size=importance_max_union_size,
             torch_device=torch_device,
         )
-        self.alpha = alpha
+        self.forecast_horizon = forecast_horizon
         self.head_type = head_type
-        self.C = C
-        self.epsilon = epsilon
+        self.alpha = alpha
         self.head = head
         self.torch_device = torch_device
 
     def fit(self, X: Any, y: Any):
-        y_array = np.asarray(y, dtype=float).reshape(-1)
+        y_array = _normalize_forecast_target(y, forecast_horizon=self.forecast_horizon)
         train_kernel = self._fit_kernel_layer(X, y_array)
+        self.forecast_horizon_ = int(y_array.shape[1]) if y_array.ndim == 2 else 1
         self.head_ = self._clone_head(self.head) if self.head is not None else self._build_default_head()
         self.head_.fit(train_kernel, y_array)
+        self.head_diagnostics_ = getattr(self.head_, "diagnostics_", {"head_type": self.head_type})
         return self
 
     def predict(self, X: Any) -> np.ndarray:
-        return np.asarray(self.head_.predict(self._combine_test_kernels(X)), dtype=float).reshape(-1)
+        prediction = np.asarray(self.head_.predict(self._combine_test_kernels(X)), dtype=float)
+        if self.forecast_horizon_ == 1:
+            return prediction.reshape(-1)
+        return prediction.reshape(prediction.shape[0], self.forecast_horizon_)
 
     def _build_default_head(self):
         normalized = self.head_type.lower()
         if normalized == "kernel_ridge":
             return KernelRidge(kernel="precomputed", alpha=self.alpha)
-        if normalized == "svr":
-            return SVR(kernel="precomputed", C=self.C, epsilon=self.epsilon)
-        raise ValueError(f"Unsupported regression head_type: {self.head_type}")
+        if normalized in {"okhs", "okhs_fdmd", "okhs_kernel_ridge"}:
+            return OKHSForecastHeadAdapter(alpha=self.alpha)
+        raise ValueError(f"Unsupported forecasting head_type: {self.head_type}")
+
+
+def _normalize_forecast_target(y: Any, *, forecast_horizon: int | None) -> np.ndarray:
+    values = np.asarray(y, dtype=float)
+    if values.ndim == 0:
+        values = values.reshape(1, 1)
+    elif values.ndim == 1:
+        values = values.reshape(-1, 1)
+    elif values.ndim > 2:
+        values = values.reshape(values.shape[0], -1)
+    if forecast_horizon is not None:
+        if forecast_horizon < 1:
+            raise ValueError("forecast_horizon must be at least 1.")
+        if values.shape[1] != forecast_horizon:
+            raise ValueError(
+                f"forecast_horizon={forecast_horizon} does not match target width {values.shape[1]}."
+            )
+    return values

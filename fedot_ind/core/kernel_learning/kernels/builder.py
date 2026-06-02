@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
-from fedot_ind.core.kernel_learning.contracts import KernelBundle
+from fedot_ind.core.kernel_learning.contracts import KernelBundle, KernelMatrixPolicy
 from fedot_ind.core.kernel_learning.generators import normalize_feature_matrix
+from fedot_ind.core.kernel_learning.kernels.approximation import (
+    NystromApproximationPolicy,
+    NystromKernelApproximator,
+)
 
 
 def _safe_frobenius_norm(matrix: np.ndarray) -> float:
@@ -30,16 +34,37 @@ class KernelMatrixBuilder:
     center: bool = False
     psd_correction: str | None = "clip"
     psd_tol: float = 1e-8
+    approximation: str | None = None
+    nystrom_components: int | None = None
+
+    @property
+    def policy(self) -> KernelMatrixPolicy:
+        return KernelMatrixPolicy(
+            kernel=self.kernel,
+            gamma=self.gamma,
+            degree=self.degree,
+            coef0=self.coef0,
+            normalize=self.normalize,
+            center=self.center,
+            psd_correction=self.psd_correction,
+            psd_tol=self.psd_tol,
+            approximation=self.approximation,
+            nystrom_components=self.nystrom_components,
+        ).normalized_policy
 
     def fit(self, features: Any):
+        self._policy_ = self.policy
         self.train_features_ = normalize_feature_matrix(features)
+        self._validate_feature_matrix(self.train_features_, source="train")
         self.gamma_ = self._resolve_gamma(self.train_features_)
-        raw_train = self._compute_kernel(self.train_features_, self.train_features_)
+        raw_train = self._compute_train_kernel(self.train_features_)
+        self._validate_train_kernel(raw_train, stage="raw")
         self._train_column_mean_ = raw_train.mean(axis=0, keepdims=True)
         self._train_total_mean_ = float(raw_train.mean())
         train_kernel = self._apply_centering(raw_train, is_train=True)
         train_kernel, scale = self._apply_normalization(train_kernel, fit=True)
         train_kernel, diagnostics = self._validate_and_correct_psd(train_kernel)
+        self._validate_train_kernel(train_kernel, stage="final")
         self.train_kernel_ = train_kernel
         self.normalization_scale_ = scale
         self.train_diagnostics_ = diagnostics
@@ -63,9 +88,12 @@ class KernelMatrixBuilder:
         if not hasattr(self, "train_features_"):
             raise ValueError("KernelMatrixBuilder must be fitted before transform.")
         left = normalize_feature_matrix(features)
-        cross_kernel = self._compute_kernel(left, self.train_features_)
+        self._validate_feature_matrix(left, source="test")
+        cross_kernel = self._compute_cross_kernel(left)
+        self._validate_cross_kernel(cross_kernel, n_left=left.shape[0])
         cross_kernel = self._apply_centering(cross_kernel, is_train=False)
         cross_kernel, _ = self._apply_normalization(cross_kernel, fit=False)
+        self._validate_cross_kernel(cross_kernel, n_left=left.shape[0])
         return cross_kernel
 
     def build_test_bundle(self, features: Any, train_bundle: KernelBundle) -> KernelBundle:
@@ -93,6 +121,21 @@ class KernelMatrixBuilder:
             return 1.0 / (n_features * variance) if variance > 1e-12 else 1.0
         raise ValueError(f"Unsupported gamma value: {self.gamma}")
 
+    def _compute_train_kernel(self, features: np.ndarray) -> np.ndarray:
+        if self._policy_.approximation == "nystrom":
+            n_components = self._policy_.nystrom_components or min(32, features.shape[0])
+            self._approximator_ = NystromKernelApproximator(
+                NystromApproximationPolicy(n_components=n_components)
+            ).fit(features, self._compute_kernel)
+            return self._approximator_.transform_train()
+        self._approximator_ = None
+        return self._compute_kernel(features, features)
+
+    def _compute_cross_kernel(self, features: np.ndarray) -> np.ndarray:
+        if getattr(self, "_approximator_", None) is not None:
+            return self._approximator_.transform_cross(features)
+        return self._compute_kernel(features, self.train_features_)
+
     def _compute_kernel(self, left: np.ndarray, right: np.ndarray) -> np.ndarray:
         kernel_name = self.kernel.lower()
         if kernel_name == "rbf":
@@ -110,6 +153,38 @@ class KernelMatrixBuilder:
         if kernel_name == "polynomial":
             return (self.gamma_ * (left @ right.T) + self.coef0) ** self.degree
         raise ValueError(f"Unsupported kernel type: {self.kernel}")
+
+    def _validate_feature_matrix(self, features: np.ndarray, *, source: str) -> None:
+        if features.ndim != 2:
+            raise ValueError(f"{source} features must be a 2D matrix after normalization.")
+        if features.shape[0] < 1:
+            raise ValueError(f"{source} features must contain at least one sample.")
+        if features.shape[1] < 1:
+            raise ValueError(f"{source} features must contain at least one feature.")
+        if not np.all(np.isfinite(features)):
+            raise ValueError(f"{source} features contain non-finite values after normalization.")
+
+    def _validate_train_kernel(self, kernel: np.ndarray, *, stage: str) -> None:
+        matrix = np.asarray(kernel, dtype=float)
+        n_samples = self.train_features_.shape[0]
+        if matrix.shape != (n_samples, n_samples):
+            raise ValueError(
+                f"{stage} train kernel must have shape {(n_samples, n_samples)}, got {matrix.shape}."
+            )
+        if not np.all(np.isfinite(matrix)):
+            raise ValueError(f"{stage} train kernel contains non-finite values.")
+        if _looks_like_distance_matrix(matrix):
+            raise ValueError(
+                f"{stage} train kernel looks like a distance matrix; convert distances with a valid kernel first."
+            )
+
+    def _validate_cross_kernel(self, kernel: np.ndarray, *, n_left: int) -> None:
+        matrix = np.asarray(kernel, dtype=float)
+        expected = (n_left, self.train_features_.shape[0])
+        if matrix.shape != expected:
+            raise ValueError(f"test kernel must have shape {expected}, got {matrix.shape}.")
+        if not np.all(np.isfinite(matrix)):
+            raise ValueError("test kernel contains non-finite values.")
 
     def _apply_centering(self, kernel: np.ndarray, *, is_train: bool) -> np.ndarray:
         if not self.center:
@@ -164,11 +239,25 @@ class KernelMatrixBuilder:
         }
 
     def _diagnostics(self) -> dict[str, Any]:
-        return {
+        diagnostics = {
             **self.train_diagnostics_,
             "kernel": self.kernel,
             "gamma": float(self.gamma_),
             "normalize": self.normalize,
             "normalization_scale": float(self.normalization_scale_),
             "center": bool(self.center),
+            "policy": asdict(self._policy_.normalized_policy),
         }
+        if getattr(self, "_approximator_", None) is not None:
+            diagnostics.update(self._approximator_.diagnostics())
+        return diagnostics
+
+
+def _looks_like_distance_matrix(matrix: np.ndarray) -> bool:
+    if matrix.shape[0] != matrix.shape[1] or matrix.shape[0] <= 1:
+        return False
+    symmetric = np.allclose(matrix, matrix.T, atol=1e-8)
+    zero_diagonal = np.allclose(np.diag(matrix), 0.0, atol=1e-10)
+    non_negative = bool(np.all(matrix >= -1e-10))
+    has_positive_off_diagonal = bool(np.any(np.abs(matrix - np.diag(np.diag(matrix))) > 1e-10))
+    return symmetric and zero_diagonal and non_negative and has_positive_off_diagonal

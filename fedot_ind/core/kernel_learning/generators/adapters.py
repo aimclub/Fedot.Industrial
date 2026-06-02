@@ -28,6 +28,39 @@ class OperationSpec:
     use_torch: bool = False
 
 
+@dataclass(frozen=True)
+class GeneratorBudgetPolicy:
+    max_samples: int | None = None
+    max_timestamps: int | None = None
+    max_cells: int | None = None
+    fallback_generator: str = "identity"
+
+    def allows(self, X: Any) -> tuple[bool, dict[str, Any]]:
+        tensor = normalize_time_series_tensor(X)
+        n_samples = int(tensor.shape[0])
+        n_channels = int(tensor.shape[1])
+        n_timestamps = int(tensor.shape[2])
+        n_cells = int(np.prod(tensor.shape))
+        diagnostics = {
+            "n_samples": n_samples,
+            "n_channels": n_channels,
+            "n_timestamps": n_timestamps,
+            "n_cells": n_cells,
+            "max_samples": self.max_samples,
+            "max_timestamps": self.max_timestamps,
+            "max_cells": self.max_cells,
+        }
+        blocked_reasons = []
+        if self.max_samples is not None and n_samples > self.max_samples:
+            blocked_reasons.append("max_samples")
+        if self.max_timestamps is not None and n_timestamps > self.max_timestamps:
+            blocked_reasons.append("max_timestamps")
+        if self.max_cells is not None and n_cells > self.max_cells:
+            blocked_reasons.append("max_cells")
+        diagnostics["blocked_reasons"] = tuple(blocked_reasons)
+        return not blocked_reasons, diagnostics
+
+
 def normalize_feature_matrix(values: Any) -> np.ndarray:
     array = _to_numpy(values)
     if array.ndim == 0:
@@ -243,6 +276,59 @@ class RepositoryFeatureGeneratorAdapter:
 
 
 @dataclass
+class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapter):
+    budget_policy: GeneratorBudgetPolicy = field(default_factory=GeneratorBudgetPolicy)
+    fallback_generator_: Any | None = None
+    budget_diagnostics_: dict[str, Any] = field(default_factory=dict)
+
+    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+        allowed, diagnostics = self.budget_policy.allows(X)
+        self.budget_diagnostics_ = diagnostics
+        if not allowed:
+            return self._fit_fallback(X, y, task_type=task_type, reason="budget_exceeded")
+        try:
+            return super().fit(X, y, task_type=task_type)
+        except Exception as ex:
+            return self._fit_fallback(X, y, task_type=task_type,
+                                      reason=f"operation_unavailable:{ex.__class__.__name__}")
+
+    def transform(self, X: Any) -> FeatureBundle:
+        if self.fallback_generator_ is not None:
+            bundle = self.fallback_generator_.transform(X)
+            return FeatureBundle(
+                name=self.name,
+                features=bundle.features,
+                diagnostics={
+                    **bundle.diagnostics,
+                    "source": "budgeted_fallback",
+                    "requested_generator": self.name,
+                    "budget": self.budget_diagnostics_,
+                },
+            )
+        bundle = super().transform(X)
+        return FeatureBundle(
+            name=bundle.name,
+            features=bundle.features,
+            diagnostics={**bundle.diagnostics, "budget": self.budget_diagnostics_},
+        )
+
+    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+        self.fit(X, y, task_type=task_type)
+        return self.transform(X)
+
+    def _fit_fallback(self, X: Any, y: Any | None, *, task_type: str, reason: str):
+        self.fallback_generator_ = _build_lightweight_fallback(self.budget_policy.fallback_generator)
+        self.fallback_generator_.fit(X, y, task_type=task_type)
+        self.budget_diagnostics_ = {
+            **self.budget_diagnostics_,
+            "skipped": True,
+            "skip_reason": reason,
+            "fallback_generator": self.budget_policy.fallback_generator,
+        }
+        return self
+
+
+@dataclass
 class PipelineFeatureGeneratorAdapter:
     name: str
     pipeline_factory: Any
@@ -304,6 +390,110 @@ class IdentityFeatureGenerator:
         return self.transform(X)
 
 
+@dataclass
+class ShapeletFeatureGenerator:
+    name: str = "shapelet_extractor"
+    n_shapelets: int = 8
+    window_size: int | None = None
+    random_state: int = 42
+    shapelets_: tuple[np.ndarray, ...] = field(default_factory=tuple, init=False)
+
+    def __post_init__(self):
+        if self.n_shapelets < 1:
+            raise ValueError("n_shapelets must be at least 1.")
+        if self.window_size is not None and self.window_size < 1:
+            raise ValueError("window_size must be at least 1.")
+
+    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+        del y, task_type
+        tensor = normalize_time_series_tensor(X)
+        n_samples, _, n_timestamps = tensor.shape
+        window = self._resolve_window_size(n_timestamps)
+        positions = _even_positions(n_timestamps - window + 1, self.n_shapelets)
+        sample_indices = _even_positions(n_samples, self.n_shapelets)
+        shapelets = []
+        for shapelet_idx in range(self.n_shapelets):
+            sample = tensor[sample_indices[shapelet_idx % len(sample_indices)]]
+            position = positions[shapelet_idx % len(positions)]
+            shapelets.append(sample[:, position:position + window].copy())
+        self.shapelets_ = tuple(shapelets)
+        return self
+
+    def transform(self, X: Any) -> FeatureBundle:
+        if not self.shapelets_:
+            raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
+        tensor = normalize_time_series_tensor(X)
+        features = np.column_stack([
+            _min_shapelet_distance(tensor, shapelet)
+            for shapelet in self.shapelets_
+        ])
+        return FeatureBundle(
+            name=self.name,
+            features=normalize_feature_matrix(features),
+            diagnostics={
+                "source": "shapelet",
+                "n_shapelets": len(self.shapelets_),
+                "window_size": int(self.shapelets_[0].shape[-1]),
+                "n_features": len(self.shapelets_),
+            },
+        )
+
+    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+        self.fit(X, y, task_type=task_type)
+        return self.transform(X)
+
+    def _resolve_window_size(self, n_timestamps: int) -> int:
+        if self.window_size is not None:
+            return min(int(self.window_size), n_timestamps)
+        return max(1, min(n_timestamps, n_timestamps // 4 or 1))
+
+
+@dataclass
+class RandomProjectionEmbeddingFeatureGenerator:
+    name: str = "embedding_extractor"
+    n_components: int = 16
+    random_state: int = 42
+    source: str = "random_projection_embedding"
+    components_: np.ndarray | None = field(default=None, init=False)
+
+    def __post_init__(self):
+        if self.n_components < 1:
+            raise ValueError("n_components must be at least 1.")
+
+    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+        del y, task_type
+        features = normalize_feature_matrix(X)
+        rng = np.random.default_rng(self.random_state)
+        self.components_ = rng.normal(
+            loc=0.0,
+            scale=1.0 / np.sqrt(max(1, features.shape[1])),
+            size=(features.shape[1], self.n_components),
+        )
+        return self
+
+    def transform(self, X: Any) -> FeatureBundle:
+        if self.components_ is None:
+            raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
+        features = normalize_feature_matrix(X)
+        if features.shape[1] != self.components_.shape[0]:
+            raise ValueError("Embedding transform feature dimensionality must match fitted data.")
+        embedding = np.tanh(features @ self.components_)
+        return FeatureBundle(
+            name=self.name,
+            features=embedding,
+            diagnostics={
+                "source": self.source,
+                "n_components": int(self.n_components),
+                "random_state": int(self.random_state),
+                "n_features": int(embedding.shape[1]),
+            },
+        )
+
+    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+        self.fit(X, y, task_type=task_type)
+        return self.transform(X)
+
+
 class SummaryFeatureGenerator(RepositoryFeatureGeneratorAdapter):
     def __init__(
             self,
@@ -325,6 +515,18 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
         "identity": IdentityFeatureGenerator,
         "statistical_summary": SummaryFeatureGenerator,
         "statistical": lambda: SummaryFeatureGenerator(name="statistical"),
+        "shapelet_extractor": ShapeletFeatureGenerator,
+        "local_pattern_extractor": lambda: ShapeletFeatureGenerator(
+            name="local_pattern_extractor",
+            n_shapelets=12,
+            window_size=5,
+        ),
+        "embedding_extractor": RandomProjectionEmbeddingFeatureGenerator,
+        "foundation_embedding": lambda: RandomProjectionEmbeddingFeatureGenerator(
+            name="foundation_embedding",
+            n_components=32,
+            source="foundation_embedding_adapter",
+        ),
         "quantile_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="quantile_extractor",
             operation_specs=(_torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS),),
@@ -361,9 +563,13 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
             name="recurrence_extractor",
             operation_specs=(_recurrence_spec(),),
         ),
-        "topological_extractor": lambda: RepositoryFeatureGeneratorAdapter(
+        "topological_extractor": lambda: BudgetedRepositoryFeatureGeneratorAdapter(
             name="topological_extractor",
             operation_specs=(_topological_spec(),),
+            budget_policy=GeneratorBudgetPolicy(
+                max_cells=250_000,
+                fallback_generator="identity",
+            ),
         ),
         "tabular_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="tabular_extractor",
@@ -408,6 +614,37 @@ def resolve_generator_operation_specs(
     ):
         return specs + (_torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS),)
     return specs
+
+
+def _build_lightweight_fallback(name: str):
+    if name == "identity":
+        return IdentityFeatureGenerator()
+    if name in {"embedding_extractor", "foundation_embedding"}:
+        return RandomProjectionEmbeddingFeatureGenerator(name=name)
+    if name in {"shapelet_extractor", "local_pattern_extractor"}:
+        return ShapeletFeatureGenerator(name=name)
+    return IdentityFeatureGenerator(name=f"{name}_fallback")
+
+
+def _even_positions(size: int, count: int) -> np.ndarray:
+    if size <= 0:
+        return np.array([0], dtype=int)
+    if count <= 1:
+        return np.array([0], dtype=int)
+    return np.unique(np.linspace(0, size - 1, num=count, dtype=int))
+
+
+def _min_shapelet_distance(tensor: np.ndarray, shapelet: np.ndarray) -> np.ndarray:
+    n_samples, _, n_timestamps = tensor.shape
+    window = shapelet.shape[-1]
+    if n_timestamps < window:
+        padded = np.pad(tensor, ((0, 0), (0, 0), (0, window - n_timestamps)), mode="edge")
+        return np.linalg.norm((padded - shapelet).reshape(n_samples, -1), axis=1)
+    distances = []
+    for position in range(n_timestamps - window + 1):
+        segment = tensor[:, :, position:position + window]
+        distances.append(np.linalg.norm((segment - shapelet).reshape(n_samples, -1), axis=1))
+    return np.min(np.vstack(distances), axis=0)
 
 
 def _extend_with_legacy_pipeline_generators(registry: dict[str, Callable[[], Any]]) -> None:

@@ -30,10 +30,16 @@ class KernelEnsembleBase(BaseEstimator):
             center: bool = False,
             psd_correction: str | None = "clip",
             psd_tol: float = 1e-8,
+            kernel_approximation: str | None = None,
+            nystrom_components: int | None = None,
             complexity_penalty: float = 0.01,
             redundancy_penalty: float = 0.05,
             min_weight: float = 0.05,
             target_gamma: str | float = "scale",
+            selector_optimizer: str = "projected_gradient",
+            selector_max_iter: int = 100,
+            selector_tol: float = 1e-6,
+            selector_step_size: float = 0.2,
             importance_threshold: float = 0.05,
             importance_fallback_top_n: int = 1,
             importance_max_union_size: int = 3,
@@ -46,10 +52,16 @@ class KernelEnsembleBase(BaseEstimator):
         self.center = center
         self.psd_correction = psd_correction
         self.psd_tol = psd_tol
+        self.kernel_approximation = kernel_approximation
+        self.nystrom_components = nystrom_components
         self.complexity_penalty = complexity_penalty
         self.redundancy_penalty = redundancy_penalty
         self.min_weight = min_weight
         self.target_gamma = target_gamma
+        self.selector_optimizer = selector_optimizer
+        self.selector_max_iter = selector_max_iter
+        self.selector_tol = selector_tol
+        self.selector_step_size = selector_step_size
         self.importance_threshold = importance_threshold
         self.importance_fallback_top_n = importance_fallback_top_n
         self.importance_max_union_size = importance_max_union_size
@@ -76,6 +88,8 @@ class KernelEnsembleBase(BaseEstimator):
                 center=self.center,
                 psd_correction=self.psd_correction,
                 psd_tol=self.psd_tol,
+                approximation=self.kernel_approximation,
+                nystrom_components=self.nystrom_components,
             )
             kernel_bundle = builder.fit_transform(
                 feature_bundle.features,
@@ -98,6 +112,10 @@ class KernelEnsembleBase(BaseEstimator):
             redundancy_penalty=self.redundancy_penalty,
             min_weight=self.min_weight,
             target_gamma=self.target_gamma,
+            optimizer=self.selector_optimizer,
+            max_iter=self.selector_max_iter,
+            tol=self.selector_tol,
+            step_size=self.selector_step_size,
         )
         self.selection_report_ = selector.fit(self.kernel_bundles_, y, task_type=self.task_type)
         self.selected_generators_ = self.selection_report_.selected_generators
@@ -112,6 +130,14 @@ class KernelEnsembleBase(BaseEstimator):
         )
         self.important_generators_ = self.kernel_importance_.selected_generators
         self.important_weights_ = self.kernel_importance_.selected_weights
+        self.fit_diagnostics_ = {
+            "task_type": self.task_type,
+            "generator_names": self.generator_names_,
+            "selected_generators": self.selected_generators_,
+            "important_generators": self.important_generators_,
+            "selector": dict(self.selection_report_.diagnostics),
+            "kernel_bundles": tuple(bundle.to_dict() for bundle in self.kernel_bundles_),
+        }
         return self._combine_train_kernels()
 
     def _combine_train_kernels(self) -> np.ndarray:

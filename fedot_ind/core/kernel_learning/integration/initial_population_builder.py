@@ -8,6 +8,13 @@ from fedot_ind.core.kernel_learning.selection import KernelImportanceReport
 
 CLASSIFICATION_HEADS = ("rf", "logit", "xgboost", "catboost", "dt", "mlp", "lgbm")
 REGRESSION_HEADS = ("treg", "ridge", "xgbreg", "dtreg", "lgbmreg", "catboostreg", "lasso")
+FORECASTING_HEADS = (
+    "ridge",
+    "lagged_ridge_forecaster",
+    "okhs_fdmd_forecaster",
+    "topo_forecaster",
+    "lagged_forecaster",
+)
 SAFE_PREPROCESSORS = ("scaling", "normalization", "simple_imputation", "kernel_pca")
 
 
@@ -40,8 +47,10 @@ class KernelInitialPopulationBuilder:
     last_specs_: tuple[KernelInitialPipelineSpec, ...] = field(default_factory=tuple, init=False)
 
     def __post_init__(self):
-        if self.task_type not in ("classification", "regression"):
+        if self.task_type not in ("classification", "regression", "forecasting", "ts_forecasting"):
             raise ValueError(f"Unsupported kernel warm-start task_type: {self.task_type}")
+        if self.task_type == "ts_forecasting":
+            self.task_type = "forecasting"
         if self.max_union_size < 1:
             raise ValueError("max_union_size must be at least 1.")
 
@@ -49,11 +58,15 @@ class KernelInitialPopulationBuilder:
     def resolved_head_model(self) -> str:
         if self.head_model is not None:
             return self.head_model
-        return "rf" if self.task_type == "classification" else "treg"
+        if self.task_type == "classification":
+            return "rf"
+        if self.task_type == "forecasting":
+            return "ridge"
+        return "treg"
 
     @property
     def task_head_candidates(self) -> tuple[str, ...]:
-        return CLASSIFICATION_HEADS if self.task_type == "classification" else REGRESSION_HEADS
+        return _task_heads(self.task_type)
 
     def build_specs(self, importance: KernelImportanceReport) -> tuple[KernelInitialPipelineSpec, ...]:
         specs = []
@@ -163,7 +176,7 @@ def narrow_kernel_learning_search_space(
 
     source_operations = _deduplicate(available_operations)
     source_set = set(source_operations)
-    task_heads = CLASSIFICATION_HEADS if task_type == "classification" else REGRESSION_HEADS
+    task_heads = _task_heads(task_type)
     valid_heads = [head_model] if head_model in task_heads else []
     valid_heads.extend(
         operation
@@ -204,3 +217,12 @@ def _deduplicate(values: Iterable[str]) -> list[str]:
         result.append(value)
         seen.add(value)
     return result
+
+
+def _task_heads(task_type: str) -> tuple[str, ...]:
+    normalized = "forecasting" if task_type == "ts_forecasting" else task_type
+    if normalized == "classification":
+        return CLASSIFICATION_HEADS
+    if normalized == "forecasting":
+        return FORECASTING_HEADS
+    return REGRESSION_HEADS
