@@ -142,5 +142,5 @@ def _default_metrics_for_task(task_type: str | TaskType) -> tuple[str, ...]:
     if task is TaskType.TS_CLASSIFICATION:
         return ('accuracy', 'balanced_accuracy', 'f1_macro')
     if task is TaskType.ANOMALY_DETECTION:
-        return ('accuracy', 'balanced_accuracy', 'f1_macro')
+        return ('nab', 'bin_f1', 'bin_precision', 'bin_recall', 'bin_far')
     return ('rmse', 'mae', 'r2')

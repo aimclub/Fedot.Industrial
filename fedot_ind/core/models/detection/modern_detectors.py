@@ -15,6 +15,7 @@ from fedot_ind.core.models.detection.runtime import (
     AnomalyScoreSeries,
     DetectionEvent,
     RiskFeatureFrame,
+    DetectionRuntimeResult,
     align_window_scores_to_points,
     build_anomaly_score_series,
     build_detection_window_batch,
@@ -30,6 +31,11 @@ from fedot_ind.core.models.detection.runtime import (
 )
 from fedot_ind.core.models.detection.stage_tuning import build_detection_stage_tuning_plan
 from fedot_ind.core.repository.detection_registry import detection_family_for
+
+from fedot_ind.core.models.detection.data_quality import (
+    DataQualityReport,
+    diagnose_channel_quality,
+)
 
 try:  # pragma: no cover - optional in lightweight environments
     import torch
@@ -84,20 +90,39 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
 
 
     def fit(self, input_data: np.ndarray) -> None:
-        series = self._prepare_series(input_data, fit_stage=True)
-        batch = self._build_batch(series, metadata={'fit_stage': True})
+        # series = self._prepare_series(input_data, fit_stage=True)
+        series, gap_mask = self._prepare_series(input_data, fit_stage=True)
+        # Quality diagnostics + per-sample gap mask считаются ОДИН РАЗ:
+        # один источник правды для diagnostics, batch.mask и фильтра калибровки.
+        quality_report = self._diagnose_data_quality(series)
+        # gap_mask = self._point_gap_mask(series)
+        batch = self._build_batch(series, metadata={'fit_stage': True}, gap_mask=gap_mask)
         self.training_batch_ = batch
-        self.regime_segments_ = infer_regime_segments(series) if self.enable_regime_segmentation else ()
+        #self.regime_segments_ = infer_regime_segments(series) if self.enable_regime_segmentation else ()
+        regime_reference = self._regime_reference_window(series.shape[0])
+        self.regime_segments_ = (
+            infer_regime_segments(series, reference_window=regime_reference)
+            if self.enable_regime_segmentation else ()
+        )
         features, representation_diagnostics = self._build_representation(batch, fit_stage=True)
         self._fit_scoring_model(features, batch=batch)
         window_scores = self._score_windows(features, batch=batch)
         point_scores = align_window_scores_to_points(window_scores, batch)
         regime_labels = _regime_labels_from_segments(self.regime_segments_, len(point_scores))
+        # Калибровка порога: gap-точки не должны влиять на распределение score.
+        # Если gap_mask пустой
+        valid_point_mask = ~gap_mask
+        if valid_point_mask.any():
+            calibration_scores = point_scores[valid_point_mask]
+            calibration_regime_labels = regime_labels[valid_point_mask]
+        else:
+            calibration_scores = point_scores
+            calibration_regime_labels = regime_labels
         self.threshold_ = estimate_detection_threshold(
-            point_scores,
+            calibration_scores,
             strategy=self.calibration_strategy,
             quantile=float(self.threshold_quantile),
-            regime_labels=regime_labels,
+            regime_labels=calibration_regime_labels,
         )
         self.training_score_series_ = build_anomaly_score_series(
             point_scores,
@@ -126,10 +151,13 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         )
         self.stage_diagnostics_ = {
             'data_quality': {
-                'n_samples': int(series.shape[0]),
-                'n_channels': int(series.shape[1]),
+                **quality_report.to_dict(),
                 'window_size': int(batch.window_size),
                 'stride': int(batch.stride),
+                'n_gap_points': int(gap_mask.sum()),
+                'gap_fraction': float(gap_mask.mean()) if gap_mask.size else 0.0,
+                'n_valid_windows': int(batch.valid_window_mask().sum()),
+                'n_total_windows': int(batch.n_windows),
             },
             'regime_segmentation': {
                 'n_segments': len(self.regime_segments_),
@@ -141,6 +169,7 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
                 'strategy': self.calibration_strategy,
                 'threshold': float(self.threshold_),
                 'threshold_quantile': float(self.threshold_quantile),
+                'n_calibration_points': int(valid_point_mask.sum()),
             },
             'event_aggregation': {
                 'n_events': len(self.training_events_),
@@ -172,8 +201,8 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         return np.column_stack((1.0 - anomaly_probability, anomaly_probability))
 
     def score_series_on_values(self, values: np.ndarray | list[float]) -> AnomalyScoreSeries:
-        series = self._prepare_series(values, fit_stage=False)
-        batch = self._build_batch(series, metadata={'fit_stage': False})
+        series, gap_mask = self._prepare_series(values, fit_stage=False)
+        batch = self._build_batch(series, metadata={'fit_stage': False}, gap_mask=gap_mask)
         features, _ = self._build_representation(batch, fit_stage=False)
         window_scores = self._score_windows(features, batch=batch)
         point_scores = align_window_scores_to_points(window_scores, batch)
@@ -186,12 +215,72 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
 
     def detect_events_on_values(self, values: np.ndarray | list[float]) -> tuple[DetectionEvent, ...]:
         score_series = self.score_series_on_values(values)
-        segments = infer_regime_segments(values) if self.enable_regime_segmentation else ()
+        # segments = infer_regime_segments(values) if self.enable_regime_segmentation else ()
+        if self.enable_regime_segmentation:
+            series = ensure_detection_array(values)
+            regime_reference = self._regime_reference_window(series.shape[0])
+            segments = infer_regime_segments(series, reference_window=regime_reference)
+        else:
+            segments = ()
         return detect_events_from_score_series(
             score_series,
             min_event_length=self.min_event_length,
             regime_segments=segments,
         )
+    
+
+    def evaluate_values(self, values: np.ndarray | list[float]) -> DetectionRuntimeResult:
+        # _prepare_series даёт чистую серию (forward-fill NaN) и gap_mask
+        # без этого build_transfer_alignment_report упадёт
+        series, gap_mask = self._prepare_series(values, fit_stage=False)
+        score_series = self.score_series_on_values(values)
+        if self.enable_regime_segmentation:
+            regime_reference = self._regime_reference_window(series.shape[0])
+            segments = infer_regime_segments(series, reference_window=regime_reference)
+        else:
+            segments = ()
+        events = detect_events_from_score_series(
+            score_series,
+            min_event_length=self.min_event_length,
+            regime_segments=segments,
+        )
+        risk_feature_frame = build_risk_feature_frame(
+            events=events,
+            regime_segments=segments,
+            score_series=score_series,
+            node_name=self.params.get('node_name'),
+            domain_name=self.params.get('domain_name'),
+        )
+        # между каким fit/eval распределением была разница
+        transfer_report = build_transfer_alignment_report(
+            self.scaling_reference_,
+            series,
+            strategy=self.transfer_strategy,
+            source_domain=self.params.get('source_domain', 'fit'),
+            target_domain=self.params.get('target_domain', 'eval'),
+        )
+        # fit diagnostics и добавляет evaluation
+        stage_diagnostics = {
+            **self.get_stage_diagnostics(),
+            'evaluation': {
+                'n_samples': int(series.shape[0]),
+                'n_channels': int(series.shape[1]),
+                'n_events': int(len(events)),
+                'n_gap_points': int(gap_mask.sum()),
+            },
+        }
+        return DetectionRuntimeResult(
+            score_series=score_series,
+            events=events,
+            stage_diagnostics=stage_diagnostics,
+            risk_feature_frame=risk_feature_frame,
+            transfer_report=transfer_report,
+            metadata={
+                'canonical_name': self.canonical_name,
+                'family': self.family,
+            },
+        )
+
 
     def get_stage_tuning_plan(self) -> dict[str, Any]:
         return build_detection_stage_tuning_plan(self.canonical_name, _operation_params_to_dict(self.params)).to_dict()
@@ -202,22 +291,124 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
     def get_stage_diagnostics(self) -> dict[str, Any]:
         return dict(self.stage_diagnostics_)
 
-    def _build_batch(self, values: np.ndarray, metadata: dict[str, Any]) -> Any:
+    def _build_batch(
+            self, 
+            values: np.ndarray, 
+            metadata: dict[str, Any],
+            *,
+            gap_mask: np.ndarray | None = None,
+            ) -> Any:
         window_size = resolve_detection_window_size(
             values.shape[0],
             window_size=self.window_size,
             window_size_percent=self.window_size_percent,
         )
         stride = resolve_detection_stride(window_size, self.stride)
-        return build_detection_window_batch(values, window_size=window_size, stride=stride, metadata=metadata)
+        return build_detection_window_batch(
+            values, 
+            window_size=window_size, 
+            stride=stride,
+            gap_mask=gap_mask, 
+            metadata=metadata
+        )
 
-    def _prepare_series(self, values: np.ndarray | list[float], *, fit_stage: bool) -> np.ndarray:
+    @staticmethod
+    def _point_gap_mask(series: np.ndarray) -> np.ndarray:
+        """Per-sample bool-маска: True = точка содержит NaN хотя бы в одном канале.
+        Это минимальный gap_mask, доступный без timestamps. После подключения
+        align_timestamps реальный gap_mask будет приходить снаружи этот
+        метод останется fallback'ом для случаев без временной оси.
+        """
+        return np.isnan(np.asarray(series, dtype=float)).any(axis=1)
+
+    def _regime_reference_window(self, length: int) -> tuple[int, int] | None:
+        """Slice для оценки regime-порогов внутри fit().
+
+        первая calibration_reference_fraction-доля ряда. параметр
+        regime_reference_window='full' (legacy global поведение).
+        """
+        override = self.params.get('regime_reference_window')
+        if override == 'full':
+            return None
+        if isinstance(override, (tuple, list)) and len(override) == 2:
+            return (int(override[0]), int(override[1]))
+        fraction = float(self.params.get('regime_reference_fraction', 0.5))
+        fraction = max(0.05, min(0.95, fraction))
+        stop = max(2, int(round(length * fraction)))
+        return (0, stop)
+    
+    def _diagnose_data_quality(self, series: np.ndarray) -> DataQualityReport:
+        """Per-channel quality diagnostics поверх подготовленной серии.
+
+        Channel names берутся из params, если заданы (для согласованности с
+        DetectionSeriesRecord.metadata['channel_names'] на уровне benchmark);
+        иначе — дефолтные channel_0..N-1 из diagnose_channel_quality.
+        """
+        names = self.params.get('channel_names')
+        if names is not None:
+            names = tuple(names)
+            if len(names) != series.shape[1]:
+                names = None 
+        return diagnose_channel_quality(series, channel_names=names)
+    
+    # def _prepare_series(self, values: np.ndarray | list[float], *, fit_stage: bool) -> np.ndarray:
+    #     series = ensure_detection_array(values)
+    #     if fit_stage or not hasattr(self, 'scaling_reference_'):
+    #         self.scaling_reference_ = np.asarray(series, dtype=float)
+    #     if self.transfer_strategy == 'domain_invariant_scaling':
+    #         return domain_invariant_scale(series, reference_values=self.scaling_reference_)
+    #     return np.asarray(series, dtype=float)
+    def _prepare_series(
+            self,
+            values: np.ndarray | list[float],
+            *,
+            fit_stage: bool,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """чистит NaN, применяет масштабирование.
+
+        Возвращает (clean_series, gap_mask):
+            clean_series — без NaN, готов к domain_invariant_scale и score моделям;
+            gap_mask     — per-sample bool длины N, True = точка пришла как NaN
+                           (синтез из align_timestamps в адаптере либо raw missing).
+
+        gap_mask считается ПЕРЕД forward fill
+        чтобы пропуски не терялись в заполненных значениях.
+        """
         series = ensure_detection_array(values)
+        gap_mask = np.isnan(series).any(axis=1)
+        if gap_mask.any():
+            series = self._forward_fill_nans(series)
         if fit_stage or not hasattr(self, 'scaling_reference_'):
             self.scaling_reference_ = np.asarray(series, dtype=float)
         if self.transfer_strategy == 'domain_invariant_scaling':
-            return domain_invariant_scale(series, reference_values=self.scaling_reference_)
-        return np.asarray(series, dtype=float)
+            clean = domain_invariant_scale(series, reference_values=self.scaling_reference_)
+        else:
+            clean = np.asarray(series, dtype=float)
+        return clean, gap_mask
+
+    @staticmethod
+    def _forward_fill_nans(series: np.ndarray) -> np.ndarray:
+        """Заполняет NaN по каждому каналу last-observation-carried-forward.
+
+        Ведущие NaN заполняются первым валидным значением (backfill), чтобы
+        scaling не получил NaN на старте. Цикл по каналам идентичен
+        data_quality._forward_fill
+        """
+        filled = series.copy()
+        for channel in range(filled.shape[1]):
+            column = filled[:, channel]
+            valid = ~np.isnan(column)
+            if not valid.any():
+                column[:] = 0.0
+                filled[:, channel] = column
+                continue
+            carry = np.where(valid, np.arange(column.size), 0)
+            np.maximum.accumulate(carry, out=carry)
+            column = column[carry]
+            first_valid = int(np.argmax(valid))
+            column[:first_valid] = column[first_valid]
+            filled[:, channel] = column
+        return filled
 
     def _build_representation(self, batch, *, fit_stage: bool) -> tuple[np.ndarray, dict[str, Any]]:
         del fit_stage

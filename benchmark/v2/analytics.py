@@ -279,7 +279,7 @@ def build_detection_family_summary_frame(
         primary_metric: str | None = None,
 ) -> pd.DataFrame:
     """
-    как отработало каждое семейство моделей?
+    как отработало каждое семейство моделей
     семейство детектора:
     feature_baseline
     neural_reconstruction

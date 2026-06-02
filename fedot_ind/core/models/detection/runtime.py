@@ -7,10 +7,13 @@ from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 
-try:  # pragma: no cover - lightweight environments may not have FEDOT
-    from fedot.core.data.data import InputData
+try:  # pragma: no cover
+    from fedot.core.data.data import InputData, OutputData
+    from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
     InputData = None
+    OutputData = None
+    DataTypesEnum = None
 
 
 class DetectionSplitKind(str, Enum):
@@ -56,6 +59,20 @@ class DetectionWindowBatch:
     def statistical_features(self) -> np.ndarray:
         return build_window_statistical_features(self.windows)
 
+    @property
+    def window_gap_fraction(self) -> np.ndarray:
+        """Доля недостоверных точек в каждом окне, shape (n_windows,).
+        Если mask нет — все окна считаются чистыми (нули)."""
+        if self.mask is None:
+            return np.zeros(self.n_windows, dtype=float)
+        return self.mask.astype(float).mean(axis=1) # насколько окно дырявое
+
+    def valid_window_mask(self, *, max_gap_fraction: float = 0.5) -> np.ndarray:
+        """bool-маска валидных окон: True = доля gap <= порога.
+        Используется представлением и calibration для исключения
+        окон, в которых данных нет или они синтетически достроены."""
+        return self.window_gap_fraction <= float(max_gap_fraction)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             'windows_shape': tuple(int(value) for value in self.windows.shape),
@@ -64,6 +81,7 @@ class DetectionWindowBatch:
             'window_size': int(self.window_size),
             'stride': int(self.stride),
             'channel_names': list(self.channel_names),
+            'mask_shape': None if self.mask is None else tuple(int(v) for v in self.mask.shape),
             **dict(self.metadata),
         }
 
@@ -165,7 +183,43 @@ class DetectionSeriesEvaluation:
             'threshold': float(self.threshold),
             **dict(self.metadata),
         }
+    
 
+@dataclass(frozen=True)
+class DetectionRuntimeResult:
+    score_series: AnomalyScoreSeries # typed scores + labels + threshold + calibration strategy
+    events: tuple[DetectionEvent, ...] # typed события аномалий
+    stage_diagnostics: dict[str, Any] # structured diagnostics payload
+    risk_feature_frame: RiskFeatureFrame | None = None
+    transfer_report: TransferAlignmentReport | None = None # отчёт о transfer alignment
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def labels(self) -> tuple[int, ...]:
+        return self.score_series.labels
+    
+    @property
+    def scores(self) -> tuple[float, ...]:
+        return self.score_series.scores
+    
+    @property
+    def threshold(self) -> float:
+        """score_series.threshold.
+        Симметрично с labels/scores: и labels, и scores, и threshold
+        три «характеристики предсказания» для компактности доставания
+        """
+        return float(self.score_series.threshold)
+
+    def to_dict(self) -> dict[str, Any]:
+        # сериализация для benchmark/artifacts
+        return {
+            'score_series': self.score_series.to_dict(),
+            'events': [event.to_dict() for event in self.events],
+            'stage_diagnostics': dict(self.stage_diagnostics),
+            'risk_feature_frame': None if self.risk_feature_frame is None else self.risk_feature_frame.to_dict(),
+            'transfer_report': None if self.transfer_report is None else self.transfer_report.to_dict(),
+            **dict(self.metadata),
+        }
 
 @dataclass(frozen=True)
 class RiskFeatureFrame:
@@ -192,6 +246,7 @@ class DetectionBoundaryAdapter:
             window_size: int | None = None,
             window_size_percent: float | None = None,
             stride: int | None = None,
+            gap_mask: Sequence[bool] | np.ndarray | None = None,
             metadata: dict[str, Any] | None = None,
     ) -> DetectionWindowBatch:
         if InputData is None:  # pragma: no cover
@@ -202,11 +257,67 @@ class DetectionBoundaryAdapter:
             window_size=window_size,
             window_size_percent=window_size_percent,
         )
+        resolved_gap_mask = gap_mask
+        if resolved_gap_mask is None:
+            supplementary = getattr(input_data, 'supplementary_data', None)
+            if supplementary is not None:
+                resolved_gap_mask = getattr(supplementary, 'gap_mask', None)
         return build_detection_window_batch(
             values,
             window_size=resolved_window_size,
             stride=resolve_detection_stride(resolved_window_size, stride),
+            gap_mask=resolved_gap_mask,
             metadata={'idx': getattr(input_data, 'idx', None), **dict(metadata or {})},
+        )
+
+    @staticmethod
+    def to_output_data(
+            input_data: InputData,
+            *,
+            score_series: AnomalyScoreSeries | None = None,
+            events: Sequence[DetectionEvent] | None = None,
+            predict_mode: str = 'labels',  # 'labels' | 'scores' | 'probs'
+    ) -> OutputData:
+        """Заворачивает результат детекции обратно в FEDOT OutputData.
+        Симметрична from_input_data: концентрирует boundary-логику в адаптере,
+        вместо того чтобы собирать OutputData вручную в strategy.
+        predict_mode:
+            'labels' — бинарные метки (n, 1);
+            'scores' — поточечные anomaly scores (n, 1);
+            'probs'  — двухколоночная вероятность [P(norm), P(anomaly)] (n, 2).
+        """
+        if OutputData is None:  # pragma: no cover
+            raise ValueError('FEDOT OutputData is unavailable in the current environment.')
+        if score_series is None:
+            raise ValueError('to_output_data requires a score_series to build predictions.')
+        mode = str(predict_mode).lower()
+        # режимs повторяют логику, которая сейчас в _predict_by_mode (detection_runtime_strategy.py) 
+        # и score_samples (modern_detectors.py)
+        if mode == 'labels':
+            predict = np.asarray(score_series.labels, dtype=int).reshape(-1, 1)
+        elif mode in {'scores', 'score'}:
+            predict = np.asarray(score_series.scores, dtype=float).reshape(-1, 1)
+        elif mode in {'probs', 'probabilities'}:
+            scores = np.asarray(score_series.scores, dtype=float)
+            scale = np.std(scores) if np.std(scores) > 1e-8 else max(float(score_series.threshold), 1.0)
+            anomaly = 1.0 / (1.0 + np.exp(-(scores - float(score_series.threshold)) / scale))
+            predict = np.column_stack((1.0 - anomaly, anomaly))
+        else:
+            raise ValueError(f'Unsupported detection predict_mode: {predict_mode}')
+        
+        return OutputData(
+            idx=input_data.idx,
+            features=input_data.features,
+            predict=predict,
+            target=getattr(input_data, 'target', None),
+            task=input_data.task,
+            data_type=DataTypesEnum.table,
+            supplementary_data=getattr(input_data, 'supplementary_data', None),
+            metadata={
+                'threshold': float(score_series.threshold),
+                'calibration_strategy': score_series.calibration_strategy,
+                'n_events': 0 if events is None else len(events),
+            } if hasattr(OutputData, '__dataclass_fields__') else None,
         )
 
 
@@ -316,6 +427,7 @@ def build_detection_window_batch(
         window_size: int,
         stride: int = 1,
         channel_names: Sequence[str] | None = None,
+        gap_mask: Sequence[bool] | np.ndarray | None = None,
         metadata: dict[str, Any] | None = None,
 ) -> DetectionWindowBatch:
     """
@@ -351,14 +463,29 @@ def build_detection_window_batch(
         raise ValueError(
             f'Series length {series.shape[0]} is shorter than the requested detection window {window_size}.'
         )
-    windows = []
-    indices = []
+    if gap_mask is not None:
+        gap_array = np.asarray(gap_mask, dtype=bool).reshape(-1)
+        if gap_array.shape[0] != series.shape[0]:
+            raise ValueError(
+                f'gap_mask length {gap_array.shape[0]} must match series length {series.shape[0]}.'
+            )
+    else:
+        gap_array = None
+    
+    windows: list[np.ndarray] = []
+    indices: list[tuple[int, int]] = []
+    window_masks: list[np.ndarray] | None = [] if gap_array is not None else None
     for start in range(0, series.shape[0] - window_size + 1, stride):
         end = start + window_size
         windows.append(series[start:end])
         indices.append((start, end))
+        if window_masks is not None:
+            window_masks.append(gap_array[start:end])
+
     window_tensor = np.asarray(windows, dtype=float)
     window_index = np.asarray(indices, dtype=int)
+    mask_tensor = np.asarray(window_masks, dtype=bool) if window_masks is not None else None
+
     return DetectionWindowBatch(
         windows=window_tensor,
         window_indices=window_index,
@@ -366,6 +493,7 @@ def build_detection_window_batch(
         window_size=int(window_size),
         stride=int(stride),
         channel_names=tuple(channel_names or tuple(f'channel_{index}' for index in range(series.shape[1]))),
+        mask=mask_tensor,
         metadata=dict(metadata or {}),
     )
 
@@ -427,7 +555,7 @@ def split_detection_batch(
             window_size=batch.window_size,
             stride=batch.stride,
             channel_names=batch.channel_names,
-            mask=batch.mask,
+            mask=batch.mask[start:end] if batch.mask is not None else None,
             metadata=dict(batch.metadata),
         )
 
@@ -524,11 +652,40 @@ def build_window_statistical_features(windows: np.ndarray) -> np.ndarray:
     return np.concatenate((mean, std, minimum, maximum, slope), axis=1)
 
 
+def _resolve_reference_slice(
+        length: int,
+        reference_window: slice | tuple[int, int] | None,
+) -> slice:
+    """Нормализует reference_window в slice внутри [0, length].
+
+    Принимает:
+      slice — используется как есть (с клипом в границы);
+      tuple (start, stop) — оба индекса клипуются в [0, length];
+      None — slice(0, length), т.е. legacy global behaviour.
+
+    Возвращает slice, у которого 0 <= start < stop <= length, либо
+    slice(0, length) если запрошенное окно вырождено или выходит за пределы.
+    """
+    if reference_window is None:
+        return slice(0, length)
+    if isinstance(reference_window, slice):
+        start = 0 if reference_window.start is None else int(reference_window.start)
+        stop = length if reference_window.stop is None else int(reference_window.stop)
+    else:
+        start, stop = int(reference_window[0]), int(reference_window[1])
+    start = max(0, min(start, length))
+    stop = max(0, min(stop, length))
+    if stop - start < 2:
+        return slice(0, length)
+    return slice(start, stop)
+
+
 def infer_regime_segments(
         values: Sequence[float] | np.ndarray,
         *,
         volatility_window: int = 16,
         transition_quantile: float = 0.85,
+        reference_window: slice | tuple[int, int] | None = None,
 ) -> tuple[RegimeSegment, ...]:
     """
     Выделяет сегменты временного ряда, характеризующие режимы: высокий уровень (high_load),
@@ -567,9 +724,15 @@ def infer_regime_segments(
         .to_numpy(dtype=float)
     )
     abs_slope = np.abs(slope)
-    transition_threshold = float(np.quantile(abs_slope, transition_quantile)) if len(abs_slope) else 0.0
-    high_level = float(np.quantile(regime_signal, 0.75))
-    low_level = float(np.quantile(regime_signal, 0.25))
+    ref = _resolve_reference_slice(series.shape[0], reference_window)
+    reference_signal = regime_signal[ref]
+    reference_abs_slope = abs_slope[ref]
+    transition_threshold = (
+        float(np.quantile(reference_abs_slope, transition_quantile))
+        if reference_abs_slope.size else 0.0
+    )
+    high_level = float(np.quantile(reference_signal, 0.75)) if reference_signal.size else 0.0
+    low_level = float(np.quantile(reference_signal, 0.25)) if reference_signal.size else 0.0
 
     labels = np.full(series.shape[0], 'stable', dtype=object)
     labels[abs_slope >= transition_threshold] = 'transition'

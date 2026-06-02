@@ -33,9 +33,9 @@ def build_local_skab_suite_config(
             ),),
         models=models or _default_detection_models(),
         # TODO: Event-Level И Delay-Aware метрики
-        metrics=('f1_macro', 'balanced_accuracy', 'precision', 'recall'),
+        metrics=('nab', 'bin_f1', 'bin_precision', 'bin_recall', 'bin_far'),
         artifact_spec=_artifact_spec(output_dir, persist_on_run, 'skab'),
-        run_spec=RunSpec(run_name=f'skab_{dataset_name.lower()}_suite', primary_metric='f1_macro'),
+        run_spec=RunSpec(run_name=f'skab_{dataset_name.lower()}_suite', primary_metric='nab'),
     )
 
 

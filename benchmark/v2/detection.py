@@ -14,6 +14,7 @@ from fedot_ind.core.models.detection.progress_policy import (
     DetectionProgressPolicy,
     resolve_detection_progress_policy,
 )
+from fedot_ind.core.models.detection.data_quality import align_timestamps
 from fedot_ind.core.models.detection.runtime import (
     DetectionSplitKind,
     DetectionSplitSpec,
@@ -27,6 +28,7 @@ from fedot_ind.core.repository.detection_registry import (
     canonical_detection_model_name,
     detection_family_for,
 )
+from fedot_ind.core.metrics.metric_library import METRICS_TO_MINIMIZE, flatten_metric_value   
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 
 from benchmark.v2.core import (
@@ -204,6 +206,42 @@ def _sample_records(
         indices = rng.choice(len(filtered), size=spec.sample_size, replace=False)
         filtered = [filtered[index] for index in sorted(indices)]
     return tuple(filtered)
+
+
+def _resolve_target_sample_rate(series_record: DetectionSeriesRecord) -> float | None:
+    """Целевая частота дискретизации (Гц) для align_timestamps.
+    None — тогда align_timestamps выберет nominal_dt как медиану
+    разностей между соседними timestamps (estimated_dt fallback).
+
+    """
+    raw = series_record.metadata.get('target_sample_rate_hz') # TODO: Следующим шагом сюда подключается DatasetPassport
+    if raw is None:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _align_record_series(
+        series_record: DetectionSeriesRecord,
+        values: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray | None, dict[str, Any]]:
+    """Выровнять values по временной оси записи через align_timestamps.
+    
+    Возвращает (aligned_values, gap_mask, alignment_report).
+    Если timestamps пусты — align_timestamps вернёт сами values + np.isnan-маску
+    + минимальный report.
+    """
+    timestamps = series_record.timestamps or None
+    target_sr = _resolve_target_sample_rate(series_record)
+    aligned, _seconds, gap_mask, report = align_timestamps(
+        values,
+        timestamps,
+        target_sample_rate_hz=target_sr,
+    )
+    return aligned, gap_mask, report
 
 
 def _record_values_array(series_record: DetectionSeriesRecord) -> np.ndarray:
@@ -469,12 +507,11 @@ class ConstantZeroDetectionModel:
 
 @dataclass
 class RuntimeDetectionModelAdapter:
-    """Thin adapter around canonical runtime detectors from detection registry.
-
-    It standardizes three responsibilities expected by benchmark runner:
-    - dependency/availability checks,
-    - fit/eval boundary handling from DetectionSeriesRecord,
-    - normalized output contract ``{'labels', 'scores'}``.
+    """Тонкий адаптер для канонических детекторов времени выполнения из реестра обнаружений.
+    Он стандартизирует три задачи, ожидаемые от средства запуска бенчмарков:
+    проверка зависимостей/доступности,
+    обработка границ соответствия/оценки из DetectionSeriesRecord,
+    нормализованный выходной контракт ``{'labels', 'scores'}``.
     """
     adapter_name: str
     display_name: str
@@ -501,20 +538,38 @@ class RuntimeDetectionModelAdapter:
         """Fit detector on resolved train slice and score the evaluation slice."""
         canonical = canonical_detection_model_name(self.adapter_name)
         detector_cls = DETECTION_RUNTIME_MODELS[canonical]
-        fit_values = _train_fit_values(series_record)
-        eval_values = _record_values_array(series_record)
+        # Сырые values от адаптера: train slice + полный eval slice.
+        fit_values_raw = _train_fit_values(series_record)
+        eval_values_raw = _record_values_array(series_record)
+        # Выравнивание timestamp-оси через align_timestamps.
+        # с default gap_policy='mark_only' оставит NaN на местах разрывов
+        fit_values, _fit_gap_mask, _fit_alignment_report = _align_record_series(
+            series_record, fit_values_raw,
+        )
+        eval_values, _eval_gap_mask, _eval_alignment_report = _align_record_series(
+            series_record, eval_values_raw,
+        )
         detector = detector_cls(OperationParameters(**dict(self.params)))
+        # не AutoML, а fixed detector runtime
         detector.fit(fit_values)
-        score_series = detector.score_series_on_values(eval_values)
-        labels = np.asarray(score_series.labels, dtype=int).reshape(-1)
-        scores = np.asarray(score_series.scores, dtype=float).reshape(-1)
+        runtime_result  = detector.evaluate_values(eval_values)
+        labels = np.asarray(runtime_result.labels, dtype=int).reshape(-1)
+        scores = np.asarray(runtime_result.scores, dtype=float).reshape(-1)
         metadata = {
             'canonical_name': canonical,
             'family': detection_family_for(canonical),
-            'threshold': float(score_series.threshold),
-            'stage_diagnostics': detector.get_stage_diagnostics(),
+            'threshold': float(runtime_result.threshold),
+            'stage_diagnostics': runtime_result.stage_diagnostics,
+            'transfer_report': None
+            if runtime_result.transfer_report is None
+            else runtime_result.transfer_report.to_dict(),
         }
-        return {'labels': labels, 'scores': scores}, metadata # TODO: # TODO: event payload for event-level 
+        return {
+            'labels': labels, 
+            'scores': scores,
+            'events' : runtime_result.events,
+            'risk_frame' : runtime_result.risk_feature_frame,
+        }, metadata
 
 
 class OptionalExternalModel:
@@ -601,44 +656,34 @@ class DetectionSeriesArtifactsRecorder:
             )
         return actual, labels, scores
 
-    def record_metric_bundle(
-            self,
-            *,
-            series_record: DetectionSeriesRecord,
-            model_name: str,
-            actual: np.ndarray,
-            labels: np.ndarray,
-            metadata: dict[str, Any],
-            metric_name_suffix: str = '',
-    ) -> dict[str, float]:
+
+    def record_metric_bundle(self, *, series_record, model_name, actual, labels, metadata, metric_name_suffix=''):
         """Record aggregate metric rows and return metric summary dict."""
-        # del metadata
         metrics_summary: dict[str, float] = {}
-        # metric_values = calculate_detection_metric(
-        #     target=actual,
-        #     labels=labels,
-        #     metric_names=self.metric_names,
-        # )
-        metric_values = FEDOT_GET_METRICS['anomaly_detection'](target=actual,
-                                                               predicted_labels=labels,
-                                                               metric_names=tuple(self.metric_names,),
-                                                               return_dataframe = False)
-        for metric_name, metric_value in metric_values.items():
-            metrics_summary[metric_name] = metric_value
-            self.metric_records.append(
-                MetricRecord(
-                    run_id=self.run_id,
-                    benchmark=series_record.benchmark,
-                    dataset_name=series_record.dataset_name,
-                    subset=series_record.subset,
-                    series_id=series_record.series_id,
-                    model_name=model_name,
-                    metric_name=f'{metric_name}{metric_name_suffix}',
-                    metric_value=metric_value,
-                    status=RunStatus.SUCCESS,
+        metric_values = FEDOT_GET_METRICS['anomaly_detection'](
+            target=actual,
+            predicted_labels=labels,
+            metric_names=self.metric_names, 
+            return_dataframe=False,
+        )
+        for raw_name, raw_value in metric_values.items():
+            for flat_name, flat_value in flatten_metric_value(raw_name, raw_value).items():
+                metrics_summary[flat_name] = flat_value
+                self.metric_records.append(
+                    MetricRecord(
+                        run_id=self.run_id,
+                        benchmark=series_record.benchmark,
+                        dataset_name=series_record.dataset_name,
+                        subset=series_record.subset,
+                        series_id=series_record.series_id,
+                        model_name=model_name,
+                        metric_name=f'{flat_name}{metric_name_suffix}',
+                        metric_value=flat_value,
+                        status=RunStatus.SUCCESS,
+                    )
                 )
-            )
         return metrics_summary
+
 
     def record_predictions(
             self,
@@ -667,6 +712,25 @@ class DetectionSeriesArtifactsRecorder:
                     status=RunStatus.SUCCESS,
                 )
             )
+
+
+def _flatten_metrics_summary(summary: dict[str, Any]) -> dict[str, float]:
+    flat: dict[str, float] = {}
+    for name, value in summary.items():
+        flat.update(flatten_metric_value(name, value))
+    return flat
+
+
+def _flat_to_base_metric(flat_name: str) -> str:
+    """'nab.Standard' → 'nab', 'bin_far' → 'bin_far'. Для определения min/max направления."""
+    return flat_name.split('.', 1)[0]
+
+
+def _is_better(tuned_value: float, baseline_value: float, flat_name: str) -> bool:
+    base = _flat_to_base_metric(flat_name)
+    if base in METRICS_TO_MINIMIZE:
+        return tuned_value <= baseline_value
+    return tuned_value >= baseline_value
 
 
 @dataclass
@@ -795,25 +859,39 @@ class DetectionPostFitTuningCoordinator:
                 metadata=tuned_metadata,
                 metric_name_suffix='_tuned',
             )
+            baseline_flat = _flatten_metrics_summary(baseline_metrics_summary)
+            tuned_flat = _flatten_metrics_summary(tuned_metrics_summary)
             comparison_payload = verbosity_policy.prune_stage_tuning_comparison(
                 {
                     'best_parameters': best_parameters,
                     'baseline_metrics': baseline_metrics_summary,
                     'tuned_metrics': tuned_metrics_summary,
+                    'baseline_metrics_flat': baseline_flat,
+                    'tuned_metrics_flat': tuned_flat,
+                    # 'improved_metrics': {
+                    #     metric_name: bool(
+                    #         tuned_metrics_summary.get(metric_name, -math.inf)
+                    #         >= baseline_metrics_summary.get(metric_name, -math.inf)
+                    #     )
+                    #     for metric_name in baseline_metrics_summary
+                    #     if metric_name in tuned_metrics_summary
+                    # },
                     'improved_metrics': {
-                        metric_name: bool(
-                            tuned_metrics_summary.get(metric_name, -math.inf)
-                            >= baseline_metrics_summary.get(metric_name, -math.inf)
-                        )
-                        for metric_name in baseline_metrics_summary
-                        if metric_name in tuned_metrics_summary
+                        metric_name: bool(_is_better(tuned_flat[metric_name], baseline_flat[metric_name], metric_name))
+                        for metric_name in baseline_flat
+                        if metric_name in tuned_flat
                     },
+                    # 'absolute_gain': {
+                    #     metric_name: float(
+                    #         tuned_metrics_summary[metric_name] - baseline_metrics_summary[metric_name]
+                    #     )
+                    #     for metric_name in baseline_metrics_summary
+                    #     if metric_name in tuned_metrics_summary
+                    # },
                     'absolute_gain': {
-                        metric_name: float(
-                            tuned_metrics_summary[metric_name] - baseline_metrics_summary[metric_name]
-                        )
-                        for metric_name in baseline_metrics_summary
-                        if metric_name in tuned_metrics_summary
+                        metric_name: float(tuned_flat[metric_name] - baseline_flat[metric_name])
+                        for metric_name in baseline_flat
+                        if metric_name in tuned_flat
                     },
                     'tuned_metadata': dict(tuned_metadata),
                     'tuned_labels': [int(value) for value in tuned_labels.tolist()],
@@ -839,7 +917,8 @@ def build_leaderboard(
     successful = [record for record in run_records if record.status is RunStatus.SUCCESS]
     grouped: dict[tuple[str, str, str], list[float]] = {}
     for record in successful:
-        metric_value = record.metrics_summary.get(primary_metric)
+        raw_value = record.metrics_summary.get(primary_metric)
+        metric_value = flatten_metric_value(primary_metric, raw_value).get(primary_metric) 
         if metric_value is None:
             continue
         grouped.setdefault((record.benchmark, record.dataset_name, record.model_name), []).append(metric_value)

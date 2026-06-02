@@ -16,17 +16,13 @@ from fedot_ind.core.models.detection.runtime import (
     DetectionSplitSpec,
     ensure_detection_array,
 )
-# from fedot_ind.core.metrics.metrics_implementation import (
-#     DETECTION_METRICS_TO_MINIMIZE,
-#     calculate_detection_metric,
-# )
-
-from fedot_ind.core.repository.constanst_repository import FEDOT_GET_METRICS
-from fedot_ind.core.metrics.metric_library import METRIC_REGISTRY, METRICS_TO_MINIMIZE
-
-SUPPORTED_ANOMALY_DETECTION_METRICS = tuple(METRIC_REGISTRY['anomaly_detection'])
-DETECTION_METRICS_TO_MINIMIZE = tuple(set(METRICS_TO_MINIMIZE) & set(SUPPORTED_ANOMALY_DETECTION_METRICS))
-
+from fedot_ind.core.metrics._exceptions import MetricValidationError
+from fedot_ind.core.metrics.metric_library import (
+    METRIC_REGISTRY,
+    METRICS_TO_MINIMIZE,
+    flatten_metric_value,
+    get_metric,
+)
 from fedot_ind.core.models.detection.stage_tuning import build_detection_stage_tuning_plan
 from fedot_ind.core.operation.interfaces.detection_runtime_strategy import DETECTION_RUNTIME_MODELS
 from fedot_ind.core.repository.detection_registry import canonical_detection_model_name, detection_family_for
@@ -36,6 +32,10 @@ try:
 except Exception:  # pragma: no cover
     def tqdm(iterable=None, *args, **kwargs):
         return iterable if iterable is not None else []
+
+
+SUPPORTED_ANOMALY_DETECTION_METRICS = tuple(METRIC_REGISTRY['anomaly_detection'])
+DETECTION_METRICS_TO_MINIMIZE = tuple(set(METRICS_TO_MINIMIZE) & set(SUPPORTED_ANOMALY_DETECTION_METRICS))
 
 
 @dataclass(frozen=True)
@@ -175,23 +175,27 @@ def _evaluate_parameters(
     target = np.asarray(labels, dtype=int).reshape(-1)
     train_values, _, calibration_values, calibration_labels = _split_series(series, target, split_spec)
     detector = _build_detector(model_name, parameters)
-    # detector.fit(InputData(features=train_values))
     detector.fit(train_values)
     score_series = detector.score_series_on_values(calibration_values)
     predicted = np.asarray(score_series.labels, dtype=int).reshape(-1)
-    # metric_value = _compute_detection_metric(metric_name, calibration_labels, predicted)
-    
-    # metric_values = calculate_detection_metric(
-    #     target=calibration_labels,
-    #     labels=predicted,
-    #     metric_names=(metric_name,),
-    # )
 
-    metric_values = FEDOT_GET_METRICS['anomaly_detection'](target=calibration_labels,
-                                                           predicted_labels=predicted,
-                                                           metric_names=tuple(metric_name),
-                                                           return_dataframe = False)
-    metric_value = float(metric_values[metric_name])
+    # Прямой вызов registry (metric_library.METRIC_REGISTRY['anomaly_detection']),
+    # без обёртки FEDOT_GET_METRICS
+    if metric_name not in SUPPORTED_ANOMALY_DETECTION_METRICS:
+        raise MetricValidationError(
+            f'Unsupported anomaly_detection metric for stage tuning: {metric_name!r}. '
+            f'Supported: {SUPPORTED_ANOMALY_DETECTION_METRICS}.'
+        )
+    metric_fn = get_metric('anomaly_detection', metric_name)
+    raw_metric_value = metric_fn(calibration_labels, predicted)
+    flat = flatten_metric_value(metric_name, raw_metric_value)
+    if metric_name not in flat:
+        raise MetricValidationError(
+            f'Metric {metric_name!r} did not produce a scalar value usable for '
+            f'stage tuning ranking (raw value: {raw_metric_value!r}). Use a scalar '
+            f'variant (e.g. "nab_standard" instead of "nab") in metric_name.'
+        )
+    metric_value = flat[metric_name]
     return DetectionSeriesEvaluation(
         model_name=model_name,
         canonical_model_name=canonical_name,

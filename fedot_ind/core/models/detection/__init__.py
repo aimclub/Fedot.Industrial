@@ -9,6 +9,7 @@ from fedot_ind.core.models.detection.runtime import (
     RegimeSegment,
     RiskFeatureFrame,
     TransferAlignmentReport,
+    DetectionRuntimeResult,
 )
 from fedot_ind.core.models.detection.stage_tuning import (
     DetectionStageName,
@@ -29,6 +30,7 @@ __all__ = [
     'DetectionWindowBatch',
     'RegimeSegment',
     'RiskFeatureFrame',
+    'DetectionRuntimeResult',
     'StageTuningGroup',
     'TransferAlignmentReport',
     'build_detection_stage_tuning_plan',

@@ -43,25 +43,10 @@ def prepare_skab_benchmark():
     return BENCHMARK, BENCHMARK_PARAMS
 
 
-METRIC_NAMES = ('f1', 'balanced_accuracy', 'precision', 'recall')
+METRIC_NAMES = ('nab', 'bin_f1', 'bin_precision', 'bin_recall', 'bin_far')
 EVAL_REGIME = True
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
-# AUTOML_CONFIG = DEFAULT_CLF_AUTOML_CONFIG
-# AUTOML_LEARNING_STRATEGY = dict(timeout=1,
-#                                 n_jobs=2,
-#                                 pop_size=10,
-#                                 logging_level=0)
-
-# LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
-#                    'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
-#                    'optimisation_loss': {'quality_loss': 'accuracy'}}
-
-# INDUSTRIAL_CONFIG = {'strategy': 'anomaly_detection',
-#                      'problem': 'classification',
-#                      'strategy_params': {'detection_window': 10,
-#                                          'train_data_size': 'anomaly-free',
-#                                          'data_type': 'table'}}
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
 AUTOML_CONFIG = DEFAULT_ADN_AUTOML_CONFIG
 LEARNING_CONFIG = DEFAULT_ADN_LEARNING_CONFIG

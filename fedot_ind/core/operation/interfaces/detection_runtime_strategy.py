@@ -84,25 +84,41 @@ class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
         return operation_implementation
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
-        return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        # prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
+        # return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        return self._build_output(trained_operation, predict_data, output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData,
                         output_mode: str = 'default') -> OutputData:
         # На fit FEDOT merge ждёт табличные признаки (proba), не бинарные labels.
         fit_output_mode = 'probs' if output_mode == 'default' else output_mode
-        prediction = self._predict_by_mode(trained_operation, predict_data, fit_output_mode)
-        return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
-
-    def _predict_by_mode(self, trained_operation, input_data: InputData, output_mode: str):
-        input_data = self._normalize_input_data(input_data)
-        values = input_data.features
+        # prediction = self._predict_by_mode(trained_operation, predict_data, fit_output_mode)
+        # return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        return self._build_output(trained_operation, predict_data, fit_output_mode)
+    
+    def _build_output(self, trained_operation, predict_data: InputData, output_mode: str) -> OutputData:
+        # boundary живёт в адаптере, детектор отдаёт типизированный AnomalyScoreSeries,
+        # адаптер выводит из него FEDOT predict (labels/scores/probs)
+        predict_data = self._normalize_input_data(predict_data)
         resolved_mode = self.output_mode if output_mode == 'default' else output_mode
-        if resolved_mode in {'probs', 'probabilities'}:
-            return trained_operation.predict_proba(values)
-        if resolved_mode in {'scores', 'score'}:
-            return trained_operation.score_samples(values)
-        return trained_operation.predict(values)
+        # единая точка получения скоров/меток/порога от детектора
+        score_series = trained_operation.score_series_on_values(predict_data.features)
+        return DetectionBoundaryAdapter.to_output_data(
+            predict_data,
+            score_series=score_series,
+            predict_mode=resolved_mode,
+        )
+
+    # TODO: _predict_by_mode может быть удален после переноса логики в to_output_data
+    # def _predict_by_mode(self, trained_operation, input_data: InputData, output_mode: str):
+    #     input_data = self._normalize_input_data(input_data)
+    #     values = input_data.features
+    #     resolved_mode = self.output_mode if output_mode == 'default' else output_mode
+    #     if resolved_mode in {'probs', 'probabilities'}:
+    #         return trained_operation.predict_proba(values)
+    #     if resolved_mode in {'scores', 'score'}:
+    #         return trained_operation.score_samples(values)
+    #     return trained_operation.predict(values)
 
     def _normalize_input_data(self, input_data: InputData) -> InputData:
         features = ensure_detection_array(input_data.features)

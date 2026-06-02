@@ -733,7 +733,38 @@ def validate_metric_registry(metric_registry):
             f"Следующие метрики одновременно присутствуют в METRICS_TO_MINIMIZE "
             f"и METRICS_TO_MAXIMIZE: {duplicate}"
         )
-   
+
+
+def flatten_metric_value(name: str, value: Any) -> dict[str, float]:
+    """Развернуть dict-результаты метрик в плоские числовые ключи.
+
+      nab → {'nab.Standard': ..., 'nab.LowFP': ..., 'nab.LowFN': ..., 'nab': nab.Standard}
+            (canonical alias под исходным именем для обратной совместимости с
+             primary_metric='nab' в presets и FEDOT-обвязке).
+      bin_metrics → {'bin_metrics.TP': ..., 'bin_metrics.f1': ..., ..., 'bin_metrics': <first numeric>}
+      bin_f1 (float) → {'bin_f1': float}
+      per_class_scores (dict со списками) → {} (списки не сводятся скаляром).
+
+    Нечисловые элементы внутри dict пропускаются.
+    """
+    if isinstance(value, (int, float, np.floating)):
+        return {name: float(value)}
+    if isinstance(value, dict):
+        flat: dict[str, float] = {}
+        for sub_key, sub_value in value.items():
+            if isinstance(sub_value, (int, float, np.floating)):
+                flat[f'{name}.{sub_key}'] = float(sub_value)
+        if not flat:
+            return {}
+        # canonical alias под исходным именем: для nab берём 'Standard', иначе первое числовое
+        if f'{name}.Standard' in flat:
+            flat.setdefault(name, flat[f'{name}.Standard'])
+        else:
+            flat.setdefault(name, next(iter(flat.values())))
+        return flat
+    return {}
+
+
 def _register_all() -> None:
     METRIC_REGISTRY['shared_cls_det'].update({
         'accuracy': accuracy,
