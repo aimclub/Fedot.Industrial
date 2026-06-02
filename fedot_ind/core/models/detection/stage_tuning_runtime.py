@@ -128,15 +128,44 @@ def _split_series(
         values: np.ndarray,
         labels: np.ndarray,
         split_spec: DetectionSplitSpec,
+        *,
+        domain_labels: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Build train/calibration split from a labeled time series.
 
     Returns
     -------
     tuple
-        ``(train_values, train_labels, calibration_values, calibration_labels)``.
+        (train_values, train_labels, calibration_values, calibration_labels).
         If calibration window is empty, it falls back to train slice.
+
+    Для DetectionSplitKind.DOMAIN_HOLDOUT с заданными domain_labels
+    детектор учится на ВСЕХ доменах, кроме plit_spec.target_domain, а
+    оценивается на целевом (невиданном) домене.
+    kind другой или domain_labels=None поведение прежнее
     """
+    # TODO: на эти изменения необходимо внести тесты
+    # DOMAIN_HOLDOUT: train = исходные домены, calibration = целевой (unseen) домен.
+    if split_spec.kind == DetectionSplitKind.DOMAIN_HOLDOUT and domain_labels is not None:
+        domains = np.asarray(domain_labels, dtype=object).reshape(-1)
+        if domains.shape[0] != values.shape[0]:
+            raise ValueError(
+                f'domain_labels length {domains.shape[0]} must match series length {values.shape[0]}.'
+            )
+        target = split_spec.target_domain
+        if target is None:
+            raise ValueError('DOMAIN_HOLDOUT requires split_spec.target_domain to be set.')
+        holdout_mask = domains == target
+        if not holdout_mask.any():
+            raise ValueError(f'target_domain {target!r} is not present in domain_labels.')
+        if holdout_mask.all():
+            raise ValueError(f'target_domain {target!r} leaves no source domain for training.')
+        train_mask = ~holdout_mask
+        return (
+            values[train_mask], labels[train_mask],
+            values[holdout_mask], labels[holdout_mask],
+        )
+
     n_samples = int(values.shape[0])
     train_end = max(1, int(round(n_samples * split_spec.train_fraction)))
     remaining = max(0, n_samples - train_end)
@@ -150,6 +179,19 @@ def _split_series(
         calibration_values = train_values
         calibration_labels = train_labels
     return train_values, train_labels, calibration_values, calibration_labels
+
+
+def iter_domain_holdouts(domain_labels: np.ndarray) -> tuple[str, ...]:
+    """Уникальные домены в порядке появления для leave-one-domain-out цикла.
+
+    Каждый возвращённый домен по очереди становится ``target_domain`` (unseen),
+    остальные идут в train. Падает при < 2 доменах нет.
+    """
+    domains = np.asarray(domain_labels, dtype=object).reshape(-1)
+    unique = tuple(dict.fromkeys(domains.tolist()))
+    if len(unique) < 2:
+        raise ValueError('Leave-one-domain-out requires at least two distinct domains.')
+    return tuple(str(domain) for domain in unique)
 
 
 def _build_detector(model_name: str, params: dict[str, Any]):
@@ -168,12 +210,15 @@ def _evaluate_parameters(
         parameters: dict[str, Any],
         metric_name: str,
         split_spec: DetectionSplitSpec,
+        domain_labels: np.ndarray | None = None,
 ) -> DetectionSeriesEvaluation:
     """Fit/evaluate one detector configuration on one series split."""
     canonical_name = canonical_detection_model_name(model_name)
     series = ensure_detection_array(values)
     target = np.asarray(labels, dtype=int).reshape(-1)
-    train_values, _, calibration_values, calibration_labels = _split_series(series, target, split_spec)
+    train_values, _, calibration_values, calibration_labels = _split_series(
+        series, target, split_spec, domain_labels=domain_labels,
+    )
     detector = _build_detector(model_name, parameters)
     detector.fit(train_values)
     score_series = detector.score_series_on_values(calibration_values)
@@ -278,6 +323,7 @@ def run_detection_stage_tuning_on_series(
         stage_updates: dict[str, Any] | None = None,
         metric_name: str,
         split_spec: DetectionSplitSpec | None = None,
+        domain_labels: np.ndarray | None = None,
         max_values_per_parameter: int = 3,
         max_stage_candidates: int = 16,
         progress_policy: DetectionProgressPolicy | dict[str, Any] | bool | None = None,
@@ -300,6 +346,12 @@ def run_detection_stage_tuning_on_series(
         Metric optimized during tuning (`accuracy`, `balanced_accuracy`, `f1_macro`).
     split_spec:
         Optional split configuration; defaults to temporal split.
+    domain_labels:
+        Optional per-sample domain/node labels aligned with ``values``. Used only
+        for ``DetectionSplitKind.DOMAIN_HOLDOUT``: the detector trains on all
+        domains except ``split_spec.target_domain`` and is evaluated on that
+        unseen domain. For leave-one-domain-out, call this once per target domain
+        (see ``iter_domain_holdouts``) and average the metrics on the caller side.
     max_values_per_parameter:
         Upper bound on generated candidate values per parameter.
     max_stage_candidates:
@@ -320,6 +372,7 @@ def run_detection_stage_tuning_on_series(
             parameters=resolved_params,
             metric_name=metric_name,
             split_spec=resolved_split,
+            domain_labels=domain_labels,
         )
         sequential = DetectionSequentialStageTuningResult(
             model_name=model_name,
@@ -350,6 +403,7 @@ def run_detection_stage_tuning_on_series(
         parameters=current_parameters,
         metric_name=metric_name,
         split_spec=resolved_split,
+        domain_labels=domain_labels,
     )
     best_score = baseline_evaluation.metric_value
     best_parameters = dict(current_parameters)
@@ -381,6 +435,7 @@ def run_detection_stage_tuning_on_series(
                 parameters=candidate_parameters,
                 metric_name=metric_name,
                 split_spec=resolved_split,
+                domain_labels=domain_labels,
             )
             evaluations.append({
                 'parameters': dict(candidate),
@@ -410,6 +465,7 @@ def run_detection_stage_tuning_on_series(
         parameters=best_parameters,
         metric_name=metric_name,
         split_spec=resolved_split,
+        domain_labels=domain_labels,
     )
     sequential_result = DetectionSequentialStageTuningResult(
         model_name=model_name,

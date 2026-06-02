@@ -100,7 +100,9 @@ class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
         # boundary живёт в адаптере, детектор отдаёт типизированный AnomalyScoreSeries,
         # адаптер выводит из него FEDOT predict (labels/scores/probs)
         predict_data = self._normalize_input_data(predict_data)
-        resolved_mode = self.output_mode if output_mode == 'default' else output_mode
+        resolved_mode = output_mode if output_mode != 'default' else self.output_mode
+        if resolved_mode == 'default':
+            resolved_mode = 'labels'
         # единая точка получения скоров/меток/порога от детектора
         score_series = trained_operation.score_series_on_values(predict_data.features)
         return DetectionBoundaryAdapter.to_output_data(

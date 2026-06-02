@@ -313,11 +313,6 @@ class DetectionBoundaryAdapter:
             task=input_data.task,
             data_type=DataTypesEnum.table,
             supplementary_data=getattr(input_data, 'supplementary_data', None),
-            metadata={
-                'threshold': float(score_series.threshold),
-                'calibration_strategy': score_series.calibration_strategy,
-                'n_events': 0 if events is None else len(events),
-            } if hasattr(OutputData, '__dataclass_fields__') else None,
         )
 
 
