@@ -609,7 +609,7 @@ class TestMetricSpecifications:
         new = calculate_detection_metric(Y_TRUE_ANOM, Y_PRED_ANOM, metric_names=specs, rounding_order=ROUND, return_dataframe = False)
         assert 'nab' in new and 'nab__1' in new
         # assert new['nab'] != new['nab__1']    # Не работает, потому что тестовая последовательность такая, что там не будет отлиций. 
-                                                # Но если дебажить, то сё прокидывается нормально
+                                                # Но если дебажить, то всё прокидывается нормально
 
     def test_multi_metrics(self):
         new, leg, name = run_classification(('accuracy',

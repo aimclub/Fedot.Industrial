@@ -305,7 +305,7 @@ def precision(
     y_pred: np.ndarray,
     *,
     labels: Union[np.ndarray, list, None] = None,
-    average: str = 'macro',
+    average: str = 'auto',
     pos_label: Union[int, str] = 'auto',
     **_,
 ) -> float:
@@ -342,7 +342,7 @@ def recall(
     y_pred: np.ndarray,
     *,
     labels: Union[np.ndarray, list, None] = None,
-    average: str = 'macro',
+    average: str = 'auto',
     pos_label: Union[int, str] = 'auto',
     **_,
 ) -> float:
