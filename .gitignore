@@ -26,6 +26,8 @@ __pycache__/
 *.json
 !benchmark/industrial/examples/kernel_learning_tser_manifest.json
 !benchmark/industrial/examples/kernel_learning_ucr_manifest.json
+!benchmark/experiments/kernel_learning/defaults.json
+!benchmark/industrial/experiments/preset_defaults.json
 
 # User-specific stuff
 .idea/**/workspace.xml

@@ -1,0 +1,286 @@
+{
+  "version": "kernel_learning_benchmark_defaults@1",
+  "generator_sets": {
+    "non_topological": [
+      "quantile_extractor_torch",
+      "wavelet_extractor",
+      "fourier_extractor",
+      "recurrence_extractor",
+      "tabular_extractor"
+    ],
+    "stage1_non_topological": [
+      "quantile_extractor_torch",
+      "wavelet_extractor",
+      "fourier_extractor",
+      "recurrence_extractor"
+    ]
+  },
+  "experiments": {
+    "ucr": {
+      "data_root": "data",
+      "experiment_date": "020626",
+      "output_dir_template": "benchmark/results/kernel_learning/ucr_suite_{experiment_date}",
+      "metrics": [
+        "accuracy",
+        "balanced_accuracy",
+        "f1_macro"
+      ],
+      "run_spec": {
+        "primary_metric": "f1_macro",
+        "show_progress": true,
+        "progress_leave": false,
+        "progress_log_errors": true,
+        "progress_log_summaries": true,
+        "resume_enabled": true
+      }
+    },
+    "tser": {
+      "data_root": "fedot_ind/data",
+      "datasets": [
+        "NaturalGasPricesSentiment",
+        "AppliancesEnergy",
+        "ElectricityPredictor"
+      ],
+      "experiment_date": "140526",
+      "output_dir_template": "benchmark/results/kernel_learning/tser_suite_{experiment_date}",
+      "metrics": [
+        "rmse",
+        "mae",
+        "r2"
+      ],
+      "run_spec": {
+        "primary_metric": "rmse",
+        "show_progress": true,
+        "progress_leave": false,
+        "progress_log_errors": true,
+        "progress_log_summaries": true,
+        "resume_enabled": true
+      }
+    },
+    "forecasting": {
+      "subsets": [
+        "monthly"
+      ],
+      "sample_size": 5,
+      "experiment_date": "140526",
+      "output_dir_template": "benchmark/results/kernel_learning/forecasting_suite_{experiment_date}",
+      "metrics": [
+        "mase",
+        "smape",
+        "owa",
+        "rmse",
+        "mae"
+      ],
+      "run_spec": {
+        "primary_metric": "mae",
+        "show_progress": true,
+        "progress_leave": false,
+        "progress_log_errors": true,
+        "progress_log_summaries": true,
+        "resume_enabled": true
+      }
+    },
+    "two_stage_ucr": {
+      "data_root": "data",
+      "experiment_date": "140526",
+      "stage1_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_{experiment_date}",
+      "stage2_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_optim_{experiment_date}",
+      "stage1_run_id": "kernel_learning_ucr_stage1_ba419d49e4",
+      "generator_set": "stage1_non_topological",
+      "metrics": [
+        "accuracy",
+        "balanced_accuracy",
+        "f1_macro"
+      ],
+      "timeout_minutes": 5,
+      "pop_size": 5
+    }
+  },
+  "models": {
+    "ucr": [
+      {
+        "adapter_name": "kernel_ensemble_classifier",
+        "display_name": "KernelEnsembleClassifier_score_baseline_summary",
+        "params": {
+          "generator_names": [
+            "statistical_summary"
+          ],
+          "kernel": "linear",
+          "C": 10.0,
+          "selector_optimizer": "score",
+          "importance_threshold": 0.05
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_classifier",
+        "display_name": "KernelEnsembleClassifier_adaptive_all_non_topological",
+        "params": {
+          "generator_names": [
+            "quantile_extractor_torch",
+            "wavelet_extractor",
+            "fourier_extractor",
+            "recurrence_extractor",
+            "tabular_extractor"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "torch_device": "auto",
+          "C": 1.0,
+          "selector_optimizer": "projected_gradient",
+          "complexity_penalty": 0.01,
+          "redundancy_penalty": 0.05,
+          "min_weight": 0.05,
+          "importance_threshold": 0.05
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_classifier",
+        "display_name": "KernelEnsembleClassifier_shapelet_motif_rbf",
+        "params": {
+          "generator_names": [
+            "shapelet_extractor",
+            "statistical_summary"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "C": 1.0,
+          "selector_optimizer": "projected_gradient",
+          "complexity_penalty": 0.01,
+          "redundancy_penalty": 0.05,
+          "importance_threshold": 0.05
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_classifier",
+        "display_name": "KernelEnsembleClassifier_embedding_nystrom",
+        "params": {
+          "generator_names": [
+            "embedding_extractor",
+            "statistical_summary"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "kernel_approximation": "nystrom",
+          "nystrom_components": 16,
+          "C": 1.0,
+          "selector_optimizer": "projected_gradient",
+          "importance_threshold": 0.05
+        }
+      }
+    ],
+    "tser": [
+      {
+        "adapter_name": "kernel_ensemble_regressor",
+        "display_name": "KernelEnsembleRegressor_score_linear_summary",
+        "params": {
+          "generator_names": [
+            "statistical_summary"
+          ],
+          "kernel": "linear",
+          "alpha": 0.000001,
+          "selector_optimizer": "score"
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_regressor",
+        "display_name": "KernelEnsembleRegressor_adaptive_rbf_summary",
+        "params": {
+          "generator_names": [
+            "statistical_summary"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "alpha": 1.0,
+          "selector_optimizer": "projected_gradient",
+          "complexity_penalty": 0.01,
+          "redundancy_penalty": 0.05
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_regressor",
+        "display_name": "KernelEnsembleRegressor_shapelet_rbf",
+        "params": {
+          "generator_names": [
+            "shapelet_extractor",
+            "statistical_summary"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "alpha": 1.0,
+          "selector_optimizer": "projected_gradient",
+          "complexity_penalty": 0.01,
+          "redundancy_penalty": 0.05
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_regressor",
+        "display_name": "KernelEnsembleRegressor_embedding_nystrom",
+        "params": {
+          "generator_names": [
+            "embedding_extractor",
+            "statistical_summary"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "kernel_approximation": "nystrom",
+          "nystrom_components": 16,
+          "alpha": 1.0,
+          "selector_optimizer": "projected_gradient"
+        }
+      }
+    ],
+    "forecasting": [
+      {
+        "adapter_name": "naive_last_value",
+        "display_name": "NaiveLastValue"
+      },
+      {
+        "adapter_name": "lagged_ridge_forecaster",
+        "display_name": "LaggedRidgeForecaster",
+        "params": {
+          "window_size": 12,
+          "stride": 1,
+          "alpha": 1.0
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_forecaster",
+        "display_name": "KernelEnsembleForecaster_identity_shapelet",
+        "params": {
+          "generator_names": [
+            "identity",
+            "shapelet_extractor"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "window_size": 12,
+          "stride": 1,
+          "head_type": "kernel_ridge",
+          "alpha": 1.0,
+          "selector_optimizer": "projected_gradient",
+          "complexity_penalty": 0.01,
+          "redundancy_penalty": 0.05
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_forecaster",
+        "display_name": "KernelEnsembleForecaster_embedding_nystrom_okhs",
+        "params": {
+          "generator_names": [
+            "identity",
+            "embedding_extractor"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "kernel_approximation": "nystrom",
+          "nystrom_components": 16,
+          "window_size": 12,
+          "stride": 1,
+          "head_type": "okhs_kernel_ridge",
+          "alpha": 1.0,
+          "selector_optimizer": "projected_gradient"
+        }
+      }
+    ]
+  }
+}

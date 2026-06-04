@@ -23,6 +23,38 @@ from fedot_ind.core.kernel_learning.experiments_api import (
 Do not import `experiments_api` from `fedot_ind.core.kernel_learning.__init__`: it intentionally depends
 on `benchmark.industrial` and should stay out of the lightweight estimator import path.
 
+## Runner Configuration Contract
+
+Kernel-learning benchmark scripts are thin shell entrypoints. The typed
+experiment builders live in:
+
+```python
+from benchmark.experiments.kernel_learning.configs import (
+    KernelLearningM4ExperimentConfig,
+    KernelLearningTSERExperimentConfig,
+    KernelLearningTwoStageUCRExperimentConfig,
+    KernelLearningUCRExperimentConfig,
+)
+```
+
+The model lists, generator sets, metrics, output templates, and run defaults
+live in:
+
+```text
+benchmark/experiments/kernel_learning/defaults.json
+```
+
+For suite-style experiments, the canonical execution path is:
+
+```python
+typed_config.build_suite_config() -> run_registered_suite(...)
+```
+
+This writes the regular benchmark artifacts plus the resolved config, run
+summary, registry entry, and registry index. Environment variables and CLI
+arguments should be normalized into one of the typed config records before the
+run starts.
+
 ## Stage 1: Kernel Learning On UCR
 
 Use the UCR script when you want to train the kernel ensemble and persist kernel diagnostics after each dataset/model

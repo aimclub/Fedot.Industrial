@@ -5,7 +5,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from .classification import render_tsc_publication_pack, run_tsc_suite
 from .core import (
     ArtifactRecord,
     ArtifactSpec,
@@ -21,8 +20,6 @@ from .core import (
 )
 from .evaluation.analytics import compare_models_on_series, render_publication_pack
 from .evaluation.okhs_quality import render_okhs_smoothing_acceptance_pack
-from .forecasting import run_forecasting_suite
-from .regression import render_tser_publication_pack, run_tser_suite
 
 
 def _build_issue_artifacts(result, output_dir: str | Path) -> tuple[ArtifactRecord, ...]:
@@ -73,6 +70,8 @@ def _build_issue_artifacts(result, output_dir: str | Path) -> tuple[ArtifactReco
 
 
 def run_forecasting_benchmark_suite(config: BenchmarkSuiteConfig) -> ForecastingBenchmarkResult:
+    from .forecasting import run_forecasting_suite
+
     result = run_forecasting_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
@@ -117,6 +116,8 @@ def build_tsc_publication_pack(
         result: ClassificationBenchmarkResult,
         output_dir: str | Path | None = None,
 ) -> tuple[ArtifactRecord, ...]:
+    from .classification import render_tsc_publication_pack
+
     return render_tsc_publication_pack(result, output_dir=output_dir)
 
 
@@ -124,10 +125,14 @@ def build_tser_publication_pack(
         result: RegressionBenchmarkResult,
         output_dir: str | Path | None = None,
 ) -> tuple[ArtifactRecord, ...]:
+    from .regression import render_tser_publication_pack
+
     return render_tser_publication_pack(result, output_dir=output_dir)
 
 
 def run_tsc_benchmark_suite(config: BenchmarkSuiteConfig):
+    from .classification import render_tsc_publication_pack, run_tsc_suite
+
     if config.task_type is not TaskType.TS_CLASSIFICATION:
         raise ValueError('run_tsc_benchmark_suite expects task_type=ts_classification.')
     result = run_tsc_suite(config)
@@ -155,6 +160,8 @@ def run_tsc_benchmark_suite(config: BenchmarkSuiteConfig):
 
 
 def run_tser_benchmark_suite(config: BenchmarkSuiteConfig):
+    from .regression import render_tser_publication_pack, run_tser_suite
+
     if config.task_type is not TaskType.TS_REGRESSION:
         raise ValueError('run_tser_benchmark_suite expects task_type=ts_regression.')
     result = run_tser_suite(config)

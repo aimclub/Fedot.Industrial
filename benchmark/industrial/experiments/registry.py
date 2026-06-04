@@ -7,11 +7,6 @@ from typing import Any
 
 import pandas as pd
 
-from benchmark.industrial.api import (
-    run_forecasting_benchmark_suite,
-    run_tsc_benchmark_suite,
-    run_tser_benchmark_suite,
-)
 from benchmark.industrial.core import (
     BenchmarkSuiteConfig,
     ClassificationBenchmarkResult,
@@ -23,8 +18,6 @@ from benchmark.industrial.core import (
     write_json,
 )
 from benchmark.industrial.evaluation.markdown import dataframe_to_markdown
-from benchmark.industrial.experiments.manifests import load_manifest, render_resolved_manifest, run_manifest
-from benchmark.industrial.experiments.presets import run_local_benchmark_preset
 
 BenchmarkResult = any([ForecastingBenchmarkResult, ClassificationBenchmarkResult, RegressionBenchmarkResult])
 
@@ -123,6 +116,8 @@ def persist_run_bundle(
 
 
 def run_registered_manifest_path(path: str | Path) -> BenchmarkRunBundle:
+    from benchmark.industrial.experiments.manifests import load_manifest, render_resolved_manifest, run_manifest
+
     input_payload = load_manifest(path)
     resolved_payload = render_resolved_manifest(input_payload)
     result = run_manifest(input_payload)
@@ -136,6 +131,8 @@ def run_registered_manifest_path(path: str | Path) -> BenchmarkRunBundle:
 
 
 def run_registered_manifest(payload: dict[str, Any]) -> BenchmarkRunBundle:
+    from benchmark.industrial.experiments.manifests import render_resolved_manifest, run_manifest
+
     resolved_payload = render_resolved_manifest(payload)
     result = run_manifest(payload)
     return persist_run_bundle(
@@ -148,10 +145,16 @@ def run_registered_manifest(payload: dict[str, Any]) -> BenchmarkRunBundle:
 
 def run_registered_suite(config: BenchmarkSuiteConfig) -> BenchmarkRunBundle:
     if config.task_type is TaskType.FORECASTING:
+        from benchmark.industrial.api import run_forecasting_benchmark_suite
+
         result = run_forecasting_benchmark_suite(config)
     elif config.task_type is TaskType.TS_CLASSIFICATION:
+        from benchmark.industrial.api import run_tsc_benchmark_suite
+
         result = run_tsc_benchmark_suite(config)
     elif config.task_type is TaskType.TS_REGRESSION:
+        from benchmark.industrial.api import run_tser_benchmark_suite
+
         result = run_tser_benchmark_suite(config)
     else:  # pragma: no cover
         raise ValueError(f'Unsupported task type: {config.task_type}')
@@ -175,6 +178,8 @@ def run_registered_preset(
         include_optional_external: bool = False,
         models=None,
 ) -> BenchmarkRunBundle:
+    from benchmark.industrial.experiments.presets import run_local_benchmark_preset
+
     result = run_local_benchmark_preset(
         preset_name,
         dataset_name=dataset_name,

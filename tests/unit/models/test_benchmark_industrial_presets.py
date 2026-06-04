@@ -10,6 +10,23 @@ from benchmark.industrial import (
     build_local_ucr_suite_config,
     run_local_benchmark_preset,
 )
+from benchmark.industrial.experiments.presets import load_preset_defaults
+
+
+def test_preset_constants_live_in_defaults_json() -> None:
+    defaults = load_preset_defaults()
+
+    assert defaults['version'] == 'benchmark_industrial_preset_defaults@1'
+    assert defaults['metrics']['classification'] == ['accuracy', 'balanced_accuracy', 'f1_macro']
+    assert [item['adapter_name'] for item in defaults['models']['classification']] == [
+        'majority_class',
+        'nearest_centroid',
+    ]
+    assert [item['adapter_name'] for item in defaults['models']['forecasting_optional_external']] == [
+        'autogluon',
+        'nbeats',
+        'tft',
+    ]
 
 
 def test_build_local_forecasting_presets_have_expected_defaults() -> None:

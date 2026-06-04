@@ -75,11 +75,48 @@ benchmark/experiments/kernel_learning/
     run_m4.py
   analysis/
     analyze_stage1.py
+  configs.py
   controls.py
+  defaults.json
 ```
 
-Shared script controls such as environment-variable parsing live in
+The executable `run_*.py` files are thin shell entrypoints. They may read CLI
+arguments or environment variables, but typed experiment defaults and model
+lists live in `benchmark/experiments/kernel_learning/defaults.json` and are
+normalized by `benchmark.experiments.kernel_learning.configs`.
+
+Suite-style runners should follow the shared path:
+
+```python
+typed_config.build_suite_config() -> run_registered_suite(...)
+```
+
+This keeps resolved configs, final metrics, registry entries, aggregation, and
+run summaries on one persistence path. Shared script controls such as
+environment-variable parsing live in
 `benchmark.experiments.kernel_learning.controls`.
+
+## Constants Layout
+
+As a benchmark module rule of thumb, table-like constants should live outside
+implementation files when they can be represented as data. Prefer a small JSON
+file next to the thematic package entrypoint for:
+
+- default `ModelSpec` lists;
+- benchmark metrics and publication metric sets;
+- default dataset or series id lists;
+- output directory templates and run metadata defaults.
+
+Implementation modules should load, validate, normalize, and convert that data
+into typed records. They should not become long catalogs of model names,
+adapter parameters, or experiment constants.
+
+Current constants files:
+
+```text
+benchmark/experiments/kernel_learning/defaults.json
+benchmark/industrial/experiments/preset_defaults.json
+```
 
 ## Model Layout
 

@@ -16,6 +16,7 @@ _EXPORTS = {
     "run_manifest": "benchmark.industrial.experiments.manifests",
     "run_manifest_path": "benchmark.industrial.experiments.manifests",
     "BenchmarkPresetError": "benchmark.industrial.experiments.presets",
+    "load_preset_defaults": "benchmark.industrial.experiments.presets",
     "run_local_benchmark_preset": "benchmark.industrial.experiments.presets",
     "BenchmarkRunBundle": "benchmark.industrial.experiments.registry",
     "persist_run_bundle": "benchmark.industrial.experiments.registry",
