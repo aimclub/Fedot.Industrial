@@ -8,6 +8,7 @@ __pycache__/
 
 # Cache
 /cache
+/temp_cache
 /results
 /some_files
 /time
@@ -23,8 +24,8 @@ __pycache__/
 *.feather
 *.hdf5
 *.json
-!benchmark/v2/examples/kernel_learning_tser_manifest.json
-!benchmark/v2/examples/kernel_learning_ucr_manifest.json
+!benchmark/industrial/examples/kernel_learning_tser_manifest.json
+!benchmark/industrial/examples/kernel_learning_ucr_manifest.json
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -125,9 +126,10 @@ venv.bak/
 # Benchmark and experiment outputs
 benchmark/results/
 benchmark/results*.7z
-benchmark/v2/examples/benchmark/results/
-benchmark/v2/examples/**/results/
-benchmark/v2/examples/**/visualizations/
+benchmark/benchmark/
+benchmark/industrial/examples/benchmark/results/
+benchmark/industrial/examples/**/results/
+benchmark/industrial/examples/**/visualizations/
 results_of_experiments/
 
 # Local datasets and generated demo assets

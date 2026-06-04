@@ -53,10 +53,10 @@ existing Industrial transformations: `quantile_extractor_torch`, `wavelet_basis`
 `fourier_basis`, `eigen_basis`, `recurrence_extractor`, `topological_extractor`,
 and `tabular_extractor`.
 
-## benchmark/v2 model specs
+## benchmark.industrial model specs
 
 ```python
-from benchmark.v2 import ModelSpec
+from benchmark.industrial import ModelSpec
 
 
 tsc_model = ModelSpec(
@@ -82,18 +82,18 @@ tser_model = ModelSpec(
 
 ## Experiment scripts
 
-The default scripts are declarative benchmark/v2 experiment suites, following
-the same pattern as `benchmark/v2/examples/m4_composite_suite_130426.py`.
+The default scripts are declarative `benchmark.industrial` experiment suites.
+They are grouped by task under `benchmark/experiments/kernel_learning`.
 
 ```powershell
-python benchmark/run_kernel_learning_ucr.py
-python benchmark/run_kernel_learning_tser.py
+python benchmark/experiments/kernel_learning/classification/run_ucr.py
+python benchmark/experiments/kernel_learning/regression/run_tser.py
 ```
 
 The UCR script uses `data/` as the local dataset root first. If a UCR dataset is
-missing locally, benchmark/v2 falls back to `fedot_ind.tools.loader.DataLoader`,
-which downloads the dataset from the UCR archive and saves it under the same
-local root.
+missing locally, `benchmark.industrial` falls back to the existing repository
+UCR loader, which downloads the dataset from the UCR archive and saves it under
+the same local root.
 
 To change datasets or model grids, edit the constants at the top of the scripts:
 

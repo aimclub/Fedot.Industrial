@@ -1,0 +1,93 @@
+"""Public Industrial benchmark API.
+
+The package index stays lazy so importing a light symbol such as ``ModelSpec``
+does not pull optional forecasting or deep-learning dependencies.
+"""
+
+_EXPORTS = {
+    "ArtifactRecord": "benchmark.industrial.core",
+    "ArtifactSpec": "benchmark.industrial.core",
+    "BenchmarkAggregateReport": "benchmark.industrial.core",
+    "BenchmarkRunRecord": "benchmark.industrial.core",
+    "BenchmarkSuiteConfig": "benchmark.industrial.core",
+    "ClassificationBenchmarkResult": "benchmark.industrial.core",
+    "ClassificationDatasetRecord": "benchmark.industrial.core",
+    "DatasetSpec": "benchmark.industrial.core",
+    "ForecastingBenchmarkResult": "benchmark.industrial.core",
+    "ForecastingSeriesRecord": "benchmark.industrial.core",
+    "LabelPredictionRecord": "benchmark.industrial.core",
+    "MetricRecord": "benchmark.industrial.core",
+    "ModelSpec": "benchmark.industrial.core",
+    "PredictionRecord": "benchmark.industrial.core",
+    "RegressionBenchmarkResult": "benchmark.industrial.core",
+    "RegressionDatasetRecord": "benchmark.industrial.core",
+    "RunSpec": "benchmark.industrial.core",
+    "RunStatus": "benchmark.industrial.core",
+    "TaskType": "benchmark.industrial.core",
+    "ValuePredictionRecord": "benchmark.industrial.core",
+    "build_forecasting_publication_pack": "benchmark.industrial.api",
+    "build_tsc_publication_pack": "benchmark.industrial.api",
+    "build_tser_publication_pack": "benchmark.industrial.api",
+    "compare_forecasting_models_on_series": "benchmark.industrial.api",
+    "run_forecasting_benchmark_from_legacy_config": "benchmark.industrial.api",
+    "run_forecasting_benchmark_suite": "benchmark.industrial.api",
+    "run_tsc_benchmark_from_legacy_config": "benchmark.industrial.api",
+    "run_tsc_benchmark_suite": "benchmark.industrial.api",
+    "run_tser_benchmark_from_legacy_config": "benchmark.industrial.api",
+    "run_tser_benchmark_suite": "benchmark.industrial.api",
+    "discover_local_supervised_datasets": "benchmark.industrial.datasets.discovery",
+    "discover_local_ucr_datasets": "benchmark.industrial.datasets.discovery",
+    "KernelStage1Analysis": "benchmark.industrial.evaluation.kernel_learning",
+    "KernelStage1AnalysisError": "benchmark.industrial.evaluation.kernel_learning",
+    "analyze_kernel_stage1_run": "benchmark.industrial.evaluation.kernel_learning",
+    "load_kernel_stage1_records": "benchmark.industrial.evaluation.kernel_learning",
+    "render_kernel_stage1_summary_report": "benchmark.industrial.evaluation.kernel_learning",
+    "render_kernel_stage1_visualizations": "benchmark.industrial.evaluation.kernel_learning",
+    "DEFAULT_OKHS_SMOOTHING_SERIES_IDS": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingAcceptanceCriteria": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingAcceptanceReport": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingSeriesSummary": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingSummary": "benchmark.industrial.evaluation.okhs_quality",
+    "evaluate_okhs_smoothing_acceptance": "benchmark.industrial.evaluation.okhs_quality",
+    "has_okhs_smoothing_diagnostics": "benchmark.industrial.evaluation.okhs_quality",
+    "render_okhs_smoothing_acceptance_pack": "benchmark.industrial.evaluation.okhs_quality",
+    "summarize_okhs_smoothing_result": "benchmark.industrial.evaluation.okhs_quality",
+    "BenchmarkManifestError": "benchmark.industrial.experiments.manifests",
+    "build_suite_config_from_manifest": "benchmark.industrial.experiments.manifests",
+    "load_manifest": "benchmark.industrial.experiments.manifests",
+    "render_resolved_manifest": "benchmark.industrial.experiments.manifests",
+    "run_manifest": "benchmark.industrial.experiments.manifests",
+    "run_manifest_path": "benchmark.industrial.experiments.manifests",
+    "write_example_manifest": "benchmark.industrial.experiments.manifests",
+    "build_local_m4_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_monash_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_okhs_smoothing_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_tser_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_ucr_suite_config": "benchmark.industrial.experiments.presets",
+    "run_local_benchmark_preset": "benchmark.industrial.experiments.presets",
+    "BenchmarkRunBundle": "benchmark.industrial.experiments.registry",
+    "build_registry_entry": "benchmark.industrial.experiments.registry",
+    "persist_run_bundle": "benchmark.industrial.experiments.registry",
+    "run_registered_manifest": "benchmark.industrial.experiments.registry",
+    "run_registered_manifest_path": "benchmark.industrial.experiments.registry",
+    "run_registered_preset": "benchmark.industrial.experiments.registry",
+    "run_registered_suite": "benchmark.industrial.experiments.registry",
+    "RegisteredRunComparison": "benchmark.industrial.experiments.run_compare",
+    "RegisteredRunComparisonError": "benchmark.industrial.experiments.run_compare",
+    "compare_registered_runs": "benchmark.industrial.experiments.run_compare",
+    "load_registry_entries": "benchmark.industrial.experiments.run_compare",
+    "render_registered_run_comparison_pack": "benchmark.industrial.experiments.run_compare",
+}
+
+__all__ = sorted(_EXPORTS)
+
+
+def __getattr__(name):
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from importlib import import_module
+
+    value = getattr(import_module(module_name), name)
+    globals()[name] = value
+    return value

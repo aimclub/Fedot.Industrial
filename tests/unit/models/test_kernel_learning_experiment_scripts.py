@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
@@ -6,9 +6,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_ucr_experiment_script_is_declarative_and_local_first():
-    source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_ucr.py").read_text(encoding="utf-8")
+    source = (
+            PROJECT_ROOT
+            / "benchmark"
+            / "experiments"
+            / "kernel_learning"
+            / "classification"
+            / "run_ucr.py"
+    ).read_text(encoding="utf-8")
 
-    assert source.index("sys.path.insert") < source.index("from benchmark.v2 import")
+    assert source.index("sys.path.insert") < source.index("from benchmark.industrial import")
     assert "BenchmarkSuiteConfig(" in source
     assert "run_tsc_benchmark_suite(config)" in source
     assert 'UCR_DATA_ROOT = PROJECT_ROOT / "data"' in source
@@ -37,7 +44,14 @@ def test_ucr_experiment_script_is_declarative_and_local_first():
 
 
 def test_two_stage_ucr_experiment_script_declares_stage_artifacts_and_warm_start():
-    source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_ucr_two_stage.py").read_text(encoding="utf-8")
+    source = (
+            PROJECT_ROOT
+            / "benchmark"
+            / "experiments"
+            / "kernel_learning"
+            / "classification"
+            / "run_ucr_two_stage.py"
+    ).read_text(encoding="utf-8")
 
     assert "def load_or_run_stage1()" in source
     assert "def run_stage2(stage1)" in source
@@ -63,9 +77,16 @@ def test_two_stage_ucr_experiment_script_declares_stage_artifacts_and_warm_start
 
 
 def test_tser_experiment_script_is_declarative_and_uses_local_data_root():
-    source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_tser.py").read_text(encoding="utf-8")
+    source = (
+            PROJECT_ROOT
+            / "benchmark"
+            / "experiments"
+            / "kernel_learning"
+            / "regression"
+            / "run_tser.py"
+    ).read_text(encoding="utf-8")
 
-    assert source.index("sys.path.insert") < source.index("from benchmark.v2 import")
+    assert source.index("sys.path.insert") < source.index("from benchmark.industrial import")
     assert "BenchmarkSuiteConfig(" in source
     assert "run_tser_benchmark_suite(config)" in source
     assert 'TSER_DATA_ROOT = PROJECT_ROOT / "fedot_ind" / "data"' in source
@@ -84,9 +105,16 @@ def test_tser_experiment_script_is_declarative_and_uses_local_data_root():
 
 
 def test_forecasting_experiment_script_is_declarative_and_uses_kernel_adapter():
-    source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_forecasting.py").read_text(encoding="utf-8")
+    source = (
+            PROJECT_ROOT
+            / "benchmark"
+            / "experiments"
+            / "kernel_learning"
+            / "forecasting"
+            / "run_m4.py"
+    ).read_text(encoding="utf-8")
 
-    assert source.index("sys.path.insert") < source.index("from benchmark.v2 import")
+    assert source.index("sys.path.insert") < source.index("from benchmark.industrial import")
     assert "BenchmarkSuiteConfig(" in source
     assert "run_forecasting_benchmark_suite(config)" in source
     assert "TaskType.FORECASTING" in source
@@ -99,3 +127,22 @@ def test_forecasting_experiment_script_is_declarative_and_uses_kernel_adapter():
     assert '"shapelet_extractor"' in source
     assert '"embedding_extractor"' in source
     assert '"kernel_approximation": "nystrom"' in source
+
+
+def test_kernel_learning_experiment_scripts_are_grouped_by_task():
+    experiment_root = PROJECT_ROOT / "benchmark" / "experiments" / "kernel_learning"
+
+    assert (experiment_root / "classification" / "run_ucr.py").exists()
+    assert (experiment_root / "classification" / "run_ucr_two_stage.py").exists()
+    assert (experiment_root / "regression" / "run_tser.py").exists()
+    assert (experiment_root / "forecasting" / "run_m4.py").exists()
+    assert (experiment_root / "analysis" / "analyze_stage1.py").exists()
+    assert (experiment_root / "controls.py").exists()
+
+    old_script_names = (
+        "run_kernel" + "_learning_ucr.py",
+        "run_kernel" + "_learning_tser.py",
+        "run_kernel" + "_learning_forecasting.py",
+    )
+    for script_name in old_script_names:
+        assert not (PROJECT_ROOT / "benchmark" / script_name).exists()

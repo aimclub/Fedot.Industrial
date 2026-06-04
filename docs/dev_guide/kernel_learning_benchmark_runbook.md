@@ -21,7 +21,7 @@ from fedot_ind.core.kernel_learning.experiments_api import (
 ```
 
 Do not import `experiments_api` from `fedot_ind.core.kernel_learning.__init__`: it intentionally depends
-on `benchmark.v2` and should stay out of the lightweight estimator import path.
+on `benchmark.industrial` and should stay out of the lightweight estimator import path.
 
 ## Stage 1: Kernel Learning On UCR
 
@@ -29,7 +29,7 @@ Use the UCR script when you want to train the kernel ensemble and persist kernel
 run.
 
 ```powershell
-python benchmark/run_kernel_learning_ucr.py
+python benchmark/experiments/kernel_learning/classification/run_ucr.py
 ```
 
 Important defaults:
@@ -51,7 +51,7 @@ The UCR script now compares four kernel-learning variants:
 Expected artifacts:
 
 ```text
-benchmark/results/v2_kernel_learning/<run_id>/
+benchmark/results/kernel_learning/<run_id>/
   runs/<dataset>/<model>/
     run.json
     metrics.json
@@ -75,20 +75,20 @@ The two-stage script can either run stage 1 or load an existing stage 1 run.
 Load an existing stage 1 run and execute stage 2:
 
 ```powershell
-python benchmark/run_kernel_learning_ucr_two_stage.py `
+python benchmark/experiments/kernel_learning/classification/run_ucr_two_stage.py `
   --stage1-run-id kernel_learning_ucr_stage1_ba419d49e4
 ```
 
 Run stage 1 first, then stage 2:
 
 ```powershell
-python benchmark/run_kernel_learning_ucr_two_stage.py --run-stage-1
+python benchmark/experiments/kernel_learning/classification/run_ucr_two_stage.py --run-stage-1
 ```
 
 Run stage 1 for selected datasets:
 
 ```powershell
-python benchmark/run_kernel_learning_ucr_two_stage.py `
+python benchmark/experiments/kernel_learning/classification/run_ucr_two_stage.py `
   --run-stage-1 `
   --datasets Coffee Lightning7
 ```
@@ -96,14 +96,14 @@ python benchmark/run_kernel_learning_ucr_two_stage.py `
 Load or run stage 1 only:
 
 ```powershell
-python benchmark/run_kernel_learning_ucr_two_stage.py --skip-stage-2
+python benchmark/experiments/kernel_learning/classification/run_ucr_two_stage.py --skip-stage-2
 ```
 
 Useful stage 2 controls:
 
 ```powershell
-python benchmark/run_kernel_learning_ucr_two_stage.py `
-  --stage2-output-dir benchmark/results/v2_kernel_learning/ucr_two_stage_optim_debug `
+python benchmark/experiments/kernel_learning/classification/run_ucr_two_stage.py `
+  --stage2-output-dir benchmark/results/kernel_learning/ucr_two_stage_optim_debug `
   --timeout-minutes 5 `
   --pop-size 5
 ```
@@ -111,7 +111,7 @@ python benchmark/run_kernel_learning_ucr_two_stage.py `
 Stage 2 writes one directory per dataset:
 
 ```text
-benchmark/results/v2_kernel_learning/ucr_two_stage_optim_<date>/
+benchmark/results/kernel_learning/ucr_two_stage_optim_<date>/
   <dataset>/
     initial_population_specs.json
     fedot_config.json
@@ -130,7 +130,7 @@ than models.
 Use the TSER script to validate the regression path and compare score-based selection against adaptive MKL:
 
 ```powershell
-python benchmark/run_kernel_learning_tser.py
+python benchmark/experiments/kernel_learning/regression/run_tser.py
 ```
 
 The TSER script compares:
@@ -140,16 +140,16 @@ The TSER script compares:
 - `KernelEnsembleRegressor_shapelet_rbf`;
 - `KernelEnsembleRegressor_embedding_nystrom`.
 
-Expected artifacts follow the same `benchmark/results/v2_kernel_learning/<run_id>/` layout and include
+Expected artifacts follow the same `benchmark/results/kernel_learning/<run_id>/` layout and include
 `kernel_selection` plus `kernel_diagnostics` for each successful model run.
 
 ## Forecasting Suite
 
-Use the forecasting script to validate the public `KernelEnsembleForecaster` through the benchmark-v2 forecasting
+Use the forecasting script to validate the public `KernelEnsembleForecaster` through the Industrial forecasting
 adapter:
 
 ```powershell
-python benchmark/run_kernel_learning_forecasting.py
+python benchmark/experiments/kernel_learning/forecasting/run_m4.py
 ```
 
 The forecasting script uses local M4 CSV files and a small sample size by default. It compares:
@@ -167,8 +167,8 @@ and stores kernel-learning artifacts in the run metadata.
 Use the analyzer script to summarize saved kernel diagnostics and selected generators:
 
 ```powershell
-python benchmark/analyze_kernel_learning_stage1.py `
-  --run-dir benchmark/results/v2_kernel_learning/ucr_two_stage_140526/kernel_learning_ucr_stage1_ba419d49e4
+python benchmark/experiments/kernel_learning/analysis/analyze_stage1.py `
+  --run-dir benchmark/results/kernel_learning/ucr_two_stage_140526/kernel_learning_ucr_stage1_ba419d49e4
 ```
 
 The summary report and visualizations are useful for selecting datasets for stage 2 and for reviewing which feature
@@ -184,8 +184,8 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
 & "D:\data_old\WORK\Repo\Industiral\IndustrialTS\venv_3.9_new\Scripts\python.exe" -m pytest -q `
   tests\unit\core\kernel_learning `
   tests\unit\api\utils\test_kernel_warm_start_strategy.py `
-  tests\unit\models\test_benchmark_v2_kernel_learning.py `
-  tests\unit\models\test_benchmark_v2_incremental_artifacts.py `
+  tests\unit\models\test_benchmark_*kernel_learning.py `
+  tests\unit\models\test_benchmark_*incremental_artifacts.py `
   tests\unit\models\test_kernel_learning_experiment_scripts.py `
   tests\unit\models\test_kernel_learning_stage1_analysis.py
 ```

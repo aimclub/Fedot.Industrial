@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from benchmark.v2.core import (
+from benchmark.industrial.core import (
     ArtifactSpec,
     BenchmarkAggregateReport,
     BenchmarkSuiteConfig,

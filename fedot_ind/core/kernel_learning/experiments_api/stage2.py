@@ -8,14 +8,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from benchmark.v2.classification import build_classification_dataset_adapter, compute_classification_metric
-from benchmark.v2.core import DatasetSpec, to_plain_data, write_json
+from benchmark.industrial.classification import build_classification_dataset_adapter, compute_classification_metric
+from benchmark.industrial.core import DatasetSpec, to_plain_data, write_json
 from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationBuilder
 from fedot_ind.core.kernel_learning.selection import KernelImportanceItem, KernelImportanceReport
 from .io import load_stage1_kernel_records
 from .stage1 import DEFAULT_STAGE_METRICS
 
-DEFAULT_STAGE2_OUTPUT_DIR = Path("benchmark") / "results" / "v2_kernel_learning" / "ucr_two_stage_optim_140526"
+DEFAULT_STAGE2_OUTPUT_DIR = Path("benchmark") / "results" / "kernel_learning" / "ucr_two_stage_optim_140526"
 
 
 def importance_report_from_selection(selection: dict[str, Any]) -> KernelImportanceReport:

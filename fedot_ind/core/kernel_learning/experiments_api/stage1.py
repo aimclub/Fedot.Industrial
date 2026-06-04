@@ -6,8 +6,8 @@ from typing import Any, Sequence
 
 import pandas as pd
 
-from benchmark.v2.classification import render_tsc_publication_pack, run_tsc_suite
-from benchmark.v2.core import (
+from benchmark.industrial.classification import render_tsc_publication_pack, run_tsc_suite
+from benchmark.industrial.core import (
     ArtifactSpec,
     BenchmarkAggregateReport,
     BenchmarkRunRecord,
@@ -21,7 +21,7 @@ from benchmark.v2.core import (
     RunStatus,
     TaskType,
 )
-from benchmark.v2.dataset_discovery import discover_local_ucr_datasets
+from benchmark.industrial.datasets.discovery import discover_local_ucr_datasets
 from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
 from .io import load_stage1_kernel_records, read_csv_records, read_json_if_exists, status_counts
 

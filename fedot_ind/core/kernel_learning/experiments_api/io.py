@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from benchmark.v2.core import BenchmarkRunRecord
+from benchmark.industrial.core import BenchmarkRunRecord
 
 
 def read_json_if_exists(path: str | Path) -> dict[str, Any]:
