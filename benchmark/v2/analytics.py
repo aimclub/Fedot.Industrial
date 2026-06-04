@@ -90,11 +90,35 @@ def _intervals_from_mask(mask: np.ndarray, offset: int = 0) -> list[tuple[int, i
 
 
 def predictions_to_frame(records: tuple[PredictionRecord, ...]) -> pd.DataFrame:
-    return pd.DataFrame([to_plain_data(record) for record in records])
+    columns = [
+        'run_id',
+        'benchmark',
+        'dataset_name',
+        'subset',
+        'series_id',
+        'model_name',
+        'horizon_index',
+        'y_true',
+        'y_pred',
+        'status',
+    ]
+    return pd.DataFrame([to_plain_data(record) for record in records], columns=columns)
 
 
 def metrics_to_frame(records: tuple[MetricRecord, ...]) -> pd.DataFrame:
-    return pd.DataFrame([to_plain_data(record) for record in records])
+    columns = [
+        'run_id',
+        'benchmark',
+        'dataset_name',
+        'subset',
+        'series_id',
+        'model_name',
+        'metric_name',
+        'metric_value',
+        'status',
+        'horizon_index',
+    ]
+    return pd.DataFrame([to_plain_data(record) for record in records], columns=columns)
 
 
 def runs_to_frame(result: ForecastingBenchmarkResult) -> pd.DataFrame:

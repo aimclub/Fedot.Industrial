@@ -3,6 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -13,27 +17,32 @@ from benchmark.v2 import (
     discover_local_ucr_datasets,
     run_tsc_benchmark_suite,
 )
+from benchmark.kernel_learning_experiment_controls import apply_optional_limit, read_csv_env, read_positive_int_env
 from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 EXPERIMENT_DATE = "020626"
 UCR_DATA_ROOT = PROJECT_ROOT / "data"
 UCR_DATASETS = ()
+UCR_DATASET_ENV = "KERNEL_LEARNING_UCR_DATASETS"
+UCR_DATASET_LIMIT_ENV = "KERNEL_LEARNING_UCR_LIMIT"
 NON_TOPOLOGICAL_GENERATORS = (
     "quantile_extractor_torch",
     "wavelet_extractor",
     "fourier_extractor",
     "recurrence_extractor",
+    "tabular_extractor",
 )
 
 
 def resolve_ucr_datasets() -> tuple[str, ...]:
-    if UCR_DATASETS:
-        return tuple(UCR_DATASETS)
-    return discover_local_ucr_datasets(UCR_DATA_ROOT, allowed_names=UNI_CLF_BENCH)
+    env_datasets = read_csv_env(UCR_DATASET_ENV)
+    if env_datasets:
+        datasets = env_datasets
+    elif UCR_DATASETS:
+        datasets = tuple(UCR_DATASETS)
+    else:
+        datasets = discover_local_ucr_datasets(UCR_DATA_ROOT, allowed_names=UNI_CLF_BENCH)
+    return apply_optional_limit(datasets, read_positive_int_env(UCR_DATASET_LIMIT_ENV))
 
 
 DATASETS = tuple(
@@ -122,6 +131,7 @@ config = BenchmarkSuiteConfig(
         progress_leave=False,
         progress_log_errors=True,
         progress_log_summaries=True,
+        resume_enabled=True,
     ),
 )
 

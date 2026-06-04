@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .artifacts import IncrementalBenchmarkArtifactWriter
+from .artifacts import (
+    IncrementalBenchmarkArtifactWriter,
+    load_incremental_run_records,
+    resolve_incremental_run_id,
+)
 from .core import (
     ArtifactRecord,
     BenchmarkAggregateReport,
@@ -345,8 +350,9 @@ def _build_classification_leaderboard(
 
 def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult:
     validate_tsc_suite_config(config)
-    run_id = new_run_id(config.run_spec.run_name)
+    run_id = resolve_incremental_run_id(config) or new_run_id(config.run_spec.run_name)
     artifact_writer = IncrementalBenchmarkArtifactWriter(config, run_id)
+    completed_run_records = load_incremental_run_records(config, run_id)
     dataset_records: list[ClassificationDatasetRecord] = []
     run_records: list[BenchmarkRunRecord] = []
     prediction_records: list[LabelPredictionRecord] = []
@@ -394,6 +400,15 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
 
                 for record in records:
                     progress.item_started(record.dataset_name, model.name, record.dataset_name)
+                    resume_key = (record.dataset_name, record.subset, model.name)
+                    resumed_record = completed_run_records.get(resume_key)
+                    if resumed_record is not None and resumed_record.status is RunStatus.SUCCESS:
+                        resumed_metrics, resumed_predictions = _load_classification_artifact_records(resumed_record)
+                        run_records.append(resumed_record)
+                        metric_records.extend(resumed_metrics)
+                        prediction_records.extend(resumed_predictions)
+                        progress.advance(RunStatus.SUCCESS.value, "resumed")
+                        continue
                     try:
                         train_x = np.asarray(record.train_features, dtype=float)
                         train_y = np.asarray(record.train_target, dtype=object)
@@ -488,6 +503,59 @@ def run_tsc_suite(config: BenchmarkSuiteConfig) -> ClassificationBenchmarkResult
         aggregate_report=aggregate_report,
         artifact_manifest=artifact_writer.artifact_manifest(),
     )
+
+
+def _load_classification_artifact_records(
+        run_record: BenchmarkRunRecord,
+) -> tuple[list[MetricRecord], list[LabelPredictionRecord]]:
+    paths = dict(run_record.metadata.get("artifact_paths", {}) or {})
+    metric_records = _load_metric_records(paths.get("metrics"))
+    prediction_records = _load_label_prediction_records(paths.get("predictions"))
+    return metric_records, prediction_records
+
+
+def _load_metric_records(path: str | None) -> list[MetricRecord]:
+    if not path or not Path(path).exists():
+        return []
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    records = []
+    for item in payload:
+        records.append(
+            MetricRecord(
+                run_id=str(item["run_id"]),
+                benchmark=str(item["benchmark"]),
+                dataset_name=str(item["dataset_name"]),
+                subset=str(item["subset"]),
+                series_id=str(item["series_id"]),
+                model_name=str(item["model_name"]),
+                metric_name=str(item["metric_name"]),
+                metric_value=float(item["metric_value"]),
+                status=RunStatus(str(item["status"])),
+            )
+        )
+    return records
+
+
+def _load_label_prediction_records(path: str | None) -> list[LabelPredictionRecord]:
+    if not path or not Path(path).exists():
+        return []
+    frame = pd.read_csv(path)
+    records = []
+    for item in frame.to_dict(orient="records"):
+        records.append(
+            LabelPredictionRecord(
+                run_id=str(item["run_id"]),
+                benchmark=str(item["benchmark"]),
+                dataset_name=str(item["dataset_name"]),
+                subset=str(item["subset"]),
+                model_name=str(item["model_name"]),
+                sample_index=int(item["sample_index"]),
+                y_true=str(item["y_true"]),
+                y_pred=str(item["y_pred"]),
+                status=RunStatus(str(item["status"])),
+            )
+        )
+    return records
 
 
 def _frame_from_predictions(result: ClassificationBenchmarkResult) -> pd.DataFrame:

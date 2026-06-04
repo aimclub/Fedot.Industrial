@@ -93,6 +93,10 @@ from benchmark.v2.incremental_persistence import ForecastingIncrementalPersisten
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
+DEFAULT_LOCAL_M4_LONG_DIRS = (
+    PROJECT_ROOT / 'fedot_ind' / 'data' / 'M100',
+    PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting',
+)
 DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
 
@@ -108,6 +112,13 @@ class ModelExecutionError(RuntimeError):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+@dataclass(frozen=True)
+class LocalM4FileLayout:
+    layout: str
+    train_path: Path
+    test_path: Path | None = None
 
 
 def validate_forecasting_suite_config(config: BenchmarkSuiteConfig) -> None:
@@ -145,6 +156,50 @@ def _infer_m4_key(subset: str) -> str:
     if normalized not in reverse:
         raise BenchmarkConfigurationError(f'Unsupported M4 subset: {subset}')
     return reverse[normalized]
+
+
+def _deduplicate_paths(paths: tuple[Path, ...]) -> tuple[Path, ...]:
+    unique_paths: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        normalized = Path(path)
+        if normalized in seen:
+            continue
+        unique_paths.append(normalized)
+        seen.add(normalized)
+    return tuple(unique_paths)
+
+
+def _resolve_local_m4_file_layout(
+        *,
+        subset: str,
+        base_dir: Path,
+        include_default_fallbacks: bool,
+) -> LocalM4FileLayout:
+    candidate_dirs = (Path(base_dir),)
+    if include_default_fallbacks:
+        candidate_dirs = _deduplicate_paths(candidate_dirs + DEFAULT_LOCAL_M4_LONG_DIRS)
+
+    for candidate_dir in candidate_dirs:
+        train_path = candidate_dir / f'{subset}-train.csv'
+        test_path = candidate_dir / f'{subset}-test.csv'
+        if train_path.exists() and test_path.exists():
+            return LocalM4FileLayout(layout='wide_train_test', train_path=train_path, test_path=test_path)
+
+    for candidate_dir in candidate_dirs:
+        train_path = candidate_dir / f'M4{subset}.csv'
+        if train_path.exists():
+            test_path = candidate_dir / f'M4{subset}Test.csv'
+            return LocalM4FileLayout(
+                layout='long_tail_holdout',
+                train_path=train_path,
+                test_path=test_path if test_path.exists() else None,
+            )
+
+    searched = ', '.join(str(candidate_dir) for candidate_dir in candidate_dirs)
+    raise BenchmarkConfigurationError(
+        f'Local M4 files were not found for subset {subset!r}. Searched directories: {searched}.'
+    )
 
 
 def _sample_records(
@@ -442,15 +497,18 @@ class M4Adapter:
             key: str,
     ) -> list[ForecastingSeriesRecord]:
         base_dir = Path(spec.adapter_options.get('local_csv_dir', DEFAULT_LOCAL_M4_DIR))
-        train_path = base_dir / f'{subset}-train.csv'
-        test_path = base_dir / f'{subset}-test.csv'
-        if not train_path.exists() or not test_path.exists():
-            raise BenchmarkConfigurationError(
-                f'Local M4 files were not found: {train_path} and {test_path}.'
-            )
+        layout = _resolve_local_m4_file_layout(
+            subset=subset,
+            base_dir=base_dir,
+            include_default_fallbacks='local_csv_dir' not in spec.adapter_options,
+        )
+        if layout.layout == 'long_tail_holdout':
+            return self._load_local_long_records(layout, spec, subset, key)
+        if layout.test_path is None:
+            raise BenchmarkConfigurationError('Wide M4 train/test layout must include a test CSV path.')
 
-        train_frame = pd.read_csv(train_path)
-        test_frame = pd.read_csv(test_path)
+        train_frame = pd.read_csv(layout.train_path)
+        test_frame = pd.read_csv(layout.test_path)
         if 'V1' not in train_frame.columns or 'V1' not in test_frame.columns:
             raise BenchmarkConfigurationError('Local M4 CSV files must include the V1 identifier column.')
 
@@ -477,9 +535,41 @@ class M4Adapter:
                     seasonal_period=M4_SEASONALITY[key],
                     train_values=tuple(float(value) for value in train_values),
                     test_values=tuple(float(value) for value in test_values),
-                    metadata={'split_provenance': 'local_m4_train_test_csv'},
+                    metadata={
+                        'split_provenance': 'local_m4_train_test_csv',
+                        'train_path': str(layout.train_path),
+                        'test_path': str(layout.test_path),
+                    },
                 )
             )
+        return records
+
+    def _load_local_long_records(
+            self,
+            layout: LocalM4FileLayout,
+            spec: DatasetSpec,
+            subset: str,
+            key: str,
+    ) -> list[ForecastingSeriesRecord]:
+        frame = pd.read_csv(layout.train_path)
+        rename_map = {'label': 'series_id', 'idx': 'timestamp'}
+        normalized_frame = frame.rename(columns={source: target for source, target in rename_map.items()
+                                                 if source in frame.columns})
+        records = _parse_frame_records(
+            frame=normalized_frame,
+            benchmark=self.benchmark_name,
+            dataset_name=spec.dataset_name,
+            subset=subset,
+            default_frequency=subset,
+            default_horizon=M4_FORECASTING_LENGTH[key],
+            default_seasonal_period=M4_SEASONALITY[key],
+        )
+        for record in records:
+            record.metadata.update({
+                'split_provenance': 'local_m4_long_tail_holdout',
+                'train_path': str(layout.train_path),
+                'test_path': str(layout.test_path) if layout.test_path is not None else None,
+            })
         return records
 
     @staticmethod
@@ -2312,6 +2402,8 @@ class ForecastingSuiteRunner:
         self.run_records = list(resume_state.run_records)
         self.metric_records = list(resume_state.metric_records)
         self.prediction_records = list(resume_state.prediction_records)
+        self.artifacts_recorder.metric_records = self.metric_records
+        self.artifacts_recorder.prediction_records = self.prediction_records
         self.known_series_keys = {self._series_key(record) for record in self.series_records}
         self.resumed_item_keys = set(resume_state.item_artifact_paths)
         self.progress.seed_resume_state(
@@ -2511,6 +2603,7 @@ class ForecastingSuiteRunner:
                     tags=model.tags,
                     message=availability_message,
                     metadata=self._build_common_metadata(
+                        series_record=series_record,
                         model_spec=model_spec,
                         model=model,
                         regime_diagnostics=regime_diagnostics,
@@ -2533,6 +2626,7 @@ class ForecastingSuiteRunner:
     def _build_common_metadata(
             self,
             *,
+            series_record: ForecastingSeriesRecord | None = None,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
             regime_diagnostics,
@@ -2545,6 +2639,7 @@ class ForecastingSuiteRunner:
             'regime_diagnostics': regime_diagnostics.to_dict(),
             'routing_recommendation': routing_recommendation.to_dict(),
             'routing_recommendation_family': adapter_name_to_family(routing_recommendation.primary_adapter),
+            'series_metadata': dict(series_record.metadata) if series_record is not None else {},
             **self._runner_context_metadata(),
             **dict(extra or {}),
         }
@@ -2643,6 +2738,7 @@ class ForecastingSuiteRunner:
             tags=model.tags,
             message=message,
             metadata=self._build_common_metadata(
+                series_record=series_record,
                 model_spec=model_spec,
                 model=model,
                 regime_diagnostics=regime_diagnostics,
@@ -2702,6 +2798,7 @@ class ForecastingSuiteRunner:
             tags=model.tags,
             metrics_summary=metrics_summary,
             metadata=self._build_common_metadata(
+                series_record=series_record,
                 model_spec=model_spec,
                 model=model,
                 regime_diagnostics=regime_diagnostics,

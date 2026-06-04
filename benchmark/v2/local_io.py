@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -140,10 +141,14 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
                     target_label = _parse_boolean_tag(line)
                 elif lower.startswith('@classlabel'):
                     class_label = _parse_boolean_tag(line)
-                elif lower.startswith('@dimensions'):
+                elif lower.startswith('@dimensions') or lower.startswith('@dimension'):
                     parts = line.split()
                     if len(parts) >= 2:
                         dimensions = int(parts[1])
+                elif lower.startswith('@serieslength'):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        metadata['series_length'] = int(parts[1])
                 elif lower.startswith('@problemname'):
                     parts = line.split(maxsplit=1)
                     metadata['problem_name'] = parts[1] if len(parts) > 1 else path.stem
@@ -155,8 +160,6 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
                     data_started = True
                 continue
 
-            if timestamps:
-                raise LocalDatasetParseError(f'Timestamped .ts files are not supported yet: {path}')
             if not target_label and not class_label:
                 raise LocalDatasetParseError(f'.ts file must define @targetlabel or @classlabel: {path}')
 
@@ -166,7 +169,7 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
 
             series_part = line[:split_index]
             target_part = line[split_index + 1:].strip()
-            dimension_parts = series_part.split(':')
+            dimension_parts = _split_ts_dimension_parts(series_part, timestamps=timestamps)
             if dimensions is not None and len(dimension_parts) != dimensions:
                 raise LocalDatasetParseError(
                     f'Unexpected number of dimensions in {path}: expected {dimensions}, got {len(dimension_parts)}'
@@ -177,7 +180,10 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
                 cleaned = dimension_part.strip()
                 if not cleaned:
                     continue
-                flattened.extend(float(token) for token in cleaned.split(',') if token)
+                if timestamps:
+                    flattened.extend(_parse_timestamped_dimension_values(cleaned, path=path))
+                else:
+                    flattened.extend(float(token) for token in cleaned.split(',') if token)
 
             case_vectors.append(np.asarray(flattened, dtype=float))
             if target_label:
@@ -195,10 +201,37 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
         )
 
     metadata['dimensions'] = dimensions or 1
+    metadata['timestamps'] = bool(timestamps)
     metadata['target_type'] = 'regression' if target_label else 'classification'
     features = np.vstack(case_vectors)
     target_array = np.asarray(targets, dtype=float if target_label else object)
     return features, target_array, metadata
+
+
+def _split_ts_dimension_parts(series_part: str, *, timestamps: bool) -> list[str]:
+    if not timestamps:
+        return series_part.split(':')
+
+    parts: list[str] = []
+    depth = 0
+    start_index = 0
+    for index, character in enumerate(series_part):
+        if character == '(':
+            depth += 1
+        elif character == ')':
+            depth = max(0, depth - 1)
+        elif character == ':' and depth == 0:
+            parts.append(series_part[start_index:index])
+            start_index = index + 1
+    parts.append(series_part[start_index:])
+    return parts
+
+
+def _parse_timestamped_dimension_values(dimension_part: str, *, path: Path) -> list[float]:
+    matches = list(re.finditer(r'\(([^,]+),([^)]+)\)', dimension_part))
+    if not matches:
+        raise LocalDatasetParseError(f'Could not parse timestamped values from .ts file: {path}')
+    return [float(match.group(2)) for match in matches]
 
 
 def _parse_boolean_tag(line: str) -> bool:

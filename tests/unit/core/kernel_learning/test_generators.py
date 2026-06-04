@@ -171,6 +171,40 @@ def test_budgeted_topology_adapter_falls_back_without_importing_heavy_operation(
     assert bundle.diagnostics["budget"]["skip_reason"] == "budget_exceeded"
 
 
+def test_tabular_generator_is_budget_controlled_by_default():
+    generator = create_feature_generator("tabular_extractor")
+
+    assert isinstance(generator, BudgetedRepositoryFeatureGeneratorAdapter)
+    assert generator.budget_policy.max_samples == 25
+    assert generator.budget_policy.max_cells == 10_000
+    assert generator.budget_policy.fallback_generator == "statistical_summary"
+
+
+def test_budgeted_adapter_can_use_statistical_summary_fallback():
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="tabular_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="tabular_extractor",
+                module_path="missing_tabular_module",
+                class_name="MissingTabular",
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+    )
+    X = np.arange(12, dtype=float).reshape(3, 4)
+
+    bundle = generator.fit_transform(X)
+
+    assert bundle.name == "tabular_extractor"
+    assert bundle.features.shape[0] == 3
+    assert bundle.diagnostics["source"] == "budgeted_fallback"
+    assert bundle.diagnostics["requested_generator"] == "tabular_extractor"
+    assert bundle.diagnostics["budget"]["fallback_generator"] == "statistical_summary"
+
+
 def test_resolve_torch_device_auto_uses_cpu_when_cuda_is_unavailable(monkeypatch):
     torch = pytest.importorskip("torch")
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)

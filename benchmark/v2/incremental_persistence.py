@@ -92,6 +92,25 @@ def _metric_record_from_payload(payload: dict[str, Any]) -> MetricRecord:
     )
 
 
+def _metric_records_from_run_summary(run_record: BenchmarkRunRecord) -> tuple[MetricRecord, ...]:
+    if run_record.status is not RunStatus.SUCCESS:
+        return ()
+    return tuple(
+        MetricRecord(
+            run_id=run_record.run_id,
+            benchmark=run_record.benchmark,
+            dataset_name=run_record.dataset_name,
+            subset=run_record.subset,
+            series_id=run_record.series_id,
+            model_name=run_record.model_name,
+            metric_name=str(metric_name),
+            metric_value=float(metric_value),
+            status=run_record.status,
+        )
+        for metric_name, metric_value in run_record.metrics_summary.items()
+    )
+
+
 def _prediction_record_from_payload(payload: dict[str, Any]) -> PredictionRecord:
     return PredictionRecord(
         run_id=str(payload['run_id']),
@@ -323,10 +342,11 @@ class ForecastingIncrementalPersistenceCoordinator:
             if run_key not in seen_run_keys:
                 run_records.append(run_record)
                 seen_run_keys.add(run_key)
-            metric_records.extend(
-                _metric_record_from_payload(item)
-                for item in list(payload.get('metric_records', ()))
-            )
+            metric_payloads = list(payload.get('metric_records', ()))
+            if metric_payloads:
+                metric_records.extend(_metric_record_from_payload(item) for item in metric_payloads)
+            else:
+                metric_records.extend(_metric_records_from_run_summary(run_record))
             prediction_records.extend(
                 _prediction_record_from_payload(item)
                 for item in list(payload.get('prediction_records', ()))

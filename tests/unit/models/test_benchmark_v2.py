@@ -478,6 +478,77 @@ def test_run_forecasting_suite_resume_mode_skips_previously_persisted_items(tmp_
     assert progress_index['completed_items'] == 1
 
 
+def test_forecasting_resume_from_empty_progress_preserves_fresh_metric_records(
+        tmp_path: Path,
+        monkeypatch,
+) -> None:
+    forecast_calls = {'count': 0}
+    run_id = 'empty_progress_resume_001'
+    progress_dir = tmp_path / run_id / 'progress'
+    progress_dir.mkdir(parents=True)
+    (progress_dir / 'run_progress.json').write_text(
+        json.dumps({'run_id': run_id, 'completed_items': 0, 'status_counts': {}, 'item_artifacts': {}}),
+        encoding='utf-8',
+    )
+
+    class FakeDatasetAdapter:
+        def load_series(self, spec):
+            del spec
+            return (
+                ForecastingSeriesRecord(
+                    benchmark='in_memory',
+                    dataset_name='empty_progress_resume',
+                    subset='monthly',
+                    series_id='series_1',
+                    frequency='monthly',
+                    forecast_horizon=3,
+                    seasonal_period=1,
+                    train_values=(1.0, 2.0, 3.0, 4.0, 5.0),
+                    test_values=(6.0, 7.0, 8.0),
+                ),
+            )
+
+    class FakeForecastModel:
+        name = 'FakeForecastModel'
+        tags = ('baseline', 'forecasting')
+        optional = False
+
+        def availability(self):
+            return RunStatus.SUCCESS, 'ready'
+
+        def forecast(self, series_record):
+            forecast_calls['count'] += 1
+            return np.asarray(series_record.test_values, dtype=float), {'source': 'fresh_after_empty_resume'}
+
+    monkeypatch.setattr('benchmark.v2.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr('benchmark.v2.forecasting.build_model_adapter', lambda spec: FakeForecastModel())
+
+    result = run_forecasting_suite(
+        BenchmarkSuiteConfig(
+            task_type=TaskType.FORECASTING,
+            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='empty_progress_resume', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(
+                run_name='empty_progress_resume',
+                show_progress=False,
+                resume_enabled=True,
+                resume_run_id=run_id,
+            ),
+            metrics=('mae', 'rmse'),
+        )
+    )
+
+    item_path = next((progress_dir / 'items').glob('*.json'))
+    item_payload = json.loads(item_path.read_text(encoding='utf-8'))
+
+    assert forecast_calls['count'] == 1
+    assert len(result.metric_records) > 0
+    assert len(result.prediction_records) == 3
+    assert len(item_payload['metric_records']) == len(result.metric_records)
+    assert len(item_payload['prediction_records']) == len(result.prediction_records)
+
+
 def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_path: Path, monkeypatch) -> None:
     class FakeDatasetAdapter:
         def load_series(self, spec):
@@ -1562,6 +1633,56 @@ def test_forecasting_suite_runs_on_local_m4_subset(tmp_path: Path) -> None:
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
     assert any(record.metric_name == 'mae' and record.horizon_index is None for record in result.metric_records)
     assert any(record.metric_name == 'mae' and record.horizon_index is not None for record in result.metric_records)
+
+
+def test_forecasting_suite_loads_long_local_m4_layout(tmp_path: Path) -> None:
+    local_dir = tmp_path / 'm4'
+    local_dir.mkdir()
+    (local_dir / 'M4Monthly.csv').write_text(
+        '\n'.join([
+            'datetime,value,label',
+            '2020-01-31,1.0,M1',
+            '2020-02-29,2.0,M1',
+            '2020-03-31,3.0,M1',
+            '2020-04-30,4.0,M1',
+            '2020-05-31,5.0,M1',
+            '2020-06-30,6.0,M1',
+            '2020-07-31,7.0,M1',
+            '2020-08-31,8.0,M1',
+            '2020-09-30,9.0,M1',
+            '2020-10-31,10.0,M1',
+            '2020-11-30,11.0,M1',
+            '2020-12-31,12.0,M1',
+            '2021-01-31,13.0,M1',
+            '2021-02-28,14.0,M1',
+            '2021-03-31,15.0,M1',
+            '2021-04-30,16.0,M1',
+            '2021-05-31,17.0,M1',
+            '2021-06-30,18.0,M1',
+            '2021-07-31,19.0,M1',
+            '2021-08-31,20.0,M1',
+        ]),
+        encoding='utf-8',
+    )
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.FORECASTING,
+        datasets=(
+            DatasetSpec(
+                benchmark='m4',
+                dataset_name='m4_monthly_long',
+                subset='monthly',
+                adapter_options={'use_local_files': True, 'local_csv_dir': str(local_dir)},
+            ),
+        ),
+        models=(ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='long_local_m4', primary_metric='mae'),
+    )
+
+    result = run_forecasting_benchmark_suite(config)
+
+    assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
+    assert result.run_records[0].metadata['series_metadata']['split_provenance'] == 'local_m4_long_tail_holdout'
 
 
 def test_forecasting_suite_runs_on_local_monash_subset(tmp_path: Path) -> None:

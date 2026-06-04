@@ -3,6 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -12,26 +16,33 @@ from benchmark.v2 import (
     TaskType,
     run_forecasting_benchmark_suite,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+from benchmark.kernel_learning_experiment_controls import read_csv_env, read_positive_int_env
 
 EXPERIMENT_DATE = "140526"
 M4_SUBSETS = ("monthly",)
 M4_SAMPLE_SIZE = 5
+M4_SUBSET_ENV = "KERNEL_LEARNING_M4_SUBSETS"
+M4_SAMPLE_SIZE_ENV = "KERNEL_LEARNING_M4_SAMPLE_SIZE"
+
+
+def resolve_m4_subsets() -> tuple[str, ...]:
+    return read_csv_env(M4_SUBSET_ENV) or M4_SUBSETS
+
+
+def resolve_m4_sample_size() -> int:
+    return read_positive_int_env(M4_SAMPLE_SIZE_ENV, M4_SAMPLE_SIZE) or M4_SAMPLE_SIZE
 
 DATASETS = tuple(
     DatasetSpec(
         benchmark="m4",
         dataset_name=f"m4_{subset.lower()}_kernel_learning",
         subset=subset,
-        sample_size=M4_SAMPLE_SIZE,
+        sample_size=resolve_m4_sample_size(),
         adapter_options={
             "use_local_files": True,
         },
     )
-    for subset in M4_SUBSETS
+    for subset in resolve_m4_subsets()
 )
 
 KERNEL_LEARNING_FORECASTING_MODELS = (
@@ -98,6 +109,7 @@ config = BenchmarkSuiteConfig(
         progress_leave=False,
         progress_log_errors=True,
         progress_log_summaries=True,
+        resume_enabled=True,
     ),
 )
 

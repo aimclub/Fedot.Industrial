@@ -571,9 +571,14 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
                 fallback_generator="identity",
             ),
         ),
-        "tabular_extractor": lambda: RepositoryFeatureGeneratorAdapter(
+        "tabular_extractor": lambda: BudgetedRepositoryFeatureGeneratorAdapter(
             name="tabular_extractor",
             operation_specs=(_tabular_spec(),),
+            budget_policy=GeneratorBudgetPolicy(
+                max_samples=25,
+                max_cells=10_000,
+                fallback_generator="statistical_summary",
+            ),
         ),
     }
     _extend_with_legacy_pipeline_generators(registry)
@@ -619,6 +624,8 @@ def resolve_generator_operation_specs(
 def _build_lightweight_fallback(name: str):
     if name == "identity":
         return IdentityFeatureGenerator()
+    if name in {"statistical_summary", "statistical", "quantile_extractor", "quantile_extractor_torch"}:
+        return SummaryFeatureGenerator(name=name)
     if name in {"embedding_extractor", "foundation_embedding"}:
         return RandomProjectionEmbeddingFeatureGenerator(name=name)
     if name in {"shapelet_extractor", "local_pattern_extractor"}:

@@ -13,6 +13,7 @@ from .core import (
     ArtifactRecord,
     BenchmarkRunRecord,
     BenchmarkSuiteConfig,
+    RunStatus,
     ensure_directory,
     to_plain_data,
     write_json,
@@ -180,3 +181,63 @@ class IncrementalBenchmarkArtifactWriter:
     def _remember(self, kind: str, path: Path, format_: str) -> None:
         key = str(path)
         self._manifest.setdefault(key, ArtifactRecord(kind=kind, path=key, format=format_))
+
+
+def resolve_incremental_run_id(config: BenchmarkSuiteConfig) -> str | None:
+    if not bool(config.artifact_spec.persist_on_run):
+        return None
+    run_spec = config.run_spec
+    if not bool(getattr(run_spec, "resume_enabled", False)):
+        return None
+    explicit_run_id = getattr(run_spec, "resume_run_id", None)
+    if explicit_run_id:
+        return str(explicit_run_id)
+    output_dir = Path(config.artifact_spec.output_dir)
+    if not output_dir.exists():
+        return None
+    prefix = f"{run_spec.run_name}_"
+    candidates = [
+        path for path in output_dir.iterdir()
+        if path.is_dir() and path.name.startswith(prefix) and (path / "runs").exists()
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    return candidates[0].name
+
+
+def load_incremental_run_records(config: BenchmarkSuiteConfig, run_id: str) -> dict[
+    tuple[str, str, str], BenchmarkRunRecord]:
+    root_dir = Path(config.artifact_spec.output_dir) / run_id
+    records: dict[tuple[str, str, str], BenchmarkRunRecord] = {}
+    runs_dir = root_dir / "runs"
+    if not runs_dir.exists():
+        return records
+    for run_path in runs_dir.glob("*/*/run.json"):
+        try:
+            payload = json.loads(run_path.read_text(encoding="utf-8"))
+            record = benchmark_run_record_from_payload(payload)
+        except Exception:
+            continue
+        records[(record.dataset_name, record.subset, record.model_name)] = record
+    return records
+
+
+def benchmark_run_record_from_payload(payload: dict[str, Any]) -> BenchmarkRunRecord:
+    return BenchmarkRunRecord(
+        run_id=str(payload["run_id"]),
+        benchmark=str(payload["benchmark"]),
+        dataset_name=str(payload["dataset_name"]),
+        subset=str(payload["subset"]),
+        series_id=str(payload.get("series_id", payload["dataset_name"])),
+        model_name=str(payload["model_name"]),
+        status=RunStatus(str(payload["status"])),
+        tags=tuple(payload.get("tags") or ()),
+        message=str(payload.get("message", "")),
+        metrics_summary={
+            str(key): float(value)
+            for key, value in dict(payload.get("metrics_summary", {}) or {}).items()
+            if value is not None
+        },
+        metadata=dict(payload.get("metadata", {}) or {}),
+    )

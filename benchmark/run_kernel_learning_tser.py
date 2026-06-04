@@ -3,6 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from benchmark.v2 import (
     ArtifactSpec,
     BenchmarkSuiteConfig,
@@ -12,19 +16,23 @@ from benchmark.v2 import (
     TaskType,
     run_tser_benchmark_suite,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
+from benchmark.kernel_learning_experiment_controls import apply_optional_limit, read_csv_env, read_positive_int_env
 
 EXPERIMENT_DATE = "140526"
-TSER_DATA_ROOT = PROJECT_ROOT / "data"
+TSER_DATA_ROOT = PROJECT_ROOT / "fedot_ind" / "data"
 TSER_DATASETS = (
     "NaturalGasPricesSentiment",
     "AppliancesEnergy",
     "ElectricityPredictor",
 )
+TSER_DATASET_ENV = "KERNEL_LEARNING_TSER_DATASETS"
+TSER_DATASET_LIMIT_ENV = "KERNEL_LEARNING_TSER_LIMIT"
+
+
+def resolve_tser_datasets() -> tuple[str, ...]:
+    env_datasets = read_csv_env(TSER_DATASET_ENV)
+    datasets = env_datasets or TSER_DATASETS
+    return apply_optional_limit(datasets, read_positive_int_env(TSER_DATASET_LIMIT_ENV))
 
 DATASETS = tuple(
     DatasetSpec(
@@ -35,7 +43,7 @@ DATASETS = tuple(
             "download_if_missing": False,
         },
     )
-    for dataset_name in TSER_DATASETS
+    for dataset_name in resolve_tser_datasets()
 )
 
 KERNEL_LEARNING_MODELS = (
@@ -106,6 +114,7 @@ config = BenchmarkSuiteConfig(
         progress_leave=False,
         progress_log_errors=True,
         progress_log_summaries=True,
+        resume_enabled=True,
     ),
 )
 

@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 def test_ucr_experiment_script_is_declarative_and_local_first():
     source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_ucr.py").read_text(encoding="utf-8")
 
+    assert source.index("sys.path.insert") < source.index("from benchmark.v2 import")
     assert "BenchmarkSuiteConfig(" in source
     assert "run_tsc_benchmark_suite(config)" in source
     assert 'UCR_DATA_ROOT = PROJECT_ROOT / "data"' in source
@@ -15,6 +16,8 @@ def test_ucr_experiment_script_is_declarative_and_local_first():
     assert '"download_if_missing": True' in source
     assert "discover_local_ucr_datasets" in source
     assert "UCR_DATASETS = ()" in source
+    assert "KERNEL_LEARNING_UCR_DATASETS" in source
+    assert "KERNEL_LEARNING_UCR_LIMIT" in source
     assert "kernel_ensemble_classifier" in source
     assert "NON_TOPOLOGICAL_GENERATORS" in source
     assert "KernelEnsembleClassifier_score_baseline_summary" in source
@@ -62,11 +65,14 @@ def test_two_stage_ucr_experiment_script_declares_stage_artifacts_and_warm_start
 def test_tser_experiment_script_is_declarative_and_uses_local_data_root():
     source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_tser.py").read_text(encoding="utf-8")
 
+    assert source.index("sys.path.insert") < source.index("from benchmark.v2 import")
     assert "BenchmarkSuiteConfig(" in source
     assert "run_tser_benchmark_suite(config)" in source
-    assert 'TSER_DATA_ROOT = PROJECT_ROOT / "data"' in source
+    assert 'TSER_DATA_ROOT = PROJECT_ROOT / "fedot_ind" / "data"' in source
     assert '"local_data_root": str(TSER_DATA_ROOT)' in source
     assert '"download_if_missing": False' in source
+    assert "KERNEL_LEARNING_TSER_DATASETS" in source
+    assert "KERNEL_LEARNING_TSER_LIMIT" in source
     assert "kernel_ensemble_regressor" in source
     assert "KernelEnsembleRegressor_score_linear_summary" in source
     assert "KernelEnsembleRegressor_adaptive_rbf_summary" in source
@@ -80,9 +86,12 @@ def test_tser_experiment_script_is_declarative_and_uses_local_data_root():
 def test_forecasting_experiment_script_is_declarative_and_uses_kernel_adapter():
     source = (PROJECT_ROOT / "benchmark" / "run_kernel_learning_forecasting.py").read_text(encoding="utf-8")
 
+    assert source.index("sys.path.insert") < source.index("from benchmark.v2 import")
     assert "BenchmarkSuiteConfig(" in source
     assert "run_forecasting_benchmark_suite(config)" in source
     assert "TaskType.FORECASTING" in source
+    assert "KERNEL_LEARNING_M4_SUBSETS" in source
+    assert "KERNEL_LEARNING_M4_SAMPLE_SIZE" in source
     assert "kernel_ensemble_forecaster" in source
     assert "KernelEnsembleForecaster_identity_shapelet" in source
     assert "KernelEnsembleForecaster_embedding_nystrom_okhs" in source
