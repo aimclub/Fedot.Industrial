@@ -4,6 +4,7 @@ import math
 import warnings
 
 import numpy as np
+from pymonad import state
 import torch
 from scipy.special import roots_jacobi
 from sklearn.base import BaseEstimator, RegressorMixin
@@ -448,6 +449,9 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         
         mittag = _mittag_leffler_tensor(eig.unsqueeze(0) * t_q, self.okhs.q)
         predicted = (mittag @ (coefficients.unsqueeze(1) * xi)).real.to(self.real_dtype)
+        
+        #Начало предсказания заполняем тем, что наблюдали
+        predicted[:initial_trajectory.shape[0]] = initial_trajectory
 
         return {
             'initial_trajectory': initial_trajectory,
@@ -625,6 +629,11 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         except RuntimeError:
             c = torch.linalg.pinv(reg_matrix) @ b_stack
 
+        # try:
+        #     c = torch.linalg.lstsq(A, b).solution
+        # except RuntimeError:
+        #     c = torch.linalg.pinv(A) @ b
+
         if store_result:
             self.initial_coefficients_ = c
         return c
@@ -639,6 +648,76 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
             min_prediction_modes=1,
         )
         predicted = state['predicted']
+
+        # try:
+        #     import matplotlib.pyplot as plt
+        #     coefficients = state['coefficients']
+        #     eig = state['eig']
+        #     xi = state['xi']
+            
+        #     # 1. Извлекаем физические сетки времени (ось X) и строго делаем их 1D-массивами
+        #     initial_grid_phys = self.okhs.time_manager.get_physical_grid(initial_trajectory)
+        #     t_initial_np = initial_grid_phys.detach().cpu().numpy().flatten()
+        #     t_forecast_np = self._coerce_time_grid(t_span).detach().cpu().numpy().flatten()
+            
+        #     # 2. Строим реконструкцию: обязательно переносим нормализованное время на устройство ядра
+        #     initial_grid_norm = self.okhs.time_manager.normalize(initial_grid_phys).to(self.device)
+        #     initial_t_q = (initial_grid_norm.to(self.complex_dtype) ** self.okhs.q).unsqueeze(1)
+            
+        #     initial_mittag = _mittag_leffler_tensor(eig.unsqueeze(0) * initial_t_q, self.okhs.q)
+        #     reconstruction = (initial_mittag @ (coefficients.unsqueeze(1) * xi)).real.detach().cpu().numpy()
+            
+        #     # 3. Готовим остальные массивы 
+        #     initial_traj_np = self._normalize_state_trajectory(initial_trajectory).detach().cpu().numpy()
+        #     predicted_np = predicted.detach().cpu().numpy()
+
+        #     # Защита от потери размерности фазового пространства (на случай если массивы стали 1D)
+        #     if initial_traj_np.ndim == 1: initial_traj_np = initial_traj_np[:, None]
+        #     if reconstruction.ndim == 1: reconstruction = reconstruction[:, None]
+        #     if predicted_np.ndim == 1: predicted_np = predicted_np[:, None]
+
+        #     plt.figure(figsize=(10, 5))
+        #     dim_idx = 0  # Рисуем только 0-ю компоненту
+            
+        #     # Находим середину исторического куска
+        #     length_initial = len(t_initial_np) // 2
+            
+        #     # Рисуем ИСТИННУЮ ИСТОРИЮ (только вторую половину)
+        #     plt.plot(t_initial_np[length_initial:], initial_traj_np[length_initial:, dim_idx], 
+        #              'k-', linewidth=2, alpha=0.6, label='Истинная история')
+            
+        #     # Рисуем РЕКОНСТРУКЦИЮ (только вторую половину)
+        #     plt.plot(t_initial_np[length_initial:], reconstruction[length_initial:, dim_idx], 
+        #              'b--', linewidth=2, label='Реконструкция fDMD (Fit)')
+            
+        #     # Рисуем ПРОГНОЗ целиком (он начинается после истории)
+        #     plt.plot(t_forecast_np, predicted_np[:, dim_idx], 
+        #              'r-', linewidth=2, label='Прогноз (Forecast)')
+            
+        #     plt.axvline(x=t_initial_np[-1], color='gray', linestyle=':', label='Граница прогноза')
+            
+        #     plt.title("Отладка скачка прогноза fDMD (Увеличенный масштаб у границы)")
+        #     plt.xlabel("Физическое время")
+        #     plt.ylabel("Значение ряда")
+        #     plt.legend()
+        #     plt.grid(True, alpha=0.3)
+        #     plt.tight_layout()
+        #     plt.show()
+            
+        #     # 5. Вывод текстовой диагностики
+        #     diagnostics = self._build_prediction_diagnostics(state)
+        #     print(f"\n[DEBUG] Истинное последнее значение:    {diagnostics['last_observed_value']}")
+        #     print(f"[DEBUG] Первое значение прогноза:      {diagnostics['first_prediction_value']}")
+        #     print(f"[DEBUG] Абсолютный разрыв:      {diagnostics['boundary_discontinuity_abs_mean']:.6f}\n")
+        #     print(f"[DEBUG] Количество стабильных мод:      {diagnostics['n_stable_modes']} из {diagnostics['n_total_modes']}")
+        # except Exception as e:
+        #     # Если что-то пойдет не так, мы просто напечатаем ошибку и продолжим прогноз
+        #     print(f"\n[DEBUG ERROR] Ошибка при построении графика отладки: {e}")
+        #     import traceback
+        #     traceback.print_exc()
+        #     print("--------------------------------------------------\n")
+        # ===================================================
+        # predicted = predicted * self.okhs.max_elem
         if return_tensor:
             return predicted
         return predicted.detach().cpu().numpy()

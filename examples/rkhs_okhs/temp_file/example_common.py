@@ -1,7 +1,8 @@
 from __future__ import annotations
 import torch
 import numpy as np
-
+import torch.nn as nn
+import matplotlib.pyplot as plt
 try:
     from pymittagleffler import mittag_leffler
 except ImportError:  # pragma: no cover - fallback for local environments without pymittagleffler
@@ -46,6 +47,7 @@ def generate_trajectories_pycaputo(
         seed=42,
         ic_low=-1.0,
         ic_high=1.0,
+        noise_std=0.0,
 ):
     if make_fixed_controller is None or D is None or StepCompleted is None or caputo is None or evolve is None:
         raise ImportError("pycaputo is required to generate trajectories for this example.")
@@ -82,12 +84,12 @@ def generate_trajectories_pycaputo(
         elif len(traj) < n_steps + 1:
             padding = np.tile(traj[-1], (n_steps + 1 - len(traj), 1))
             traj = np.vstack((traj, padding))
-
+        if noise_std > 0.0:
+            traj += noise_std * rng.normal(size=traj.shape)
         trajectories.append(traj)
 
     time = np.linspace(0, T_max, n_steps + 1)
     return time, trajectories
-
 
 
 def rhs_linear(t, y, lambda_param):
@@ -102,6 +104,28 @@ def rhs_quadratic(t, y, a, b):
 def rhs_mu_cubic(t, y, mu):
     return mu * (1.0 - y**2) * y - y
 
+def rhs_pendulum(t, y, omega):
+    # D^q u = v
+    # D^q v = -omega^2 * sin(u)
+    u, v = y[0], y[1]
+    return np.array([v, -(omega**2) * np.sin(u)])
+
+def rhs_van_der_pol(t, y, mu):
+    # D^q u = v
+    # D^q v = mu * (1 - u^2) * v - u
+    u, v = y[0], y[1]
+    return np.array([v, mu * (1.0 - u**2) * v - u])
+
+def rhs_stuart_landau(t, y, mu, omega):
+    # D^q u = mu*u - omega*v - (u^2 + v^2)*u
+    # D^q v = omega*u + mu*v - (u^2 + v^2)*v
+    u, v = y[0], y[1]
+    r2 = u**2 + v**2
+    return np.array([
+        mu * u - omega * v - r2 * u,
+        omega * u + mu * v - r2 * v
+    ])
+
 def rhs_lotka_volterra(t, y, alpha, beta, delta, gamma):
     """
     Дробная модель Лотки-Вольтерры.
@@ -114,3 +138,39 @@ def rhs_lotka_volterra(t, y, alpha, beta, delta, gamma):
         delta * u * v - gamma * v
     ])
 
+
+class EncoderAdapter(nn.Module):
+    """Обертка для передачи метода encode() внутрь DeepKernel как forward()"""
+    def __init__(self, autoencoder):
+        super().__init__()
+        self.autoencoder = autoencoder
+
+    def forward(self, x):
+        return self.autoencoder.encode_trajectory(x)
+
+def plot_training_loss(loss_history, save_path=None):
+    plt.figure(figsize=(8, 4))
+    plt.plot(range(1, len(loss_history) + 1), loss_history, marker='o', color='b', markersize=4)
+    plt.title("Deep OKHS: Зависимость MSE от эпохи (Val Data)")
+    plt.xlabel("Эпоха")
+    plt.ylabel("MSE Loss")
+    plt.yscale('log')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
+
+def plot_eigenvalues(eigenvalues_history, experiment_name):
+    plt.figure(figsize=(8, 6))
+    for epoch_idx, eig_vals in enumerate(eigenvalues_history):
+        plt.scatter(eig_vals.real, eig_vals.imag, color=plt.cm.viridis(epoch_idx / len(eigenvalues_history)), alpha=0.7, label=f'Epoch {epoch_idx+1}' if epoch_idx in [0, len(eigenvalues_history)-1] else "")
+    plt.title(f"Эволюция собственных чисел W (Deep fDMD) - {experiment_name}")
+    plt.xlabel("Real Part")
+    plt.ylabel("Imaginary Part")
+    plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
+    plt.axvline(0, color='gray', linestyle='--', linewidth=0.5)
+    plt.grid(True, alpha=0.3)
+    plt.legend(loc='upper right')
+    plt.tight_layout()
+    plt.show()

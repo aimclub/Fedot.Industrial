@@ -380,7 +380,9 @@ def run_okhs_dmd_prediction(model: Any, initial_trajectory: np.ndarray, forecast
     # if hasattr(model, 'predict_with_diagnostics'):
     #     prediction, diagnostics = model.predict_with_diagnostics(initial_trajectory, future_times)
     # else:
-    prediction = model.plot_predict(initial_trajectory, future_times)
+
+    prediction = model.predict(initial_trajectory, future_times)
+    
     diagnostics = {}
     if hasattr(prediction, 'cpu'):
         prediction = prediction.cpu()

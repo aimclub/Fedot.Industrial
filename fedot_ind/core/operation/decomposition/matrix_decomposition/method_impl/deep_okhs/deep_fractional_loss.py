@@ -14,7 +14,7 @@ class DeepFractionalDMDLoss(nn.Module):
         self.num_tk_samples = num_tk_samples
         
         # Матрица оператора Лиувилля W \in \mathbb{R}^{m \times m}
-        self.W = nn.Parameter(torch.eye(latent_dim, dtype=torch.float64, device=device) + 
+        self.W = nn.Parameter(-1 * torch.eye(latent_dim, dtype=torch.float64, device=device) + 
                               torch.randn(latent_dim, latent_dim, dtype=torch.float64, device=device) * 0.1)
 
         nodes, weights = roots_jacobi(n_quad_points, q - 1, 0)

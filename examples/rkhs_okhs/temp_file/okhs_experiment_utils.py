@@ -34,6 +34,7 @@ class ExperimentConfig:
     ic_low: float = -1.0
     ic_high: float = 1.0
     required_mode_budget: int | None = None
+    noise_std: float = 0.0
 
 
 @dataclass(frozen=True)

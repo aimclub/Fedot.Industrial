@@ -36,9 +36,9 @@ FORECASTING_MODELS = (
             'n_modes': 5,
             'window_size': 20,
             
-            # Гиперпараметры нейросети (уменьшены для быстрого теста)
+            # Гиперпараметры нейросети
             'latent_dim': 16,
-            'ae_epochs': 35,  # Всего 35 эпох, чтобы убедиться, что градиенты текут
+            'ae_epochs': 35,  
             'ae_learning_rate': 1e-3,
             'hidden_layers': [32, 32],
             'alpha_adjoint': 1.0,

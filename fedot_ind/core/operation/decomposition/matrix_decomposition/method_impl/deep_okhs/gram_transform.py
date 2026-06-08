@@ -77,6 +77,7 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         self.show_progress = show_progress
         self.progress_leave = progress_leave
         self.verbose = verbose
+        self.max_elem = None  
 
         if device == 'cuda' and not torch.cuda.is_available():
             if self.verbose:
@@ -119,6 +120,10 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
 
     def _normalize_trajectory(self, trajectory):
         """Нормализует траекторию в тензор PyTorch с типом float64 и правильной формой."""
+        # self.max_elem = trajectory.max() if len(trajectory) > 0 else 1.0
+        # if self.max_elem == 0:
+        #     self.max_elem = 1.0  # Предотвращаем деление на ноль для константных траекторий
+        # trajectory = trajectory / self.max_elem
         if not isinstance(trajectory, torch.Tensor):
             normalized = torch.tensor(trajectory, dtype=torch.float64, device=self.device)
         else:

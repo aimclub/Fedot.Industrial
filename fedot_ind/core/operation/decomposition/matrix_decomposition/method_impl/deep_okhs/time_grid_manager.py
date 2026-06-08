@@ -93,15 +93,15 @@ class TimeGridManager:
     def interpolate_batch(self, x_batch: torch.Tensor, t_grids_norm: torch.Tensor, target_taus: torch.Tensor) -> torch.Tensor:
         """
         Векторизованная батчевая интерполяция для нейросетевого пайплайна.
-        
-        Параметры:
-            x_batch: (N, K, d) - батч исходных траекторий.
-            t_grids_norm: (N, K) - отнормированные временные сетки для каждой траектории в батче.
-            target_taus: (N, ...) - целевые узлы (может быть (N, S) или (N, S, Q)).
-            
-        Возвращает:
-            torch.Tensor формы (N, ..., d) с интерполированными значениями.
+        Поддерживает уникальные сетки времени для каждой траектории в батче.
         """
+
+        t_grids_norm = t_grids_norm.to(target_taus.device)
+
+        # Если передана общая 1D сетка, расширяем ее на весь батч
+        if t_grids_norm.ndim == 1:
+            t_grids_norm = t_grids_norm.unsqueeze(0).expand(x_batch.shape[0], -1)
+
         N, K, d = x_batch.shape
         target_shape = target_taus.shape
         
@@ -114,7 +114,7 @@ class TimeGridManager:
         target_flat = torch.clamp(target_flat, min=t_min, max=t_max)
         
         # Поиск индексов интервалов для всего батча одновременно
-        idx = torch.searchsorted(t_grids_norm, target_flat)                                                                                                                                             
+        idx = torch.searchsorted(t_grids_norm, target_flat)                                                                                                              
         idx = torch.clamp(idx, 1, K - 1)
         
         # Извлекаем левые и правые границы времени (N, M)
