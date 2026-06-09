@@ -49,7 +49,7 @@ class PairwiseBatch:
     target: np.ndarray
     left_indices: np.ndarray
     anchor_indices: np.ndarray
-    diagnostics: dict[str, Any]
+    diagnostics: dict[str, Any] # TODO: TypedContract добавить 
 
 
 def normalize_feature_matrix(features: Any) -> np.ndarray:
@@ -108,7 +108,7 @@ def select_classification_anchor_indices(
     return np.asarray(sorted(set(selected)), dtype=int)
 
 
-def select_regression_anchor_indices(
+def select_regression_anchor_indices( # TODO: реализовать механизмы выбора якорей
         target: Any,
         config: PairwiseLearningConfig,
 ) -> np.ndarray:
@@ -144,7 +144,7 @@ def build_classification_pairs(
         n_anchors=len(anchors),
         pair_feature_dim=pair_features.shape[1],
         anchor_indices=anchors,
-    )
+    ) # TODO: сюда тоже идет контракт
     return PairwiseBatch(pair_features, pair_target, left_indices, repeated_anchor_indices, diagnostics)
 
 
@@ -295,6 +295,10 @@ def _build_pair_features_torch(left: np.ndarray, anchors: np.ndarray, mode: str,
     return paired.detach().cpu().numpy()
 
 
+def _pair_target_semantics():
+    pass
+
+
 def _combine_pair_blocks(left: np.ndarray, anchors: np.ndarray, difference: np.ndarray, mode: str) -> np.ndarray:
     if mode == "concat_diff":
         return np.hstack((left, anchors, difference)).astype(np.float32, copy=False)
@@ -324,8 +328,9 @@ def _pair_diagnostics(
         n_anchors: int,
         pair_feature_dim: int,
         anchor_indices: np.ndarray,
-) -> dict[str, Any]:
+) -> dict[str, Any]: # TODO: добавть контракт на все использование diagnostic
     backend_name, _ = resolve_pairwise_backend(config.backend)
+    # TODO: добавить pair_target_semantics 
     return {
         "backend": backend_name,
         "pairing_policy": config.pairing_policy,
@@ -335,4 +340,5 @@ def _pair_diagnostics(
         "pair_feature_dim": int(pair_feature_dim),
         "anchor_indices": [int(index) for index in anchor_indices],
         "config": config.to_dict(),
+        # pair_target_semantics
     }

@@ -13,7 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.utils.validation import check_is_fitted
 
 
-class PDCDataTransformer:
+class PDCDataTransformer: # TODO: Починить PDCDataTransformer или вывести его из active path как legacy
     """
     Transform the data so that it can be processed by PDL models.
     """
@@ -32,7 +32,7 @@ class PDCDataTransformer:
         self.y_type = y_type
 
     def fit(self, X, y=None):
-
+        # TODO: что?
         # y = y.astype('category').cat.codes.astype(np.float32) # todo since I
         # cannot transform the output at least add raise type error on it
         if self.numeric_features is None and self.ordinal_features is None and self.string_features is None:

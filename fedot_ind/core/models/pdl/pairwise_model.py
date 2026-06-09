@@ -97,7 +97,7 @@ class PairwiseDifferenceClassifier:
         self.base_model = SKLEARN_CLF_IMP[self.model_name](**self.base_model_params)
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
-        self.diagnostics_: dict[str, Any] = {}
+        self.diagnostics_: dict[str, Any] = {} # TODO: определить единство diagnostics и типконтракт
 
     def fit(self, input_data: InputData | np.ndarray, target: Any | None = None):
         features, raw_target, _ = _extract_features_target(input_data, target)
@@ -204,7 +204,7 @@ class PairwiseDifferenceRegressor:
 
         batch = build_regression_pairs(self.train_features_, self.target_, self.anchor_indices_, self.config)
         self.base_model.fit(batch.features, batch.target)
-        self.diagnostics_ = {
+        self.diagnostics_ = { # TODO: переопределение diagnostic + типкотракты
             **batch.diagnostics,
             "task": "regression",
             "base_model": self.model_name,
