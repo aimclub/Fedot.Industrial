@@ -1,0 +1,14 @@
+| model_name                                            | mean_rank | dataset_count |
+| ----------------------------------------------------- | --------- | ------------- |
+| HC2                                                   | 3.36161   | 112           |
+| Hydra-MR                                              | 3.75      | 112           |
+| RDST                                                  | 4.52679   | 112           |
+| InceptionT                                            | 4.66071   | 112           |
+| WEASEL_D                                              | 4.80357   | 112           |
+| RSTSF                                                 | 5.10714   | 112           |
+| FreshPRINCE                                           | 5.46875   | 112           |
+| PF                                                    | 6.22768   | 112           |
+| KernelEnsembleClassifier_shapelet_motif_rbf           | 9.17568   | 111           |
+| KernelEnsembleClassifier_embedding_nystrom            | 10.009    | 111           |
+| KernelEnsembleClassifier_score_baseline_summary       | 10.2973   | 111           |
+| KernelEnsembleClassifier_adaptive_all_non_topological | 10.3063   | 111           |

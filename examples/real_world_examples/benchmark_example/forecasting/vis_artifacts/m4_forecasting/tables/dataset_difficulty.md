@@ -1,0 +1,5 @@
+| dataset_name | best_model                                      | best_metric | difficulty |
+| ------------ | ----------------------------------------------- | ----------- | ---------- |
+| Daily        | KernelEnsembleForecaster_embedding_nystrom_okhs | 0.88        | hard       |
+| Monthly      | KernelEnsembleForecaster_embedding_nystrom_okhs | 0.81        | hard       |
+| Weekly       | KernelEnsembleForecaster_embedding_nystrom_okhs | 0.85        | hard       |

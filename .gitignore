@@ -28,6 +28,19 @@ __pycache__/
 !benchmark/industrial/examples/kernel_learning_ucr_manifest.json
 !benchmark/experiments/kernel_learning/defaults.json
 !benchmark/industrial/experiments/preset_defaults.json
+!examples/current_api/example_defaults.json
+!examples/current_api/manifests/*.json
+!examples/automl_example/automl_defaults.json
+!examples/real_world_examples/real_world_defaults.json
+!examples/real_world_examples/external_data_manifest.json
+!examples/real_world_examples/benchmark_example/analysis_of_results/analysis_defaults.json
+!examples/real_world_examples/benchmark_example/**/results_manifest.json
+!examples/real_world_examples/benchmark_example/archive/archive_manifest.json
+!examples/real_world_examples/industrial_examples/scenario_defaults.json
+!examples/real_world_examples/industrial_examples/**/scenario_defaults.json
+!examples/real_world_examples/benchmark_example/analysis_of_results/vis_artifacts/**/*.csv
+!examples/real_world_examples/benchmark_example/forecasting/vis_artifacts/**/*.csv
+!examples/real_world_examples/industrial_examples/vis_artifacts/**/*.csv
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -147,6 +160,45 @@ examples/**/plots_archive/
 examples/**/predict_on_train/
 examples/**/predict_on_val/
 examples/**/predict_on_test/
+examples/real_world_examples/benchmark_example/classification/UCR_*/
+examples/real_world_examples/benchmark_example/classification/benchmark_results/
+examples/real_world_examples/benchmark_example/detection/SKAB_*/
+examples/real_world_examples/benchmark_example/forecasting/M4_*/
+examples/real_world_examples/benchmark_example/archive/data/
+examples/real_world_examples/benchmark_example/archive/composition_results/
+examples/real_world_examples/industrial_examples/eeg/sig_data.npy
+examples/real_world_examples/industrial_examples/eeg/sig_target.npy
+examples/real_world_examples/industrial_examples/eeg/predictions.csv
+examples/real_world_examples/industrial_examples/eeg/neiry_industrial_results.csv
+examples/real_world_examples/industrial_examples/**/fitness_by_generation.png
+examples/real_world_examples/industrial_examples/equipment_monitoring/*_plots/
+examples/real_world_examples/industrial_examples/equipment_monitoring/*_stat_gen/
+examples/real_world_examples/industrial_examples/equipment_monitoring/*_without_tuning/
+
+# Tracked lightweight examples/data fixtures.
+!examples/data/
+examples/data/**
+!examples/data/README.md
+!examples/data/anomaly_detection/
+!examples/data/anomaly_detection/README.md
+!examples/data/anomaly_detection/box_anomaly_detection/
+!examples/data/anomaly_detection/box_anomaly_detection/**
+!examples/data/anomaly_detection/skab/
+!examples/data/anomaly_detection/skab/**
+!examples/data/forecasting/
+!examples/data/forecasting/README.md
+!examples/data/forecasting/ice_forecasting/
+!examples/data/forecasting/ice_forecasting/**
+!examples/data/forecasting/nbeats/
+!examples/data/forecasting/nbeats/**
+!examples/data/ts_classification/
+!examples/data/ts_classification/README.md
+!examples/data/ts_classification/ItalyPowerDemand_fake/
+!examples/data/ts_classification/ItalyPowerDemand_fake/**
+!examples/data/ts_regression/
+!examples/data/ts_regression/README.md
+!examples/data/ts_regression/MadridPM10Quality-no-missing/
+!examples/data/ts_regression/MadridPM10Quality-no-missing/**
 
 # Heavy generated artifacts
 *.7z

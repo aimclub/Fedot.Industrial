@@ -1,0 +1,3 @@
+| dataset_count | pipeline_count | generation_count | min_generation | max_generation |
+| ------------- | -------------- | ---------------- | -------------- | -------------- |
+| 65            | 1577           | 6                | 0              | 5              |

@@ -1,0 +1,10 @@
+| model_name                                      | top_1 | top_3 | top_5 | top_half | dataset_count |
+| ----------------------------------------------- | ----- | ----- | ----- | -------- | ------------- |
+| KernelEnsembleForecaster_embedding_nystrom_okhs | 3     | 3     | 3     | 3        | 3             |
+| Fedot_Industrial_current                        | 0     | 3     | 3     | 3        | 3             |
+| KernelEnsembleForecaster_identity_shapelet      | 0     | 3     | 3     | 3        | 3             |
+| ESRNN                                           | 0     | 0     | 3     | 1        | 3             |
+| NBEATS                                          | 0     | 0     | 3     | 2        | 3             |
+| LaggedRidgeForecaster                           | 0     | 0     | 0     | 0        | 3             |
+| NaiveLastValue                                  | 0     | 0     | 0     | 0        | 3             |
+| Theta                                           | 0     | 0     | 0     | 0        | 3             |

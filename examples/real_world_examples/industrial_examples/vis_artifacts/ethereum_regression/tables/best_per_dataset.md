@@ -1,0 +1,4 @@
+| dataset_name                  | metric_name | best_model                                   | best_metric_value | source_label                            | task_type     | metric_direction |
+| ----------------------------- | ----------- | -------------------------------------------- | ----------------- | --------------------------------------- | ------------- | ---------------- |
+| ethereum_regression_preview_1 | rmse        | KernelEnsembleRegressor_score_linear_summary | 0.38              | ethereum_regression_current_api_preview | ts_regression | lower            |
+| ethereum_regression_preview_2 | rmse        | KernelEnsembleRegressor_score_linear_summary | 0.41              | ethereum_regression_current_api_preview | ts_regression | lower            |

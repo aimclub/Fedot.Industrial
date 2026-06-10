@@ -1,0 +1,9 @@
+| model_name                                            | top_1 | top_3 | top_5 | top_half | dataset_count |
+| ----------------------------------------------------- | ----- | ----- | ----- | -------- | ------------- |
+| KernelEnsembleClassifier_score_baseline_summary       | 2     | 2     | 2     | 2        | 2             |
+| KernelEnsembleClassifier_adaptive_all_non_topological | 0     | 2     | 2     | 2        | 2             |
+| KernelEnsembleClassifier_shapelet_motif_rbf           | 0     | 2     | 2     | 2        | 2             |
+| KernelEnsembleClassifier                              | 0     | 0     | 2     | 0        | 2             |
+| KernelEnsembleClassifier_embedding_nystrom            | 0     | 0     | 2     | 0        | 2             |
+| NearestCentroid                                       | 0     | 0     | 0     | 0        | 2             |
+| PDLClassifier                                         | 0     | 0     | 0     | 0        | 2             |

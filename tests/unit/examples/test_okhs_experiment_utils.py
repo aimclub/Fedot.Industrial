@@ -1,30 +1,18 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
-
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[3]
-UTILS_PATH = ROOT / "examples" / "rkhs_okhs" / "temp_file" / "okhs_experiment_utils.py"
-ADVANCED_PATH = ROOT / "examples" / "rkhs_okhs" / "temp_file" / "okhs_advanced.py"
-
-
-def _load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+from examples.real_world_examples.benchmark_example.rkhs_okhs.forecasting import (
+    okhs_advanced as advanced_module,
+)
+from examples.real_world_examples.benchmark_example.rkhs_okhs.forecasting import (
+    okhs_experiment_utils as utils_module,
+)
 
 
 def test_split_trajectories_has_no_overlap():
-    module = _load_module("okhs_experiment_utils_for_split", UTILS_PATH)
-
     trajectories = [np.full((3, 1), fill_value=index, dtype=float) for index in range(5)]
-    split = module.split_trajectories(trajectories, holdout_size=2)
+    split = utils_module.split_trajectories(trajectories, holdout_size=2)
 
     assert split.is_right()
     split_value = split.value
@@ -34,8 +22,7 @@ def test_split_trajectories_has_no_overlap():
 
 
 def test_validate_experiment_config_fails_early_for_invalid_segment():
-    module = _load_module("okhs_experiment_utils_for_validation", UTILS_PATH)
-    config = module.ExperimentConfig(
+    config = utils_module.ExperimentConfig(
         name="bad",
         q_true=0.8,
         dim=1,
@@ -48,7 +35,7 @@ def test_validate_experiment_config_fails_early_for_invalid_segment():
         plot_part=1.0,
     )
 
-    validation = module.validate_experiment_config(config)
+    validation = utils_module.validate_experiment_config(config)
 
     assert validation.is_left()
     message = validation.either(lambda value: value, lambda value: value)
@@ -56,20 +43,15 @@ def test_validate_experiment_config_fails_early_for_invalid_segment():
 
 
 def test_evaluate_forecast_uses_only_holdout_suffix():
-    module = _load_module("okhs_experiment_utils_for_metrics", UTILS_PATH)
-
     test_traj = np.array([[0.0], [10.0], [20.0], [30.0]])
     pred_traj = np.array([[999.0], [888.0], [21.0], [29.0]])
-    mse = module.evaluate_forecast(test_traj, pred_traj, initial_segment_length=2)
+    mse = utils_module.evaluate_forecast(test_traj, pred_traj, initial_segment_length=2)
 
     expected = float(np.mean((np.array([[20.0], [30.0]]) - np.array([[21.0], [29.0]])) ** 2))
     assert mse == expected
 
 
 def test_run_experiment_uses_holdout_trajectory_and_excludes_it_from_train(monkeypatch):
-    utils_module = _load_module("examples.rkhs_okhs.temp_file.okhs_experiment_utils", UTILS_PATH)
-    advanced_module = _load_module("okhs_advanced_for_runner", ADVANCED_PATH)
-
     def fake_generate(*args, **kwargs):
         time = np.arange(5, dtype=float)
         trajectories = [

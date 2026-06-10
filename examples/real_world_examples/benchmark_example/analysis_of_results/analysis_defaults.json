@@ -1,0 +1,275 @@
+{
+  "version": "industrial_real_world_analysis@1",
+  "artifact_root": "examples/real_world_examples/benchmark_example/analysis_of_results/vis_artifacts",
+  "full_run_flag": "RUN_FULL_LOCAL_BENCHMARK",
+  "feature_generators": [
+    "quantile_extractor_torch",
+    "wavelet_extractor",
+    "fourier_extractor",
+    "eigen_extractor",
+    "minirocket_extractor"
+  ],
+  "models": {
+    "ts_classification": [
+      {
+        "adapter_name": "kernel_ensemble_classifier",
+        "display_name": "KernelEnsembleClassifier_adaptive_all_non_topological",
+        "tags": ["industrial", "kernel_learning"],
+        "params": {
+          "generator_names": [
+            "quantile_extractor_torch",
+            "wavelet_extractor",
+            "fourier_extractor",
+            "recurrence_extractor"
+          ],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "selector_optimizer": "projected_gradient"
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_classifier",
+        "display_name": "Baseline_statistical_summary_linear_svc",
+        "tags": ["baseline", "single_generator_downstream"],
+        "params": {
+          "generator_names": ["statistical_summary"],
+          "kernel": "linear",
+          "selector_optimizer": "score"
+        }
+      },
+      {
+        "adapter_name": "pdl_classifier",
+        "display_name": "PDLClassifier",
+        "tags": ["industrial", "pdl"],
+        "optional": true,
+        "params": {"model": "rf"}
+      },
+      {
+        "adapter_name": "kernel_learning_two_stage_ucr",
+        "display_name": "UCRTwoStageOptimized",
+        "tags": ["industrial", "kernel_learning", "two_stage"],
+        "optional": true
+      }
+    ],
+    "ts_regression": [
+      {
+        "adapter_name": "kernel_ensemble_regressor",
+        "display_name": "KernelEnsembleRegressor_adaptive_rbf_summary",
+        "tags": ["industrial", "kernel_learning"],
+        "params": {
+          "generator_names": ["statistical_summary"],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "selector_optimizer": "projected_gradient"
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_regressor",
+        "display_name": "Baseline_statistical_summary_ridge",
+        "tags": ["baseline", "single_generator_downstream"],
+        "params": {
+          "generator_names": ["statistical_summary"],
+          "kernel": "linear",
+          "selector_optimizer": "score"
+        }
+      },
+      {
+        "adapter_name": "pdl_regressor",
+        "display_name": "PDLRegressor",
+        "tags": ["industrial", "pdl"],
+        "optional": true,
+        "params": {"model": "treg"}
+      }
+    ],
+    "forecasting": [
+      {
+        "adapter_name": "naive_last_value",
+        "display_name": "NaiveLastValue",
+        "tags": ["baseline"]
+      },
+      {
+        "adapter_name": "lagged_ridge_forecaster",
+        "display_name": "LaggedRidgeForecaster",
+        "tags": ["baseline", "single_generator_downstream"],
+        "params": {"window_size": 12, "stride": 1, "alpha": 1.0}
+      },
+      {
+        "adapter_name": "kernel_ensemble_forecaster",
+        "display_name": "KernelEnsembleForecaster_identity_shapelet",
+        "tags": ["industrial", "kernel_learning"],
+        "params": {
+          "generator_names": ["identity", "shapelet_extractor"],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "window_size": 12,
+          "head_type": "kernel_ridge"
+        }
+      },
+      {
+        "adapter_name": "kernel_ensemble_forecaster",
+        "display_name": "KernelEnsembleForecaster_embedding_nystrom_okhs",
+        "tags": ["industrial", "kernel_learning", "okhs"],
+        "params": {
+          "generator_names": ["identity", "embedding_extractor"],
+          "kernel": "rbf",
+          "gamma": "scale",
+          "kernel_approximation": "nystrom",
+          "nystrom_components": 16,
+          "window_size": 12,
+          "head_type": "okhs_kernel_ridge"
+        }
+      }
+    ]
+  },
+  "analyses": {
+    "analysis_uni_clf": {
+      "title": "Univariate TSC benchmark comparison",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_model": "KernelEnsembleClassifier_adaptive_all_non_topological",
+      "source_label": "ucr_univariate_full",
+      "expected_dataset_count": 225,
+      "sources": [
+        {
+          "label": "sota_ucr_2024",
+          "kind": "table",
+          "path": "benchmark/results/time_series_uni_clf_comparasion_2024.csv",
+          "metric_name": "accuracy",
+          "source_label": "sota_ucr_2024",
+          "source_date": "2024"
+        },
+        {
+          "label": "industrial_kernel_learning_ucr_020626",
+          "kind": "incremental_metrics",
+          "path": "benchmark/results/v2_kernel_learning/ucr_suite_020626",
+          "metric_name": "accuracy",
+          "source_label": "industrial_kernel_learning_ucr_020626",
+          "source_date": "2026-06-02"
+        }
+      ]
+    },
+    "analysis_multi_clf": {
+      "title": "Multivariate TSC benchmark comparison",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_model": "Fedot_Industrial",
+      "source_label": "ucr_multivariate_full",
+      "expected_dataset_count": 26,
+      "sources": [
+        {
+          "label": "sota_multivariate_2023",
+          "kind": "table",
+          "path": "benchmark/results/time_series_multI_clf_comparasion_241223.csv",
+          "metric_name": "accuracy",
+          "source_label": "sota_multivariate_2023",
+          "source_date": "2023-12-24"
+        }
+      ]
+    },
+    "analysis_regr": {
+      "title": "TSER benchmark comparison",
+      "task_type": "ts_regression",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "target_model": "KernelEnsembleRegressor_adaptive_rbf_summary",
+      "source_label": "tser_full",
+      "expected_dataset_count": 219,
+      "sources": [
+        {
+          "label": "sota_tser_2024",
+          "kind": "table",
+          "path": "benchmark/results/time_series_multi_reg_comparasion_2024.csv",
+          "metric_name": "rmse",
+          "source_label": "sota_tser_2024",
+          "source_date": "2024",
+          "filters": {"algorithm": "average"},
+          "dataset_column": "ds/type",
+          "strip_model_suffix": "_RMSE",
+          "model_aliases": {
+            "Industrial_baseline_model": "Fedot_Industrial_legacy_baseline",
+            "Industrial_baseline features": "Fedot_Industrial_legacy_baseline_features",
+            "Industrial_advanced features": "Fedot_Industrial_legacy_advanced_features"
+          }
+        },
+        {
+          "label": "industrial_kernel_learning_tser_140526",
+          "kind": "incremental_metrics",
+          "path": "benchmark/results/v2_kernel_learning/tser_suite_140526",
+          "metric_name": "rmse",
+          "source_label": "industrial_kernel_learning_tser_140526",
+          "source_date": "2026-05-14"
+        }
+      ]
+    },
+    "m4_analysis": {
+      "title": "M4 forecasting benchmark comparison",
+      "task_type": "forecasting",
+      "metric_name": "owa",
+      "metric_direction": "lower",
+      "target_model": "KernelEnsembleForecaster_embedding_nystrom_okhs",
+      "source_label": "m4_full",
+      "coverage_unit_column": "series_id",
+      "expected_dataset_count": 48000,
+      "sources": [
+        {
+          "label": "industrial_kernel_learning_m4_monthly_140526",
+          "kind": "aggregate_metrics",
+          "path": "benchmark/results/v2_kernel_learning/forecasting_suite_140526",
+          "metric_name": "owa",
+          "source_label": "industrial_kernel_learning_m4_monthly_140526",
+          "source_date": "2026-05-14"
+        }
+      ]
+    },
+    "pdl_uni_benchmark": {
+      "title": "PDL univariate benchmark comparison",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_model": "PDLClassifier",
+      "source_label": "pdl_ucr_full",
+      "expected_dataset_count": 225,
+      "sources": [
+        {
+          "label": "industrial_kernel_learning_ucr_020626",
+          "kind": "incremental_metrics",
+          "path": "benchmark/results/v2_kernel_learning/ucr_suite_020626",
+          "metric_name": "accuracy",
+          "source_label": "industrial_kernel_learning_ucr_020626",
+          "source_date": "2026-06-02"
+        },
+        {
+          "label": "industrial_pdl_ucr_full_pending",
+          "kind": "incremental_metrics",
+          "path": "benchmark/results/kernel_learning/pdl_ucr_full",
+          "metric_name": "accuracy",
+          "source_label": "industrial_pdl_ucr_full_pending",
+          "source_date": "pending"
+        }
+      ]
+    }
+  },
+  "external_sources": {
+    "composition_results": {
+      "path": "examples/utils/data/benchmark_history/real_world_archive/composition_results",
+      "task_type": "mixed",
+      "source_label": "fedot_industrial_evolution_history",
+      "dvc_key": "real_world_archive_composition_results"
+    },
+    "m3_m4_data": {
+      "path": "examples/utils/data/benchmark_history/real_world_archive/data",
+      "task_type": "forecasting",
+      "source_label": "local_m3_m4_archive_data",
+      "dvc_key": "real_world_archive_m3_m4_data"
+    },
+    "forecasting_progress_items": {
+      "path": "benchmark/results/v2_kernel_learning/forecasting_suite_140526/kernel_learning_forecasting_suite_f184092168",
+      "task_type": "forecasting",
+      "source_label": "industrial_kernel_learning_m4_monthly_progress",
+      "dataset_name": "m4_monthly_kernel_learning",
+      "series_id": "M1779"
+    }
+  }
+}

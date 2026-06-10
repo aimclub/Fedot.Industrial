@@ -1,0 +1,14 @@
+{
+  "version": "industrial_real_world_results@1",
+  "task_type": "anomaly_detection",
+  "metric_name": "f1",
+  "metric_direction": "higher",
+  "sources": [
+    {
+      "label": "skab_2025_01_23",
+      "path": "SKAB_23_01_25",
+      "source_version": "2025-01-23",
+      "external_data_key": "real_world_skab_detection_results"
+    }
+  ]
+}

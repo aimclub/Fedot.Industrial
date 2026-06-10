@@ -1,0 +1,4 @@
+| dataset_name                       | best_model                                      | best_metric | difficulty |
+| ---------------------------------- | ----------------------------------------------- | ----------- | ---------- |
+| equipment_classification_preview_1 | KernelEnsembleClassifier_score_baseline_summary | 0.9         | easy       |
+| equipment_classification_preview_2 | KernelEnsembleClassifier_score_baseline_summary | 0.88        | normal     |

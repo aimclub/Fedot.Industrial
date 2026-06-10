@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 import shutil
 import urllib.request as request
@@ -6,19 +6,73 @@ import zipfile
 from pathlib import Path
 from typing import Optional, Union
 
-import chardet
+import numpy as np
 import pandas as pd
-from datasets import load_dataset
-from datasetsforecast.m3 import M3
-from datasetsforecast.m4 import M4
-from datasetsforecast.m5 import M5
-from scipy.io.arff import loadarff
-from sktime.datasets import load_from_tsfile_to_dataframe
-from tqdm import tqdm
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.repository.constanst_repository import M4_PREFIX
+try:
+    import chardet
+except ImportError:  # pragma: no cover - optional parser helper
+    chardet = None
+
+try:
+    from datasets import load_dataset
+except ImportError:  # pragma: no cover - optional forecasting loader
+    load_dataset = None
+
+try:
+    from datasetsforecast.m3 import M3
+    from datasetsforecast.m4 import M4
+    from datasetsforecast.m5 import M5
+except ImportError:  # pragma: no cover - optional forecasting loaders
+    M3 = None
+    M4 = None
+    M5 = None
+
+try:
+    from scipy.io.arff import loadarff
+except ImportError:  # pragma: no cover - optional ARFF parser
+    loadarff = None
+
+try:
+    from sktime.datasets import load_from_tsfile_to_dataframe
+except ImportError:  # pragma: no cover - optional TS parser
+    load_from_tsfile_to_dataframe = None
+
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional progress display
+    def tqdm(iterable, **_kwargs):
+        return iterable
+
+try:
+    from fedot_ind.core.repository.constanst_repository import M4_PREFIX
+except ImportError:  # pragma: no cover - lightweight resolver/import path
+    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly', 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
 from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH, EXAMPLES_DATA_PATH
+
+EXAMPLES_TASK_DATA_DIRS = (
+    'ts_classification',
+    'ts_regression',
+    'forecasting',
+    'anomaly_detection',
+)
+
+
+def resolve_dataset_parent_path(data_path: Union[Path, str], dataset_name: str) -> str:
+    """Return the folder that directly contains a dataset directory."""
+    root = Path(data_path)
+    if (root / dataset_name).exists():
+        return str(root)
+    for task_dir in EXAMPLES_TASK_DATA_DIRS:
+        candidate_parent = root / task_dir
+        if (candidate_parent / dataset_name).exists():
+            return str(candidate_parent)
+    return str(root)
+
+
+def resolve_skab_data_root() -> Path:
+    """Return the canonical SKAB fixture folder inside examples/utils/data."""
+    return Path(EXAMPLES_DATA_PATH) / 'anomaly_detection' / 'skab'
 
 
 class DataLoader:
@@ -40,10 +94,10 @@ class DataLoader:
         self.dataset_name = dataset_name
         self.folder = folder
         self.forecast_data_source = {
-            'M3': M3.load,
-            'M4': M4.load,
+            'M3': M3.load if M3 is not None else None,
+            'M4': M4.load if M4 is not None else None,
             # 'M4': self.local_m4_load,
-            'M5': M5.load,
+            'M5': M5.load if M5 is not None else None,
             'monash_tsf': load_dataset
         }
 
@@ -54,6 +108,8 @@ class DataLoader:
             folder = EXAMPLES_DATA_PATH
         loader = self.forecast_data_source[forecast_family]
         dataset_name = self.dataset_name.get('dataset') if isinstance(self.dataset_name, dict) else self.dataset_name
+        if loader is None:
+            raise ImportError(f'Forecast loader for {forecast_family} is not installed.')
         group_df, _, _ = loader(directory=folder, group=f'{M4_PREFIX[dataset_name[0]]}')
         ts_df = group_df[group_df['unique_id'] == dataset_name]
         del ts_df['unique_id']
@@ -75,11 +131,12 @@ class DataLoader:
             dataset_name = {}
         folder = dataset_name.get('benchmark', 'valve1')
         dataset = dataset_name.get('dataset', '1')
-        path_to_skab_data = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{folder}/{dataset}.csv'
+        skab_root = resolve_skab_data_root()
+        path_to_skab_data = skab_root / folder / f'{dataset}.csv'
         df = pd.read_csv(path_to_skab_data, index_col='datetime', sep=';', parse_dates=True)
         train_idx = dataset_name.get('train_data_size', 'anomaly-free')
         if isinstance(train_idx, str):
-            train_data = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{train_idx}/{train_idx}.csv'
+            train_data = skab_root / train_idx / f'{train_idx}.csv'
             train_data = pd.read_csv(train_data, index_col='datetime', sep=';', parse_dates=True)
             label = np.array([0 for _ in range(len(train_data))])
             return (train_data.values, label), (df.iloc[:, :-2].values, df.iloc[:, -2].values)
@@ -146,6 +203,7 @@ class DataLoader:
 
     def read_train_test_files(self, data_path: Union[Path, str], dataset_name: str, shuffle: bool = True):
 
+        data_path = resolve_dataset_parent_path(data_path, dataset_name)
         dataset_dir_path = os.path.join(data_path, dataset_name)
         file_path = dataset_dir_path + f'/{dataset_name}_TRAIN'
         is_multivariate = False
@@ -183,6 +241,8 @@ class DataLoader:
     def predict_encoding(file_path: Union[Path, str], n_lines: int = 20) -> str:
         with Path(file_path).open('rb') as f:
             rawdata = b''.join([f.readline() for _ in range(n_lines)])
+        if chardet is None:
+            return 'utf-8'
         return chardet.detect(rawdata)['encoding']
 
     def _load_from_tsfile_to_dataframe(
@@ -832,6 +892,7 @@ class DataLoader:
                 target = target.astype(str)
             return features, target
 
+        data_path = resolve_dataset_parent_path(data_path, dataset_name)
         dataset_dir = os.path.join(data_path, dataset_name)
         if mode not in ['tsv', 'csv']:
             raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
@@ -853,6 +914,7 @@ class DataLoader:
         Returns:
             train and test data tuple
         """
+        data_path = resolve_dataset_parent_path(data_path, dataset_name)
         dataset_dir = os.path.join(data_path, dataset_name)
         data_train = np.genfromtxt(dataset_dir + f'/{dataset_name}_TRAIN.txt')
         data_test = np.genfromtxt(dataset_dir + f'/{dataset_name}_TEST.txt')
@@ -866,6 +928,8 @@ class DataLoader:
         """
         def load_process_data(path_to_dataset):
             try:
+                if load_from_tsfile_to_dataframe is None:
+                    raise ImportError('sktime is required to read .ts files with the default parser.')
                 features, target = load_from_tsfile_to_dataframe(path_to_dataset,
                                                                  return_separate_X_and_y=True)
             except Exception as e:
@@ -874,6 +938,7 @@ class DataLoader:
                                                                        return_separate_X_and_y=True)
             return features, target
 
+        data_path = resolve_dataset_parent_path(data_path, dataset_name)
         dataset_dir = os.path.join(data_path, dataset_name)
         x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.ts')
         x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.ts')
@@ -897,6 +962,8 @@ class DataLoader:
 
         """
         def load_process_data(path_to_dataset):
+            if loadarff is None:
+                raise ImportError('scipy is required to read .arff files.')
             data, meta = loadarff(path_to_dataset)
             data_array = np.asarray([data[name] for name in meta.names()])
             features, target = data_array[:-1].T.ravel(), data_array[-1]
@@ -907,6 +974,7 @@ class DataLoader:
                 return features, target
             return features.astype('float64'), target
 
+        data_path = resolve_dataset_parent_path(data_path, dataset_name)
         dataset_dir = os.path.join(data_path, dataset_name)
         x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.arff')
         x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.arff')

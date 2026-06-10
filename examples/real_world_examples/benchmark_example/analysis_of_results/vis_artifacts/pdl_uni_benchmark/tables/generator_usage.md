@@ -1,0 +1,10 @@
+| generator_name           | selection_count | dataset_count | model_count |
+| ------------------------ | --------------- | ------------- | ----------- |
+| statistical_summary      | 208             | 111           | 3           |
+| shapelet_extractor       | 88              | 88            | 1           |
+| embedding_extractor      | 69              | 69            | 1           |
+| tabular_extractor        | 59              | 59            | 1           |
+| wavelet_extractor        | 54              | 54            | 1           |
+| quantile_extractor_torch | 46              | 46            | 1           |
+| recurrence_extractor     | 19              | 19            | 1           |
+| fourier_extractor        | 10              | 10            | 1           |

@@ -1,0 +1,13 @@
+model_name,top_1,top_3,top_5,top_half,dataset_count
+HC2,33,80,104,108,113
+Hydra-MR,31,68,101,107,113
+InceptionT,31,56,73,80,113
+RSTSF,22,41,57,77,113
+RDST,21,49,80,90,113
+FreshPRINCE,20,32,62,73,113
+WEASEL_D,19,44,73,89,113
+PF,19,30,44,56,113
+KernelEnsembleClassifier_shapelet_motif_rbf,5,8,10,14,113
+KernelEnsembleClassifier_embedding_nystrom,4,6,9,11,113
+KernelEnsembleClassifier_adaptive_all_non_topological,2,4,7,8,113
+KernelEnsembleClassifier_score_baseline_summary,2,3,7,7,113

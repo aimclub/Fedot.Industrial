@@ -1,0 +1,3 @@
+| source_label          | coverage_unit | expected_dataset_count | observed_dataset_count | coverage_pct | missing_dataset_count | missing_datasets | status |
+| --------------------- | ------------- | ---------------------- | ---------------------- | ------------ | --------------------- | ---------------- | ------ |
+| ucr_multivariate_full | dataset_name  | 26                     | 26                     | 100          | 0                     |                  | full   |

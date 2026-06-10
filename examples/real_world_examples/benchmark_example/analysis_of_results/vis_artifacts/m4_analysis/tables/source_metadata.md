@@ -1,0 +1,3 @@
+| label                                        | kind              | path                                                                                                        | exists_locally | metric_name | source_version | source_date |
+| -------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------- | -------------- | ----------- | -------------- | ----------- |
+| industrial_kernel_learning_m4_monthly_140526 | aggregate_metrics | D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\v2_kernel_learning\forecasting_suite_140526 | True           | owa         |                | 2026-05-14  |

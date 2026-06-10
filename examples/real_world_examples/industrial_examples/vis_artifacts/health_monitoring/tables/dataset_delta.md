@@ -1,0 +1,4 @@
+| dataset_name                | target_model   | target_metric | best_reference_model  | best_reference_metric | improvement | relative_improvement_pct |
+| --------------------------- | -------------- | ------------- | --------------------- | --------------------- | ----------- | ------------------------ |
+| health_monitoring_preview_2 | NaiveLastValue | 0.41          | LaggedRidgeForecaster | 0.45                  | 0.04        | 8.88889                  |
+| health_monitoring_preview_1 | NaiveLastValue | 0.38          | LaggedRidgeForecaster | 0.42                  | 0.04        | 9.52381                  |

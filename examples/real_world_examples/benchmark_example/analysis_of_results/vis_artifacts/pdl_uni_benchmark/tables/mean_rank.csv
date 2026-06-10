@@ -1,0 +1,5 @@
+model_name,mean_rank,dataset_count
+KernelEnsembleClassifier_shapelet_motif_rbf,1.8873873873873874,111
+KernelEnsembleClassifier_embedding_nystrom,2.5945945945945947,111
+KernelEnsembleClassifier_score_baseline_summary,2.7027027027027026,111
+KernelEnsembleClassifier_adaptive_all_non_topological,2.815315315315315,111

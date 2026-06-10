@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
+try:  # pragma: no cover - optional for JSON-only manifest users
+    import yaml
+except Exception:  # pragma: no cover
+    yaml = None
 
 from benchmark.industrial.api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite
 from benchmark.industrial.core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, TaskType, \
@@ -27,6 +30,8 @@ def load_manifest(path: str | Path) -> dict[str, Any]:
     if suffix == '.json':
         payload = json.loads(manifest_path.read_text(encoding='utf-8'))
     elif suffix in {'.yml', '.yaml'}:
+        if yaml is None:
+            raise BenchmarkManifestError('YAML manifests require PyYAML to be installed.')
         payload = yaml.safe_load(manifest_path.read_text(encoding='utf-8'))
     else:
         raise BenchmarkManifestError(f'Unsupported manifest format: {suffix}')
@@ -128,6 +133,8 @@ def write_example_manifest(path: str | Path, payload: dict[str, Any]) -> None:
         manifest_path.write_text(json.dumps(to_plain_data(payload), indent=2, ensure_ascii=False), encoding='utf-8')
         return
     if suffix in {'.yml', '.yaml'}:
+        if yaml is None:
+            raise BenchmarkManifestError('YAML manifests require PyYAML to be installed.')
         manifest_path.write_text(yaml.safe_dump(to_plain_data(payload), sort_keys=False, allow_unicode=True),
                                  encoding='utf-8')
         return

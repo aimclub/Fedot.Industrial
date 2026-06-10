@@ -1,0 +1,3 @@
+| label                  | kind  | path                                                                                                         | exists_locally | metric_name | source_version | source_date |
+| ---------------------- | ----- | ------------------------------------------------------------------------------------------------------------ | -------------- | ----------- | -------------- | ----------- |
+| sota_multivariate_2023 | table | D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\time_series_multI_clf_comparasion_241223.csv | True           | accuracy    |                | 2023-12-24  |

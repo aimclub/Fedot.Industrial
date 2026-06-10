@@ -1,0 +1,4 @@
+| dataset_name                       | metric_name | best_model                                      | best_metric_value | source_label                                 | task_type         | metric_direction |
+| ---------------------------------- | ----------- | ----------------------------------------------- | ----------------- | -------------------------------------------- | ----------------- | ---------------- |
+| equipment_classification_preview_1 | accuracy    | KernelEnsembleClassifier_score_baseline_summary | 0.9               | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | accuracy    | KernelEnsembleClassifier_score_baseline_summary | 0.88              | equipment_classification_current_api_preview | ts_classification | higher           |

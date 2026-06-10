@@ -1,0 +1,10 @@
+| model_name                                      | mean_rank | dataset_count |
+| ----------------------------------------------- | --------- | ------------- |
+| KernelEnsembleForecaster_embedding_nystrom_okhs | 1         | 3             |
+| Fedot_Industrial_current                        | 2         | 3             |
+| KernelEnsembleForecaster_identity_shapelet      | 3         | 3             |
+| NBEATS                                          | 4.33333   | 3             |
+| ESRNN                                           | 4.66667   | 3             |
+| Theta                                           | 6         | 3             |
+| LaggedRidgeForecaster                           | 7         | 3             |
+| NaiveLastValue                                  | 8         | 3             |

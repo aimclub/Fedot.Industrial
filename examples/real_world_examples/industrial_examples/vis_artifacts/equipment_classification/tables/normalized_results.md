@@ -1,0 +1,16 @@
+| dataset_name                       | model_name                                            | metric_name | metric_value | source_label                                 | task_type         | metric_direction |
+| ---------------------------------- | ----------------------------------------------------- | ----------- | ------------ | -------------------------------------------- | ----------------- | ---------------- |
+| equipment_classification_preview_1 | KernelEnsembleClassifier_score_baseline_summary       | accuracy    | 0.9          | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | KernelEnsembleClassifier_score_baseline_summary       | accuracy    | 0.88         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_1 | KernelEnsembleClassifier_adaptive_all_non_topological | accuracy    | 0.86         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | KernelEnsembleClassifier_adaptive_all_non_topological | accuracy    | 0.84         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_1 | KernelEnsembleClassifier_shapelet_motif_rbf           | accuracy    | 0.82         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | KernelEnsembleClassifier_shapelet_motif_rbf           | accuracy    | 0.8          | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_1 | KernelEnsembleClassifier_embedding_nystrom            | accuracy    | 0.78         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | KernelEnsembleClassifier_embedding_nystrom            | accuracy    | 0.76         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_1 | KernelEnsembleClassifier                              | accuracy    | 0.74         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | KernelEnsembleClassifier                              | accuracy    | 0.72         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_1 | PDLClassifier                                         | accuracy    | 0.7          | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | PDLClassifier                                         | accuracy    | 0.68         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_1 | NearestCentroid                                       | accuracy    | 0.66         | equipment_classification_current_api_preview | ts_classification | higher           |
+| equipment_classification_preview_2 | NearestCentroid                                       | accuracy    | 0.64         | equipment_classification_current_api_preview | ts_classification | higher           |

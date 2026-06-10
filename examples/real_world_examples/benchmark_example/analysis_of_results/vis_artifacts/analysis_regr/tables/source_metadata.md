@@ -1,0 +1,4 @@
+| label                                  | kind                | path                                                                                                       | exists_locally | metric_name | source_version | source_date |
+| -------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------- | ----------- | -------------- | ----------- |
+| sota_tser_2024                         | table               | D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\time_series_multi_reg_comparasion_2024.csv | True           | rmse        |                | 2024        |
+| industrial_kernel_learning_tser_140526 | incremental_metrics | D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\v2_kernel_learning\tser_suite_140526       | True           | rmse        |                | 2026-05-14  |

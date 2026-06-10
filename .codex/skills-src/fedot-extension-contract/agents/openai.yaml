@@ -1,0 +1,4 @@
+interface:
+  display_name: "FEDOT Extension Contract"
+  short_description: "Design IndustrialTS adapter contracts and runtime flow"
+  default_prompt: "Use $fedot-extension-contract to add or refactor benchmark manifests, presets, adapter registry logic, and runtime integration."

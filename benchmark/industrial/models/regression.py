@@ -94,6 +94,42 @@ class KernelEnsembleRegressorAdapter:
         return export_kernel_learning_artifacts(self.model_)
 
 
+@dataclass
+class PDLRegressorAdapter:
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'regression', 'pdl')
+    optional: bool = True
+    params: dict[str, Any] | None = None
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot.core.data.data import InputData  # noqa: F401
+            from fedot.core.operations.operation_parameters import OperationParameters  # noqa: F401
+            from fedot.core.repository.dataset_types import DataTypesEnum  # noqa: F401
+            from fedot.core.repository.tasks import Task, TaskTypesEnum  # noqa: F401
+            from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceRegressor  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover - optional FEDOT runtime boundary
+            return RunStatus.NOT_AVAILABLE, f'PDL regressor is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceRegressor
+
+        input_data = _fedot_input_data(features=features, target=np.asarray(target, dtype=float), task_type='regression')
+        self.model_ = PairwiseDifferenceRegressor(params=_operation_parameters(self.params, default_model='treg'))
+        self.model_.fit(input_data)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None:
+            raise BenchmarkRegressionError('PDLRegressorAdapter must be fitted before prediction.')
+        dummy_target = np.zeros(features.shape[0], dtype=float)
+        input_data = _fedot_input_data(features=features, target=dummy_target, task_type='regression')
+        prediction = self.model_.predict(input_data)
+        values = getattr(prediction, 'predict', prediction)
+        return np.asarray(values, dtype=float).reshape(-1)
+
+
 def build_regression_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'mean_regressor':
@@ -107,6 +143,13 @@ def build_regression_model(spec: ModelSpec):
             optional=spec.optional,
             params=dict(spec.params),
         )
+    if name in {'pdl_regressor', 'pdl_reg'}:
+        return PDLRegressorAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'regression', 'pdl'),
+            optional=True,
+            params=dict(spec.params),
+        )
     if name == 'fedot_industrial_regressor':
         return OptionalExternalRegressor(
             dependency_name='fedot',
@@ -116,10 +159,34 @@ def build_regression_model(spec: ModelSpec):
     raise BenchmarkRegressionError(f'Unsupported regression model adapter: {spec.adapter_name}')
 
 
+def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
+    from fedot.core.operations.operation_parameters import OperationParameters
+
+    payload = {'model': default_model}
+    payload.update(dict(params or {}))
+    return OperationParameters(payload)
+
+
+def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: str):
+    from fedot.core.data.data import InputData
+    from fedot.core.repository.dataset_types import DataTypesEnum
+    from fedot.core.repository.tasks import Task, TaskTypesEnum
+
+    task = Task(TaskTypesEnum.classification if task_type == 'classification' else TaskTypesEnum.regression)
+    return InputData(
+        idx=np.arange(features.shape[0]),
+        features=features,
+        target=target,
+        task=task,
+        data_type=DataTypesEnum.table,
+    )
+
+
 __all__ = [
     "KernelEnsembleRegressorAdapter",
     "LinearRegressor",
     "MeanRegressor",
     "OptionalExternalRegressor",
+    "PDLRegressorAdapter",
     "build_regression_model",
 ]

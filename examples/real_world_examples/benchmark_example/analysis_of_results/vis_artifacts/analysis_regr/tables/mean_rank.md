@@ -1,0 +1,35 @@
+| model_name                                   | mean_rank | dataset_count |
+| -------------------------------------------- | --------- | ------------- |
+| Unnamed: 31                                  | 1.54762   | 63            |
+| Unnamed: 32                                  | 2.56349   | 63            |
+| DrCIF                                        | 8.79032   | 62            |
+| FreshPRINCE                                  | 9.09677   | 62            |
+| RIST                                         | 9.87273   | 55            |
+| RotF                                         | 11.4355   | 62            |
+| InceptionT                                   | 11.5806   | 62            |
+| TSF                                          | 12.629    | 62            |
+| RDST                                         | 12.9636   | 55            |
+| MultiROCKET                                  | 13.0645   | 62            |
+| Fedot_Industrial_legacy_baseline_features    | 14.1349   | 63            |
+| RandF                                        | 14.3333   | 63            |
+| SingleInception                              | 14.4603   | 63            |
+| KernelEnsembleRegressor_shapelet_rbf         | 14.5      | 3             |
+| Ind_bf_place                                 | 15.0317   | 63            |
+| ResNet                                       | 15.873    | 63            |
+| ROCKET                                       | 16.5079   | 63            |
+| Ind_baseline_place                           | 16.5714   | 63            |
+| XGBoost                                      | 16.8095   | 63            |
+| 5NN-DTW                                      | 17.3016   | 63            |
+| KernelEnsembleRegressor_adaptive_rbf_summary | 17.5      | 3             |
+| KernelEnsembleRegressor_embedding_nystrom    | 18        | 3             |
+| FPCR                                         | 18.1905   | 63            |
+| 5NN-ED                                       | 18.3333   | 63            |
+| Grid-SVR                                     | 18.4762   | 63            |
+| Fedot_Industrial_legacy_baseline             | 18.5159   | 63            |
+| FCN                                          | 18.746    | 63            |
+| FPCR-Bs                                      | 19.1746   | 63            |
+| Ridge                                        | 19.7097   | 62            |
+| CNN                                          | 21.1452   | 62            |
+| KernelEnsembleRegressor_score_linear_summary | 21.6667   | 3             |
+| 1NN-DTW                                      | 22.3651   | 63            |
+| 1NN-ED                                       | 22.746    | 63            |

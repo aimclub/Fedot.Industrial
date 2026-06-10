@@ -1,0 +1,4 @@
+dataset_name,target_model,target_metric,best_reference_model,best_reference_metric,improvement,relative_improvement_pct
+NaturalGasPricesSentiment,KernelEnsembleRegressor_adaptive_rbf_summary,0.108888677479458,Unnamed: 31,0.0,-0.108888677479458,-10.8888677479458
+AppliancesEnergy,KernelEnsembleRegressor_adaptive_rbf_summary,3.4467458266143685,Unnamed: 31,0.0,-3.4467458266143685,-344.67458266143683
+ElectricityPredictor,KernelEnsembleRegressor_adaptive_rbf_summary,511.32937692210135,Ind_baseline_place,1.0,-510.32937692210135,-51032.93769221014

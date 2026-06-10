@@ -1,5 +1,5 @@
 {
-  "version": "benchmark_v2_manifest@1",
+  "version": "benchmark_industrial_manifest@1",
   "kind": "suite",
   "task_type": "ts_regression",
   "datasets": [
@@ -22,7 +22,7 @@
     }
   ],
   "artifact_spec": {
-    "output_dir": "benchmark/results/v2_kernel_learning/tser",
+    "output_dir": "benchmark/results/kernel_learning/tser",
     "persist_on_run": true
   },
   "run_spec": {

@@ -1,0 +1,3 @@
+dataset_name,metric_name,best_model,best_metric_value,source_label,task_type,metric_direction
+health_monitoring_preview_1,smape,NaiveLastValue,0.38,health_monitoring_current_api_preview,forecasting,lower
+health_monitoring_preview_2,smape,NaiveLastValue,0.41,health_monitoring_current_api_preview,forecasting,lower

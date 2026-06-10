@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from examples.rkhs_okhs.example_common import MittagLefflerKernel, RBFKernel, generate_trajectories_pycaputo
+from examples.real_world_examples.benchmark_example.rkhs_okhs.forecasting.example_common import (
+    MittagLefflerKernel,
+    RBFKernel,
+    generate_trajectories_pycaputo,
+)
 
 
 def test_rbf_kernel_is_symmetric_for_same_inputs():
@@ -18,7 +22,10 @@ def test_mittag_leffler_kernel_validates_q():
 
 
 def test_generate_trajectories_pycaputo_raises_without_dependency(monkeypatch):
-    monkeypatch.setattr("examples.rkhs_okhs.example_common.make_fixed_controller", None)
+    monkeypatch.setattr(
+        "examples.real_world_examples.benchmark_example.rkhs_okhs.forecasting.example_common.make_fixed_controller",
+        None,
+    )
 
     with pytest.raises(ImportError):
         generate_trajectories_pycaputo(

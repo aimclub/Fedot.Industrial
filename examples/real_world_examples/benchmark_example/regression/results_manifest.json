@@ -1,0 +1,14 @@
+{
+  "version": "industrial_real_world_results@1",
+  "task_type": "ts_regression",
+  "metric_name": "rmse",
+  "metric_direction": "lower",
+  "sources": [
+    {
+      "label": "tser_local_archive",
+      "path": "tser",
+      "source_version": "local",
+      "external_data_key": "real_world_domain_local_inputs"
+    }
+  ]
+}

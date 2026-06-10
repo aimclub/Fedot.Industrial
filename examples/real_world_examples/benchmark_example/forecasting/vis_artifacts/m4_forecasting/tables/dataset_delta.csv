@@ -1,0 +1,4 @@
+dataset_name,target_model,target_metric,best_reference_model,best_reference_metric,improvement,relative_improvement_pct
+Monthly,Fedot_Industrial_current,0.82,KernelEnsembleForecaster_embedding_nystrom_okhs,0.81,-0.009999999999999898,-1.2345679012345552
+Daily,Fedot_Industrial_current,0.89,KernelEnsembleForecaster_embedding_nystrom_okhs,0.88,-0.010000000000000009,-1.1363636363636374
+Weekly,Fedot_Industrial_current,0.86,KernelEnsembleForecaster_embedding_nystrom_okhs,0.85,-0.010000000000000009,-1.1764705882352953
