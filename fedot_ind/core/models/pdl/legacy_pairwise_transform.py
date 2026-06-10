@@ -1,9 +1,21 @@
+"""Legacy pandas preprocessing helpers for PDL (not used in production).
+
+This module is deprecated. The active PDL path uses:
+
+- ``fedot_ind.core.models.pdl.pairwise_core.normalize_feature_matrix``
+- ``PairwiseDifferenceClassifier`` / ``PairwiseDifferenceRegressor`` from ``pairwise_model``
+
+Former module name: ``pairwise_transform.py``.
+"""
+
 import functools
+import warnings
 from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
 import sklearn.base
+import sklearn.metrics
 from fedot.core.operations.operation_parameters import OperationParameters
 from scipy.optimize import LinearConstraint, minimize
 from scipy.spatial.distance import cdist
@@ -12,11 +24,24 @@ from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.utils.validation import check_is_fitted
 
+_LEGACY_USAGE_MESSAGE = (
+    "PDCDataTransformer and SampleWeights are legacy and not part of the active PDL path. "
+    "Use PairwiseDifferenceClassifier/PairwiseDifferenceRegressor with "
+    "pairwise_core.normalize_feature_matrix instead."
+)
 
-class PDCDataTransformer: # TODO: Починить PDCDataTransformer или вывести его из active path как legacy
-    """
-    Transform the data so that it can be processed by PDL models.
-    """
+
+def _warn_legacy_usage(class_name: str) -> None:
+    warnings.warn(
+        f"{class_name}: {_LEGACY_USAGE_MESSAGE}",
+        category=DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+class PDCDataTransformer:
+    """Deprecated tabular preprocessor prototype; not wired into production PDL estimators."""
+
     preprocessing_: ColumnTransformer
     preprocessing_y_: ColumnTransformer  # todo fix the ColumnTransformer annotation
 
@@ -24,6 +49,7 @@ class PDCDataTransformer: # TODO: Починить PDCDataTransformer или в�
                  ordinal_features: Iterable = None,
                  string_features: Iterable = None,
                  y_type: str = None):
+        _warn_legacy_usage(self.__class__.__name__)
         self.numeric_features = numeric_features
         self.ordinal_features = ordinal_features
         self.string_features = string_features
@@ -64,11 +90,12 @@ class PDCDataTransformer: # TODO: Починить PDCDataTransformer или в�
             from sklearn.preprocessing import OneHotEncoder
             self.preprocessing_y_ = OneHotEncoder()
 
-        if y is not None and self.preprocessing_y_ is not None:
+        if y is not None and getattr(self, "preprocessing_y_", None) is not None:
             if isinstance(y, pd.Series):
                 y = pd.DataFrame(y)
             self.preprocessing_y_.fit(y)
 
+        self._legacy_fit_complete_ = True
         return self
 
     def cast_uint(self, X: pd.DataFrame, y: pd.Series = None):
@@ -82,33 +109,41 @@ class PDCDataTransformer: # TODO: Починить PDCDataTransformer или в�
         return X, y
 
     def transform(self, X, y=None):
-        check_is_fitted(self)
-        X, _ = self.cast_uint(X)
-        X = pd.DataFrame(self.preprocessing_.transform(X))
-        from scipy.sparse import csr_matrix
-        if any(isinstance(e, csr_matrix) for e in X.values.flatten()):
-            raise NotImplementedError('error in data \t X contains sparse features (csr_matrix)')
-        X = X.dropna(axis=1, how='all')  # Drop columns with all NaN values
-        X = X.astype(np.float32)
+        # check_is_fitted(self)
+        # X, _ = self.cast_uint(X)
+        # X = pd.DataFrame(self.preprocessing_.transform(X))
+        # from scipy.sparse import csr_matrix
+        # if any(isinstance(e, csr_matrix) for e in X.values.flatten()):
+        #     raise NotImplementedError('error in data \t X contains sparse features (csr_matrix)')
+        # X = X.dropna(axis=1, how='all')  # Drop columns with all NaN values
+        # X = X.astype(np.float32)
 
-        if len(X.columns) == 0:
-            raise ValueError('error in data \t X no features left after pre-processing')
-        # if X.isna().any().any():
-        #     raise NotImplementedError('error in data \t Some features are NaNs in the X set')
-        if any(x in pd.Series(X.values.flatten()).apply(type).unique() for x in
-               ('csr_matrix', 'date',)):  # todo think about adding  'str'
-            raise NotImplementedError('error in data \t Dataset contains sparse data')
+        # if len(X.columns) == 0:
+        #     raise ValueError('error in data \t X no features left after pre-processing')
+        # # if X.isna().any().any():
+        # #     raise NotImplementedError('error in data \t Some features are NaNs in the X set')
+        # if any(x in pd.Series(X.values.flatten()).apply(type).unique() for x in
+        #        ('csr_matrix', 'date',)):  # todo think about adding  'str'
+        #     raise NotImplementedError('error in data \t Dataset contains sparse data')
 
-        if y is not None and self.preprocessing_ is not None:
-            y = pd.Series(self.preprocessing_.transform(y), name='y')
-        if y is None:
-            return X.values
-        return X.values, y.values
+        # if y is not None and self.preprocessing_ is not None:
+        #     y = pd.Series(self.preprocessing_.transform(y), name='y')
+        # if y is None:
+        #     return X.values
+        # return X.values, y.values
+        """Raise because X preprocessing was never completed in this legacy prototype."""
+        check_is_fitted(self, attributes=["_legacy_fit_complete_"])
+        raise NotImplementedError(
+            f"PDCDataTransformer.transform is not available in the legacy module. {_LEGACY_USAGE_MESSAGE}"
+        )
 
 
 class SampleWeights:
+    """Deprecated anchor weighting prototype; requires a fitted PDL estimator context."""
+
     def __init__(self, params: Optional[OperationParameters] = None):
-        # Save information about the weighting methods as here for better availability
+        _warn_legacy_usage(self.__class__.__name__)
+        params = params or {}
         self.method = params.get('method', 'L2')
 
         self.method_dict = {
