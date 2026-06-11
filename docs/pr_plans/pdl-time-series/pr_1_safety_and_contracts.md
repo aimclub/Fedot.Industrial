@@ -121,12 +121,10 @@ flowchart TB
         P1["TestPairwiseDifferenceEstimator<br/>pair_output_difference — legacy"]
         P2["TestPDLContracts<br/>_predict_same_probability"]
         P3["TestPDLDiagnostics<br/>Classifier/Regressor.fit → get_diagnostics"]
-        P4["TestPDCDataTransformerContracts<br/>Issue 2, xfail"]
     end
 
     pairwise_core["pairwise_core.py"] --> core
     pairwise_model["pairwise_model.py"] --> pdl
-    pairwise_transform["pairwise_transform.py"] --> P4
 
 ```
 
@@ -134,21 +132,23 @@ flowchart TB
 
 ## Отчёт по выполнению PR 1
 
-Статус: **Issue 1 — выполнен** (с оговорками ниже). **Issue 2 — частично** (тесты добавлены, код transformer не починен).
+Статус: **Issue 1 — выполнен** (с оговорками ниже). **Issue 2 — выполнен** (код transformer пернесён в legacy, тесты добавлены и адаптированы под перенос модуля в legacy).
 
 Затронутые файлы:
 
 ```text
-fedot_ind/core/models/pdl/pairwise_core.py      — контракты, diagnostics, имена
-fedot_ind/core/models/pdl/pairwise_model.py     — legacy API, score_difference
-tests/unit/core/models/test_pdl.py              — estimator + legacy + PDC (xfail)
-tests/unit/core/models/test_pairwise_learning_core.py — core-level контракты
+* fedot_ind/core/models/pdl/pairwise_core.py — контракты, diagnostics, имена
+* fedot_ind/core/models/pdl/pairwise_model.py — legacy API, score_difference
+* tests/unit/core/models/test_pdl.py  — estimator + legacy + PDC (xfail)
+* tests/unit/core/models/test_pairwise_learning_core.py — core-level контракты
+
+* fedot_ind/core/models/pdl/legacy_pairwise_transform.py — модуль transform перенесённый в legacy
+* tests/unit/core/models/test_pdl_transform.py — пересобранные тесты для legacy transform
 ```
 
 Не изменялись в рамках PR 1:
 
 ```text
-fedot_ind/core/models/pdl/pairwise_transform.py  — Issue 2, только тесты-заготовки
 fedot_ind/core/models/pdl/__init__.py
 ```
 
@@ -305,37 +305,23 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
 
 ---
 
-### 5. Починить `PDCDataTransformer` или вывести в legacy
-
-**Статус: не выполнено (Issue 2 отложен)**
-
-**Текущие проблемы в `pairwise_transform.py` (без изменений):**
-
-- `fit()` не создаёт `preprocessing_` для X;
-- `transform()` вызывает `self.preprocessing_.transform(X)` → AttributeError при реальном использовании;
-- для `y` вызывается `preprocessing_.transform(y)` вместо `preprocessing_y_.transform(y)` (~102–103);
-- `warnings.catch_warnings()` (~196) без `import warnings`.
-
-**Сделано вместо починки:** добавлены контракт-тесты с `@pytest.mark.xfail` в `test_pdl.py` → `TestPDCDataTransformerContracts`:
-
-- `test_pdc_data_transformer_initializes_x_preprocessor`
-- `test_pdc_data_transformer_uses_y_preprocessor_for_target`
-
-Тесты документируют ожидаемое поведение; после фикса transformer — снять `xfail`.
+### 5. Модуль `pairwise_transform.py` выведены в legacy
+- `legacy_pairwise_transform.py`
+    - Исправлен module docstring: статус `deprecated`
+    - Добавлены `DeprecationWarning` при создании `PDCDataTransformer` и `SampleWeights`
+    - `transform` теперь явно бросает NotImplementedError вместо падения на неинициализированном  `preprocessing_`
+    - `fit` помечает объект как fitted через `_legacy_fit_complete_`
+    - Исправлен `fit` при отсутствии preprocessing_y_ (getattr)
+    - Добавлены `import warnings` и `import sklearn.metrics` (раньше SampleWeights ссылался на  неимпортированный модуль)
+- `test_pdl_transform.py`
+    - Импорты переведены на `legacy_pairwise_transform`
+    - Обновлён patch-путь для minimize.
+    - Удалены мок-тесты сломанного `transform`; добавлен `test_transform_raises_not_implemented`
+    - Все создания legacy-классов обёрнуты в `pytest.warns(DeprecationWarning, ...)`
 
 ---
 
-### 6. Недостающие imports
-
-**Статус: N/A для production-кода PR 1; Issue 2 — не исправлен**
-
-В `pairwise_transform.py` по-прежнему отсутствует `import warnings` (баг Issue 2).
-
-В тестах добавлены импорты: `_predict_same_probability`, `PDCDataTransformer`, `StandardScaler`, `patch` (`test_pdl.py`).
-
----
-
-### 7. Тесты на deterministic toy arrays
+### 6. Тесты на deterministic toy arrays
 
 **Статус: выполнено**
 
@@ -350,7 +336,6 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
 | `test_predict_same_probability_falls_back_to_hard_predictions` | `TestPDLContracts` | `predict` без `predict_proba` |
 | `test_pair_target_semantics_is_reported_in_diagnostics_classifier` | `TestPDLDiagnostics` | semantics после `Classifier.fit` |
 | `test_pair_target_semantics_is_reported_in_diagnostics_regressor` | `TestPDLDiagnostics` | semantics после `Regressor.fit` |
-| `test_pdc_data_transformer_*` | `TestPDCDataTransformerContracts` | Issue 2, xfail |
 
 Заглушки `_PairProbaStub`, `_HardLabelStub` вместо `MagicMock` — проще читать и стабильнее в CI.
 
@@ -389,13 +374,8 @@ pytest tests/unit/core/models/test_pdl.py tests/unit/core/models/test_pairwise_l
 
 | Критерий | Статус |
 |---|---|
-| `fit().transform()` не падает на базовых сценариях | ❌ `preprocessing_` не инициализируется |
-| X и y — разные pipelines | ❌ `y` идёт через `preprocessing_` |
-| Нет обращения к неинициализированным attributes | ❌ |
-| Тесты `test_pdc_data_transformer_*` | ✅ добавлены (xfail) |
-| `test_pdc_data_transformer_handles_numeric/categorical` | ❌ не добавлены |
-
-**Рекомендация для следующего PR:** починить `PDCDataTransformer` или перенести в `legacy.py`; снять `xfail` с двух тестов.
+| Вынести в legacy и удалить из production path | ✅ |
+| Тесты `test_pdl_transform.py` | ✅ |
 
 ---
 
@@ -405,8 +385,8 @@ pytest tests/unit/core/models/test_pdl.py tests/unit/core/models/test_pairwise_l
 |---|---|
 | Поведение default classifier/regressor не меняется | ✅ |
 | Diagnostics явно сообщает target semantics | ✅ |
-| Нет обращения к неинициализированным attributes в transformer | ❌ Issue 2 |
-| Все PDL unit tests проходят | ✅ (кроме 2 xfail по PDC) |
+| Нет обращения к неинициализированным attributes в transformer | ✅ |
+| Все PDL unit tests проходят | ✅ |
 
 ---
 
@@ -415,6 +395,5 @@ pytest tests/unit/core/models/test_pdl.py tests/unit/core/models/test_pairwise_l
 - Удалить закомментированную строку `# pair_target = ...` в `build_classification_pairs` (`pairwise_core.py` ~142).
 - Module-level docstring в `pairwise_core.py`.
 - TypedContract для `PairwiseBatch.diagnostics` (TODO в коде).
-- Починка `PDCDataTransformer` (Issue 2).
 - Переименовать `similarity` → `same_probability_matrix` в `_predict_encoded_proba` (косметика).
 

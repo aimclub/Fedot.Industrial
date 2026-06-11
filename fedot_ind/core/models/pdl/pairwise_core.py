@@ -88,7 +88,8 @@ def resolve_pairwise_backend(backend: str = "auto") -> tuple[str, Any | None]:
         return "torch_cpu", torch.device("cpu")
     raise ValueError(f"Unsupported PDL backend={backend!r}.")
 
-
+# TODO нет смысла во втором if так как в третьем делается то же самое и можно убрать первую часть второго if
+# TODO а если в target не будет какого-то класса, то мб сломается 
 def select_classification_anchor_indices(
         encoded_target: Any,
         config: PairwiseLearningConfig,

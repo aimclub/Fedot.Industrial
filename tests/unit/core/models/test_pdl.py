@@ -13,7 +13,6 @@ from fedot_ind.core.models.pdl.pairwise_model import (
     PairwiseDifferenceClassifier,
     PairwiseDifferenceRegressor,
 )
-from fedot_ind.core.models.pdl.pairwise_transform import PDCDataTransformer
 
 # Fixtures for test data
 
@@ -179,44 +178,6 @@ class TestPDLDiagnostics:
         assert semantics["delta_sign"] == "left_minus_anchor"
         assert semantics["target_formula"] == "target_left - target_anchor"
         assert semantics["inference_reconstruction"] == "anchor_target + predicted_delta"
-
-
-class TestPDCDataTransformerContracts:
-
-    @pytest.fixture
-    def sample_dataframe(self):
-        return pd.DataFrame(
-            {
-                "numeric_col": [1.5, 2.7, 3.2],
-                "string_col": ["A", "B", "C"],
-            }
-        )
-
-    @pytest.mark.xfail(reason="PDCDataTransformer.fit() does not initialize preprocessing_ yet (Issue 2).")
-    def test_pdc_data_transformer_initializes_x_preprocessor(self, sample_dataframe):
-        transformer = PDCDataTransformer(y_type="numeric")
-        transformer.fit(sample_dataframe, pd.Series([1.0, 2.0, 3.0]))
-
-        assert hasattr(transformer, "preprocessing_")
-        assert transformer.preprocessing_ is not None
-        transformed = transformer.transform(sample_dataframe)
-        assert isinstance(transformed, np.ndarray)
-        assert transformed.shape[0] == len(sample_dataframe)
-
-    @pytest.mark.xfail(reason="PDCDataTransformer.transform() should use preprocessing_y_ for y (Issue 2).")
-    def test_pdc_data_transformer_uses_y_preprocessor_for_target(self, sample_dataframe):
-        y = pd.Series([1.0, 2.0, 3.0], name="target")
-        transformer = PDCDataTransformer(y_type="numeric")
-        transformer.fit(sample_dataframe, y)
-
-        assert isinstance(transformer.preprocessing_y_, StandardScaler)
-
-        with patch.object(transformer.preprocessing_y_, "transform", wraps=transformer.preprocessing_y_.transform) as y_transform:
-            with patch.object(transformer, "preprocessing_", create=True) as x_preprocessor:
-                x_preprocessor.transform.return_value = sample_dataframe.values
-                transformer.transform(sample_dataframe, y)
-
-        y_transform.assert_called_once()
 
 
 # Tests for PairwiseDifferenceClassifier
