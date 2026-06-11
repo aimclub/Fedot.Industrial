@@ -57,13 +57,25 @@ class PairwiseDifferenceEstimator:
     def pair_output(self, y1: Any, y2: Any) -> np.ndarray:
         left = normalize_target_vector(y1).astype(float)
         anchors = normalize_target_vector(y2).astype(float)
-        return (np.tile(anchors, len(left)) - np.repeat(left, len(anchors))).astype(float)
+        delta_left_minus_anchor = (
+        np.repeat(left, len(anchors)) - np.tile(anchors, len(left))
+        ).astype(float)
+        return delta_left_minus_anchor
 
     def pair_output_difference(self, y1: Any, y2: Any, nb_classes: int | None = None) -> np.ndarray:
+        """Build classification pair targets (dissimilarity) for legacy pandas API.
+        Contract (aligned with active PDL path):
+            0 = same class  (CLASSIFICATION_SAME_LABEL)
+            1 = different class  (CLASSIFICATION_DIFFERENT_LABEL)
+        Returns one value per (left, anchor) pair in cross-product order.
+        """
         del nb_classes
         left = normalize_target_vector(y1)
         anchors = normalize_target_vector(y2)
-        return (np.repeat(left, len(anchors)) != np.tile(anchors, len(left))).astype(int)
+        dissimilarity_target = (
+        np.repeat(left, len(anchors)) != np.tile(anchors, len(left))
+        ).astype(int)
+        return dissimilarity_target
 
     @staticmethod
     def _pair_frame(left: np.ndarray, right: np.ndarray, difference: np.ndarray, columns: Any) -> pd.DataFrame:
@@ -159,11 +171,11 @@ class PairwiseDifferenceClassifier:
         if raw_target is None:
             raise ValueError("score_difference expects target labels.")
         encoded_target = self.label_encoder_.transform(normalize_target_vector(raw_target))
-        similarity = predict_similarity_by_chunks(self.base_model, features, self.anchor_features_, self.config)
-        target_difference = (np.repeat(encoded_target, len(self.anchor_labels_)) !=
-                             np.tile(self.anchor_labels_, len(encoded_target))).astype(float)
-        predicted_difference = 1.0 - similarity.reshape(-1)
-        return float(np.mean(np.abs(target_difference - predicted_difference)))
+        same_probability = predict_similarity_by_chunks(self.base_model, features, self.anchor_features_, self.config)
+        dissimilarity_target = (np.repeat(encoded_target, len(self.anchor_labels_)) !=
+                             np.tile(self.anchor_labels_, len(encoded_target))).astype(float) # 1.0 = different, 0.0 = same
+        predicted_dissimilarity = 1.0 - same_probability.reshape(-1)
+        return float(np.mean(np.abs(dissimilarity_target - predicted_dissimilarity)))
 
     def get_diagnostics(self) -> dict[str, Any]:
         return dict(self.diagnostics_)

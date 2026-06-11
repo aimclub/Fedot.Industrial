@@ -3,13 +3,17 @@ import numpy as np
 import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.model_selection import train_test_split
-from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
+from sklearn.preprocessing import StandardScaler
+from unittest.mock import patch
 
+from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
+from fedot_ind.core.models.pdl.pairwise_core import _predict_same_probability
 from fedot_ind.core.models.pdl.pairwise_model import (
     PairwiseDifferenceEstimator,
     PairwiseDifferenceClassifier,
-    PairwiseDifferenceRegressor
+    PairwiseDifferenceRegressor,
 )
+from fedot_ind.core.models.pdl.pairwise_transform import PDCDataTransformer
 
 # Fixtures for test data
 
@@ -69,19 +73,26 @@ class TestPairwiseDifferenceEstimator:
         expected_columns = ['a_x', 'b_x', 'a_y', 'b_y', 'a_diff', 'b_diff']
         assert all(col in X_pair.columns for col in expected_columns)
 
-    def test_pair_output(self):
+    def test_regression_pair_target_is_left_minus_anchor(self):
         pde = PairwiseDifferenceEstimator()
-        y1 = pd.Series([1, 2])
-        y2 = pd.Series([3, 4])
+        y1 = pd.Series([1.0, 3.0])
+        y2 = pd.Series([1.0, 3.0])
 
-        y_pair_diff = pde.pair_output(y1, y2)
+        delta = pde.pair_output(y1, y2)
 
-        # Test shape
-        assert len(y_pair_diff) == len(y1) * len(y2)
+        assert len(delta) == len(y1) * len(y2)
+        # pairs: (1,1), (1,3), (3,1), (3,3) -> left - anchor
+        np.testing.assert_allclose(delta, np.array([0.0, -2.0, 2.0, 0.0]))
 
-        # Test values (should be y2 - y1 for all combinations)
-        expected = np.array([2, 3, 1, 2])  # [3-1, 4-1, 3-2, 4-2]
-        np.testing.assert_array_equal(y_pair_diff, expected)
+    def test_classification_pair_target_semantics_same_is_zero_current_contract(self):
+        pde = PairwiseDifferenceEstimator()
+        y1 = pd.Series([5, 5, 7])
+        y2 = pd.Series([5])
+
+        dissimilarity_target = pde.pair_output_difference(y1, y2)
+
+        # pairs: (5,5), (5,5), (7,5) -> same=0, same=0, different=1
+        np.testing.assert_array_equal(dissimilarity_target, np.array([0, 0, 1]))
 
     def test_pair_output_difference(self):
         pde = PairwiseDifferenceEstimator()
@@ -96,6 +107,117 @@ class TestPairwiseDifferenceEstimator:
         # Test values (should be 1 if different, 0 if same)
         expected = np.array([0, 1, 1, 1, 1, 0])  # Comparing [0,0], [0,2], [1,0], [1,2], [2,0], [2,2]
         np.testing.assert_array_equal(y_pair_diff, expected)
+
+
+class _PairProbaStub:
+    """заглушка sklearn-классификатора с predict_proba."""
+
+    def __init__(self, probabilities: np.ndarray, classes: np.ndarray):
+        self.classes_ = classes
+        self._probabilities = probabilities
+
+    def predict_proba(self, pair_features: np.ndarray) -> np.ndarray:
+        return self._probabilities
+
+
+class _HardLabelStub:
+    """классификатора только с predict (без predict_proba)."""
+
+    def __init__(self, labels: np.ndarray):
+        self._labels = labels
+
+    def predict(self, pair_features: np.ndarray) -> np.ndarray:
+        return self._labels
+
+
+class TestPDLContracts:
+
+    def test_predict_same_probability_uses_same_label_column(self):
+        # predict_proba: столбец 0 = P(same), столбец 1 = P(different)
+        stub_model = _PairProbaStub(
+            probabilities=np.array([[0.8, 0.2], [0.3, 0.7]]),
+            classes=np.array([0, 1]),
+        )
+
+        same_probability = _predict_same_probability(stub_model, np.zeros((2, 3)))
+
+        # Должны взять первый столбец (label 0), а не второй (label 1)
+        np.testing.assert_allclose(same_probability, np.array([0.8, 0.3]))
+
+    def test_predict_same_probability_falls_back_to_hard_predictions(self):
+        # Без predict_proba: label 0 -> 1.0 (same), label 1 -> 0.0 (different)
+        stub_model = _HardLabelStub(labels=np.array([0, 1, 0]))
+
+        same_probability = _predict_same_probability(stub_model, np.zeros((3, 3)))
+
+        np.testing.assert_array_equal(same_probability, np.array([1.0, 0.0, 1.0]))
+
+
+class TestPDLDiagnostics:
+
+    def test_pair_target_semantics_is_reported_in_diagnostics_classifier(self, classification_data):
+        train_data, _ = classification_data
+        classifier = PairwiseDifferenceClassifier(OperationParameters(model='rf', n_estimators=10, max_pairs=10_000))
+        classifier.fit(train_data)
+
+        semantics = classifier.get_diagnostics()["pair_target_semantics"]
+
+        assert semantics["task"] == "classification"
+        assert semantics["same_label"] == 0
+        assert semantics["different_label"] == 1
+        assert semantics["target_type"] == "dissimilarity"
+        assert semantics["inference_output"] == "same_probability"
+
+    def test_pair_target_semantics_is_reported_in_diagnostics_regressor(self, regression_data):
+        train_data, _ = regression_data
+        regressor = PairwiseDifferenceRegressor(OperationParameters(model='treg', n_estimators=10, max_pairs=10_000))
+        regressor.fit(train_data)
+
+        semantics = regressor.get_diagnostics()["pair_target_semantics"]
+
+        assert semantics["task"] == "regression"
+        assert semantics["delta_sign"] == "left_minus_anchor"
+        assert semantics["target_formula"] == "target_left - target_anchor"
+        assert semantics["inference_reconstruction"] == "anchor_target + predicted_delta"
+
+
+class TestPDCDataTransformerContracts:
+
+    @pytest.fixture
+    def sample_dataframe(self):
+        return pd.DataFrame(
+            {
+                "numeric_col": [1.5, 2.7, 3.2],
+                "string_col": ["A", "B", "C"],
+            }
+        )
+
+    @pytest.mark.xfail(reason="PDCDataTransformer.fit() does not initialize preprocessing_ yet (Issue 2).")
+    def test_pdc_data_transformer_initializes_x_preprocessor(self, sample_dataframe):
+        transformer = PDCDataTransformer(y_type="numeric")
+        transformer.fit(sample_dataframe, pd.Series([1.0, 2.0, 3.0]))
+
+        assert hasattr(transformer, "preprocessing_")
+        assert transformer.preprocessing_ is not None
+        transformed = transformer.transform(sample_dataframe)
+        assert isinstance(transformed, np.ndarray)
+        assert transformed.shape[0] == len(sample_dataframe)
+
+    @pytest.mark.xfail(reason="PDCDataTransformer.transform() should use preprocessing_y_ for y (Issue 2).")
+    def test_pdc_data_transformer_uses_y_preprocessor_for_target(self, sample_dataframe):
+        y = pd.Series([1.0, 2.0, 3.0], name="target")
+        transformer = PDCDataTransformer(y_type="numeric")
+        transformer.fit(sample_dataframe, y)
+
+        assert isinstance(transformer.preprocessing_y_, StandardScaler)
+
+        with patch.object(transformer.preprocessing_y_, "transform", wraps=transformer.preprocessing_y_.transform) as y_transform:
+            with patch.object(transformer, "preprocessing_", create=True) as x_preprocessor:
+                x_preprocessor.transform.return_value = sample_dataframe.values
+                transformer.transform(sample_dataframe, y)
+
+        y_transform.assert_called_once()
+
 
 # Tests for PairwiseDifferenceClassifier
 
@@ -220,3 +342,5 @@ class TestPairwiseDifferenceRegressor:
         with pytest.raises(ValueError):
             invalid_weights = pd.Series([1, 2])  # Wrong length
             regressor.set_sample_weight(invalid_weights)
+
+

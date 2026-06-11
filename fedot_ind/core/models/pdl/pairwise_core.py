@@ -11,7 +11,9 @@ except Exception:  # pragma: no cover
     torch = None
 
 SUPPORTED_PAIR_FEATURE_MODES = ("concat_diff", "concat_absdiff", "diff_only")
-
+CLASSIFICATION_SAME_LABEL = 0
+CLASSIFICATION_DIFFERENT_LABEL = 1
+REGRESSION_DELTA_SIGN = "left_minus_anchor"
 
 @dataclass(frozen=True)
 class PairwiseLearningConfig:
@@ -137,15 +139,17 @@ def build_classification_pairs(
     anchors = np.asarray(tuple(anchor_indices), dtype=int)
     pair_features = build_pair_features(feature_matrix, feature_matrix[anchors], config)
     left_indices, repeated_anchor_indices = _pair_indices(len(feature_matrix), anchors)
-    pair_target = (target[left_indices] != target[repeated_anchor_indices]).astype(int)
+    # pair_target = (target[left_indices] != target[repeated_anchor_indices]).astype(int)
+    dissimilarity_target = (target[left_indices] != target[repeated_anchor_indices]).astype(int)
     diagnostics = _pair_diagnostics(
         config=config,
         n_left=len(feature_matrix),
         n_anchors=len(anchors),
         pair_feature_dim=pair_features.shape[1],
         anchor_indices=anchors,
-    ) # TODO: сюда тоже идет контракт
-    return PairwiseBatch(pair_features, pair_target, left_indices, repeated_anchor_indices, diagnostics)
+        task="classification",
+    )
+    return PairwiseBatch(pair_features, dissimilarity_target, left_indices, repeated_anchor_indices, diagnostics)
 
 
 def build_regression_pairs(
@@ -159,15 +163,16 @@ def build_regression_pairs(
     anchors = np.asarray(tuple(anchor_indices), dtype=int)
     pair_features = build_pair_features(feature_matrix, feature_matrix[anchors], config)
     left_indices, repeated_anchor_indices = _pair_indices(len(feature_matrix), anchors)
-    pair_target = target_vector[left_indices] - target_vector[repeated_anchor_indices]
+    delta_left_minus_anchor = target_vector[left_indices] - target_vector[repeated_anchor_indices]
     diagnostics = _pair_diagnostics(
         config=config,
         n_left=len(feature_matrix),
         n_anchors=len(anchors),
         pair_feature_dim=pair_features.shape[1],
         anchor_indices=anchors,
+        task="regression",
     )
-    return PairwiseBatch(pair_features, pair_target.astype(float), left_indices, repeated_anchor_indices, diagnostics)
+    return PairwiseBatch(pair_features, delta_left_minus_anchor.astype(float), left_indices, repeated_anchor_indices, diagnostics)
 
 
 def build_pair_features(
@@ -283,7 +288,7 @@ def _build_pair_features_torch(left: np.ndarray, anchors: np.ndarray, mode: str,
     anchor_tensor = torch.as_tensor(anchors, dtype=torch.float32, device=device)
     left_repeated = left_tensor.repeat_interleave(anchor_tensor.shape[0], dim=0)
     anchors_tiled = anchor_tensor.repeat(left_tensor.shape[0], 1)
-    difference = left_repeated - anchors_tiled
+    difference = left_repeated - anchors_tiled # 
     if mode == "concat_diff":
         paired = torch.cat((left_repeated, anchors_tiled, difference), dim=1)
     elif mode == "concat_absdiff":
@@ -295,8 +300,25 @@ def _build_pair_features_torch(left: np.ndarray, anchors: np.ndarray, mode: str,
     return paired.detach().cpu().numpy()
 
 
-def _pair_target_semantics():
-    pass
+def _pair_target_semantics(*, task: str) -> dict[str, Any]:
+    # TODO: заменить через монады?
+    if task == "classification":
+        return {
+            "task": "classification",
+            "same_label": CLASSIFICATION_SAME_LABEL,
+            "different_label": CLASSIFICATION_DIFFERENT_LABEL,
+            "target_type": "dissimilarity",
+            "target_formula": "int(left_class != anchor_class)",
+            "inference_output": "same_probability",  # P(same_label)
+        }
+    if task == "regression":
+        return {
+            "task": "regression",
+            "delta_sign": REGRESSION_DELTA_SIGN,
+            "target_formula": "target_left - target_anchor",
+            "inference_reconstruction": "anchor_target + predicted_delta",
+        }
+    raise ValueError(f"Unsupported PDL task={task!r}.")
 
 
 def _combine_pair_blocks(left: np.ndarray, anchors: np.ndarray, difference: np.ndarray, mode: str) -> np.ndarray:
@@ -313,12 +335,12 @@ def _predict_same_probability(base_model: Any, pair_features: np.ndarray) -> np.
     if hasattr(base_model, "predict_proba"):
         probability = np.asarray(base_model.predict_proba(pair_features), dtype=float)
         classes = np.asarray(getattr(base_model, "classes_", np.arange(probability.shape[1])))
-        same_columns = np.flatnonzero(classes == 0)
+        same_columns = np.flatnonzero(classes == CLASSIFICATION_SAME_LABEL)
         if len(same_columns) == 0:
             return np.zeros(pair_features.shape[0], dtype=float)
         return probability[:, int(same_columns[0])]
     prediction = np.asarray(base_model.predict(pair_features)).reshape(-1)
-    return (prediction == 0).astype(float)
+    return (prediction == CLASSIFICATION_SAME_LABEL).astype(float)
 
 
 def _pair_diagnostics(
@@ -328,9 +350,9 @@ def _pair_diagnostics(
         n_anchors: int,
         pair_feature_dim: int,
         anchor_indices: np.ndarray,
+        task: str
 ) -> dict[str, Any]: # TODO: добавть контракт на все использование diagnostic
     backend_name, _ = resolve_pairwise_backend(config.backend)
-    # TODO: добавить pair_target_semantics 
     return {
         "backend": backend_name,
         "pairing_policy": config.pairing_policy,
@@ -340,5 +362,5 @@ def _pair_diagnostics(
         "pair_feature_dim": int(pair_feature_dim),
         "anchor_indices": [int(index) for index in anchor_indices],
         "config": config.to_dict(),
-        # pair_target_semantics
+        "pair_target_semantics": _pair_target_semantics(task=task),
     }
