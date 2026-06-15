@@ -88,8 +88,8 @@ def resolve_pairwise_backend(backend: str = "auto") -> tuple[str, Any | None]:
         return "torch_cpu", torch.device("cpu")
     raise ValueError(f"Unsupported PDL backend={backend!r}.")
 
-# TODO нет смысла во втором if так как в третьем делается то же самое и можно убрать первую часть второго if
-# TODO а если в target не будет какого-то класса, то мб сломается 
+# TODO not need srcond if
+# TODO test target without some class
 def select_classification_anchor_indices(
         encoded_target: Any,
         config: PairwiseLearningConfig,
@@ -111,7 +111,7 @@ def select_classification_anchor_indices(
     return np.asarray(sorted(set(selected)), dtype=int)
 
 
-def select_regression_anchor_indices( # TODO: реализовать механизмы выбора якорей
+def select_regression_anchor_indices( # TODO: in the feature add choice anchor method
         target: Any,
         config: PairwiseLearningConfig,
 ) -> np.ndarray:
@@ -302,7 +302,6 @@ def _build_pair_features_torch(left: np.ndarray, anchors: np.ndarray, mode: str,
 
 
 def _pair_target_semantics(*, task: str) -> dict[str, Any]:
-    # TODO: заменить через монады?
     if task == "classification":
         return {
             "task": "classification",
@@ -352,7 +351,7 @@ def _pair_diagnostics(
         pair_feature_dim: int,
         anchor_indices: np.ndarray,
         task: str
-) -> dict[str, Any]: # TODO: добавть контракт на все использование diagnostic
+) -> dict[str, Any]: # TODO: add typed contract diagnostic
     backend_name, _ = resolve_pairwise_backend(config.backend)
     return {
         "backend": backend_name,

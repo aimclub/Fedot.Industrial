@@ -106,57 +106,6 @@ class TestPDCDataTransformer:
         assert X_cast['numeric_col2'].dtype == np.float32
         assert y_cast.dtype == np.float32
 
-    # @patch.object(PDCDataTransformer, 'cast_uint')
-    # def test_transform(self, mock_cast_uint, sample_dataframe):
-    #     """Test the transform method with mocked prerequisites."""
-    #     # Setup
-    #     transformer = PDCDataTransformer()
-    #     transformer.preprocessing_ = MagicMock()
-    #     mock_transformed_data = pd.DataFrame(np.random.rand(5, 3))
-    #     transformer.preprocessing_.transform.return_value = mock_transformed_data
-    #     mock_cast_uint.return_value = (sample_dataframe, None)
-
-
-        # Test
-    #     result = transformer.transform(sample_dataframe)
-
-    #     # Assertions
-    #     mock_cast_uint.assert_called_once_with(sample_dataframe)
-    #     transformer.preprocessing_.transform.assert_called_once_with(sample_dataframe)
-    #     assert isinstance(result, np.ndarray)
-    #     assert result.dtype == np.float32
-
-    # def test_transform_no_features(self, sample_dataframe):
-    #     """Test transform method when preprocessing returns no features."""
-    #     transformer = PDCDataTransformer()
-    #     transformer.preprocessing_ = MagicMock()
-    #     # Mock transformer returning empty dataframe
-    #     transformer.preprocessing_.transform.return_value = pd.DataFrame()
-
-    #     # Create a mock to avoid the actual cast_uint implementation
-    #     with patch.object(PDCDataTransformer, 'cast_uint', return_value=(sample_dataframe, None)):
-    #         with pytest.raises(ValueError) as excinfo:
-    #             transformer.transform(sample_dataframe)
-    #         assert 'no features left after pre-processing' in str(excinfo.value)
-
-    # def test_transform_sparse_matrix(self, sample_dataframe):
-    #     """Test transform method rejects sparse matrix data."""
-    #     transformer = PDCDataTransformer()
-    #     transformer.preprocessing_ = MagicMock()
-
-    #     # Create a sparse matrix
-    #     sparse_data = csr_matrix(np.eye(5))
-
-    #     # Mock transformer returning DataFrame with sparse data
-    #     df_with_sparse = pd.DataFrame({'col1': [sparse_data[0]] * 5})
-    #     transformer.preprocessing_.transform.return_value = df_with_sparse
-
-    #     # Create a mock to avoid the actual cast_uint implementation
-    #     with patch.object(PDCDataTransformer, 'cast_uint', return_value=(sample_dataframe, None)):
-    #         with pytest.raises(NotImplementedError) as excinfo:
-    #             transformer.transform(sample_dataframe)
-    #         assert 'X contains sparse features' in str(excinfo.value)
-
     def test_transform_raises_not_implemented(self, sample_dataframe):
         """Legacy transformer must not expose a broken production transform path."""
         with pytest.warns(DeprecationWarning, match="PDCDataTransformer"):

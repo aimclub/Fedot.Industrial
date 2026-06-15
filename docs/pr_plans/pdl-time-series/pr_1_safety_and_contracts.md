@@ -132,27 +132,19 @@ flowchart TB
 
 ## Отчёт по выполнению PR 1
 
-Статус: **Issue 1 — выполнен** (с оговорками ниже). **Issue 2 — выполнен** (код transformer пернесён в legacy, тесты добавлены и адаптированы под перенос модуля в legacy).
+Статус: **Issue 1 — выполнен**. **Issue 2 — выполнен**.
 
 Затронутые файлы:
 
 ```text
 * fedot_ind/core/models/pdl/pairwise_core.py — контракты, diagnostics, имена
-* fedot_ind/core/models/pdl/pairwise_model.py — legacy API, score_difference
-* tests/unit/core/models/test_pdl.py  — estimator + legacy + PDC (xfail)
+* fedot_ind/core/models/pdl/pairwise_model.py — score_difference
+* tests/unit/core/models/test_pdl.py  — контракты, estimator/classifier/regressor
 * tests/unit/core/models/test_pairwise_learning_core.py — core-level контракты
 
 * fedot_ind/core/models/pdl/legacy_pairwise_transform.py — модуль transform перенесённый в legacy
 * tests/unit/core/models/test_pdl_transform.py — пересобранные тесты для legacy transform
 ```
-
-Не изменялись в рамках PR 1:
-
-```text
-fedot_ind/core/models/pdl/__init__.py
-```
-
----
 
 ### 1. Явные constants/metadata для classification target semantics
 
@@ -176,7 +168,6 @@ REGRESSION_DELTA_SIGN = "left_minus_anchor"
 | `CLASSIFICATION_SAME_LABEL`, `CLASSIFICATION_DIFFERENT_LABEL` | `pairwise_core.py` | `_pair_target_semantics(task="classification")` → поля `same_label`, `different_label` |
 | `REGRESSION_DELTA_SIGN` | `pairwise_core.py` | `_pair_target_semantics(task="regression")` → поле `delta_sign` |
 
-**Не сделано (non-blocking):** module-level docstring в начале `pairwise_core.py` (в Issue 1 указан, но не блокирует acceptance).
 
 ---
 
@@ -246,8 +237,6 @@ inference               = anchor_target + predicted_delta
 | `_build_pair_features_numpy` (`left - anchors`) | `pairwise_core.py` ~282 |
 | Legacy `pair_output` | `pairwise_model.py` ~60–63 |
 
-**Тесты:** `test_regression_pair_target_is_left_minus_anchor` (`test_pdl.py`), `test_regression_pair_target_uses_left_minus_anchor_sign_convention` (`test_pairwise_learning_core.py`).
-
 **Удалено из тестов:** старый `test_pair_output` с ожиданием `anchor - left` (`y2 - y1`); заменён на `test_regression_pair_target_is_left_minus_anchor`.
 
 ---
@@ -274,7 +263,7 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
     → get_diagnostics()
 ```
 
-**Пример classification:**
+**Для classification:**
 
 ```json
 {
@@ -287,7 +276,7 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
 }
 ```
 
-**Пример regression:**
+** Для regression:**
 
 ```json
 {
@@ -296,6 +285,14 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
   "target_formula": "target_left - target_anchor",
   "inference_reconstruction": "anchor_target + predicted_delta"
 }
+
+*_pair_diagnostics* кладётся в PairwiseBatch.diagnostics на этапе построения пар,
+источник pairwise_core.py.
+В pairwise_model.py: в fit к batch‑диагностике добавляются runtime‑поля модели (diagnostics_).
+
+Опционально доработать: нет типизированного контракта диагностики, оставлены TODO для PairwiseBatch.diagnostics, _pair_diagnostics, и в обоих fit. Сейчас это dict.
+
+
 ```
 
 **Тесты:**
@@ -337,7 +334,7 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
 | `test_pair_target_semantics_is_reported_in_diagnostics_classifier` | `TestPDLDiagnostics` | semantics после `Classifier.fit` |
 | `test_pair_target_semantics_is_reported_in_diagnostics_regressor` | `TestPDLDiagnostics` | semantics после `Regressor.fit` |
 
-Заглушки `_PairProbaStub`, `_HardLabelStub` вместо `MagicMock` — проще читать и стабильнее в CI.
+Заглушки `_PairProbaStub`, `_HardLabelStub` вместо `MagicMock`.
 
 #### `tests/unit/core/models/test_pairwise_learning_core.py`
 
@@ -348,52 +345,9 @@ build_*_pairs → batch.diagnostics["pair_target_semantics"]
 | `test_predict_same_probability_uses_same_label_column` | `_predict_same_probability` на уровне core |
 | `test_regression_pair_target_uses_left_minus_anchor_sign_convention` | delta + feature blocks |
 
-**Запуск:**
-
-```bash
-pytest tests/unit/core/models/test_pdl.py tests/unit/core/models/test_pairwise_learning_core.py -v
-```
-
----
-
-## Соответствие Issue 1 — acceptance criteria
-
-| Критерий | Статус | Где проверено |
-|---|---|---|
-| Контракт classification target явно описан | ✅ | константы, `_pair_target_semantics`, docstring `pair_output_difference` |
-| Контракт regression target явно описан | ✅ | `delta_left_minus_anchor`, `REGRESSION_DELTA_SIGN`, diagnostics |
-| Diagnostics возвращает `pair_target_semantics` | ✅ | `_pair_diagnostics`, тесты `TestPDLDiagnostics` |
-| Backward compatibility сохранена | ✅ | публичное поведение clf/reg не менялось; `PairwiseBatch.target` — то же поле |
-| Тесты проверяют values и interpretation | ✅ | exact arrays на toy data |
-
-**Non-goals соблюдены:** classification target `0=same, 1=different` не менялся; posterior aggregation не добавлялась.
-
----
-
-## Соответствие Issue 2 — acceptance criteria
-
-| Критерий | Статус |
-|---|---|
-| Вынести в legacy и удалить из production path | ✅ |
-| Тесты `test_pdl_transform.py` | ✅ |
-
----
-
-## Критерии приёмки PR 1 — итог
-
-| Критерий | Статус |
-|---|---|
-| Поведение default classifier/regressor не меняется | ✅ |
-| Diagnostics явно сообщает target semantics | ✅ |
-| Нет обращения к неинициализированным attributes в transformer | ✅ |
-| Все PDL unit tests проходят | ✅ |
-
----
-
-## Остаточный техдолг (вне scope закрытого PR 1)
-
-- Удалить закомментированную строку `# pair_target = ...` в `build_classification_pairs` (`pairwise_core.py` ~142).
-- Module-level docstring в `pairwise_core.py`.
-- TypedContract для `PairwiseBatch.diagnostics` (TODO в коде).
-- Переименовать `similarity` → `same_probability_matrix` в `_predict_encoded_proba` (косметика).
-
+Опционально следовало бы когда-нибудь сделать: 
+classification_data/regression_data используют np.random.rand без фиксированного сидирования numpy (сид есть только в train_test_split)
+для воспроизводимости где-нибудь в фикстурах зафиксировать.
+### 8. Импорты
+«Добавить недостающие imports». 
+import warnings присутствует (legacy_pairwise_transform.py:12) это был исходный баг из Issue 2 (использование warnings.catch_warnings() без импорта).

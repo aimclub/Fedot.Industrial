@@ -132,7 +132,7 @@ class _HardLabelStub:
 class TestPDLContracts:
 
     def test_predict_same_probability_uses_same_label_column(self):
-        # predict_proba: столбец 0 = P(same), столбец 1 = P(different)
+        # predict_proba: col 0 = P(same), col 1 = P(different)
         stub_model = _PairProbaStub(
             probabilities=np.array([[0.8, 0.2], [0.3, 0.7]]),
             classes=np.array([0, 1]),
@@ -140,11 +140,11 @@ class TestPDLContracts:
 
         same_probability = _predict_same_probability(stub_model, np.zeros((2, 3)))
 
-        # Должны взять первый столбец (label 0), а не второй (label 1)
+        # get first col (label 0), not second (label 1)
         np.testing.assert_allclose(same_probability, np.array([0.8, 0.3]))
 
     def test_predict_same_probability_falls_back_to_hard_predictions(self):
-        # Без predict_proba: label 0 -> 1.0 (same), label 1 -> 0.0 (different)
+        # without predict_proba: label 0 -> 1.0 (same), label 1 -> 0.0 (different)
         stub_model = _HardLabelStub(labels=np.array([0, 1, 0]))
 
         same_probability = _predict_same_probability(stub_model, np.zeros((3, 3)))
@@ -178,6 +178,64 @@ class TestPDLDiagnostics:
         assert semantics["delta_sign"] == "left_minus_anchor"
         assert semantics["target_formula"] == "target_left - target_anchor"
         assert semantics["inference_reconstruction"] == "anchor_target + predicted_delta"
+
+    def test_classification_diagnostics_report_full_pair_contract(self):
+        """Diagnostics must expose the full runtime pair contract, not only semantics.
+
+        Deterministic toy arrays: 4 samples / 2 features, all-pairs regime (16 <= max_pairs),
+        concat_diff -> pair_feature_dim = 2 * 3 = 6.
+        """
+        features = np.array([[0.0, 0.0], [0.1, 0.1], [5.0, 5.0], [5.1, 5.1]])
+        target = np.array([0, 0, 1, 1])
+        classifier = PairwiseDifferenceClassifier(
+            OperationParameters(
+                model="rf", n_estimators=5, backend="numpy", max_pairs=10_000, pair_feature_mode="concat_diff"
+            )
+        )
+        classifier.fit(features, target)
+
+        diagnostics = classifier.get_diagnostics()
+        for key in (
+            "backend", "pairing_policy", "n_train", "n_anchors", "n_pairs",
+            "pair_feature_dim", "anchor_indices", "config", "pair_target_semantics",
+            "task", "n_classes", "base_model",
+        ):
+            assert key in diagnostics, f"missing diagnostics key: {key}"
+
+        assert diagnostics["task"] == "classification"
+        assert diagnostics["n_classes"] == 2
+        assert diagnostics["base_model"] == "rf"
+        assert diagnostics["n_train"] == 4
+        assert diagnostics["n_anchors"] == 4  # all-pairs regime
+        assert diagnostics["n_pairs"] == diagnostics["n_train"] * diagnostics["n_anchors"] == 16
+        assert diagnostics["pair_feature_dim"] == 6
+        assert diagnostics["config"]["pair_feature_mode"] == "concat_diff"
+        assert len(diagnostics["anchor_indices"]) == diagnostics["n_anchors"]
+
+    def test_regression_diagnostics_report_full_pair_contract(self):
+        """Same runtime pair contract for the regressor (1 feature -> pair_feature_dim = 3)."""
+        features = np.arange(6, dtype=float).reshape(-1, 1)
+        target = 2.0 * features.reshape(-1)
+        regressor = PairwiseDifferenceRegressor(
+            OperationParameters(
+                model="treg", n_estimators=5, backend="numpy", max_pairs=10_000, pair_feature_mode="concat_diff"
+            )
+        )
+        regressor.fit(features, target)
+
+        diagnostics = regressor.get_diagnostics()
+        for key in (
+            "backend", "pairing_policy", "n_train", "n_anchors", "n_pairs",
+            "pair_feature_dim", "anchor_indices", "config", "pair_target_semantics",
+            "task", "base_model",
+        ):
+            assert key in diagnostics, f"missing diagnostics key: {key}"
+
+        assert diagnostics["task"] == "regression"
+        assert diagnostics["n_train"] == 6
+        assert diagnostics["n_anchors"] == 6
+        assert diagnostics["n_pairs"] == 36
+        assert diagnostics["pair_feature_dim"] == 3
 
 
 # Tests for PairwiseDifferenceClassifier
