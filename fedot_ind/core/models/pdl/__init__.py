@@ -1,5 +1,10 @@
-from fedot_ind.core.models.pdl.pairwise_core import PairwiseLearningConfig
-from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
+# from fedot_ind.core.models.pdl.pairwise_core import PairwiseLearningConfig
+# from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
+
+# replacement with relative imports
+
+from .pairwise_core import PairwiseLearningConfig
+from .pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
 
 __all__ = [
     "PairwiseDifferenceClassifier",

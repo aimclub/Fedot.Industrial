@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "fedot-ind-pdl"
+version = "0.1.0"
+description = "Pairwise Difference Learning (PDL) — standalone lightweight extract from Fedot.Industrial."
+requires-python = ">=3.10,<3.12"
+authors = [{ name = "NSS Lab", email = "itmo.nss.team@gmail.com" }]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "scipy",
+    "fedot",
+]
+
+[project.optional-dependencies]
+torch = ["torch"]
+catboost = ["catboost"]
+lightgbm = ["lightgbm"]
+xgboost = ["xgboost"]
+all = ["torch", "catboost", "lightgbm", "xgboost"]
+# current  folder as an imported package `fedot_ind_pdl`.
+[tool.setuptools]
+packages = ["fedot_ind_pdl"]
+[tool.setuptools.package-dir]
+fedot_ind_pdl = "."

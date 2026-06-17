@@ -23,8 +23,8 @@ from fedot_ind.core.models.pdl.pairwise_core import (
     select_classification_anchor_indices,
     select_regression_anchor_indices,
 )
-from fedot_ind.core.repository.constanst_repository import SKLEARN_CLF_IMP, SKLEARN_REG_IMP
-
+# from fedot_ind.core.repository.constanst_repository import SKLEARN_CLF_IMP, SKLEARN_REG_IMP
+from .pdl_model_registry import SKLEARN_CLF_IMP, SKLEARN_REG_IMP
 
 class PairwiseDifferenceEstimator:
     """Compatibility helper exposing the legacy pair construction methods without pandas cross-merge."""
