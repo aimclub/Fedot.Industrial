@@ -9,7 +9,7 @@ from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.preprocessing import LabelEncoder
 
-from fedot_ind.core.models.pdl.pairwise_core import (
+from .pairwise_core import (
     PairwiseLearningConfig,
     aggregate_similarity_to_class_proba,
     build_classification_pairs,
