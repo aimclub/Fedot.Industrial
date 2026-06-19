@@ -22,6 +22,7 @@ from fedot_ind.core.kernel_learning.generators.specs import (
     eigen_spec,
     fourier_spec,
     recurrence_spec,
+    riemann_spec,
     tabular_spec,
     topological_spec,
     torch_quantile_spec,
@@ -89,6 +90,13 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
             operation_specs=(topological_spec(),),
             budget_policy=GeneratorBudgetPolicy(
                 max_cells=250_000,
+                fallback_generator="identity",
+            ),
+        ),
+        "riemann_extractor": lambda: BudgetedRepositoryFeatureGeneratorAdapter(
+            name="riemann_extractor",
+            operation_specs=(riemann_spec(),),
+            budget_policy=GeneratorBudgetPolicy(
                 fallback_generator="identity",
             ),
         ),

@@ -71,6 +71,7 @@ def test_default_registry_exposes_repo_native_generators():
             "eigen_extractor",
             "recurrence_extractor",
             "topological_extractor",
+            "riemann_extractor",
             "tabular_extractor",
             "shapelet_extractor",
             "embedding_extractor",
@@ -279,3 +280,245 @@ def test_resolve_torch_device_auto_prefers_cuda_when_available(monkeypatch):
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
     assert str(resolve_torch_device("auto")) == "cuda"
+
+
+def test_riemann_extractor_is_budgeted_repo_adapter():
+    generator = create_feature_generator("riemann_extractor")
+
+    assert isinstance(generator, BudgetedRepositoryFeatureGeneratorAdapter)
+    assert generator.operation_specs[0].name == "riemann_extractor"
+
+
+def test_riemann_extractor_fit_transform_and_transform_are_target_free():
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y_left = np.array([0, 1])
+    y_right = np.array([1, 0])
+
+    generator_left = create_feature_generator("riemann_extractor")
+    generator_right = create_feature_generator("riemann_extractor")
+
+    left = generator_left.fit_transform(X, y_left).features
+    right = generator_right.fit_transform(X, y_right).features
+
+    assert np.allclose(left, right)
+    assert np.all(np.isfinite(left))
+    assert np.all(np.isfinite(right))
+    assert left.shape == right.shape
+
+
+def test_topological_extractor_fit_transform_and_transform_are_target_free():
+    
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y_left = np.array([0, 1])
+    y_right = np.array([1, 0])
+
+    generator_left = create_feature_generator("topological_extractor")
+    generator_right = create_feature_generator("topological_extractor")
+
+    left = generator_left.fit_transform(X, y_left).features
+    right = generator_right.fit_transform(X, y_right).features
+
+    assert np.allclose(left, right)
+    assert np.all(np.isfinite(left))
+    assert np.all(np.isfinite(right))
+    assert left.shape == right.shape
+
+
+def test_riemann_extractor_output_is_finite_and_has_expected_shape():
+    pytest.importorskip("fedot")    
+    pytest.importorskip("torch")
+
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    generator = create_feature_generator("riemann_extractor")
+    features = generator.fit_transform(X).features
+
+    assert np.all(np.isfinite(features))
+    assert features.shape == (2, 4)
+
+
+def test_topological_extractor_output_is_finite_and_has_expected_shape():
+    pytest.importorskip("fedot")    
+    pytest.importorskip("torch")
+
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    generator = create_feature_generator("topological_extractor")
+    features = generator.fit_transform(X).features
+
+    assert np.all(np.isfinite(features))
+    assert features.shape == (2, 4)
+
+
+def test_empty_input_in_riemann_extractor_raises_value_error():
+    generator = create_feature_generator("riemann_extractor")
+
+    with pytest.raises(ValueError):
+        generator.fit_transform(np.array(0), np.array([0]))
+
+
+def test_empty_input_in_topological_extractor_raises_value_error():
+
+    generator = create_feature_generator("topological_extractor")
+
+    with pytest.raises(ValueError):
+        generator.fit_transform(np.array(0), np.array([0]))
+
+
+def test_budgeted_riemann_adapter_falls_back_on_budget_exceeded():
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="riemann_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="riemann_extractor",
+                module_path="missing_riemann_module",
+                class_name="MissingRiemann",
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+    )
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y = np.array([0, 1])
+
+    bundle = generator.fit_transform(X, y)
+
+    assert bundle.name == "riemann_extractor"
+    assert bundle.features.shape[0] == 2
+    assert bundle.diagnostics["source"] == "budgeted_fallback"
+
+
+def test_budgeted_topological_adapter_falls_back_on_budget_exceeded():
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="topological_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="topological_extractor",
+                module_path="missing_topology_module",
+                class_name="MissingTopology",
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+    )
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y = np.array([0, 1])
+
+    bundle = generator.fit_transform(X, y)
+
+    assert bundle.name == "topological_extractor"
+    assert bundle.features.shape[0] == 2
+    assert bundle.diagnostics["source"] == "budgeted_fallback"
+
+def test_riemann_extractor_same_for_classification_and_regression_and_ts_forecasting():
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y = np.array([0, 1])
+
+    gen_clf = create_feature_generator("riemann_extractor")
+    out_clf = gen_clf.fit_transform(X, y, task_type="classification").features
+
+    gen_reg = create_feature_generator("riemann_extractor")
+    out_reg = gen_reg.fit_transform(X, y, task_type="regression").features
+
+    gen_ts = create_feature_generator("riemann_extractor")
+    out_ts = gen_ts.fit_transform(X, y, task_type="ts_forecasting").features
+
+    assert out_clf.shape == out_reg.shape == out_ts.shape
+    assert np.all(np.isfinite(out_clf))
+    assert np.all(np.isfinite(out_reg))
+    assert np.all(np.isfinite(out_ts))
+    assert np.allclose(out_clf, out_reg)
+    assert np.allclose(out_clf, out_ts)
+
+def test_topological_extractor_same_for_classification_and_regression_and_ts_forecasting():
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y = np.array([0, 1])
+
+    gen_clf = create_feature_generator("topological_extractor")
+    out_clf = gen_clf.fit_transform(X, y, task_type="classification").features
+
+    gen_reg = create_feature_generator("topological_extractor")
+    out_reg = gen_reg.fit_transform(X, y, task_type="regression").features
+
+    gen_ts = create_feature_generator("topological_extractor")
+    out_ts = gen_ts.fit_transform(X, y, task_type="ts_forecasting").features
+
+    assert out_clf.shape == out_reg.shape == out_ts.shape
+    assert np.all(np.isfinite(out_clf))
+    assert np.all(np.isfinite(out_reg))
+    assert np.all(np.isfinite(out_ts))
+    assert np.allclose(out_clf, out_reg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
