@@ -1,6 +1,22 @@
+"""Core utilities for Pairwise Difference Learning (PDL).
+
+This module implements the task-agnostic building blocks of PDL: anchor
+selection, pair construction, pair-feature generation, chunked inference and
+diagnostics. The estimator facades live in ``pairwise_model``.
+
+Pair-target contracts (kept backward compatible):
+    * Classification: ``0 = same`` (``CLASSIFICATION_SAME_LABEL``),
+      ``1 = different`` (``CLASSIFICATION_DIFFERENT_LABEL``). The training
+      target is a *dissimilarity* label and inference returns the probability
+      of the ``same`` class.
+    * Regression: ``delta = target_left - target_anchor``
+      (``REGRESSION_DELTA_SIGN = "left_minus_anchor"``); predictions are
+      reconstructed as ``anchor_target + predicted_delta``.
+"""
+
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Iterable
 
 import numpy as np
@@ -14,6 +30,30 @@ SUPPORTED_PAIR_FEATURE_MODES = ("concat_diff", "concat_absdiff", "diff_only")
 CLASSIFICATION_SAME_LABEL = 0
 CLASSIFICATION_DIFFERENT_LABEL = 1
 REGRESSION_DELTA_SIGN = "left_minus_anchor"
+SUPPORTED_AGGREGATION_POLICIES = (
+    "mean_similarity",
+    "paper_posterior",
+    "weighted_posterior",
+)
+AGGREGATION_POLICY_ALIASES = {
+    "posterior": "paper_posterior",
+    "mean": "mean_similarity",
+    "weighted": "weighted_posterior",
+}
+PRIOR_EPS = 1e-12
+
+
+def resolve_aggregation_policy(raw: str) -> str:
+    key = str(raw).strip().lower()
+    canonical = AGGREGATION_POLICY_ALIASES.get(key, key)
+    if canonical not in SUPPORTED_AGGREGATION_POLICIES:
+        raise ValueError(
+            f"Unsupported aggregation_policy={raw!r}. "
+            f"Supported policies: {SUPPORTED_AGGREGATION_POLICIES}. "
+            f"Aliases: {sorted(AGGREGATION_POLICY_ALIASES)}."
+        )
+    return canonical
+
 
 @dataclass(frozen=True)
 class PairwiseLearningConfig:
@@ -24,6 +64,9 @@ class PairwiseLearningConfig:
     pair_feature_mode: str = "concat_diff"
     chunk_size: int = 8192
     random_state: int = 42
+    aggregation_policy: str = "mean_similarity"
+    symmetric_inference: bool = False
+    class_prior_mode: str = "empirical"
 
     def normalized(self) -> "PairwiseLearningConfig":
         if self.max_pairs <= 0:
@@ -39,7 +82,17 @@ class PairwiseLearningConfig:
             )
         if self.pairing_policy not in {"adaptive_anchors", "all_pairs", "exact", "stratified_anchors"}:
             raise ValueError(f"Unsupported pairing_policy={self.pairing_policy!r}.")
-        return self
+        resolved_policy = resolve_aggregation_policy(self.aggregation_policy)
+        if self.class_prior_mode not in {"empirical", "uniform"}:
+            raise ValueError(
+                f"Unsupported class_prior_mode={self.class_prior_mode!r}. "
+                f"Supported modes: 'empirical', 'uniform'."
+            )
+        if not isinstance(self.symmetric_inference, bool):
+            raise ValueError(
+                f"symmetric_inference must be bool, got {type(self.symmetric_inference).__name__}."
+            )
+        return replace(self, aggregation_policy=resolved_policy)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -51,7 +104,8 @@ class PairwiseBatch:
     target: np.ndarray
     left_indices: np.ndarray
     anchor_indices: np.ndarray
-    diagnostics: dict[str, Any] # TODO: TypedContract добавить 
+    # TODO: replace ``diagnostics`` with a typed contract.
+    diagnostics: dict[str, Any]
 
 
 def normalize_feature_matrix(features: Any) -> np.ndarray:
@@ -88,8 +142,7 @@ def resolve_pairwise_backend(backend: str = "auto") -> tuple[str, Any | None]:
         return "torch_cpu", torch.device("cpu")
     raise ValueError(f"Unsupported PDL backend={backend!r}.")
 
-# TODO not need srcond if
-# TODO test target without some class
+
 def select_classification_anchor_indices(
         encoded_target: Any,
         config: PairwiseLearningConfig,
@@ -111,7 +164,7 @@ def select_classification_anchor_indices(
     return np.asarray(sorted(set(selected)), dtype=int)
 
 
-def select_regression_anchor_indices( # TODO: in the feature add choice anchor method
+def select_regression_anchor_indices(
         target: Any,
         config: PairwiseLearningConfig,
 ) -> np.ndarray:
@@ -140,7 +193,6 @@ def build_classification_pairs(
     anchors = np.asarray(tuple(anchor_indices), dtype=int)
     pair_features = build_pair_features(feature_matrix, feature_matrix[anchors], config)
     left_indices, repeated_anchor_indices = _pair_indices(len(feature_matrix), anchors)
-    # pair_target = (target[left_indices] != target[repeated_anchor_indices]).astype(int)
     dissimilarity_target = (target[left_indices] != target[repeated_anchor_indices]).astype(int)
     diagnostics = _pair_diagnostics(
         config=config,
@@ -289,7 +341,7 @@ def _build_pair_features_torch(left: np.ndarray, anchors: np.ndarray, mode: str,
     anchor_tensor = torch.as_tensor(anchors, dtype=torch.float32, device=device)
     left_repeated = left_tensor.repeat_interleave(anchor_tensor.shape[0], dim=0)
     anchors_tiled = anchor_tensor.repeat(left_tensor.shape[0], 1)
-    difference = left_repeated - anchors_tiled # 
+    difference = left_repeated - anchors_tiled
     if mode == "concat_diff":
         paired = torch.cat((left_repeated, anchors_tiled, difference), dim=1)
     elif mode == "concat_absdiff":
@@ -350,8 +402,8 @@ def _pair_diagnostics(
         n_anchors: int,
         pair_feature_dim: int,
         anchor_indices: np.ndarray,
-        task: str
-) -> dict[str, Any]: # TODO: add typed contract diagnostic
+        task: str,
+) -> dict[str, Any]:  # TODO: add typed contract diagnostic
     backend_name, _ = resolve_pairwise_backend(config.backend)
     return {
         "backend": backend_name,

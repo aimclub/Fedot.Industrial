@@ -1,10 +1,15 @@
+"""Unit tests for the Pairwise Difference Learning (PDL) estimators.
+
+Covers the legacy ``PairwiseDifferenceEstimator`` helper, the PDL pair-target
+contracts (same/different labels and the left-minus-anchor delta sign), the
+diagnostics payload, and the public classifier/regressor APIs.
+"""
+
 import pytest
 import numpy as np
 import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from unittest.mock import patch
 
 from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
 from fedot_ind.core.models.pdl.pairwise_core import _predict_same_probability
@@ -14,11 +19,14 @@ from fedot_ind.core.models.pdl.pairwise_model import (
     PairwiseDifferenceRegressor,
 )
 
-# Fixtures for test data
-
 
 @pytest.fixture
 def classification_data():
+    """Provide a random binary-classification train/test split as ``InputData``.
+
+    Returns:
+        A ``(train_data, test_data)`` tuple of FEDOT ``InputData`` objects.
+    """
     X, y = np.random.rand(50, 50), np.random.randint(0, 2, 50)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -31,6 +39,11 @@ def classification_data():
 
 @pytest.fixture
 def regression_data():
+    """Provide a random regression train/test split as ``InputData``.
+
+    Returns:
+        A ``(train_data, test_data)`` tuple of FEDOT ``InputData`` objects.
+    """
     X, y = np.random.rand(50, 50), np.random.rand(50)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -40,12 +53,12 @@ def regression_data():
 
     return train_data, test_data
 
-# Tests for PairwiseDifferenceEstimator
-
 
 class TestPairwiseDifferenceEstimator:
+    """Tests for the legacy pandas-based pair construction helper."""
 
     def test_convert_to_pandas(self):
+        """Array-like inputs are coerced into DataFrames with preserved shape."""
         pde = PairwiseDifferenceEstimator()
         arr1 = np.array([[1, 2], [3, 4]])
         arr2 = np.array([[5, 6], [7, 8]])
@@ -58,6 +71,7 @@ class TestPairwiseDifferenceEstimator:
         assert df2.shape == arr2.shape
 
     def test_pair_input(self):
+        """``pair_input`` yields the full cross product with ``_x/_y/_diff`` columns."""
         pde = PairwiseDifferenceEstimator()
         X1 = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
         X2 = pd.DataFrame({'a': [5, 6], 'b': [7, 8]})
@@ -73,6 +87,7 @@ class TestPairwiseDifferenceEstimator:
         assert all(col in X_pair.columns for col in expected_columns)
 
     def test_regression_pair_target_is_left_minus_anchor(self):
+        """``pair_output`` follows the ``left - anchor`` delta sign convention."""
         pde = PairwiseDifferenceEstimator()
         y1 = pd.Series([1.0, 3.0])
         y2 = pd.Series([1.0, 3.0])
@@ -84,6 +99,7 @@ class TestPairwiseDifferenceEstimator:
         np.testing.assert_allclose(delta, np.array([0.0, -2.0, 2.0, 0.0]))
 
     def test_classification_pair_target_semantics_same_is_zero_current_contract(self):
+        """``pair_output_difference`` encodes same class as ``0`` and different as ``1``."""
         pde = PairwiseDifferenceEstimator()
         y1 = pd.Series([5, 5, 7])
         y2 = pd.Series([5])
@@ -94,6 +110,7 @@ class TestPairwiseDifferenceEstimator:
         np.testing.assert_array_equal(dissimilarity_target, np.array([0, 0, 1]))
 
     def test_pair_output_difference(self):
+        """Dissimilarity targets are produced for every cross-product pair."""
         pde = PairwiseDifferenceEstimator()
         y1 = pd.Series([0, 1, 2])
         y2 = pd.Series([0, 2])
@@ -109,29 +126,33 @@ class TestPairwiseDifferenceEstimator:
 
 
 class _PairProbaStub:
-    """заглушка sklearn-классификатора с predict_proba."""
+    """Sklearn-like classifier stub exposing a fixed ``predict_proba`` output."""
 
     def __init__(self, probabilities: np.ndarray, classes: np.ndarray):
         self.classes_ = classes
         self._probabilities = probabilities
 
     def predict_proba(self, pair_features: np.ndarray) -> np.ndarray:
+        """Return the preset probability matrix regardless of the input."""
         return self._probabilities
 
 
 class _HardLabelStub:
-    """классификатора только с predict (без predict_proba)."""
+    """Classifier stub exposing only ``predict`` (no ``predict_proba``)."""
 
     def __init__(self, labels: np.ndarray):
         self._labels = labels
 
     def predict(self, pair_features: np.ndarray) -> np.ndarray:
+        """Return the preset hard labels regardless of the input."""
         return self._labels
 
 
 class TestPDLContracts:
+    """Tests for the inference-side same/different probability contract."""
 
     def test_predict_same_probability_uses_same_label_column(self):
+        """The same-class probability is read from the ``same_label`` (0) column."""
         # predict_proba: col 0 = P(same), col 1 = P(different)
         stub_model = _PairProbaStub(
             probabilities=np.array([[0.8, 0.2], [0.3, 0.7]]),
@@ -144,6 +165,7 @@ class TestPDLContracts:
         np.testing.assert_allclose(same_probability, np.array([0.8, 0.3]))
 
     def test_predict_same_probability_falls_back_to_hard_predictions(self):
+        """Without ``predict_proba``, hard labels map ``0 -> 1.0`` and ``1 -> 0.0``."""
         # without predict_proba: label 0 -> 1.0 (same), label 1 -> 0.0 (different)
         stub_model = _HardLabelStub(labels=np.array([0, 1, 0]))
 
@@ -153,8 +175,10 @@ class TestPDLContracts:
 
 
 class TestPDLDiagnostics:
+    """Tests asserting the diagnostics payload exposes the PDL pair contract."""
 
     def test_pair_target_semantics_is_reported_in_diagnostics_classifier(self, classification_data):
+        """Classifier diagnostics expose the classification pair-target semantics."""
         train_data, _ = classification_data
         classifier = PairwiseDifferenceClassifier(OperationParameters(model='rf', n_estimators=10, max_pairs=10_000))
         classifier.fit(train_data)
@@ -168,6 +192,7 @@ class TestPDLDiagnostics:
         assert semantics["inference_output"] == "same_probability"
 
     def test_pair_target_semantics_is_reported_in_diagnostics_regressor(self, regression_data):
+        """Regressor diagnostics expose the regression delta-sign semantics."""
         train_data, _ = regression_data
         regressor = PairwiseDifferenceRegressor(OperationParameters(model='treg', n_estimators=10, max_pairs=10_000))
         regressor.fit(train_data)
@@ -238,12 +263,11 @@ class TestPDLDiagnostics:
         assert diagnostics["pair_feature_dim"] == 3
 
 
-# Tests for PairwiseDifferenceClassifier
-
-
 class TestPairwiseDifferenceClassifier:
+    """Tests for the public ``PairwiseDifferenceClassifier`` API."""
 
     def test_init(self):
+        """Configuration keys are split from base-model params during init."""
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
 
@@ -252,6 +276,7 @@ class TestPairwiseDifferenceClassifier:
         assert hasattr(classifier, 'pde')
 
     def test_fit_predict(self, classification_data):
+        """Fitting then predicting returns valid in-range class indices."""
         train_data, test_data = classification_data
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
@@ -272,6 +297,7 @@ class TestPairwiseDifferenceClassifier:
         assert np.all(predictions < classifier.num_classes)
 
     def test_predict_proba(self, classification_data):
+        """``predict_proba`` returns a row-stochastic probability matrix."""
         train_data, test_data = classification_data
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
@@ -286,6 +312,7 @@ class TestPairwiseDifferenceClassifier:
         assert np.allclose(np.sum(proba, axis=1), np.ones(len(test_data.target)), atol=1e-10)
 
     def test_score_difference(self, classification_data):
+        """``score_difference`` returns a MAE-like value within ``[0, 1]``."""
         train_data, test_data = classification_data
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
@@ -297,12 +324,12 @@ class TestPairwiseDifferenceClassifier:
         assert isinstance(score, float)
         assert 0 <= score <= 1  # MAE value should be between 0 and 1
 
-# Tests for PairwiseDifferenceRegressor
-
 
 class TestPairwiseDifferenceRegressor:
+    """Tests for the public ``PairwiseDifferenceRegressor`` API."""
 
     def test_init(self):
+        """Configuration keys are split from base-model params during init."""
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
 
@@ -311,6 +338,7 @@ class TestPairwiseDifferenceRegressor:
         assert hasattr(regressor, 'pde')
 
     def test_fit_predict(self, regression_data):
+        """Fitting then predicting returns one prediction per test sample."""
         train_data, test_data = regression_data
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
@@ -326,6 +354,7 @@ class TestPairwiseDifferenceRegressor:
         assert len(predictions) == len(test_data.target)
 
     def test_predict_samples(self, regression_data):
+        """``_predict_samples`` returns per-anchor samples and deltas with matching shapes."""
         train_data, test_data = regression_data
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
@@ -343,6 +372,7 @@ class TestPairwiseDifferenceRegressor:
     # This would require mocking _name_to_method_mapping and detailed implementation knowledge
 
     def test_set_sample_weight(self, regression_data):
+        """``set_sample_weight`` accepts matching weights and rejects wrong lengths."""
         train_data, _ = regression_data
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
