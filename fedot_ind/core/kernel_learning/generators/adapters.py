@@ -103,6 +103,7 @@ def to_fedot_input_data(
     task_map = {
         "classification": Task(TaskTypesEnum.classification),
         "regression": Task(TaskTypesEnum.regression),
+        "ts_forecasting": Task(TaskTypesEnum.ts_forecasting),
     }
     if task_type not in task_map:
         raise ValueError(f"Unsupported supervised task_type: {task_type}")
@@ -571,6 +572,13 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
                 fallback_generator="identity",
             ),
         ),
+        "riemann_extractor": lambda: BudgetedRepositoryFeatureGeneratorAdapter(
+            name="riemann_extractor",
+            operation_specs=(_riemann_spec(),),
+            budget_policy=GeneratorBudgetPolicy(
+                fallback_generator="identity",
+            ),
+        ),
         "tabular_extractor": lambda: BudgetedRepositoryFeatureGeneratorAdapter(
             name="tabular_extractor",
             operation_specs=(_tabular_spec(),),
@@ -760,4 +768,19 @@ def _tabular_spec() -> OperationSpec:
         module_path="fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor",
         class_name="TabularExtractor",
         params={"feature_domain": "all", "reduce_dimension": True, "use_cache": False},
+    )
+
+def _riemann_spec() -> OperationSpec:
+    return OperationSpec(
+        name="riemann_extractor",
+        module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
+        class_name="RiemannExtractor",
+        params={"Classes": None, 
+                "estimator": "scm", 
+                "SPD_metric": "riemann", 
+                "tangent_metric": "riemann", 
+                "spd_space": None, 
+                "tangent_space": None,  
+                "use_cache": False
+                },
     )
