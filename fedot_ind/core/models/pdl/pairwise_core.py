@@ -80,7 +80,12 @@ class PairwiseLearningConfig:
                 f"Unsupported pair_feature_mode={self.pair_feature_mode!r}. "
                 f"Supported modes: {SUPPORTED_PAIR_FEATURE_MODES}."
             )
-        if self.pairing_policy not in {"adaptive_anchors", "all_pairs", "exact", "stratified_anchors"}:
+        if self.pairing_policy not in {
+            "adaptive_anchors",
+            "all_pairs",
+            "exact",
+            "stratified_anchors",
+        }:
             raise ValueError(f"Unsupported pairing_policy={self.pairing_policy!r}.")
         resolved_policy = resolve_aggregation_policy(self.aggregation_policy)
         if self.class_prior_mode not in {"empirical", "uniform"}:
@@ -131,11 +136,15 @@ def resolve_pairwise_backend(backend: str = "auto") -> tuple[str, Any | None]:
     if normalized in {"auto", "torch", "cpu", "cuda"}:
         if torch is None:
             if normalized == "cuda":
-                raise RuntimeError("PDL backend='cuda' was requested, but torch is unavailable.")
+                raise RuntimeError(
+                    "PDL backend='cuda' was requested, but torch is unavailable."
+                )
             return "numpy", None
         if normalized == "cuda":
             if not torch.cuda.is_available():
-                raise RuntimeError("PDL backend='cuda' was requested, but CUDA is unavailable.")
+                raise RuntimeError(
+                    "PDL backend='cuda' was requested, but CUDA is unavailable."
+                )
             return "torch_cuda", torch.device("cuda")
         if normalized == "auto" and torch.cuda.is_available():
             return "torch_cuda", torch.device("cuda")
@@ -144,15 +153,18 @@ def resolve_pairwise_backend(backend: str = "auto") -> tuple[str, Any | None]:
 
 
 def select_classification_anchor_indices(
-        encoded_target: Any,
-        config: PairwiseLearningConfig,
+    encoded_target: Any,
+    config: PairwiseLearningConfig,
 ) -> np.ndarray:
     config = config.normalized()
     target = normalize_target_vector(encoded_target).astype(int)
     n_samples = len(target)
     if n_samples == 0:
         raise ValueError("Cannot select PDL anchors for an empty target.")
-    if config.pairing_policy in {"all_pairs", "exact"} and n_samples * n_samples <= config.max_pairs:
+    if (
+        config.pairing_policy in {"all_pairs", "exact"}
+        and n_samples * n_samples <= config.max_pairs
+    ):
         return np.arange(n_samples, dtype=int)
     if n_samples * n_samples <= config.max_pairs:
         return np.arange(n_samples, dtype=int)
@@ -165,15 +177,18 @@ def select_classification_anchor_indices(
 
 
 def select_regression_anchor_indices(
-        target: Any,
-        config: PairwiseLearningConfig,
+    target: Any,
+    config: PairwiseLearningConfig,
 ) -> np.ndarray:
     config = config.normalized()
     target_vector = normalize_target_vector(target)
     n_samples = len(target_vector)
     if n_samples == 0:
         raise ValueError("Cannot select PDL anchors for an empty target.")
-    if config.pairing_policy in {"all_pairs", "exact"} and n_samples * n_samples <= config.max_pairs:
+    if (
+        config.pairing_policy in {"all_pairs", "exact"}
+        and n_samples * n_samples <= config.max_pairs
+    ):
         return np.arange(n_samples, dtype=int)
     if n_samples * n_samples <= config.max_pairs:
         return np.arange(n_samples, dtype=int)
@@ -183,17 +198,19 @@ def select_regression_anchor_indices(
 
 
 def build_classification_pairs(
-        features: Any,
-        encoded_target: Any,
-        anchor_indices: Iterable[int],
-        config: PairwiseLearningConfig,
+    features: Any,
+    encoded_target: Any,
+    anchor_indices: Iterable[int],
+    config: PairwiseLearningConfig,
 ) -> PairwiseBatch:
     feature_matrix = normalize_feature_matrix(features)
     target = normalize_target_vector(encoded_target).astype(int)
     anchors = np.asarray(tuple(anchor_indices), dtype=int)
     pair_features = build_pair_features(feature_matrix, feature_matrix[anchors], config)
     left_indices, repeated_anchor_indices = _pair_indices(len(feature_matrix), anchors)
-    dissimilarity_target = (target[left_indices] != target[repeated_anchor_indices]).astype(int)
+    dissimilarity_target = (
+        target[left_indices] != target[repeated_anchor_indices]
+    ).astype(int)
     diagnostics = _pair_diagnostics(
         config=config,
         n_left=len(feature_matrix),
@@ -202,21 +219,29 @@ def build_classification_pairs(
         anchor_indices=anchors,
         task="classification",
     )
-    return PairwiseBatch(pair_features, dissimilarity_target, left_indices, repeated_anchor_indices, diagnostics)
+    return PairwiseBatch(
+        pair_features,
+        dissimilarity_target,
+        left_indices,
+        repeated_anchor_indices,
+        diagnostics,
+    )
 
 
 def build_regression_pairs(
-        features: Any,
-        target: Any,
-        anchor_indices: Iterable[int],
-        config: PairwiseLearningConfig,
+    features: Any,
+    target: Any,
+    anchor_indices: Iterable[int],
+    config: PairwiseLearningConfig,
 ) -> PairwiseBatch:
     feature_matrix = normalize_feature_matrix(features)
     target_vector = normalize_target_vector(target).astype(float)
     anchors = np.asarray(tuple(anchor_indices), dtype=int)
     pair_features = build_pair_features(feature_matrix, feature_matrix[anchors], config)
     left_indices, repeated_anchor_indices = _pair_indices(len(feature_matrix), anchors)
-    delta_left_minus_anchor = target_vector[left_indices] - target_vector[repeated_anchor_indices]
+    delta_left_minus_anchor = (
+        target_vector[left_indices] - target_vector[repeated_anchor_indices]
+    )
     diagnostics = _pair_diagnostics(
         config=config,
         n_left=len(feature_matrix),
@@ -225,19 +250,27 @@ def build_regression_pairs(
         anchor_indices=anchors,
         task="regression",
     )
-    return PairwiseBatch(pair_features, delta_left_minus_anchor.astype(float), left_indices, repeated_anchor_indices, diagnostics)
+    return PairwiseBatch(
+        pair_features,
+        delta_left_minus_anchor.astype(float),
+        left_indices,
+        repeated_anchor_indices,
+        diagnostics,
+    )
 
 
 def build_pair_features(
-        left_features: Any,
-        anchor_features: Any,
-        config: PairwiseLearningConfig,
+    left_features: Any,
+    anchor_features: Any,
+    config: PairwiseLearningConfig,
 ) -> np.ndarray:
     config = config.normalized()
     left = normalize_feature_matrix(left_features)
     anchors = normalize_feature_matrix(anchor_features)
     if left.shape[1] != anchors.shape[1]:
-        raise ValueError(f"Pair matrices must have equal feature counts: {left.shape[1]} != {anchors.shape[1]}.")
+        raise ValueError(
+            f"Pair matrices must have equal feature counts: {left.shape[1]} != {anchors.shape[1]}."
+        )
     backend_name, device = resolve_pairwise_backend(config.backend)
     if backend_name == "numpy":
         return _build_pair_features_numpy(left, anchors, config.pair_feature_mode)
@@ -245,10 +278,10 @@ def build_pair_features(
 
 
 def predict_similarity_by_chunks(
-        base_model: Any,
-        features: Any,
-        anchor_features: Any,
-        config: PairwiseLearningConfig,
+    base_model: Any,
+    features: Any,
+    anchor_features: Any,
+    config: PairwiseLearningConfig,
 ) -> np.ndarray:
     feature_matrix = normalize_feature_matrix(features)
     anchors = normalize_feature_matrix(anchor_features)
@@ -259,7 +292,7 @@ def predict_similarity_by_chunks(
     rows_per_chunk = max(1, int(config.chunk_size) // max(1, n_anchors))
     chunks = []
     for start in range(0, n_samples, rows_per_chunk):
-        chunk = feature_matrix[start:start + rows_per_chunk]
+        chunk = feature_matrix[start : start + rows_per_chunk]
         pair_features = build_pair_features(chunk, anchors, config)
         same_probability = _predict_same_probability(base_model, pair_features)
         chunks.append(same_probability.reshape(len(chunk), n_anchors))
@@ -267,11 +300,11 @@ def predict_similarity_by_chunks(
 
 
 def predict_regression_by_chunks(
-        base_model: Any,
-        features: Any,
-        anchor_features: Any,
-        anchor_target: Any,
-        config: PairwiseLearningConfig,
+    base_model: Any,
+    features: Any,
+    anchor_features: Any,
+    anchor_target: Any,
+    config: PairwiseLearningConfig,
 ) -> np.ndarray:
     feature_matrix = normalize_feature_matrix(features)
     anchors = normalize_feature_matrix(anchor_features)
@@ -281,17 +314,23 @@ def predict_regression_by_chunks(
     rows_per_chunk = max(1, int(config.chunk_size) // max(1, n_anchors))
     predictions = []
     for start in range(0, n_samples, rows_per_chunk):
-        chunk = feature_matrix[start:start + rows_per_chunk]
+        chunk = feature_matrix[start : start + rows_per_chunk]
         pair_features = build_pair_features(chunk, anchors, config)
-        deltas = np.asarray(base_model.predict(pair_features), dtype=float).reshape(len(chunk), n_anchors)
+        deltas = np.asarray(base_model.predict(pair_features), dtype=float).reshape(
+            len(chunk), n_anchors
+        )
         predictions.append(anchor_target.reshape(1, -1) + deltas)
-    return np.concatenate([chunk.mean(axis=1) for chunk in predictions]) if predictions else np.empty(0, dtype=float)
+    return (
+        np.concatenate([chunk.mean(axis=1) for chunk in predictions])
+        if predictions
+        else np.empty(0, dtype=float)
+    )
 
 
 def aggregate_similarity_to_class_proba(
-        similarity: Any,
-        anchor_labels: Any,
-        n_classes: int,
+    similarity: Any,
+    anchor_labels: Any,
+    n_classes: int,
 ) -> np.ndarray:
     similarity_matrix = np.asarray(similarity, dtype=float)
     anchor_labels = normalize_target_vector(anchor_labels).astype(int)
@@ -323,20 +362,26 @@ def _evenly_spaced_indices(indices: np.ndarray, max_count: int) -> np.ndarray:
     return indices[positions].astype(int)
 
 
-def _pair_indices(n_left: int, anchor_indices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _pair_indices(
+    n_left: int, anchor_indices: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     left_indices = np.repeat(np.arange(n_left, dtype=int), len(anchor_indices))
     repeated_anchor_indices = np.tile(anchor_indices.astype(int), n_left)
     return left_indices, repeated_anchor_indices
 
 
-def _build_pair_features_numpy(left: np.ndarray, anchors: np.ndarray, mode: str) -> np.ndarray:
+def _build_pair_features_numpy(
+    left: np.ndarray, anchors: np.ndarray, mode: str
+) -> np.ndarray:
     left_repeated = np.repeat(left, len(anchors), axis=0)
     anchors_tiled = np.tile(anchors, (len(left), 1))
     difference = left_repeated - anchors_tiled
     return _combine_pair_blocks(left_repeated, anchors_tiled, difference, mode)
 
 
-def _build_pair_features_torch(left: np.ndarray, anchors: np.ndarray, mode: str, device: Any) -> np.ndarray:
+def _build_pair_features_torch(
+    left: np.ndarray, anchors: np.ndarray, mode: str, device: Any
+) -> np.ndarray:
     left_tensor = torch.as_tensor(left, dtype=torch.float32, device=device)
     anchor_tensor = torch.as_tensor(anchors, dtype=torch.float32, device=device)
     left_repeated = left_tensor.repeat_interleave(anchor_tensor.shape[0], dim=0)
@@ -373,11 +418,15 @@ def _pair_target_semantics(*, task: str) -> dict[str, Any]:
     raise ValueError(f"Unsupported PDL task={task!r}.")
 
 
-def _combine_pair_blocks(left: np.ndarray, anchors: np.ndarray, difference: np.ndarray, mode: str) -> np.ndarray:
+def _combine_pair_blocks(
+    left: np.ndarray, anchors: np.ndarray, difference: np.ndarray, mode: str
+) -> np.ndarray:
     if mode == "concat_diff":
         return np.hstack((left, anchors, difference)).astype(np.float32, copy=False)
     if mode == "concat_absdiff":
-        return np.hstack((left, anchors, np.abs(difference))).astype(np.float32, copy=False)
+        return np.hstack((left, anchors, np.abs(difference))).astype(
+            np.float32, copy=False
+        )
     if mode == "diff_only":
         return difference.astype(np.float32, copy=False)
     raise ValueError(f"Unsupported pair feature mode={mode!r}.")
@@ -386,7 +435,9 @@ def _combine_pair_blocks(left: np.ndarray, anchors: np.ndarray, difference: np.n
 def _predict_same_probability(base_model: Any, pair_features: np.ndarray) -> np.ndarray:
     if hasattr(base_model, "predict_proba"):
         probability = np.asarray(base_model.predict_proba(pair_features), dtype=float)
-        classes = np.asarray(getattr(base_model, "classes_", np.arange(probability.shape[1])))
+        classes = np.asarray(
+            getattr(base_model, "classes_", np.arange(probability.shape[1]))
+        )
         same_columns = np.flatnonzero(classes == CLASSIFICATION_SAME_LABEL)
         if len(same_columns) == 0:
             return np.zeros(pair_features.shape[0], dtype=float)
@@ -396,13 +447,13 @@ def _predict_same_probability(base_model: Any, pair_features: np.ndarray) -> np.
 
 
 def _pair_diagnostics(
-        *,
-        config: PairwiseLearningConfig,
-        n_left: int,
-        n_anchors: int,
-        pair_feature_dim: int,
-        anchor_indices: np.ndarray,
-        task: str,
+    *,
+    config: PairwiseLearningConfig,
+    n_left: int,
+    n_anchors: int,
+    pair_feature_dim: int,
+    anchor_indices: np.ndarray,
+    task: str,
 ) -> dict[str, Any]:  # TODO: add typed contract diagnostic
     backend_name, _ = resolve_pairwise_backend(config.backend)
     return {

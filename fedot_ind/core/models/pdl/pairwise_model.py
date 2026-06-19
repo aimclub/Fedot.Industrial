@@ -45,7 +45,9 @@ class PairwiseDifferenceEstimator:
         """
         self.config = (config or PairwiseLearningConfig()).normalized()
 
-    def _convert_to_pandas(self, arr1: Any, arr2: Any) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _convert_to_pandas(
+        self, arr1: Any, arr2: Any
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Coerce two array-like inputs to ``pandas.DataFrame`` objects."""
         if not isinstance(arr1, pd.DataFrame):
             arr1 = pd.DataFrame(arr1)
@@ -70,12 +72,16 @@ class PairwiseDifferenceEstimator:
         left_repeated = np.repeat(x1, len(x2), axis=0)
         right_tiled = np.tile(x2, (len(x1), 1))
         difference = left_repeated - right_tiled
-        pair_frame = self._pair_frame(left_repeated, right_tiled, difference, x1_frame.columns)
+        pair_frame = self._pair_frame(
+            left_repeated, right_tiled, difference, x1_frame.columns
+        )
 
         sym_left = right_tiled
         sym_right = left_repeated
         sym_difference = sym_left - sym_right
-        sym_frame = self._pair_frame(sym_left, sym_right, sym_difference, x1_frame.columns)
+        sym_frame = self._pair_frame(
+            sym_left, sym_right, sym_difference, x1_frame.columns
+        )
         return pair_frame, sym_frame
 
     def pair_output(self, y1: Any, y2: Any) -> np.ndarray:
@@ -96,7 +102,9 @@ class PairwiseDifferenceEstimator:
         ).astype(float)
         return delta_left_minus_anchor
 
-    def pair_output_difference(self, y1: Any, y2: Any, nb_classes: int | None = None) -> np.ndarray:
+    def pair_output_difference(
+        self, y1: Any, y2: Any, nb_classes: int | None = None
+    ) -> np.ndarray:
         """Build classification pair targets (dissimilarity) for the legacy API.
 
         The contract is aligned with the active PDL path: ``0`` means the same
@@ -121,7 +129,9 @@ class PairwiseDifferenceEstimator:
         return dissimilarity_target
 
     @staticmethod
-    def _pair_frame(left: np.ndarray, right: np.ndarray, difference: np.ndarray, columns: Any) -> pd.DataFrame:
+    def _pair_frame(
+        left: np.ndarray, right: np.ndarray, difference: np.ndarray, columns: Any
+    ) -> pd.DataFrame:
         """Assemble a labelled pair DataFrame from left/right/difference blocks."""
         column_names = [str(column) for column in columns]
         payload = np.hstack((left, right, difference))
@@ -135,7 +145,9 @@ class PairwiseDifferenceEstimator:
         )
 
     @staticmethod
-    def predict(y_prob: np.ndarray, output_mode: str = "default", min_label_zero: bool = True) -> np.ndarray:
+    def predict(
+        y_prob: np.ndarray, output_mode: str = "default", min_label_zero: bool = True
+    ) -> np.ndarray:
         """Convert probabilities to labels or pass them through unchanged.
 
         Args:
@@ -200,9 +212,13 @@ class PairwiseDifferenceClassifier:
         self.classes_ = self.label_encoder_.classes_
         self.num_classes = len(self.classes_)
         if self.num_classes < 2:
-            raise ValueError("PairwiseDifferenceClassifier requires at least two classes.")
+            raise ValueError(
+                "PairwiseDifferenceClassifier requires at least two classes."
+            )
 
-        self.anchor_indices_ = select_classification_anchor_indices(self.target_encoded_, self.config)
+        self.anchor_indices_ = select_classification_anchor_indices(
+            self.target_encoded_, self.config
+        )
         self.anchor_features_ = self.train_features_[self.anchor_indices_]
         self.anchor_labels_ = self.target_encoded_[self.anchor_indices_]
 
@@ -223,7 +239,9 @@ class PairwiseDifferenceClassifier:
         }
         return self
 
-    def predict(self, input_data: InputData | np.ndarray, output_mode: str = "labels") -> np.ndarray:
+    def predict(
+        self, input_data: InputData | np.ndarray, output_mode: str = "labels"
+    ) -> np.ndarray:
         """Predict class labels or probabilities.
 
         Args:
@@ -241,7 +259,9 @@ class PairwiseDifferenceClassifier:
         labels = self.label_encoder_.inverse_transform(encoded_labels)
         return labels.reshape(-1, 1)
 
-    def predict_proba(self, input_data: InputData | np.ndarray, output_mode: str = "default") -> np.ndarray:
+    def predict_proba(
+        self, input_data: InputData | np.ndarray, output_mode: str = "default"
+    ) -> np.ndarray:
         """Predict class probabilities (or labels when requested).
 
         Args:
@@ -256,13 +276,17 @@ class PairwiseDifferenceClassifier:
             return self.predict(input_data, output_mode=output_mode)
         return probabilities
 
-    def predict_for_fit(self, input_data: InputData | np.ndarray, output_mode: str = "default") -> np.ndarray:
+    def predict_for_fit(
+        self, input_data: InputData | np.ndarray, output_mode: str = "default"
+    ) -> np.ndarray:
         """Predict probabilities (or labels) for the FEDOT fit pipeline."""
         if "label" in output_mode:
             return self.predict(input_data, output_mode=output_mode)
         return self.predict_proba(input_data)
 
-    def score_difference(self, input_data: InputData | np.ndarray, target: Any | None = None) -> float:
+    def score_difference(
+        self, input_data: InputData | np.ndarray, target: Any | None = None
+    ) -> float:
         """Return the mean absolute error between target and predicted dissimilarity.
 
         Args:
@@ -279,11 +303,17 @@ class PairwiseDifferenceClassifier:
         features, raw_target, _ = _extract_features_target(input_data, target)
         if raw_target is None:
             raise ValueError("score_difference expects target labels.")
-        encoded_target = self.label_encoder_.transform(normalize_target_vector(raw_target))
-        same_probability = predict_similarity_by_chunks(self.base_model, features, self.anchor_features_, self.config)
+        encoded_target = self.label_encoder_.transform(
+            normalize_target_vector(raw_target)
+        )
+        same_probability = predict_similarity_by_chunks(
+            self.base_model, features, self.anchor_features_, self.config
+        )
         # Dissimilarity target: 1.0 = different, 0.0 = same.
-        dissimilarity_target = (np.repeat(encoded_target, len(self.anchor_labels_)) !=
-                                np.tile(self.anchor_labels_, len(encoded_target))).astype(float)
+        dissimilarity_target = (
+            np.repeat(encoded_target, len(self.anchor_labels_))
+            != np.tile(self.anchor_labels_, len(encoded_target))
+        ).astype(float)
         predicted_dissimilarity = 1.0 - same_probability.reshape(-1)
         return float(np.mean(np.abs(dissimilarity_target - predicted_dissimilarity)))
 
@@ -294,8 +324,12 @@ class PairwiseDifferenceClassifier:
     def _predict_encoded_proba(self, features: Any) -> np.ndarray:
         """Predict encoded class probabilities for already-extracted features."""
         _check_is_fitted(self, ("anchor_features_", "anchor_labels_", "label_encoder_"))
-        similarity = predict_similarity_by_chunks(self.base_model, features, self.anchor_features_, self.config)
-        return aggregate_similarity_to_class_proba(similarity, self.anchor_labels_, self.num_classes)
+        similarity = predict_similarity_by_chunks(
+            self.base_model, features, self.anchor_features_, self.config
+        )
+        return aggregate_similarity_to_class_proba(
+            similarity, self.anchor_labels_, self.num_classes
+        )
 
 
 class PairwiseDifferenceRegressor:
@@ -341,11 +375,15 @@ class PairwiseDifferenceRegressor:
         self.target = self.target_
         self.num_classes = getattr(input_data, "num_classes", None)
         self.y_train_ = pd.Series(self.target_)
-        self.anchor_indices_ = select_regression_anchor_indices(self.target_, self.config)
+        self.anchor_indices_ = select_regression_anchor_indices(
+            self.target_, self.config
+        )
         self.anchor_features_ = self.train_features_[self.anchor_indices_]
         self.anchor_target_ = self.target_[self.anchor_indices_]
 
-        batch = build_regression_pairs(self.train_features_, self.target_, self.anchor_indices_, self.config)
+        batch = build_regression_pairs(
+            self.train_features_, self.target_, self.anchor_indices_, self.config
+        )
         self.base_model.fit(batch.features, batch.target)
         # TODO: unify the diagnostics payload behind a typed contract.
         self.diagnostics_ = {
@@ -356,7 +394,9 @@ class PairwiseDifferenceRegressor:
         }
         return self
 
-    def predict(self, input_data: InputData | np.ndarray, output_mode: str = "default") -> np.ndarray:
+    def predict(
+        self, input_data: InputData | np.ndarray, output_mode: str = "default"
+    ) -> np.ndarray:
         """Predict regression targets via anchor-relative delta aggregation.
 
         Args:
@@ -380,7 +420,9 @@ class PairwiseDifferenceRegressor:
         """Return point predictions; provided for interface compatibility."""
         return self.predict(input_data)
 
-    def predict_for_fit(self, input_data: InputData | np.ndarray, output_mode: str = "default") -> np.ndarray:
+    def predict_for_fit(
+        self, input_data: InputData | np.ndarray, output_mode: str = "default"
+    ) -> np.ndarray:
         """Return point predictions for the FEDOT fit pipeline."""
         del output_mode
         return self.predict(input_data)
@@ -389,7 +431,9 @@ class PairwiseDifferenceRegressor:
         """Return a copy of the diagnostics collected during ``fit``."""
         return dict(self.diagnostics_)
 
-    def _predict_samples(self, input_data: InputData | np.ndarray, force_symmetry: bool = False):
+    def _predict_samples(
+        self, input_data: InputData | np.ndarray, force_symmetry: bool = False
+    ):
         """Return per-anchor reconstructed samples and their raw deltas.
 
         Args:
@@ -403,8 +447,12 @@ class PairwiseDifferenceRegressor:
         del force_symmetry
         _check_is_fitted(self, ("anchor_features_", "anchor_target_"))
         features = normalize_feature_matrix(_extract_features(input_data))
-        pair_features = build_pair_features(features, self.anchor_features_, self.config)
-        deltas = np.asarray(self.base_model.predict(pair_features), dtype=float).reshape(
+        pair_features = build_pair_features(
+            features, self.anchor_features_, self.config
+        )
+        deltas = np.asarray(
+            self.base_model.predict(pair_features), dtype=float
+        ).reshape(
             len(features),
             len(self.anchor_target_),
         )
@@ -444,7 +492,9 @@ class PairwiseDifferenceRegressor:
         return self
 
 
-def _extract_features_target(input_data: InputData | np.ndarray, target: Any | None = None) -> tuple[Any, Any, Any]:
+def _extract_features_target(
+    input_data: InputData | np.ndarray, target: Any | None = None
+) -> tuple[Any, Any, Any]:
     """Return ``(features, target, task)`` from ``InputData`` or raw inputs."""
     if isinstance(input_data, InputData):
         return input_data.features, input_data.target, input_data.task
@@ -484,7 +534,9 @@ def _check_is_fitted(model: Any, attributes: tuple[str, ...]) -> None:
     """Raise if any of the required fitted attributes are missing."""
     missing = [attribute for attribute in attributes if not hasattr(model, attribute)]
     if missing:
-        raise ValueError(f"{model.__class__.__name__} is not fitted yet. Missing attributes: {missing}.")
+        raise ValueError(
+            f"{model.__class__.__name__} is not fitted yet. Missing attributes: {missing}."
+        )
 
 
 __all__ = [

@@ -2,6 +2,7 @@
 Intentionally independent from fedot_ind.core.repository.constanst_repository
 so PDL can be installed without the full Industrial dependency tree.
 """
+
 from __future__ import annotations
 from sklearn.ensemble import (
     ExtraTreesRegressor,
@@ -11,12 +12,16 @@ from sklearn.ensemble import (
 from sklearn.linear_model import Lasso, LogisticRegression, Ridge, SGDRegressor
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+
+
 def _optional(module_path: str, attr: str):
     try:
         module = __import__(module_path, fromlist=[attr])
         return getattr(module, attr)
     except Exception:
         return None
+
+
 SKLEARN_CLF_IMP = {
     "xgboost": GradientBoostingClassifier,  # mirrors Industrial mapping
     "logit": LogisticRegression,
