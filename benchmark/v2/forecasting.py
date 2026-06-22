@@ -76,7 +76,7 @@ from benchmark.v2.core import (
     DatasetSpec,
     ForecastingBenchmarkResult,
     ForecastingModelAdapter,
-    ForecastingSeriesRecord,
+    ForecastingDatasetRecord,
     MetricRecord,
     ModelSpec,
     PredictionRecord,
@@ -86,7 +86,11 @@ from benchmark.v2.core import (
     RunMode,
     ModelFamily,
     MetricKind,
+    CovariateMode,
 )
+
+from .forecastability.routing import get_routing_hints
+from .forecastability.diagnostics import analyze_forecastability
 
 from .forecasting_result import (
     coerce_forecast_result,
@@ -95,6 +99,10 @@ from .forecasting_result import (
     resolve_point_forecast,
     validate_forecast_result_shapes,
 )
+
+from .adapters.autogluon_adapter import AutoGluonAdapter, create_autogluon_adapter
+from .adapters.autots_adapter import AutoTSAdapter, create_autots_adapter
+from .adapters.flaml_adapter import FLAMLAdapter, create_flaml_adapter
 
 from benchmark.v2.verbosity import (
     ForecastingVerbosityPolicy,
@@ -176,9 +184,9 @@ def _infer_m4_key(subset: str) -> str:
 
 
 def _sample_records(
-        records: list[ForecastingSeriesRecord],
+        records: list[ForecastingDatasetRecord],
         spec: DatasetSpec,
-) -> tuple[ForecastingSeriesRecord, ...]:
+) -> tuple[ForecastingDatasetRecord, ...]:
     filtered = records
     if spec.series_ids:
         requested = set(spec.series_ids)
@@ -256,7 +264,7 @@ def _maybe_attach_stage_tuning_report(
         metadata: dict[str, Any],
         *,
         adapter_name: str,
-        series_record: ForecastingSeriesRecord,
+        series_record: ForecastingDatasetRecord,
         base_params: dict[str, Any],
         runtime_config: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -335,6 +343,164 @@ def _series_split_from_full_values(
     test = tuple(float(value) for value in normalized[-forecast_horizon:])
     return train, test
 
+def apply_scenario_to_record(
+    record: ForecastingDatasetRecord,
+    scenario: ForecastingScenarioSpec | None,
+) -> ForecastingDatasetRecord:
+    if scenario is None:
+        return record
+
+    new_record = record
+
+    if scenario.run_mode == RunMode.ZERO_SHOT:
+        new_record = dataclasses.replace(new_record, train_values=())
+    elif scenario.run_mode == RunMode.FEW_SHOT:
+        train = record.train_values
+        if train:
+            n = len(train)
+            k = max(3, min(n // 5, 50))
+            new_record = dataclasses.replace(new_record, train_values=train[-k:])
+
+    cov_mode = scenario.covariate_mode
+    if cov_mode == CovariateMode.NONE:
+        new_record = dataclasses.replace(
+            new_record,
+            known_future_covariates={},
+            observed_past_covariates={},
+            static_covariates={},
+            panel_ids={},
+            hierarchy={},
+        )
+    elif cov_mode == CovariateMode.STATIC:
+        new_record = dataclasses.replace(
+            new_record,
+            known_future_covariates={},
+            observed_past_covariates={},
+            panel_ids={},
+            hierarchy={},
+        )
+    elif cov_mode == CovariateMode.KNOWN_FUTURE:
+        new_record = dataclasses.replace(
+            new_record,
+            observed_past_covariates={},
+            static_covariates={},
+            panel_ids={},
+            hierarchy={},
+        )
+
+    if scenario.horizon_policy == HorizonPolicy.DYNAMIC:
+        train = record.train_values
+        if train:
+            new_horizon = max(1, int(len(train) * 0.2))
+            new_test = record.test_values[:new_horizon]
+            new_record = dataclasses.replace(
+                new_record,
+                forecast_horizon=new_horizon,
+                test_values=new_test,
+            )
+    elif scenario.horizon_policy == HorizonPolicy.ROLLING:
+        pass
+
+    if scenario.leakage_policy == LeakagePolicy.STRICT:
+        if record.leakage_status is not None and record.leakage_status.lower() != 'strict':
+            raise ModelExecutionError(
+                RunStatus.SKIPPED,
+                f"Leakage policy STRICT violated for series {record.series_id} (leakage_status={record.leakage_status})"
+            )
+
+    new_metadata = dict(new_record.metadata)
+    new_metadata['scenario_applied'] = {
+        'run_mode': scenario.run_mode.value if scenario.run_mode else None,
+        'covariate_mode': scenario.covariate_mode.value if scenario.covariate_mode else None,
+        'horizon_policy': scenario.horizon_policy.value if scenario.horizon_policy else None,
+        'leakage_policy': scenario.leakage_policy.value if scenario.leakage_policy else None,
+        'probabilistic': scenario.probabilistic.value if scenario.probabilistic else None,
+        'track': scenario.track.value if scenario.track else None,
+        'budget_policy': scenario.budget_policy.value if scenario.budget_policy else None,
+    }
+    new_record = dataclasses.replace(new_record, metadata=new_metadata)
+
+    return new_record
+
+def validate_dataset_record(
+    record: ForecastingDatasetRecord,
+    meta: DatasetMetadata,
+    scenario: ForecastingScenarioSpec | None = None,
+) -> None:
+
+    if meta.frequency.value != record.frequency:
+        raise BenchmarkConfigurationError(
+            f"Frequency mismatch: expected {meta.frequency.value}, got {record.frequency}"
+        )
+
+    if record.forecast_horizon != meta.default_horizon:
+        if scenario is None or scenario.horizon_policy != HorizonPolicy.DYNAMIC:
+            raise BenchmarkConfigurationError(
+                f"Horizon mismatch: expected {meta.default_horizon}, got {record.forecast_horizon}"
+            )
+
+    if record.seasonal_period != meta.seasonal_period:
+        raise BenchmarkConfigurationError(
+            f"Seasonal period mismatch: expected {meta.seasonal_period}, got {record.seasonal_period}"
+        )
+
+    expected_cov_types = set(meta.covariates)
+    has_known = bool(record.known_future_covariates)
+    has_past = bool(record.observed_past_covariates)
+    has_static = bool(record.static_covariates)
+
+    if CovariateMode.KNOWN_FUTURE in expected_cov_types and not has_known:
+        raise BenchmarkConfigurationError(
+            f"Dataset {meta.dataset_id} requires known_future covariates, but none provided."
+        )
+    if CovariateMode.STATIC in expected_cov_types and not has_static:
+        raise BenchmarkConfigurationError(
+            f"Dataset {meta.dataset_id} requires static covariates, but none provided."
+        )
+
+    train_len = len(record.train_values)
+    horizon = record.forecast_horizon
+
+    for name, values in record.known_future_covariates.items():
+        if len(values) != train_len + horizon:
+            raise BenchmarkConfigurationError(
+                f"Known future covariate '{name}' length {len(values)} != train_len({train_len}) + horizon({horizon}) = {train_len + horizon}"
+            )
+        for v in values:
+            if not isinstance(v, (int, float)):
+                raise BenchmarkConfigurationError(
+                    f"Known future covariate '{name}' contains non-numeric value: {v}"
+                )
+
+    for name, values in record.observed_past_covariates.items():
+        if len(values) != train_len:
+            raise BenchmarkConfigurationError(
+                f"Observed past covariate '{name}' length {len(values)} != train_len({train_len})"
+            )
+        for v in values:
+            if not isinstance(v, (int, float)):
+                raise BenchmarkConfigurationError(
+                    f"Observed past covariate '{name}' contains non-numeric value: {v}"
+                )
+
+    for name, value in record.static_covariates.items():
+        if value is None:
+            raise BenchmarkConfigurationError(
+                f"Static covariate '{name}' has None value"
+            )
+
+    if record.leakage_status is not None:
+        expected = meta.leakage_status.value
+        if record.leakage_status.lower() != expected:
+            raise BenchmarkConfigurationError(
+                f"Leakage status mismatch: expected {expected}, got {record.leakage_status}"
+            )
+
+    if scenario and scenario.track is not None:
+        if meta.track != scenario.track:
+            raise BenchmarkConfigurationError(
+                f"Track mismatch: dataset track {meta.track.value} != scenario track {scenario.track.value}"
+            )
 
 def _parse_frame_records(
         frame: pd.DataFrame,
@@ -345,7 +511,13 @@ def _parse_frame_records(
         default_frequency: str,
         default_horizon: int,
         default_seasonal_period: int,
-) -> list[ForecastingSeriesRecord]:
+        covariate_mapping: dict[str, list[str]] | None = None,
+) -> list[ForecastingDatasetRecord]:
+    cov_mapping = covariate_mapping or {}
+    known_cols = set(cov_mapping.get('known_future', []))
+    past_cols = set(cov_mapping.get('observed_past', []))
+    static_cols = set(cov_mapping.get('static', []))
+
     identifier_column = 'series_id'
     for candidate in ('series_id', 'unique_id', 'item_id'):
         if candidate in frame.columns:
@@ -366,7 +538,10 @@ def _parse_frame_records(
 
     sort_columns = [candidate for candidate in (
         'timestamp', 'datetime', 'ds') if candidate in frame.columns]
-    records: list[ForecastingSeriesRecord] = []
+    all_columns = set(frame.columns)
+    reserved = {identifier_column, value_column} | set(sort_columns)
+    other_columns = all_columns - reserved
+    records: list[ForecastingDatasetRecord] = []
     for series_id, group in frame.groupby(identifier_column):
         ordered = group.sort_values(sort_columns) if sort_columns else group
         series_values = ordered[value_column].astype(float).to_numpy()
@@ -385,8 +560,21 @@ def _parse_frame_records(
         )
         train_values, test_values = _series_split_from_full_values(
             series_values, horizon)
+        for col in known_cols:
+            if col in ordered.columns:
+                full_series = ordered[col].astype(float).to_numpy()
+                known_covs[col] = tuple(full_series)
+
+        for col in past_cols:
+            if col in ordered.columns:
+                full_series = ordered[col].astype(float).to_numpy()
+                past_covs[col] = tuple(full_series[:len(train_values)])
+
+        for col in static_cols:
+            if col in ordered.columns:
+                static_covs[col] = ordered[col].iloc[0]
         records.append(
-            ForecastingSeriesRecord(
+            ForecastingDatasetRecord(
                 benchmark=benchmark,
                 dataset_name=record_dataset_name,
                 subset=subset,
@@ -394,6 +582,9 @@ def _parse_frame_records(
                 frequency=frequency,
                 forecast_horizon=horizon,
                 seasonal_period=seasonal_period,
+                known_future_covariates=known_covs,
+                observed_past_covariates=past_covs,
+                static_covariates=static_covs,
                 train_values=train_values,
                 test_values=test_values,
                 metadata={'split_provenance': 'tail_holdout_from_full_series'},
@@ -411,8 +602,8 @@ def _parse_sequence_records(
         default_frequency: str,
         default_horizon: int,
         default_seasonal_period: int,
-) -> list[ForecastingSeriesRecord]:
-    records: list[ForecastingSeriesRecord] = []
+) -> list[ForecastingDatasetRecord]:
+    records: list[ForecastingDatasetRecord] = []
     for index, item in enumerate(payload):
         series_id = str(item.get('series_id', item.get(
             'unique_id', f'{dataset_name}_{index}')))
@@ -423,6 +614,9 @@ def _parse_sequence_records(
         values = item.get('values')
         train = item.get('train_values')
         test = item.get('test_values')
+        known_covs = {k: tuple(v) for k, v in item.get('known_future_covariates', {}).items()}
+        past_covs = {k: tuple(v) for k, v in item.get('observed_past_covariates', {}).items()}
+        static_covs = {k: v for k, v in item.get('static_covariates', {}).items()}
         if values is not None:
             train_values, test_values = _series_split_from_full_values(
                 np.asarray(values, dtype=float), horizon)
@@ -436,13 +630,19 @@ def _parse_sequence_records(
                 'Sequence payload must include values or train_values/test_values.')
 
         records.append(
-            ForecastingSeriesRecord(
+            ForecastingDatasetRecord(
                 benchmark=benchmark,
                 dataset_name=str(item.get('dataset_name', dataset_name)),
                 subset=subset,
                 series_id=series_id,
                 frequency=frequency,
                 forecast_horizon=horizon,
+                known_future_covariates=known_covs,
+                observed_past_covariates=past_covs,
+                static_covariates=static_covs,
+                panel_ids=item.get('panel_ids', {}),
+                hierarchy=item.get('hierarchy', {}),
+                leakage_status=item.get('leakage_status'),
                 seasonal_period=seasonal_period,
                 train_values=train_values,
                 test_values=test_values,
@@ -458,18 +658,25 @@ class M4Adapter:
 
     benchmark_name = 'm4'
 
-    def __init__(self, loader: Callable[[DatasetSpec], Any] | None = None):
+    def __init__(self, catalog: DatasetCatalog, loader: Callable[[DatasetSpec], Any] | None = None):
         """Store a custom or default M4 loader."""
+        self.catalog = catalog
         self.loader = loader or self._default_loader
 
-    def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+    def load_series(self, spec: DatasetSpec) -> tuple[ForecastingDatasetRecord, ...]:
         """Load, normalize and optionally sample M4 series records."""
+        dataset_id = spec.dataset_id or f"{self.benchmark_name}_{spec.subset}"
+        meta = self.catalog.get_dataset(dataset_id)
+        if meta is None:
+            warnings.warn(f"Dataset {dataset_id} not found in catalog, using legacy constants.")
+            return self._load_legacy(spec)
+
         subset = _normalize_subset_name(spec.subset)
-        key = _infer_m4_key(subset)
         local_csv_dir = spec.adapter_options.get('local_csv_dir')
-        use_local_files = spec.adapter_options.get('use_local_files', False)
+        use_local_files = spec.adapter_options.get('use_local_files', meta.default_adapter_options.get('use_local_files', False))
+
         if local_csv_dir or use_local_files:
-            records = self._load_local_records(spec, subset, key)
+            records = self._load_local_records(spec, subset, meta)
         else:
             frame = self.loader(spec)
             records = _parse_frame_records(
@@ -477,60 +684,46 @@ class M4Adapter:
                 benchmark=self.benchmark_name,
                 dataset_name=spec.dataset_name,
                 subset=subset,
-                default_frequency=subset,
-                default_horizon=M4_FORECASTING_LENGTH[key],
-                default_seasonal_period=M4_SEASONALITY[key],
+                default_frequency=meta.frequency.value,
+                default_horizon=meta.default_horizon,
+                default_seasonal_period=meta.seasonal_period,
+                covariate_mapping=spec.adapter_options.get('covariate_mapping'),
             )
         return _sample_records(records, spec)
 
-    def _load_local_records(
-            self,
-            spec: DatasetSpec,
-            subset: str,
-            key: str,
-    ) -> list[ForecastingSeriesRecord]:
-        base_dir = Path(spec.adapter_options.get(
-            'local_csv_dir', DEFAULT_LOCAL_M4_DIR))
+    def _load_local_records(self, spec: DatasetSpec, subset: str, meta: DatasetMetadata) -> list[ForecastingDatasetRecord]:
+        base_dir = Path(spec.adapter_options.get('local_csv_dir', DEFAULT_LOCAL_M4_DIR))
         train_path = base_dir / f'{subset}-train.csv'
         test_path = base_dir / f'{subset}-test.csv'
         if not train_path.exists() or not test_path.exists():
-            raise BenchmarkConfigurationError(
-                f'Local M4 files were not found: {train_path} and {test_path}.'
-            )
+            raise BenchmarkConfigurationError(f'Local M4 files not found: {train_path} and {test_path}')
 
-        train_frame = pd.read_csv(train_path)
-        test_frame = pd.read_csv(test_path)
-        if 'V1' not in train_frame.columns or 'V1' not in test_frame.columns:
-            raise BenchmarkConfigurationError(
-                'Local M4 CSV files must include the V1 identifier column.')
-
-        train_frame = train_frame.set_index('V1')
-        test_frame = test_frame.set_index('V1')
-        common_ids = [
-            series_id for series_id in train_frame.index if series_id in test_frame.index]
+        train_frame = pd.read_csv(train_path).set_index('V1')
+        test_frame = pd.read_csv(test_path).set_index('V1')
+        common_ids = [sid for sid in train_frame.index if sid in test_frame.index]
         if not common_ids:
-            raise BenchmarkConfigurationError(
-                'Local M4 train/test files do not share any series identifiers.')
+            raise BenchmarkConfigurationError('Local M4 train/test files do not share any series identifiers.')
 
-        records: list[ForecastingSeriesRecord] = []
+        records = []
         for series_id in common_ids:
-            train_values = train_frame.loc[series_id].dropna().astype(
-                float).to_numpy()
-            test_values = test_frame.loc[series_id].dropna().astype(
-                float).to_numpy()
+            train_values = train_frame.loc[series_id].dropna().astype(float).to_numpy()
+            test_values = test_frame.loc[series_id].dropna().astype(float).to_numpy()
             if len(test_values) == 0 or len(train_values) == 0:
                 continue
             records.append(
-                ForecastingSeriesRecord(
+                ForecastingDatasetRecord(
                     benchmark=self.benchmark_name,
                     dataset_name=spec.dataset_name or subset,
                     subset=subset,
                     series_id=str(series_id),
-                    frequency=subset,
-                    forecast_horizon=int(len(test_values)),
-                    seasonal_period=M4_SEASONALITY[key],
-                    train_values=tuple(float(value) for value in train_values),
-                    test_values=tuple(float(value) for value in test_values),
+                    frequency=meta.frequency.value,
+                    forecast_horizon=meta.default_horizon,
+                    seasonal_period=meta.seasonal_period,
+                    train_values=tuple(train_values),
+                    test_values=tuple(test_values),
+                    known_future_covariates={},
+                    observed_past_covariates={},
+                    static_covariates={},
                     metadata={'split_provenance': 'local_m4_train_test_csv'},
                 )
             )
@@ -555,16 +748,30 @@ class MonashAdapter:
 
     benchmark_name = 'monash'
 
-    def __init__(self, loader: Callable[[DatasetSpec], Any] | None = None):
+    def __init__(self, catalog: DatasetCatalog, loader: Callable[[DatasetSpec], Any] | None = None):
         """Store a custom or default Monash loader."""
+        self.catalog = catalog
         self.loader = loader or self._default_loader
 
-    def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
+
+    def load_series(self, spec: DatasetSpec) -> tuple[ForecastingDatasetRecord, ...]:
         """Load, normalize and optionally sample Monash series records."""
+        dataset_id = spec.dataset_id or spec.dataset_name
+        meta = self.catalog.get_dataset(dataset_id)
+        if meta is None:
+            warnings.warn(f"Dataset {dataset_id} not found in catalog, using adapter_options or fallback.")
+            default_frequency = str(spec.adapter_options.get('frequency', spec.subset))
+            default_horizon = int(spec.adapter_options.get('forecast_horizon', 1))
+            default_seasonal_period = int(spec.adapter_options.get('seasonal_period', 1))
+        else:
+            default_frequency = meta.frequency.value
+            default_horizon = meta.default_horizon
+            default_seasonal_period = meta.seasonal_period
+
         local_csv_path = spec.adapter_options.get('local_csv_path')
         use_local_files = spec.adapter_options.get('use_local_files', False)
         if local_csv_path or use_local_files:
-            records = self._load_local_records(spec)
+            records = self._load_local_records(spec, meta, default_frequency, default_horizon, default_seasonal_period)
         else:
             payload = self.loader(spec)
             if isinstance(payload, pd.DataFrame):
@@ -573,12 +780,10 @@ class MonashAdapter:
                     benchmark=self.benchmark_name,
                     dataset_name=spec.dataset_name,
                     subset=spec.subset,
-                    default_frequency=str(
-                        spec.adapter_options.get('frequency', spec.subset)),
-                    default_horizon=int(
-                        spec.adapter_options.get('forecast_horizon', 1)),
-                    default_seasonal_period=int(
-                        spec.adapter_options.get('seasonal_period', 1)),
+                    default_frequency=default_frequency,
+                    default_horizon=default_horizon,
+                    default_seasonal_period=default_seasonal_period,
+                    covariate_mapping=spec.adapter_options.get('covariate_mapping'),
                 )
             else:
                 records = _parse_sequence_records(
@@ -586,55 +791,44 @@ class MonashAdapter:
                     benchmark=self.benchmark_name,
                     dataset_name=spec.dataset_name,
                     subset=spec.subset,
-                    default_frequency=str(
-                        spec.adapter_options.get('frequency', spec.subset)),
-                    default_horizon=int(
-                        spec.adapter_options.get('forecast_horizon', 1)),
-                    default_seasonal_period=int(
-                        spec.adapter_options.get('seasonal_period', 1)),
+                    default_frequency=default_frequency,
+                    default_horizon=default_horizon,
+                    default_seasonal_period=default_seasonal_period,
                 )
         return _sample_records(records, spec)
 
-    def _load_local_records(self, spec: DatasetSpec) -> list[ForecastingSeriesRecord]:
+    def _load_local_records(self, spec: DatasetSpec, meta: DatasetMetadata | None,
+                            default_frequency: str, default_horizon: int, default_seasonal_period: int) -> list[ForecastingDatasetRecord]:
         local_path = spec.adapter_options.get('local_csv_path')
         if local_path is None:
-            file_candidates = sorted(
-                DEFAULT_LOCAL_MONASH_DIR.glob(f'*{spec.dataset_name}*.csv'))
+            file_candidates = sorted(DEFAULT_LOCAL_MONASH_DIR.glob(f'*{spec.dataset_name}*.csv'))
             if not file_candidates:
-                raise BenchmarkConfigurationError(
-                    f'No local Monash file matching dataset_name={spec.dataset_name} was found in {DEFAULT_LOCAL_MONASH_DIR}.'
-                )
+                raise BenchmarkConfigurationError(f'No local Monash file matching dataset_name={spec.dataset_name} found.')
             local_path = file_candidates[0]
         csv_path = Path(local_path)
         if not csv_path.exists():
-            raise BenchmarkConfigurationError(
-                f'Local Monash CSV file was not found: {csv_path}')
+            raise BenchmarkConfigurationError(f'Local Monash CSV file not found: {csv_path}')
 
         frame = pd.read_csv(csv_path)
         if 'label' not in frame.columns or 'value' not in frame.columns:
-            raise BenchmarkConfigurationError(
-                'Local Monash CSV must include `label` and `value` columns.')
+            raise BenchmarkConfigurationError('Local Monash CSV must include `label` and `value` columns.')
 
-        frequency = str(spec.adapter_options.get('frequency', spec.subset))
-        horizon = int(spec.adapter_options.get('forecast_horizon',
-                      self._infer_horizon_from_filename(csv_path)))
-        seasonal_period = int(spec.adapter_options.get(
-            'seasonal_period', self._infer_seasonal_period(frequency)))
+        frequency = str(spec.adapter_options.get('frequency', default_frequency))
+        horizon = int(spec.adapter_options.get('forecast_horizon', self._infer_horizon_from_filename(csv_path) if meta is None else meta.default_horizon))
+        seasonal_period = int(spec.adapter_options.get('seasonal_period', self._infer_seasonal_period(frequency) if meta is None else meta.seasonal_period))
         dataset_name = spec.dataset_name or csv_path.stem
 
-        records: list[ForecastingSeriesRecord] = []
-        sort_columns = [column for column in (
-            'datetime', 'timestamp', 'ds') if column in frame.columns]
+        records = []
+        sort_columns = [col for col in ('datetime', 'timestamp', 'ds') if col in frame.columns]
         for series_id, group in frame.groupby('label'):
-            ordered = group.sort_values(
-                sort_columns) if sort_columns else group
+            ordered = group.sort_values(sort_columns) if sort_columns else group
             values = ordered['value'].astype(float).to_numpy()
             if len(values) <= horizon:
                 continue
-            train_values, test_values = _series_split_from_full_values(
-                values, horizon)
+            train_values, test_values = _series_split_from_full_values(values, horizon)
+            static_covariates = {'label': str(series_id)}
             records.append(
-                ForecastingSeriesRecord(
+                ForecastingDatasetRecord(
                     benchmark=self.benchmark_name,
                     dataset_name=dataset_name,
                     subset=spec.subset,
@@ -644,10 +838,10 @@ class MonashAdapter:
                     seasonal_period=seasonal_period,
                     train_values=train_values,
                     test_values=test_values,
-                    metadata={
-                        'split_provenance': 'local_monash_csv',
-                        'source_file': csv_path.name,
-                    },
+                    known_future_covariates={},
+                    observed_past_covariates={},
+                    static_covariates=static_covariates,
+                    metadata={'split_provenance': 'local_monash_csv', 'source_file': csv_path.name},
                 )
             )
         return records
@@ -711,8 +905,8 @@ class InMemoryForecastingAdapter:
 
     benchmark_name = 'in_memory'
 
-    def load_series(self, spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
-        """Convert in-memory payload records into ForecastingSeriesRecord values."""
+    def load_series(self, spec: DatasetSpec) -> tuple[ForecastingDatasetRecord, ...]:
+        """Convert in-memory payload records into ForecastingDatasetRecord values."""
         payload = list(spec.adapter_options.get('records', ()))
         if not payload:
             raise BenchmarkConfigurationError(
@@ -740,7 +934,7 @@ def _safe_import(module_name: str) -> bool:
         return False
 
 
-def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
+def _build_fedot_forecasting_input(series_record: ForecastingDatasetRecord):
     try:
         from fedot.core.data.data import InputData
         from fedot.core.repository.dataset_types import DataTypesEnum
@@ -773,7 +967,7 @@ class NaiveLastValueModel(ForecastingModelAdapter):
         """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast by repeating the last train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'last_value'}
@@ -792,7 +986,7 @@ class NaiveMeanModel(ForecastingModelAdapter):
         """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast by repeating the mean train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         return np.full(series_record.forecast_horizon, np.mean(train), dtype=float), {'strategy': 'mean'}
@@ -811,7 +1005,7 @@ class NaiveDriftModel(ForecastingModelAdapter):
         """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast a drift line from first to last train value."""
         train = np.asarray(series_record.train_values, dtype=float)
         if len(train) <= 1:
@@ -835,7 +1029,7 @@ class MovingAverageModel(ForecastingModelAdapter):
         """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast by repeating the last-window mean."""
         train = np.asarray(series_record.train_values, dtype=float)
         window = min(max(self.window_size, 1), len(train))
@@ -855,7 +1049,7 @@ class LinearTrendModel(ForecastingModelAdapter):
         """Return readiness for the dependency-free baseline."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit a linear trend on train values and extrapolate the horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
         if len(train) <= 1:
@@ -884,7 +1078,7 @@ class ClassicalDMDModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'torch is required for DMDForecaster.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit DMD on Hankel trajectories and return the forecast horizon."""
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(
@@ -951,7 +1145,7 @@ class OKHSModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for OKHS forecasting.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit OKHS on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         window_size = min(max(self.window_size, 4), len(train) - 1)
@@ -1059,7 +1253,7 @@ class OKHSFDMDForecasterModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'torch/runtime dependencies are required for okhs_fdmd_forecaster.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Run OKHS fDMD on a benchmark series and attach stage diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         spec = build_okhs_fdmd_spec(
@@ -1154,7 +1348,7 @@ class MSSAModel(ForecastingModelAdapter):
         """Return readiness for the local MSSA runtime."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit MSSA on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         model = MSSAForecaster(
@@ -1229,7 +1423,7 @@ class SSACompatModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'fedot is required for ssa_forecaster compatibility wrapper.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Run the SSA compatibility wrapper and return forecast metadata."""
         from fedot_ind.core.models.ts_forecasting.lagged_model.ssa_forecaster import SSAForecasterImplementation
 
@@ -1307,7 +1501,7 @@ class LaggedForecasterModel(ForecastingModelAdapter):
             )
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit lagged ridge on train values and return forecast plus diagnostics."""
         if str(self.channel_model).lower() != 'ridge':
             raise ModelExecutionError(
@@ -1371,7 +1565,7 @@ class LowRankLaggedForecasterModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'torch is required for low_rank_lagged_ridge_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit low-rank lagged ridge and return forecast plus diagnostics."""
         model = LowRankLaggedRidgeForecaster(
             forecast_horizon=series_record.forecast_horizon,
@@ -1433,7 +1627,7 @@ class HybridEnsembleModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'torch is required for hybrid_ensemble_forecaster runtime.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit all ensemble branches and return weighted forecast diagnostics."""
         model = HybridEnsembleForecaster(
             forecast_horizon=series_record.forecast_horizon,
@@ -1492,7 +1686,7 @@ class HAVOKModel(ForecastingModelAdapter):
         """Return readiness for the local HAVOK runtime."""
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit HAVOK on train values and return forecast plus diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         model = HAVOKForecaster(
@@ -1601,7 +1795,7 @@ class NeuralForecastingHeadModel(ForecastingModelAdapter):
             return RunStatus.NOT_AVAILABLE, 'torch/native neural forecasting runtime is unavailable.'
         return RunStatus.SUCCESS, 'ready'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Run a neural forecasting head on train values and return diagnostics."""
         train = np.asarray(series_record.train_values, dtype=float)
         params = {
@@ -1657,7 +1851,7 @@ class OptionalExternalModel(ForecastingModelAdapter):
 
         return RunStatus.SUCCESS, 'dependency is available'
 
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
+    def forecast(self, series_record: ForecastingDatasetRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Raise a skipped execution status until the external backend is wired."""
         del series_record
         raise ModelExecutionError(RunStatus.SKIPPED, self.scaffold_reason)
@@ -1677,18 +1871,21 @@ class OptionalExternalModel(ForecastingModelAdapter):
         return status
 
 
-def build_dataset_adapter(spec: DatasetSpec):
+def build_dataset_adapter(spec: DatasetSpec, catalog: DatasetCatalog):
     """Create a dataset adapter for a forecasting dataset specification."""
     benchmark = spec.benchmark.lower()
     custom_loader = spec.adapter_options.get('loader')
     if benchmark == 'm4':
-        return M4Adapter(loader=custom_loader)
+        return M4Adapter(catalog=catalog, loader=custom_loader)
     if benchmark == 'monash':
-        return MonashAdapter(loader=custom_loader)
+        return MonashAdapter(catalog=catalog, loader=custom_loader)
+    if benchmark in ('multivariate', 'ltsf'):
+        return LTSFAdapter(catalog=catalog)
+    if benchmark == 'm5':
+        return M5Adapter(catalog=catalog)
     if benchmark == 'in_memory':
         return InMemoryForecastingAdapter()
-    raise BenchmarkConfigurationError(
-        f'Unsupported forecasting benchmark adapter: {spec.benchmark}')
+    raise BenchmarkConfigurationError(f'Unsupported forecasting benchmark adapter: {spec.benchmark}')
 
 
 def _instantiate_model_adapter(adapter_cls, spec: ModelSpec, default_tags: tuple[str, ...]):
@@ -1725,6 +1922,23 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
                                           ('baseline', 'forecasting', 'low_rank_linear'))
     if adapter_name == 'hybrid_ensemble_forecaster':
         return _instantiate_model_adapter(HybridEnsembleModel, spec, ('ensemble', 'forecasting', 'operator_model'))
+    elif adapter_name == 'statsforecast_autoarima':
+        adapter = _instantiate_model_adapter(StatsForecastAutoARIMA, spec, ('statsforecast', 'arima', 'forecasting'))
+    elif adapter_name == 'statsforecast_autoets':
+        adapter = _instantiate_model_adapter(StatsForecastAutoETS, spec, ('statsforecast', 'ets', 'forecasting'))
+    elif adapter_name == 'statsforecast_theta':
+        adapter = _instantiate_model_adapter(StatsForecastTheta, spec, ('statsforecast', 'theta', 'forecasting'))
+    elif adapter_name in ('statsforecast_seasonal_naive', 'statsforecast_sa'):
+        adapter = _instantiate_model_adapter(StatsForecastSeasonalNaive, spec,
+                                             ('statsforecast', 'baseline', 'seasonal_naive'))
+    elif adapter_name == 'statsforecast_naive':
+        adapter = _instantiate_model_adapter(StatsForecastNaive, spec, ('statsforecast', 'baseline', 'naive'))
+    elif adapter_name == 'statsforecast_drift':
+        adapter = _instantiate_model_adapter(StatsForecastDrift, spec, ('statsforecast', 'baseline', 'drift'))
+    elif adapter_name == 'statsforecast_croston':
+        adapter = _instantiate_model_adapter(StatsForecastCroston, spec, ('statsforecast', 'intermittent', 'croston'))
+    elif adapter_name in ('statsforecast_tsb', 'statsforecast_tbs'):
+        adapter = _instantiate_model_adapter(StatsForecastTSB, spec, ('statsforecast', 'intermittent', 'tsb'))
     if adapter_name in {'mssa', 'mssa_forecaster'}:
         return _instantiate_model_adapter(MSSAModel, spec, ('baseline', 'forecasting', 'mssa'))
     if adapter_name in {'havok', 'havok_forecaster'}:
@@ -1753,14 +1967,50 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
         return LinearTrendModel(name=spec.display_name, tags=spec.tags or ('baseline', 'forecasting'))
     if adapter_name == 'classical_dmd':
         return _instantiate_model_adapter(ClassicalDMDModel, spec, ('baseline', 'forecasting', 'dmd'))
-    if adapter_name == 'autogluon':
-        return OptionalExternalModel(
-            dependency_name='autogluon',
-            name=spec.display_name,
-            family=ModelFamily.AUTOML,
-            tags=spec.tags or ('baseline', 'forecasting',
-                               'external', 'autogluon'),
-        )
+    elif adapter_name == 'autogluon':
+        if create_autogluon_adapter is not None:
+            adapter = create_autogluon_adapter(
+                name=spec.display_name,
+                tags=spec.tags or ('automl', 'forecasting', 'external', 'autogluon'),
+                **params
+            )
+        else:
+            adapter = OptionalExternalModel(
+                dependency_name='autogluon',
+                name=spec.display_name,
+                family=ModelFamily.AUTOML,
+                tags=spec.tags or ('baseline', 'forecasting', 'external', 'autogluon'),
+            )
+    elif adapter_name == 'autots':
+        if create_autots_adapter is not None:
+            adapter = create_autots_adapter(
+                name=spec.display_name,
+                tags=spec.tags or ('automl', 'forecasting', 'external', 'autots'),
+                **params
+            )
+        else:
+            adapter = OptionalExternalModel(
+                dependency_name='autots',
+                name=spec.display_name,
+                family=ModelFamily.AUTOML,
+                tags=spec.tags or ('automl', 'forecasting', 'external', 'autots'),
+                scaffold_reason='AutoTS adapter unavailable (dependency missing)',
+            )
+    elif adapter_name == 'flaml':
+        if create_flaml_adapter is not None:
+            adapter = create_flaml_adapter(
+                name=spec.display_name,
+                tags=spec.tags or ('automl', 'forecasting', 'external', 'flaml'),
+                **params
+            )
+        else:
+            adapter = OptionalExternalModel(
+                dependency_name='flaml',
+                name=spec.display_name,
+                family=ModelFamily.AUTOML,
+                tags=spec.tags or ('automl', 'forecasting', 'external', 'flaml'),
+                scaffold_reason='FLAML adapter unavailable (dependency missing)',
+            )
     if adapter_name == 'nbeats':
         return OptionalExternalModel(
             dependency_name='neuralforecast',
@@ -1905,7 +2155,7 @@ def _append_event_interval_metrics(
         metric_records: list[MetricRecord],
         *,
         run_id: str,
-        series_record: ForecastingSeriesRecord,
+        series_record: ForecastingDatasetRecord,
         model_name: str,
         actual: np.ndarray,
         forecast: np.ndarray,
@@ -1954,7 +2204,7 @@ class ForecastingSeriesArtifactsRecorder:
 
     def validate_forecast_length(
             self,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             prediction: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Validate model forecast length and return aligned actual/forecast arrays."""
@@ -1971,7 +2221,7 @@ class ForecastingSeriesArtifactsRecorder:
     def record_metric_bundle(
             self,
             *,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             actual: np.ndarray,
             forecast: np.ndarray,
@@ -2043,7 +2293,7 @@ class ForecastingSeriesArtifactsRecorder:
     def record_predictions(
             self,
             *,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             actual: np.ndarray,
             forecast: np.ndarray,
@@ -2067,7 +2317,7 @@ class ForecastingSeriesArtifactsRecorder:
 
     def record_quantile_predictions(
             self,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             actual: np.ndarray,
             forecast_result: ForecastResult,
@@ -2161,11 +2411,13 @@ class ForecastingPostFitTuningCoordinator:
             *,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             baseline_metadata: dict[str, Any],
             baseline_metrics_summary: dict[str, float],
             regime_diagnostics,
             routing_recommendation,
+            forecastability_report: ForecastabilityReport,
+            routing_hints: dict[str, Any],
     ) -> dict[str, Any]:
         """Execute stage tuning after baseline validation and return enriched metadata."""
         runtime_config = self._resolve_runtime_config(
@@ -2275,6 +2527,8 @@ class ForecastingPostFitTuningCoordinator:
                     'tuned_adapter_family': adapter_name_to_family(tuned_model_spec.adapter_name),
                     'regime_diagnostics': regime_diagnostics.to_dict(),
                     'routing_recommendation': routing_recommendation.to_dict(),
+                    'forecastability_report': forecastability_report.to_dict(),
+                    'routing_hints': routing_hints,
                 }
             )
             return {
@@ -2352,11 +2606,12 @@ class ForecastingSuiteRunner:
         """Initialize benchmark state, progress, verbosity and resume coordinators."""
         validate_forecasting_suite_config(config)
         self.config = config
+        self.catalog = DatasetCatalog()
         self.run_id = (
             ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
             or new_run_id(config.run_spec.run_name)
         )
-        self.series_records: list[ForecastingSeriesRecord] = []
+        self.series_records: list[ForecastingDatasetRecord] = []
         self.run_records: list[BenchmarkRunRecord] = []
         self.prediction_records: list[PredictionRecord] = []
         self.metric_records: list[MetricRecord] = []
@@ -2402,7 +2657,7 @@ class ForecastingSuiteRunner:
         )
         self._load_resume_state()
 
-    def _series_key(self, series_record: ForecastingSeriesRecord) -> tuple[str, str, str, str]:
+    def _series_key(self, series_record: ForecastingDatasetRecord) -> tuple[str, str, str, str]:
         return (
             str(series_record.benchmark),
             str(series_record.dataset_name),
@@ -2494,26 +2749,51 @@ class ForecastingSuiteRunner:
             self._iter_over_models(dataset_spec, dataset_series)
             self.progress.dataset_finished()
 
-    def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[ForecastingSeriesRecord, ...]:
-        dataset_adapter = build_dataset_adapter(dataset_spec)
+    def _load_dataset_series(self, dataset_spec: DatasetSpec) -> tuple[ForecastingDatasetRecord, ...]:
+        dataset_id = dataset_spec.dataset_id or dataset_spec.dataset_name
+        meta = self.catalog.get_dataset(dataset_id)
+        if meta is None:
+            self.progress._write(
+                f"Warning: Dataset {dataset_id} not found in catalog. Skipping validation."
+            )
+        dataset_adapter = build_dataset_adapter(dataset_spec, self.catalog)
         dataset_series = dataset_adapter.load_series(dataset_spec)
+        filtered_series = []
         for record in dataset_series:
+            if self.config.scenario_spec and self.config.scenario_spec.track is not None:
+                if meta is not None and meta.track != self.config.scenario_spec.track:
+                    self.progress._write(
+                        f"Skipping record {record.series_id}: track mismatch "
+                        f"(dataset={meta.track.value}, scenario={self.config.scenario_spec.track.value})"
+                    )
+                    continue
+            if meta is not None:
+                try:
+                    validate_dataset_record(
+                        record,
+                        meta,
+                        covariate_mapping=dataset_spec.adapter_options.get('covariate_mapping'),
+                        scenario=self.config.scenario_spec,
+                    )
+                except BenchmarkConfigurationError as e:
+                    self.progress._write(
+                        f"Skipping record {record.series_id}: validation failed - {e}"
+                    )
+                    continue
             record_key = self._series_key(record)
             if record_key not in self.known_series_keys:
                 self.series_records.append(record)
                 self.known_series_keys.add(record_key)
-        self.incremental_persistence.persist_series_catalog(
-            self.series_records)
-        self.progress.extend_total(
-            len(dataset_series) * len(self.config.models))
-        self.progress.dataset_loaded(
-            dataset_spec.dataset_name, len(dataset_series))
+                filtered_series.append(record)
+        self.incremental_persistence.persist_series_catalog(self.series_records)
+        self.progress.extend_total(len(filtered_series) * len(self.config.models))
+        self.progress.dataset_loaded(dataset_spec.dataset_name, len(filtered_series))
         return dataset_series
 
     def _iter_over_models(
             self,
             dataset_spec: DatasetSpec,
-            dataset_series: tuple[ForecastingSeriesRecord, ...],
+            dataset_series: tuple[ForecastingDatasetRecord, ...],
     ) -> None:
         for model_spec in self.config.models:
             resolved_model_spec = self._augment_model_spec_with_progress_policy(
@@ -2540,7 +2820,7 @@ class ForecastingSuiteRunner:
             self,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
-            dataset_series: tuple[ForecastingSeriesRecord, ...],
+            dataset_series: tuple[ForecastingDatasetRecord, ...],
     ) -> None:
         for series_record in dataset_series:
             item_key = self.incremental_persistence.item_key(
@@ -2566,11 +2846,12 @@ class ForecastingSuiteRunner:
                 continue
             self.progress.item_started(
                 series_record.dataset_name, model.name, series_record.series_id)
-            regime_diagnostics, routing_recommendation = self._build_series_context(
+            regime_diagnostics, routing_recommendation, forecastability_report, routing_hints = self._build_series_context(
                 series_record)
             try:
                 self._evaluate_series(
-                    model_spec, model, series_record, regime_diagnostics, routing_recommendation)
+                    model_spec, model, series_record, regime_diagnostics, routing_recommendation,
+                    forecastability_report, routing_hints)
                 self.progress.advance(RunStatus.SUCCESS.value)
             except ModelExecutionError as exc:
                 self._append_failed_run_record(
@@ -2602,7 +2883,7 @@ class ForecastingSuiteRunner:
             *,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
-            dataset_series: tuple[ForecastingSeriesRecord, ...],
+            dataset_series: tuple[ForecastingDatasetRecord, ...],
             availability_status: RunStatus,
             availability_message: str,
     ) -> None:
@@ -2677,12 +2958,15 @@ class ForecastingSuiteRunner:
             self.progress.advance(
                 availability_status.value, availability_message)
 
-    def _build_series_context(self, series_record: ForecastingSeriesRecord):
+    def _build_series_context(self, series_record: ForecastingDatasetRecord):
         regime_diagnostics = analyze_regime_diagnostics(
             np.asarray(series_record.train_values, dtype=float))
         routing_recommendation = recommend_forecasting_model(
             regime_diagnostics)
-        return regime_diagnostics, routing_recommendation
+        forecastability_report = analyze_forecastability(
+            series_record, include_emd=False)
+        routing_hints = get_routing_hints(forecastability_report)
+        return regime_diagnostics, routing_recommendation, forecastability_report, routing_hints
 
     def _build_common_metadata(
             self,
@@ -2699,13 +2983,16 @@ class ForecastingSuiteRunner:
             'regime_diagnostics': regime_diagnostics.to_dict(),
             'routing_recommendation': routing_recommendation.to_dict(),
             'routing_recommendation_family': adapter_name_to_family(routing_recommendation.primary_adapter),
+            'forecastability_report': forecastability_report.to_dict(),
+            'routing_hints': routing_hints,
+            'routing_recommendation_family_new': routing_hints.get('recommended_family'),
             **self._runner_context_metadata(),
             **dict(extra or {}),
         }
 
     def _validate_forecast_length(
             self,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             prediction: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         return self.artifacts_recorder.validate_forecast_length(series_record, prediction)
@@ -2713,7 +3000,7 @@ class ForecastingSuiteRunner:
     def _record_metric_bundle(
             self,
             *,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             actual: np.ndarray,
             forecast: np.ndarray,
@@ -2732,7 +3019,7 @@ class ForecastingSuiteRunner:
     def _record_predictions(
             self,
             *,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             actual: np.ndarray,
             forecast: np.ndarray,
@@ -2759,11 +3046,13 @@ class ForecastingSuiteRunner:
             *,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             baseline_metadata: dict[str, Any],
             baseline_metrics_summary: dict[str, float],
             regime_diagnostics,
             routing_recommendation,
+            forecastability_report: ForecastabilityReport,
+            routing_hints: dict[str, Any],
     ) -> dict[str, Any]:
         return self.post_fit_tuning.run(
             model_spec=model_spec,
@@ -2780,7 +3069,7 @@ class ForecastingSuiteRunner:
             *,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             status: RunStatus,
             message: str,
             regime_diagnostics,
@@ -2816,7 +3105,7 @@ class ForecastingSuiteRunner:
 
     def _record_probabilistic_metrics(
             self,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             actual: np.ndarray,
             forecast_result: ForecastResult,
@@ -2954,7 +3243,7 @@ class ForecastingSuiteRunner:
 
     def _record_resource_metrics(
             self,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             start_time: float,
             end_time: float,
@@ -2995,7 +3284,7 @@ class ForecastingSuiteRunner:
 
     def _record_failed_metric(
             self,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             model_name: str,
             metric_name: str,
             error_msg: str,
@@ -3020,9 +3309,11 @@ class ForecastingSuiteRunner:
             self,
             model_spec: ModelSpec,
             model: ForecastingModelAdapter,
-            series_record: ForecastingSeriesRecord,
+            series_record: ForecastingDatasetRecord,
             regime_diagnostics,
             routing_recommendation,
+            forecastability_report: ForecastabilityReport,
+            routing_hints: dict[str, Any],
     ) -> None:
         metric_count_before = len(self.metric_records)
         prediction_count_before = len(self.prediction_records)
@@ -3034,16 +3325,8 @@ class ForecastingSuiteRunner:
         scenario = self.config.scenario_spec
 
         if scenario is not None:
-            if scenario.run_mode == RunMode.ZERO_SHOT:
-                series_record = dataclasses.replace(
-                    series_record, train_values=())
-            elif scenario.run_mode == RunMode.FEW_SHOT:
-                train = series_record.train_values
-                if train:
-                    n = len(train)
-                    k = max(3, min(n // 5, 50))
-                    series_record = dataclasses.replace(
-                        series_record, train_values=train[-k:])
+            series_record = apply_scenario_to_record(series_record, scenario)
+
         start_time = time.time()
         raw_prediction = model.forecast(series_record)
         end_time = time.time()
@@ -3087,6 +3370,8 @@ class ForecastingSuiteRunner:
             baseline_metrics_summary=metrics_summary,
             regime_diagnostics=regime_diagnostics,
             routing_recommendation=routing_recommendation,
+            forecastability_report=forecastability_report,
+            routing_hints=routing_hints,
         )
         run_record = BenchmarkRunRecord(
             run_id=self.run_id,

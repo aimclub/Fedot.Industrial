@@ -1,0 +1,431 @@
+- dataset_id: m4_daily
+  family: m4
+  domain: economic
+  frequency: D
+  default_horizon: 14
+  seasonal_period: 1
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: M4 Daily subset
+  default_adapter_options:
+    use_local_files: true
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: m4_weekly
+  family: m4
+  domain: economic
+  frequency: W
+  default_horizon: 13
+  seasonal_period: 1
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: M4 Weekly subset
+  default_adapter_options:
+    use_local_files: true
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: m4_monthly
+  family: m4
+  domain: economic
+  frequency: M
+  default_horizon: 18
+  seasonal_period: 12
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: M4 Monthly subset
+  default_adapter_options:
+    use_local_files: true
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: m4_quarterly
+  family: m4
+  domain: economic
+  frequency: Q
+  default_horizon: 8
+  seasonal_period: 4
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: M4 Quarterly subset
+  default_adapter_options:
+    use_local_files: true
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: m4_yearly
+  family: m4
+  domain: economic
+  frequency: Y
+  default_horizon: 6
+  seasonal_period: 1
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: M4 Yearly subset
+  default_adapter_options:
+    use_local_files: true
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: m5_validation
+  family: m5
+  domain: retail
+  frequency: D
+  default_horizon: 28
+  seasonal_period: 7
+  target_type: panel
+  covariates: [known_future, static]
+  leakage_status: strict
+  track: extended
+  requires_download: true
+  description: M5 forecasting competition - validation set (daily sales, 28-day horizon)
+  default_adapter_options:
+    include_calendar: true
+    include_prices: true
+  capabilities: [panel, static_covariates, known_future_covariates]
+  version: "1.0"
+
+- dataset_id: m5_evaluation
+  family: m5
+  domain: retail
+  frequency: D
+  default_horizon: 28
+  seasonal_period: 7
+  target_type: panel
+  covariates: [known_future, static]
+  leakage_status: strict
+  track: extended
+  requires_download: true
+  description: M5 forecasting competition - evaluation set (daily sales, 28-day horizon)
+  default_adapter_options:
+    include_calendar: true
+    include_prices: true
+  capabilities: [panel, static_covariates, known_future_covariates]
+  version: "1.0"
+
+- dataset_id: Bitcoin
+  family: monash
+  domain: finance
+  frequency: D
+  default_horizon: 1
+  seasonal_period: 1
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: Bitcoin price (daily)
+  default_adapter_options:
+    use_local_files: true
+    forecast_horizon: 1
+    seasonal_period: 1
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: Electricity
+  family: monash
+  domain: energy
+  frequency: H
+  default_horizon: 24
+  seasonal_period: 24
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: Electricity demand (hourly)
+  default_adapter_options:
+    use_local_files: true
+    forecast_horizon: 24
+    seasonal_period: 24
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: Traffic
+  family: monash
+  domain: traffic
+  frequency: H
+  default_horizon: 24
+  seasonal_period: 24
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: Traffic volume (hourly)
+  default_adapter_options:
+    use_local_files: true
+    forecast_horizon: 24
+    seasonal_period: 24
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: Weather
+  family: monash
+  domain: weather
+  frequency: D
+  default_horizon: 1
+  seasonal_period: 1
+  target_type: univariate
+  covariates: []
+  leakage_status: strict
+  track: default
+  requires_download: false
+  description: Weather observations (daily)
+  default_adapter_options:
+    use_local_files: true
+    forecast_horizon: 1
+    seasonal_period: 1
+  capabilities: []
+  version: "1.0"
+
+- dataset_id: etth1
+  family: ltsf
+  domain: energy
+  frequency: H
+  default_horizon: 96
+  seasonal_period: 24
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Electricity Transformer Temperature - Hourly 1
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: etth2
+  family: ltsf
+  domain: energy
+  frequency: H
+  default_horizon: 96
+  seasonal_period: 24
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Electricity Transformer Temperature - Hourly 2
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: ettm1
+  family: ltsf
+  domain: energy
+  frequency: 15min
+  default_horizon: 96
+  seasonal_period: 96
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Electricity Transformer Temperature - 15min 1
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: ettm2
+  family: ltsf
+  domain: energy
+  frequency: 15min
+  default_horizon: 96
+  seasonal_period: 96
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Electricity Transformer Temperature - 15min 2
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: electricity
+  family: ltsf
+  domain: energy
+  frequency: H
+  default_horizon: 96
+  seasonal_period: 24
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Electricity consumption (hourly)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: exchange_rate
+  family: ltsf
+  domain: finance
+  frequency: D
+  default_horizon: 96
+  seasonal_period: 7
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Exchange rates (daily)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: traffic
+  family: ltsf
+  domain: traffic
+  frequency: H
+  default_horizon: 96
+  seasonal_period: 24
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Traffic volume (hourly)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: weather
+  family: ltsf
+  domain: weather
+  frequency: 10min
+  default_horizon: 96
+  seasonal_period: 144
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Weather indicators (10-min)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: solar
+  family: ltsf
+  domain: energy
+  frequency: 10min
+  default_horizon: 96
+  seasonal_period: 144
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: Solar power production (10-min)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: pems03
+  family: ltsf
+  domain: traffic
+  frequency: 5min
+  default_horizon: 96
+  seasonal_period: 288
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: PEMS03 traffic flow (5-min)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+    special_loader: pems_npy
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: pems04
+  family: ltsf
+  domain: traffic
+  frequency: 5min
+  default_horizon: 96
+  seasonal_period: 288
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: PEMS04 traffic flow (5-min)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: pems07
+  family: ltsf
+  domain: traffic
+  frequency: 5min
+  default_horizon: 96
+  seasonal_period: 288
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: PEMS07 traffic flow (5-min)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"
+
+- dataset_id: pems08
+  family: ltsf
+  domain: traffic
+  frequency: 5min
+  default_horizon: 96
+  seasonal_period: 288
+  target_type: multivariate
+  covariates: []
+  leakage_status: strict
+  track: extended
+  requires_download: false
+  description: PEMS08 traffic flow (5-min)
+  default_adapter_options:
+    forecast_horizon: 96
+    univariate_mode: false
+  capabilities: [multivariate]
+  version: "1.0"

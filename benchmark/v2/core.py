@@ -91,6 +91,7 @@ class MetricKind(str, Enum):
 class DatasetSpec:
     benchmark: str
     dataset_name: str
+    dataset_id: str | None = None
     subset: str = 'default'
     sample_size: int | None = None
     random_seed: int = 0
@@ -168,6 +169,26 @@ class ForecastingSeriesRecord:
     train_values: tuple[float, ...]
     test_values: tuple[float, ...]
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ForecastingDatasetRecord():
+    benchmark: str
+    dataset_name: str
+    subset: str
+    series_id: str
+    frequency: str
+    forecast_horizon: int
+    seasonal_period: int
+    train_values: tuple[float, ...]
+    test_values: tuple[float, ...]
+    known_future_covariates: dict[str, Sequence[float]] = field(default_factory=dict)
+    observed_past_covariates: dict[str, Sequence[float]] = field(default_factory=dict)
+    static_covariates: dict[str, Any] = field(default_factory=dict)
+    panel_ids: dict[str, str] = field(default_factory=dict)
+    hierarchy: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    leakage_status: str | None = None
 
 
 @dataclass(frozen=True)
