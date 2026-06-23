@@ -1,0 +1,65 @@
+{
+  "version": "benchmark_results_showcase@1",
+  "title": "IndustrialTS Benchmark Results Showcase",
+  "description": "Canonical benchmark/results view for current Industrial, legacy Industrial, and SoTA reference tables.",
+  "groups": [
+    {
+      "group_key": "ucr_classification",
+      "title": "UCR/UEA Univariate Classification",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_model": "",
+      "source_count": 3,
+      "dataset_count": 113,
+      "model_count": 12,
+      "metric_row_count": 1784,
+      "diagnostic_row_count": 892,
+      "notes": "Compares current and v2 Kernel Learning UCR runs against the SoTA reference table."
+    },
+    {
+      "group_key": "multivariate_classification",
+      "title": "Multivariate Classification",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_model": "Fedot_Industrial",
+      "source_count": 1,
+      "dataset_count": 26,
+      "model_count": 21,
+      "metric_row_count": 521,
+      "diagnostic_row_count": 0,
+      "notes": "Indexes the existing multivariate classification comparison table; no new Kernel Learning full-run source is present yet."
+    },
+    {
+      "group_key": "tser_regression",
+      "title": "TSER Regression",
+      "task_type": "ts_regression",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "target_model": "",
+      "source_count": 3,
+      "dataset_count": 63,
+      "model_count": 29,
+      "metric_row_count": 1679,
+      "diagnostic_row_count": 258,
+      "notes": "Compares current and v2 Kernel Learning TSER runs against the cleaned average rows from the SoTA/legacy Industrial table."
+    },
+    {
+      "group_key": "m4_forecasting",
+      "title": "M4 Monthly Forecasting",
+      "task_type": "forecasting",
+      "metric_name": "mae",
+      "metric_direction": "lower",
+      "target_model": "",
+      "source_count": 2,
+      "dataset_count": 1,
+      "model_count": 4,
+      "metric_row_count": 8,
+      "diagnostic_row_count": 0,
+      "notes": "Indexes current and v2 Kernel Learning forecasting leaderboards; SoTA forecasting reference tables are not present in benchmark/results yet."
+    }
+  ],
+  "source_count": 9,
+  "archive_candidate_count": 9
+}
