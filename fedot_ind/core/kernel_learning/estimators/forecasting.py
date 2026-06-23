@@ -6,7 +6,14 @@ from typing import Any
 import numpy as np
 from sklearn.kernel_ridge import KernelRidge
 
-from .base import KernelEnsembleBase
+from fedot_ind.core.kernel_learning.contracts import (
+    FeatureInput,
+    KernelConfigValidationError,
+    KernelTaskType,
+    TargetInput,
+)
+
+from .base import KernelEnsembleBase, collect_kernel_base_params
 
 
 @dataclass
@@ -29,7 +36,7 @@ class OKHSForecastHeadAdapter:
 
 
 class KernelEnsembleForecaster(KernelEnsembleBase):
-    task_type = "forecasting"
+    task_type = KernelTaskType.FORECASTING
 
     def __init__(
             self,
@@ -59,36 +66,13 @@ class KernelEnsembleForecaster(KernelEnsembleBase):
             head: Any | None = None,
             torch_device: Any = "auto",
     ):
-        super().__init__(
-            generator_names=generator_names,
-            kernel=kernel,
-            gamma=gamma,
-            normalize=normalize,
-            center=center,
-            psd_correction=psd_correction,
-            psd_tol=psd_tol,
-            kernel_approximation=kernel_approximation,
-            nystrom_components=nystrom_components,
-            complexity_penalty=complexity_penalty,
-            redundancy_penalty=redundancy_penalty,
-            min_weight=min_weight,
-            target_gamma=target_gamma,
-            selector_optimizer=selector_optimizer,
-            selector_max_iter=selector_max_iter,
-            selector_tol=selector_tol,
-            selector_step_size=selector_step_size,
-            importance_threshold=importance_threshold,
-            importance_fallback_top_n=importance_fallback_top_n,
-            importance_max_union_size=importance_max_union_size,
-            torch_device=torch_device,
-        )
+        super().__init__(**collect_kernel_base_params(locals()))
         self.forecast_horizon = forecast_horizon
         self.head_type = head_type
         self.alpha = alpha
         self.head = head
-        self.torch_device = torch_device
 
-    def fit(self, X: Any, y: Any):
+    def fit(self, X: FeatureInput, y: TargetInput):
         y_array = _normalize_forecast_target(y, forecast_horizon=self.forecast_horizon)
         train_kernel = self._fit_kernel_layer(X, y_array)
         self.forecast_horizon_ = int(y_array.shape[1]) if y_array.ndim == 2 else 1
@@ -97,7 +81,7 @@ class KernelEnsembleForecaster(KernelEnsembleBase):
         self.head_diagnostics_ = getattr(self.head_, "diagnostics_", {"head_type": self.head_type})
         return self
 
-    def predict(self, X: Any) -> np.ndarray:
+    def predict(self, X: FeatureInput) -> np.ndarray:
         prediction = np.asarray(self.head_.predict(self._combine_test_kernels(X)), dtype=float)
         if self.forecast_horizon_ == 1:
             return prediction.reshape(-1)
@@ -109,7 +93,7 @@ class KernelEnsembleForecaster(KernelEnsembleBase):
             return KernelRidge(kernel="precomputed", alpha=self.alpha)
         if normalized in {"okhs", "okhs_fdmd", "okhs_kernel_ridge"}:
             return OKHSForecastHeadAdapter(alpha=self.alpha)
-        raise ValueError(f"Unsupported forecasting head_type: {self.head_type}")
+        raise KernelConfigValidationError(f"Unsupported forecasting head_type: {self.head_type}")
 
 
 def _normalize_forecast_target(y: Any, *, forecast_horizon: int | None) -> np.ndarray:
@@ -122,9 +106,9 @@ def _normalize_forecast_target(y: Any, *, forecast_horizon: int | None) -> np.nd
         values = values.reshape(values.shape[0], -1)
     if forecast_horizon is not None:
         if forecast_horizon < 1:
-            raise ValueError("forecast_horizon must be at least 1.")
+            raise KernelConfigValidationError("forecast_horizon must be at least 1.")
         if values.shape[1] != forecast_horizon:
-            raise ValueError(
+            raise KernelConfigValidationError(
                 f"forecast_horizon={forecast_horizon} does not match target width {values.shape[1]}."
             )
     return values

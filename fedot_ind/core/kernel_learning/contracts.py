@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, Union
 
 import numpy as np
+
+
+FeatureInput = Union[np.ndarray, Sequence[Sequence[float]], Sequence[float]]
+TargetInput = Union[np.ndarray, Sequence[float], Sequence[str]]
+
+
+class KernelConfigValidationError(ValueError):
+    """Expected validation failure for Kernel Learning configuration values."""
 
 
 class KernelTaskType(str, Enum):
@@ -24,61 +33,86 @@ class PSDCorrectionPolicy(str, Enum):
     NONE = "none"
 
 
+class KernelApproximation(str, Enum):
+    NYSTROM = "nystrom"
+
+
 @dataclass(frozen=True)
 class KernelMatrixPolicy:
     kernel: str = "rbf"
     gamma: str | float = "scale"
     degree: int = 3
     coef0: float = 1.0
-    normalize: str | None = KernelNormalization.TRACE.value
+    normalize: KernelNormalization | None = KernelNormalization.TRACE
     center: bool = False
-    psd_correction: str | None = PSDCorrectionPolicy.CLIP.value
+    psd_correction: PSDCorrectionPolicy | None = PSDCorrectionPolicy.CLIP
     psd_tol: float = 1e-8
-    approximation: str | None = None
+    approximation: KernelApproximation | None = None
     nystrom_components: int | None = None
 
     def __post_init__(self):
         if self.degree < 1:
-            raise ValueError("degree must be at least 1.")
+            raise KernelConfigValidationError("degree must be at least 1.")
         if self.psd_tol < 0.0:
-            raise ValueError("psd_tol must be non-negative.")
-        if self.normalize is not None and str(self.normalize).lower() not in {
-            KernelNormalization.TRACE.value,
-            KernelNormalization.FROBENIUS.value,
-            KernelNormalization.NONE.value,
-        }:
-            raise ValueError(f"Unsupported kernel normalization: {self.normalize}")
-        if self.psd_correction is not None and str(self.psd_correction).lower() not in {
-            PSDCorrectionPolicy.CLIP.value,
-            PSDCorrectionPolicy.NONE.value,
-        }:
-            raise ValueError(f"Unsupported PSD correction policy: {self.psd_correction}")
-        if self.approximation is not None and str(self.approximation).lower() not in {"nystrom"}:
-            raise ValueError(f"Unsupported kernel approximation: {self.approximation}")
+            raise KernelConfigValidationError("psd_tol must be non-negative.")
+        object.__setattr__(
+            self,
+            "normalize",
+            _normalize_optional_enum(self.normalize, KernelNormalization, "kernel normalization"),
+        )
+        object.__setattr__(
+            self,
+            "psd_correction",
+            _normalize_optional_enum(self.psd_correction, PSDCorrectionPolicy, "PSD correction policy"),
+        )
+        object.__setattr__(
+            self,
+            "approximation",
+            _normalize_optional_enum(self.approximation, KernelApproximation, "kernel approximation"),
+        )
         if self.nystrom_components is not None and self.nystrom_components < 1:
-            raise ValueError("nystrom_components must be at least 1.")
+            raise KernelConfigValidationError("nystrom_components must be at least 1.")
 
     @property
     def normalized_policy(self) -> "KernelMatrixPolicy":
-        normalize = None if self.normalize is None or str(self.normalize).lower() == "none" else str(self.normalize)
-        psd_correction = (
-            None
-            if self.psd_correction is None or str(self.psd_correction).lower() == "none"
-            else str(self.psd_correction)
-        )
-        approximation = None if self.approximation is None else str(self.approximation).lower()
         return KernelMatrixPolicy(
             kernel=str(self.kernel).lower(),
             gamma=self.gamma,
             degree=int(self.degree),
             coef0=float(self.coef0),
-            normalize=normalize,
+            normalize=self.normalize,
             center=bool(self.center),
-            psd_correction=psd_correction,
+            psd_correction=self.psd_correction,
             psd_tol=float(self.psd_tol),
-            approximation=approximation,
+            approximation=self.approximation,
             nystrom_components=self.nystrom_components,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        return _jsonable(self.normalized_policy)
+
+
+def _normalize_optional_enum(value: Any, enum_type: type[Enum], label: str):
+    if value is None:
+        return None
+    if isinstance(value, enum_type):
+        normalized = value
+    else:
+        raw_value = str(value).strip().lower()
+        try:
+            normalized = enum_type(raw_value)
+        except ValueError as exc:
+            raise KernelConfigValidationError(f"Unsupported {label}: {value}") from exc
+    return None if getattr(normalized, "value", None) == "none" else normalized
+
+
+def _normalize_task_type(value: Any) -> KernelTaskType:
+    if isinstance(value, KernelTaskType):
+        return value
+    try:
+        return KernelTaskType(str(value).strip().lower())
+    except ValueError as exc:
+        raise KernelConfigValidationError(f"Unsupported kernel task type: {value}") from exc
 
 
 def _jsonable(value: Any) -> Any:
@@ -150,8 +184,11 @@ class KernelSelectionReport:
     alignments: dict[str, float]
     complexities: dict[str, float]
     redundancies: dict[str, float]
-    task_type: str
+    task_type: KernelTaskType
     diagnostics: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        object.__setattr__(self, "task_type", _normalize_task_type(self.task_type))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -163,7 +200,7 @@ class KernelSelectionReport:
             "alignments": _jsonable(self.alignments),
             "complexities": _jsonable(self.complexities),
             "redundancies": _jsonable(self.redundancies),
-            "task_type": self.task_type,
+            "task_type": self.task_type.value,
             "diagnostics": _jsonable(self.diagnostics),
         }
 
@@ -171,16 +208,28 @@ class KernelSelectionReport:
 class FeatureGeneratorProtocol(Protocol):
     name: str
 
-    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+    def fit(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: KernelTaskType | str = KernelTaskType.CLASSIFICATION,
+    ):
         ...
 
-    def transform(self, X: Any) -> FeatureBundle:
+    def transform(self, X: FeatureInput) -> FeatureBundle:
         ...
 
-    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+    def fit_transform(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: KernelTaskType | str = KernelTaskType.CLASSIFICATION,
+    ) -> FeatureBundle:
         ...
 
 
 class KernelGeneratorProtocol(FeatureGeneratorProtocol, Protocol):
-    def kernel(self, X_left: Any, X_right: Any | None = None) -> KernelBundle:
+    def kernel(self, X_left: FeatureInput, X_right: FeatureInput | None = None) -> KernelBundle:
         ...
