@@ -118,16 +118,82 @@ def render_forecast_comparison_pack(
     axis.plot(history_index, history_array, color='0.35', linewidth=1.8, label='History')
     axis.plot(forecast_index, actual_array, color='black', linewidth=2.2, label='Actual')
     for model_name, forecast_values in forecasts.items():
-        axis.plot(forecast_index, _as_float_array(forecast_values), linewidth=1.6, label=str(model_name))
+        axis.plot(
+            forecast_index,
+            _as_float_array(forecast_values),
+            linewidth=1.6,
+            label=_short_model_name(str(model_name)),
+        )
     axis.axvspan(forecast_index[0] - 0.5, forecast_index[-1] + 0.5, color='tab:orange', alpha=0.08)
     axis.set_title(title)
     axis.set_xlabel('Time step')
     axis.set_ylabel('Value')
     axis.grid(alpha=0.2)
-    axis.legend(frameon=False, fontsize=8, ncol=2)
+    axis.legend(frameon=False, fontsize=8, ncol=2, loc='best')
     manifest.extend(_save_figure(figure, plots_dir / 'multi_model_forecast', plot_formats))
 
     return tuple(manifest)
+
+
+def build_forecast_comparison_from_aggregate_predictions(
+        root: str | Path,
+        *,
+        series_id: str | None = None,
+        dataset_name: str | None = None,
+        model_names: Sequence[str] = (),
+        history_length: int = 36,
+) -> tuple[tuple[float, ...], tuple[float, ...], dict[str, tuple[float, ...]], dict[str, Any]]:
+    root_path = Path(root)
+    prediction_paths = sorted(root_path.rglob('aggregate/predictions.csv'))
+    if not prediction_paths:
+        raise ValueError(f'No aggregate/predictions.csv files found under {root_path}.')
+    predictions = pd.concat([pd.read_csv(path) for path in prediction_paths], ignore_index=True)
+    if predictions.empty:
+        raise ValueError(f'Aggregate predictions under {root_path} are empty.')
+    if dataset_name is not None and 'dataset_name' in predictions.columns:
+        predictions = predictions[predictions['dataset_name'].astype(str) == str(dataset_name)].copy()
+    if predictions.empty:
+        raise ValueError(f'No aggregate predictions matched dataset_name={dataset_name!r}.')
+    selected_series_id = str(series_id or sorted(predictions['series_id'].astype(str).unique())[0])
+    series_predictions = predictions[predictions['series_id'].astype(str) == selected_series_id].copy()
+    if series_predictions.empty:
+        raise ValueError(f'No aggregate predictions matched series_id={series_id!r}.')
+    if 'status' in series_predictions.columns:
+        series_predictions = series_predictions[series_predictions['status'].astype(str) == 'success'].copy()
+    if series_predictions.empty:
+        raise ValueError(f'Aggregate predictions for series {selected_series_id!r} have no successful rows.')
+
+    allowed = {str(model_name) for model_name in model_names}
+    actual_frame = (
+        series_predictions[['horizon_index', 'y_true']]
+        .dropna()
+        .drop_duplicates()
+        .sort_values('horizon_index')
+    )
+    actual = tuple(float(value) for value in actual_frame['y_true'])
+    forecasts: dict[str, tuple[float, ...]] = {}
+    for model_name, group in series_predictions.groupby(series_predictions['model_name'].astype(str)):
+        if allowed and str(model_name) not in allowed:
+            continue
+        ordered = group.sort_values('horizon_index')
+        forecast = tuple(float(value) for value in ordered['y_pred'])
+        if len(forecast) == len(actual):
+            forecasts[str(model_name)] = forecast
+    if not actual or not forecasts:
+        raise ValueError(f'Aggregate predictions for series {selected_series_id!r} do not form a full comparison.')
+
+    history = _load_history_from_series_artifacts(root_path, selected_series_id, history_length=history_length)
+
+    metadata = {
+        'source_root': str(root_path),
+        'source_kind': 'aggregate_predictions',
+        'dataset_name': str(series_predictions['dataset_name'].iloc[0]) if 'dataset_name' in series_predictions else '',
+        'series_id': selected_series_id,
+        'subset': str(series_predictions['subset'].iloc[0]) if 'subset' in series_predictions else '',
+        'forecast_horizon': len(actual),
+        'source_prediction_rows': int(len(series_predictions)),
+    }
+    return history, actual, forecasts, metadata
 
 
 def build_forecast_comparison_from_progress_items(
@@ -209,6 +275,37 @@ def file_md5(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def _load_history_from_series_artifacts(
+        root: Path,
+        series_id: str,
+        *,
+        history_length: int,
+) -> tuple[float, ...]:
+    for path in sorted((root / 'series' / series_id).glob('*.csv')):
+        try:
+            frame = pd.read_csv(path)
+        except Exception:
+            continue
+        for column in ('history', 'train', 'train_values', 'y_history', 'value'):
+            if column in frame.columns:
+                values = pd.to_numeric(frame[column], errors='coerce').dropna().tail(history_length)
+                if not values.empty:
+                    return tuple(float(value) for value in values)
+    return ()
+
+
+def _short_model_name(model_name: str) -> str:
+    replacements = {
+        'KernelEnsembleForecaster_identity_shapelet': 'KLF shapelet',
+        'KernelEnsembleForecaster_embedding_nystrom_okhs': 'KLF okhs',
+        'LaggedRidgeForecaster': 'Lagged Ridge',
+        'NaiveLastValue': 'Naive',
+    }
+    if model_name in replacements:
+        return replacements[model_name]
+    return model_name.replace('KernelEnsembleForecaster_', 'KLF ').replace('_', ' ')[:36]
+
+
 def _write_table(frame: pd.DataFrame, path_without_suffix: Path) -> tuple[ArtifactRecord, ...]:
     csv_path = path_without_suffix.with_suffix('.csv')
     md_path = path_without_suffix.with_suffix('.md')
@@ -261,6 +358,7 @@ def _smape(actual: np.ndarray, forecast: np.ndarray) -> float:
 
 __all__ = [
     'build_forecast_comparison_frame',
+    'build_forecast_comparison_from_aggregate_predictions',
     'build_forecast_comparison_from_progress_items',
     'build_forecast_metric_frame',
     'file_md5',

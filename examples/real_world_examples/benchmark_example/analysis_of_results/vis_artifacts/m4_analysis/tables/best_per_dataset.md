@@ -1,3 +1,0 @@
-| dataset_name               | metric_name | best_model            | best_metric_value | source_label | task_type   | metric_direction |
-| -------------------------- | ----------- | --------------------- | ----------------- | ------------ | ----------- | ---------------- |
-| m4_monthly_kernel_learning | owa         | LaggedRidgeForecaster | 0.406739          | m4_full      | forecasting | lower            |

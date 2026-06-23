@@ -1,6 +1,6 @@
 {
   "version": "industrial_domain_scenarios@1",
-  "artifact_root": "examples/real_world_examples/industrial_examples/vis_artifacts",
+  "artifact_root": "examples/artifacts/cloud_bundle/domain_showcase/industrial_examples",
   "feature_generators": [
     "quantile_extractor_torch",
     "wavelet_extractor",
@@ -82,6 +82,19 @@
       "models": [
         {"adapter_name": "kernel_ensemble_forecaster", "display_name": "KernelEnsembleForecaster", "tags": ["industrial", "kernel_learning"]},
         {"adapter_name": "naive_last_value", "display_name": "NaiveLastValue", "tags": ["baseline"]}
+      ]
+    },
+    "economic_scoring_classification": {
+      "domain": "economic_analysis",
+      "task_type": "ts_classification",
+      "entrypoint": "economic_analysis/current_api.py",
+      "data_path": "examples/utils/data/ts_classification/economic_scoring",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "models": [
+        {"adapter_name": "kernel_ensemble_classifier", "display_name": "KernelEnsembleClassifier", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_classifier", "display_name": "PDLClassifier", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "nearest_centroid", "display_name": "NearestCentroid", "tags": ["baseline"]}
       ]
     },
     "eeg_classification": {

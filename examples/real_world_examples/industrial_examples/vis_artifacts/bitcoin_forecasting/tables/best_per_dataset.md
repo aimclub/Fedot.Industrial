@@ -1,4 +1,0 @@
-| dataset_name                  | metric_name | best_model     | best_metric_value | source_label                            | task_type   | metric_direction |
-| ----------------------------- | ----------- | -------------- | ----------------- | --------------------------------------- | ----------- | ---------------- |
-| bitcoin_forecasting_preview_1 | smape       | NaiveLastValue | 0.38              | bitcoin_forecasting_current_api_preview | forecasting | lower            |
-| bitcoin_forecasting_preview_2 | smape       | NaiveLastValue | 0.41              | bitcoin_forecasting_current_api_preview | forecasting | lower            |

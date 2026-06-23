@@ -238,8 +238,57 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
 
     try:
         for dataset_spec in config.datasets:
+            resumed_dataset_records = _completed_dataset_resume_records(
+                completed_run_records,
+                dataset_name=dataset_spec.dataset_name,
+                subset=dataset_spec.subset,
+                model_names=tuple(model_spec.display_name for model_spec in config.models),
+            )
+            if resumed_dataset_records is not None:
+                progress.extend_total(len(resumed_dataset_records))
+                progress.dataset_loaded(dataset_spec.dataset_name, 0)
+                for resumed_record in resumed_dataset_records:
+                    run_records.append(resumed_record)
+                    if resumed_record.status is RunStatus.SUCCESS:
+                        metric_records.extend(_metric_records_from_run_summary(resumed_record))
+                    progress.item_resumed(
+                        resumed_record.dataset_name,
+                        resumed_record.model_name,
+                        resumed_record.series_id,
+                        resumed_record.status.value,
+                    )
+                    progress.advance(resumed_record.status.value, "resumed")
+                progress.dataset_finished()
+                continue
+
             adapter = build_regression_dataset_adapter(dataset_spec)
-            records = adapter.load_dataset(dataset_spec)
+            try:
+                records = adapter.load_dataset(dataset_spec)
+            except Exception as exc:
+                progress.extend_total(len(config.models))
+                progress.dataset_loaded(dataset_spec.dataset_name, 0)
+                for model_spec in config.models:
+                    progress.model_started(dataset_spec.dataset_name, model_spec.display_name)
+                    progress.item_started(dataset_spec.dataset_name, model_spec.display_name, dataset_spec.dataset_name)
+                    run_record = artifact_writer.write_run(
+                        BenchmarkRunRecord(
+                            run_id=run_id,
+                            benchmark=dataset_spec.benchmark,
+                            dataset_name=dataset_spec.dataset_name,
+                            subset=dataset_spec.subset,
+                            series_id=dataset_spec.dataset_name,
+                            model_name=model_spec.display_name,
+                            status=RunStatus.FAILED,
+                            tags=model_spec.tags,
+                            message=str(exc),
+                            metadata={"failure_stage": "dataset_load"},
+                        )
+                    )
+                    run_records.append(run_record)
+                    progress.advance(RunStatus.FAILED.value, str(exc))
+                    progress.model_finished()
+                progress.dataset_finished()
+                continue
             dataset_records.extend(records)
             progress.extend_total(len(records) * len(config.models))
             progress.dataset_loaded(dataset_spec.dataset_name, len(records))
@@ -272,12 +321,36 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                     progress.item_started(record.dataset_name, model.name, record.dataset_name)
                     resume_key = (record.dataset_name, record.subset, model.name)
                     resumed_record = completed_run_records.get(resume_key)
-                    if resumed_record is not None and resumed_record.status is RunStatus.SUCCESS:
-                        resumed_metrics, resumed_predictions = _load_regression_artifact_records(resumed_record)
+                    if resumed_record is not None and resumed_record.status in {RunStatus.SUCCESS, RunStatus.NOT_AVAILABLE}:
                         run_records.append(resumed_record)
-                        metric_records.extend(resumed_metrics)
-                        prediction_records.extend(resumed_predictions)
-                        progress.advance(RunStatus.SUCCESS.value, "resumed")
+                        if resumed_record.status is RunStatus.SUCCESS:
+                            metric_records.extend(_metric_records_from_run_summary(resumed_record))
+                        progress.item_resumed(
+                            resumed_record.dataset_name,
+                            resumed_record.model_name,
+                            resumed_record.series_id,
+                            resumed_record.status.value,
+                        )
+                        progress.advance(resumed_record.status.value, "resumed")
+                        continue
+                    runtime_guard_message = _regression_runtime_guard(record, model.name)
+                    if runtime_guard_message:
+                        run_record = artifact_writer.write_run(
+                            BenchmarkRunRecord(
+                                run_id=run_id,
+                                benchmark=record.benchmark,
+                                dataset_name=record.dataset_name,
+                                subset=record.subset,
+                                series_id=record.dataset_name,
+                                model_name=model.name,
+                                status=RunStatus.NOT_AVAILABLE,
+                                tags=model.tags,
+                                message=runtime_guard_message,
+                                metadata={"failure_stage": "runtime_guard"},
+                            )
+                        )
+                        run_records.append(run_record)
+                        progress.advance(RunStatus.NOT_AVAILABLE.value, runtime_guard_message)
                         continue
                     try:
                         train_x = np.asarray(record.train_features, dtype=float)
@@ -375,6 +448,45 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
     )
 
 
+def _regression_runtime_guard(record: RegressionDatasetRecord, model_name: str) -> str:
+    train_features = np.asarray(record.train_features)
+    if train_features.ndim < 2:
+        return ''
+    train_samples, feature_count = train_features.shape[0], train_features.shape[1]
+    kernel_matrix_gib = (train_samples * train_samples * 8) / (1024 ** 3)
+    feature_cells = train_samples * feature_count
+    series_length = int(record.metadata.get("series_length") or feature_count)
+    heavy_kernel_family = any(token in model_name.lower() for token in ("shapelet", "embedding"))
+    if kernel_matrix_gib > 8.0:
+        return (
+            f'Runtime guard skipped regression fit: estimated train kernel matrix '
+            f'is {kernel_matrix_gib:.1f} GiB for {train_samples} samples.'
+        )
+    if feature_count >= 300 and train_samples >= 100:
+        return (
+            f'Runtime guard skipped wide local TSER fit: flat adapter produced '
+            f'{train_samples} samples x {feature_count} features '
+            f'(series_length={series_length}).'
+        )
+    if feature_count >= 50 and train_samples >= 200:
+        return (
+            f'Runtime guard skipped medium local TSER fit: flat adapter produced '
+            f'{train_samples} samples x {feature_count} features '
+            f'(series_length={series_length}).'
+        )
+    if feature_cells > 30_000_000:
+        return (
+            f'Runtime guard skipped regression fit: train feature grid has '
+            f'{feature_cells} cells ({train_samples} samples x {feature_count} features).'
+        )
+    if heavy_kernel_family and (train_samples > 10_000 or feature_cells > 5_000_000):
+        return (
+            f'Runtime guard skipped heavy regression model {model_name}: train feature grid has '
+            f'{feature_cells} cells ({train_samples} samples x {feature_count} features).'
+        )
+    return ''
+
+
 def _load_regression_artifact_records(
         run_record: BenchmarkRunRecord,
 ) -> tuple[list[MetricRecord], list[ValuePredictionRecord]]:
@@ -382,6 +494,42 @@ def _load_regression_artifact_records(
     metric_records = _load_metric_records(paths.get("metrics"))
     prediction_records = _load_value_prediction_records(paths.get("predictions"))
     return metric_records, prediction_records
+
+
+def _completed_dataset_resume_records(
+        completed_run_records: dict[tuple[str, str, str], BenchmarkRunRecord],
+        *,
+        dataset_name: str,
+        subset: str,
+        model_names: tuple[str, ...],
+) -> tuple[BenchmarkRunRecord, ...] | None:
+    records: list[BenchmarkRunRecord] = []
+    for model_name in model_names:
+        record = completed_run_records.get((dataset_name, subset, model_name))
+        if record is None or record.status not in {RunStatus.SUCCESS, RunStatus.NOT_AVAILABLE}:
+            return None
+        records.append(record)
+    return tuple(records)
+
+
+def _metric_records_from_run_summary(run_record: BenchmarkRunRecord) -> list[MetricRecord]:
+    if run_record.status is not RunStatus.SUCCESS:
+        return []
+    return [
+        MetricRecord(
+            run_id=run_record.run_id,
+            benchmark=run_record.benchmark,
+            dataset_name=run_record.dataset_name,
+            subset=run_record.subset,
+            series_id=run_record.series_id,
+            model_name=run_record.model_name,
+            metric_name=str(metric_name),
+            metric_value=float(metric_value),
+            status=run_record.status,
+        )
+        for metric_name, metric_value in run_record.metrics_summary.items()
+        if metric_value is not None
+    ]
 
 
 def _load_metric_records(path: str | None) -> list[MetricRecord]:

@@ -118,6 +118,18 @@ def _load_tabular_split(path: Path, *, separator: str) -> tuple[np.ndarray, np.n
 
 
 def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    last_error: UnicodeDecodeError | None = None
+    for encoding in ('utf-8', 'utf-8-sig', 'cp1252', 'latin-1'):
+        try:
+            return _load_ts_split_with_encoding(path, encoding=encoding)
+        except UnicodeDecodeError as error:
+            last_error = error
+    if last_error is not None:
+        raise LocalDatasetParseError(f'Could not decode .ts file with supported encodings: {path}') from last_error
+    raise LocalDatasetParseError(f'Could not parse .ts file: {path}')
+
+
+def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     timestamps = False
     target_label = False
     class_label = False
@@ -127,7 +139,7 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     case_vectors: list[np.ndarray] = []
     targets: list[Any] = []
 
-    with path.open('r', encoding='utf-8') as source:
+    with path.open('r', encoding=encoding) as source:
         for raw_line in source:
             line = raw_line.strip()
             if not line or line.startswith('#'):

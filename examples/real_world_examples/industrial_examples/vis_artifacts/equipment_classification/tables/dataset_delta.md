@@ -1,4 +1,0 @@
-| dataset_name                       | target_model                                    | target_metric | best_reference_model                                  | best_reference_metric | improvement | relative_improvement_pct |
-| ---------------------------------- | ----------------------------------------------- | ------------- | ----------------------------------------------------- | --------------------- | ----------- | ------------------------ |
-| equipment_classification_preview_1 | KernelEnsembleClassifier_score_baseline_summary | 0.9           | KernelEnsembleClassifier_adaptive_all_non_topological | 0.86                  | 0.04        | 4.65116                  |
-| equipment_classification_preview_2 | KernelEnsembleClassifier_score_baseline_summary | 0.88          | KernelEnsembleClassifier_adaptive_all_non_topological | 0.84                  | 0.04        | 4.7619                   |

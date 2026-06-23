@@ -15,6 +15,7 @@ from benchmark.industrial import (
     load_incremental_run_records,
     load_result_sources,
     render_benchmark_result_analysis_pack,
+    build_forecast_comparison_from_aggregate_predictions,
     render_evolution_analysis_pack,
     build_forecast_comparison_from_progress_items,
     render_forecast_comparison_pack,
@@ -115,6 +116,10 @@ def render_analysis_notebook_pack(
         coverage_unit_column=str(analysis.get('coverage_unit_column') or 'dataset_name'),
         diagnostics_frame=build_analysis_diagnostics_frame(analysis_name),
         source_metadata=build_analysis_source_metadata_frame(analysis_name),
+        source_expected_dataset_counts=dict(analysis.get('source_expected_dataset_counts') or {}),
+        reference_source_labels=tuple(analysis.get('reference_source_labels') or ()),
+        target_source_labels=tuple(analysis.get('target_source_labels') or ()),
+        best_target_source_labels=tuple(analysis.get('best_target_source_labels') or ()),
     )
 
 
@@ -165,13 +170,23 @@ def render_forecasting_model_comparison_pack(
         artifact_name: str = 'forecasting_model_comparison',
 ) -> tuple[ArtifactRecord, ...]:
     target_dir = Path(output_dir) if output_dir is not None else _artifact_root() / artifact_name
-    source = load_analysis_defaults()['external_sources']['forecasting_progress_items']
+    source = load_analysis_defaults()['external_sources']['forecasting_model_comparison']
     try:
-        history, actual, forecasts, metadata = build_forecast_comparison_from_progress_items(
-            PROJECT_ROOT / source['path'],
-            series_id=source.get('series_id'),
-            dataset_name=source.get('dataset_name'),
-        )
+        if str(source.get('kind')) == 'aggregate_predictions':
+            history, actual, forecasts, metadata = build_forecast_comparison_from_aggregate_predictions(
+                PROJECT_ROOT / source['path'],
+                series_id=source.get('series_id'),
+                dataset_name=source.get('dataset_name'),
+                model_names=tuple(source.get('model_names') or ()),
+                history_length=int(source.get('history_length') or 36),
+            )
+        else:
+            history, actual, forecasts, metadata = build_forecast_comparison_from_progress_items(
+                PROJECT_ROOT / source['path'],
+                series_id=source.get('series_id'),
+                dataset_name=source.get('dataset_name'),
+                model_names=tuple(source.get('model_names') or ()),
+            )
     except ValueError as exc:
         target_dir.mkdir(parents=True, exist_ok=True)
         summary_path = target_dir / 'summary.md'

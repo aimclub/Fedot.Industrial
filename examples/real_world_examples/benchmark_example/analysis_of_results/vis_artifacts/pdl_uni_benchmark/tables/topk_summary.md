@@ -1,6 +1,0 @@
-| model_name                                            | top_1 | top_3 | top_5 | top_half | dataset_count |
-| ----------------------------------------------------- | ----- | ----- | ----- | -------- | ------------- |
-| KernelEnsembleClassifier_shapelet_motif_rbf           | 61    | 104   | 111   | 90       | 111           |
-| KernelEnsembleClassifier_embedding_nystrom            | 29    | 90    | 111   | 62       | 111           |
-| KernelEnsembleClassifier_adaptive_all_non_topological | 27    | 79    | 111   | 55       | 111           |
-| KernelEnsembleClassifier_score_baseline_summary       | 23    | 85    | 111   | 55       | 111           |

@@ -1,3 +1,0 @@
-| source_label | coverage_unit | expected_dataset_count | observed_dataset_count | coverage_pct | missing_dataset_count | missing_datasets | status  |
-| ------------ | ------------- | ---------------------- | ---------------------- | ------------ | --------------------- | ---------------- | ------- |
-| pdl_ucr_full | dataset_name  | 225                    | 111                    | 49.3333      | 0                     |                  | partial |

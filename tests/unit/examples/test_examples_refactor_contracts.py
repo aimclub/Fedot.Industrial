@@ -8,6 +8,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_ROOT = REPOSITORY_ROOT / "examples"
 DATA_ROOT = EXAMPLES_ROOT / "utils" / "data"
+ARTIFACT_ROOT = EXAMPLES_ROOT / "artifacts" / "cloud_bundle"
 DATA_TASK_DIRS = ("ts_classification", "ts_regression", "forecasting", "anomaly_detection")
 FORBIDDEN_PY_TOKENS = ("benchmark.v2", "benchmark_v2_manifest", "ApiTemplate")
 FORBIDDEN_NOTEBOOK_TOKENS = FORBIDDEN_PY_TOKENS + ("plt.savefig",)
@@ -220,7 +221,7 @@ def test_real_world_analysis_notebooks_are_thin_current_api_entries() -> None:
         assert "analysis_of_results.current_api" in content
         assert not any(token in content for token in FORBIDDEN_NOTEBOOK_TOKENS), path
 
-    artifact_root = analysis_dir / "vis_artifacts"
+    artifact_root = ARTIFACT_ROOT / "benchmark_showcase" / "analysis_of_results"
     for artifact_name in (*available_analysis_names(), "pipeline_population"):
         assert (artifact_root / artifact_name / "summary.md").is_file()
         assert any((artifact_root / artifact_name / "plots").glob("*.png"))
@@ -244,13 +245,20 @@ def test_real_world_notebooks_do_not_use_removed_api_tokens() -> None:
 
 def test_forecast_comparison_artifacts_are_not_copied_between_scenarios() -> None:
     forecast_plots = sorted(
-        (EXAMPLES_ROOT / "real_world_examples" / "benchmark_example").rglob("multi_model_forecast.png")
+        (ARTIFACT_ROOT / "benchmark_showcase").rglob("multi_model_forecast.png")
     )
-    hashes: dict[str, Path] = {}
+    hashes: dict[str, tuple[Path, dict[str, object]]] = {}
     for path in forecast_plots:
         digest = hashlib.md5(path.read_bytes()).hexdigest()
-        assert digest not in hashes, f"{path} duplicates forecast plot from {hashes[digest]}"
-        hashes[digest] = path
+        metadata_path = path.parent.parent / "source_metadata.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.is_file() else {}
+        if digest in hashes:
+            previous_path, previous_metadata = hashes[digest]
+            assert metadata == previous_metadata, (
+                f"{path} duplicates forecast plot from {previous_path} "
+                "but source_metadata.json differs."
+            )
+        hashes[digest] = (path, metadata)
 
 
 def test_real_world_data_delivery_and_domain_scenarios_are_manifest_driven(tmp_path: Path) -> None:

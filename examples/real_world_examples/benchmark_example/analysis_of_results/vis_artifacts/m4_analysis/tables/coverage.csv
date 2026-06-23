@@ -1,2 +1,0 @@
-source_label,coverage_unit,expected_dataset_count,observed_dataset_count,coverage_pct,missing_dataset_count,missing_datasets,status
-m4_full,series_id,48000,5,0.0104,0,,partial

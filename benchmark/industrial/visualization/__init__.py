@@ -5,6 +5,7 @@ _EXPORTS = {
     "ForecastingProgressItemsVisualizer": "benchmark.industrial.visualization.forecasting",
     "ForecastingProgressVisualizationResult": "benchmark.industrial.visualization.forecasting",
     "build_forecast_comparison_frame": "benchmark.industrial.visualization.forecast_comparison",
+    "build_forecast_comparison_from_aggregate_predictions": "benchmark.industrial.visualization.forecast_comparison",
     "build_forecast_comparison_from_progress_items": "benchmark.industrial.visualization.forecast_comparison",
     "build_forecast_metric_frame": "benchmark.industrial.visualization.forecast_comparison",
     "build_relative_gain_frame": "benchmark.industrial.visualization.forecasting",

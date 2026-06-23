@@ -1,5 +1,0 @@
-| dataset_name | metric_name | best_model                                      | best_metric_value | source_label | task_type   | metric_direction |
-| ------------ | ----------- | ----------------------------------------------- | ----------------- | ------------ | ----------- | ---------------- |
-| Daily        | owa         | KernelEnsembleForecaster_embedding_nystrom_okhs | 0.88              | m4_sample    | forecasting | lower            |
-| Monthly      | owa         | KernelEnsembleForecaster_embedding_nystrom_okhs | 0.81              | m4_sample    | forecasting | lower            |
-| Weekly       | owa         | KernelEnsembleForecaster_embedding_nystrom_okhs | 0.85              | m4_sample    | forecasting | lower            |

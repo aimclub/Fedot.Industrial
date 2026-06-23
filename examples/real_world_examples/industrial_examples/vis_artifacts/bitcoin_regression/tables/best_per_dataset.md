@@ -1,4 +1,0 @@
-| dataset_name                 | metric_name | best_model                                   | best_metric_value | source_label                           | task_type     | metric_direction |
-| ---------------------------- | ----------- | -------------------------------------------- | ----------------- | -------------------------------------- | ------------- | ---------------- |
-| bitcoin_regression_preview_1 | rmse        | KernelEnsembleRegressor_score_linear_summary | 0.38              | bitcoin_regression_current_api_preview | ts_regression | lower            |
-| bitcoin_regression_preview_2 | rmse        | KernelEnsembleRegressor_score_linear_summary | 0.41              | bitcoin_regression_current_api_preview | ts_regression | lower            |

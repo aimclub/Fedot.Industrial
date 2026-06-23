@@ -1,6 +1,6 @@
 {
   "version": "industrial_real_world_analysis@1",
-  "artifact_root": "examples/real_world_examples/benchmark_example/analysis_of_results/vis_artifacts",
+  "artifact_root": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results",
   "full_run_flag": "RUN_FULL_LOCAL_BENCHMARK",
   "feature_generators": [
     "quantile_extractor_torch",
@@ -130,6 +130,9 @@
       "target_model": "KernelEnsembleClassifier_adaptive_all_non_topological",
       "source_label": "ucr_univariate_full",
       "expected_dataset_count": 225,
+      "reference_source_labels": ["sota_ucr_2024"],
+      "target_source_labels": ["industrial_kernel_learning_ucr_020626"],
+      "best_target_source_labels": ["industrial_kernel_learning_ucr_020626"],
       "sources": [
         {
           "label": "sota_ucr_2024",
@@ -176,6 +179,13 @@
       "target_model": "KernelEnsembleRegressor_adaptive_rbf_summary",
       "source_label": "tser_full",
       "expected_dataset_count": 219,
+      "source_expected_dataset_counts": {
+        "sota_tser_2024": 63,
+        "industrial_kernel_learning_tser_full": 57
+      },
+      "reference_source_labels": ["sota_tser_2024"],
+      "target_source_labels": ["industrial_kernel_learning_tser_full"],
+      "best_target_source_labels": ["industrial_kernel_learning_tser_full"],
       "sources": [
         {
           "label": "sota_tser_2024",
@@ -194,32 +204,33 @@
           }
         },
         {
-          "label": "industrial_kernel_learning_tser_140526",
+          "label": "industrial_kernel_learning_tser_full",
           "kind": "incremental_metrics",
-          "path": "benchmark/results/v2_kernel_learning/tser_suite_140526",
+          "path": "benchmark/results/kernel_learning/tser_full",
           "metric_name": "rmse",
-          "source_label": "industrial_kernel_learning_tser_140526",
-          "source_date": "2026-05-14"
+          "source_label": "industrial_kernel_learning_tser_full",
+          "source_date": "2026-06-15"
         }
       ]
     },
     "m4_analysis": {
       "title": "M4 forecasting benchmark comparison",
       "task_type": "forecasting",
-      "metric_name": "owa",
+      "metric_name": "mae",
       "metric_direction": "lower",
       "target_model": "KernelEnsembleForecaster_embedding_nystrom_okhs",
       "source_label": "m4_full",
       "coverage_unit_column": "series_id",
-      "expected_dataset_count": 48000,
+      "expected_dataset_count": 100,
       "sources": [
         {
-          "label": "industrial_kernel_learning_m4_monthly_140526",
+          "label": "industrial_kernel_learning_m4_monthly_full_m100",
           "kind": "aggregate_metrics",
-          "path": "benchmark/results/v2_kernel_learning/forecasting_suite_140526",
-          "metric_name": "owa",
-          "source_label": "industrial_kernel_learning_m4_monthly_140526",
-          "source_date": "2026-05-14"
+          "path": "benchmark/results/kernel_learning/m4_full",
+          "metric_name": "mae",
+          "source_label": "industrial_kernel_learning_m4_monthly_full_m100",
+          "source_date": "2026-06-15",
+          "source_version": "local M100 Monthly"
         }
       ]
     },
@@ -231,7 +242,18 @@
       "target_model": "PDLClassifier",
       "source_label": "pdl_ucr_full",
       "expected_dataset_count": 225,
+      "reference_source_labels": ["sota_ucr_2024"],
+      "target_source_labels": ["industrial_pdl_ucr_full_pending"],
+      "best_target_source_labels": ["industrial_kernel_learning_ucr_020626", "industrial_pdl_ucr_full_pending"],
       "sources": [
+        {
+          "label": "sota_ucr_2024",
+          "kind": "table",
+          "path": "benchmark/results/time_series_uni_clf_comparasion_2024.csv",
+          "metric_name": "accuracy",
+          "source_label": "sota_ucr_2024",
+          "source_date": "2024"
+        },
         {
           "label": "industrial_kernel_learning_ucr_020626",
           "kind": "incremental_metrics",
@@ -270,6 +292,15 @@
       "source_label": "industrial_kernel_learning_m4_monthly_progress",
       "dataset_name": "m4_monthly_kernel_learning",
       "series_id": "M1779"
+    },
+    "forecasting_model_comparison": {
+      "kind": "aggregate_predictions",
+      "path": "benchmark/results/kernel_learning/m4_full",
+      "task_type": "forecasting",
+      "source_label": "industrial_kernel_learning_m4_monthly_full_m100_predictions",
+      "dataset_name": "m4_monthly_kernel_learning",
+      "series_id": "M10781",
+      "history_length": 36
     }
   }
 }

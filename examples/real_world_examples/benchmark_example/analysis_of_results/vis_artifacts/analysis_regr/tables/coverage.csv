@@ -1,2 +1,0 @@
-source_label,coverage_unit,expected_dataset_count,observed_dataset_count,coverage_pct,missing_dataset_count,missing_datasets,status
-tser_full,dataset_name,219,63,28.7671,0,,partial

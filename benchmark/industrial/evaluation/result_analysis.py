@@ -372,15 +372,29 @@ def normalize_result_table(
     result_columns = ['dataset_name', 'model_name', 'metric_name', 'metric_value']
     if 'series_id' in normalized.columns:
         result_columns.append('series_id')
+    for optional_column in ('source_label', 'task_type', 'metric_direction'):
+        if optional_column in normalized.columns:
+            result_columns.append(optional_column)
     normalized = normalized[result_columns].copy()
     normalized['metric_value'] = _to_numeric_series(normalized['metric_value'])
     normalized = normalized.dropna(subset=['dataset_name', 'model_name', 'metric_value'])
     normalized['dataset_name'] = normalized['dataset_name'].astype(str)
     normalized['model_name'] = normalized['model_name'].astype(str)
     normalized['metric_name'] = normalized['metric_name'].astype(str)
-    normalized['source_label'] = spec.source_label
-    normalized['task_type'] = spec.task_type
-    normalized['metric_direction'] = 'higher' if spec.higher_is_better else 'lower'
+    if 'source_label' not in normalized.columns:
+        normalized['source_label'] = spec.source_label
+    else:
+        normalized['source_label'] = normalized['source_label'].fillna(spec.source_label).astype(str)
+    if 'task_type' not in normalized.columns:
+        normalized['task_type'] = spec.task_type
+    else:
+        normalized['task_type'] = normalized['task_type'].fillna(spec.task_type).astype(str)
+    if 'metric_direction' not in normalized.columns:
+        normalized['metric_direction'] = 'higher' if spec.higher_is_better else 'lower'
+    else:
+        normalized['metric_direction'] = normalized['metric_direction'].fillna(
+            'higher' if spec.higher_is_better else 'lower'
+        ).astype(str)
     return normalized.reset_index(drop=True)
 
 
@@ -491,6 +505,8 @@ def build_dataset_delta_frame(
         *,
         target_model: str | None = None,
         metric_direction: str | None = None,
+        reference_source_labels: Sequence[str] = (),
+        target_source_labels: Sequence[str] = (),
 ) -> pd.DataFrame:
     if normalized.empty:
         return pd.DataFrame(
@@ -508,13 +524,19 @@ def build_dataset_delta_frame(
     direction = metric_direction or str(normalized['metric_direction'].dropna().iloc[0])
     higher = direction == 'higher'
     target = target_model or _infer_target_model(normalized['model_name'].unique())
+    reference_labels = {str(label) for label in reference_source_labels}
+    target_labels = {str(label) for label in target_source_labels}
     rows = []
     for dataset_name, group in normalized.groupby('dataset_name'):
         target_rows = group[group['model_name'] == target]
+        if target_labels and 'source_label' in target_rows.columns:
+            target_rows = target_rows[target_rows['source_label'].astype(str).isin(target_labels)]
         if target_rows.empty:
             continue
         target_metric = float(target_rows['metric_value'].mean())
         references = group[group['model_name'] != target]
+        if reference_labels and 'source_label' in references.columns:
+            references = references[references['source_label'].astype(str).isin(reference_labels)]
         if references.empty:
             continue
         reference_scores = references.groupby('model_name')['metric_value'].mean()
@@ -545,6 +567,61 @@ def build_dataset_delta_frame(
                 'relative_improvement_pct',
             ]
         )
+    return pd.DataFrame(rows).sort_values('improvement', ascending=False).reset_index(drop=True)
+
+
+def build_source_delta_frame(
+        normalized: pd.DataFrame,
+        *,
+        target_source_labels: Sequence[str],
+        reference_source_labels: Sequence[str],
+        metric_direction: str | None = None,
+        target_strategy: str = 'best',
+        fixed_target_model: str | None = None,
+) -> pd.DataFrame:
+    if normalized.empty:
+        return _empty_delta_frame()
+
+    direction = metric_direction or str(normalized['metric_direction'].dropna().iloc[0])
+    higher = direction == 'higher'
+    target_labels = {str(label) for label in target_source_labels}
+    reference_labels = {str(label) for label in reference_source_labels}
+    rows = []
+    for dataset_name, group in normalized.groupby('dataset_name'):
+        targets = group[group['source_label'].astype(str).isin(target_labels)] if target_labels else group
+        references = group[group['source_label'].astype(str).isin(reference_labels)] if reference_labels else group
+        if fixed_target_model:
+            targets = targets[targets['model_name'].astype(str) == str(fixed_target_model)]
+        if targets.empty or references.empty:
+            continue
+
+        target_scores = targets.groupby('model_name')['metric_value'].mean()
+        if target_strategy == 'best':
+            target_model = target_scores.idxmax() if higher else target_scores.idxmin()
+        elif target_strategy == 'fixed' and fixed_target_model:
+            target_model = str(fixed_target_model)
+        else:
+            raise ValueError(f'Unsupported target delta strategy: {target_strategy}')
+        target_metric = float(target_scores.loc[target_model])
+
+        reference_scores = references.groupby('model_name')['metric_value'].mean()
+        best_reference_model = reference_scores.idxmax() if higher else reference_scores.idxmin()
+        best_reference_metric = float(reference_scores.loc[best_reference_model])
+        improvement = target_metric - best_reference_metric if higher else best_reference_metric - target_metric
+        denominator = abs(best_reference_metric) if best_reference_metric != 0 else 1.0
+        rows.append(
+            {
+                'dataset_name': dataset_name,
+                'target_model': str(target_model),
+                'target_metric': target_metric,
+                'best_reference_model': str(best_reference_model),
+                'best_reference_metric': best_reference_metric,
+                'improvement': improvement,
+                'relative_improvement_pct': 100.0 * improvement / denominator,
+            }
+        )
+    if not rows:
+        return _empty_delta_frame()
     return pd.DataFrame(rows).sort_values('improvement', ascending=False).reset_index(drop=True)
 
 
@@ -601,7 +678,8 @@ def _normalize_wide_frame(frame: pd.DataFrame, spec: ResultAnalysisSpec) -> pd.D
     }
     value_columns = [
         column for column in data.columns
-        if column not in ignored_columns and _to_numeric_series(data[column]).notna().any()
+        if not _is_ignored_wide_value_column(column, ignored_columns)
+        and _to_numeric_series(data[column]).notna().any()
     ]
     melted = data.melt(
         id_vars=['dataset_name'],
@@ -662,6 +740,22 @@ def _find_dataset_column(frame: pd.DataFrame) -> str | None:
     return None
 
 
+def _is_ignored_wide_value_column(column: Any, ignored_columns: set[Any]) -> bool:
+    if column in ignored_columns:
+        return True
+    name = str(column).strip()
+    if not name:
+        return True
+    normalized = name.lower()
+    if normalized.startswith('unnamed:'):
+        return True
+    if normalized.endswith('_place') or normalized.endswith(' place') or normalized.endswith('place'):
+        return True
+    if normalized in {'place', 'rank'}:
+        return True
+    return False
+
+
 def _infer_target_model(model_names: Sequence[str]) -> str:
     ordered = tuple(str(name) for name in model_names)
     for marker in ('Fedot_Industrial', 'Industrial', 'Kernel', 'PDL'):
@@ -694,6 +788,20 @@ def _empty_normalized_frame() -> pd.DataFrame:
             'source_label',
             'task_type',
             'metric_direction',
+        ]
+    )
+
+
+def _empty_delta_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        columns=[
+            'dataset_name',
+            'target_model',
+            'target_metric',
+            'best_reference_model',
+            'best_reference_metric',
+            'improvement',
+            'relative_improvement_pct',
         ]
     )
 
@@ -771,6 +879,7 @@ __all__ = [
     'build_mean_rank_frame',
     'build_model_diagnostics_frame',
     'build_parameter_metric_frame',
+    'build_source_delta_frame',
     'build_status_summary_frame',
     'build_topk_summary_frame',
     'combine_result_tables',

@@ -5,6 +5,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from benchmark.experiments.kernel_learning.configs import (
     KernelLearningM4ExperimentConfig,
     KernelLearningTSERExperimentConfig,
@@ -17,6 +19,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parents[3]
 DEFAULTS_PATH = PACKAGE_ROOT / "full_run_defaults.json"
 DEFAULTS_VERSION = "industrial_real_world_full_runs@1"
+TSER_REFERENCE_TABLE = PROJECT_ROOT / "benchmark" / "results" / "time_series_multi_reg_comparasion_2024.csv"
 
 
 @lru_cache(maxsize=1)
@@ -92,8 +95,29 @@ def _discover_tser_datasets(data_root: Path | None = None) -> tuple[str, ...]:
     root = data_root or (PROJECT_ROOT / "fedot_ind" / "data")
     if not root.exists():
         return KernelLearningTSERExperimentConfig.DEFAULT_TSER_DATASETS
-    datasets = tuple(sorted(path.name for path in root.iterdir() if path.is_dir() and not path.name.startswith(".")))
+    candidates = _load_tser_reference_dataset_names()
+    datasets = tuple(name for name in candidates if _has_local_split(root, name))
     return datasets or KernelLearningTSERExperimentConfig.DEFAULT_TSER_DATASETS
+
+
+def _load_tser_reference_dataset_names(path: Path = TSER_REFERENCE_TABLE) -> tuple[str, ...]:
+    if not path.exists():
+        return KernelLearningTSERExperimentConfig.DEFAULT_TSER_DATASETS
+    frame = pd.read_csv(path, sep=None, engine="python")
+    if frame.empty:
+        return KernelLearningTSERExperimentConfig.DEFAULT_TSER_DATASETS
+    dataset_column = frame.columns[0]
+    names = tuple(str(value) for value in frame[dataset_column].dropna().unique())
+    return names or KernelLearningTSERExperimentConfig.DEFAULT_TSER_DATASETS
+
+
+def _has_local_split(root: Path, dataset_name: str) -> bool:
+    dataset_dir = root / dataset_name
+    if not dataset_dir.is_dir():
+        return False
+    train_base = dataset_dir / f"{dataset_name}_TRAIN"
+    test_base = dataset_dir / f"{dataset_name}_TEST"
+    return any(train_base.with_suffix(extension).exists() and test_base.with_suffix(extension).exists() for extension in (".tsv", ".csv", ".ts"))
 
 
 if __name__ == "__main__":

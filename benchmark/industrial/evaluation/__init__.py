@@ -22,6 +22,7 @@ _EXPORTS = {
     "build_operation_frequency_frame": "benchmark.industrial.evaluation.evolution",
     "build_model_diagnostics_frame": "benchmark.industrial.evaluation.result_analysis",
     "build_parameter_metric_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_source_delta_frame": "benchmark.industrial.evaluation.result_analysis",
     "build_pipeline_complexity_frame": "benchmark.industrial.evaluation.evolution",
     "build_status_summary_frame": "benchmark.industrial.evaluation.result_analysis",
     "build_topk_summary_frame": "benchmark.industrial.evaluation.result_analysis",

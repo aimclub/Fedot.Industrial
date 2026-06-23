@@ -1,4 +1,0 @@
-| dataset_name                  | target_model                                 | target_metric | best_reference_model                         | best_reference_metric | improvement | relative_improvement_pct |
-| ----------------------------- | -------------------------------------------- | ------------- | -------------------------------------------- | --------------------- | ----------- | ------------------------ |
-| ethereum_regression_preview_2 | KernelEnsembleRegressor_score_linear_summary | 0.41          | KernelEnsembleRegressor_adaptive_rbf_summary | 0.45                  | 0.04        | 8.88889                  |
-| ethereum_regression_preview_1 | KernelEnsembleRegressor_score_linear_summary | 0.38          | KernelEnsembleRegressor_adaptive_rbf_summary | 0.42                  | 0.04        | 9.52381                  |

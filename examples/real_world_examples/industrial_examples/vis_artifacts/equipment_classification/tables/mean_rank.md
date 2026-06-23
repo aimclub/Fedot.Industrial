@@ -1,9 +1,0 @@
-| model_name                                            | mean_rank | dataset_count |
-| ----------------------------------------------------- | --------- | ------------- |
-| KernelEnsembleClassifier_score_baseline_summary       | 1         | 2             |
-| KernelEnsembleClassifier_adaptive_all_non_topological | 2         | 2             |
-| KernelEnsembleClassifier_shapelet_motif_rbf           | 3         | 2             |
-| KernelEnsembleClassifier_embedding_nystrom            | 4         | 2             |
-| KernelEnsembleClassifier                              | 5         | 2             |
-| PDLClassifier                                         | 6         | 2             |
-| NearestCentroid                                       | 7         | 2             |

@@ -34,9 +34,9 @@ packages.
 Constants for external Kaggle/EEG inputs live in `real_world_defaults.json`.
 `external_data_manifest.json` describes local raw inputs, historical benchmark
 results, expected paths, DVC locations, and placeholder public Google Drive
-links. Keep generated benchmark packs, datasets, checkpoints, and high-churn
-image outputs untracked. Report-style `vis_artifacts` are the only generated
-files that should be considered for git.
+links. Keep datasets, checkpoints, and high-churn image outputs untracked.
+Report-style benchmark/domain assets live under
+`examples/artifacts/cloud_bundle` when they are deterministic and lightweight.
 
 Data delivery contract:
 

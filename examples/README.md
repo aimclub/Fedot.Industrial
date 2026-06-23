@@ -10,6 +10,7 @@ repository contract.
 | --- | --- | --- |
 | `utils/current_api/` | current | Lightweight examples backed by `benchmark.industrial` typed configs. These are the recommended starting point. |
 | `utils/data/` | current support data | Small local fixtures used by examples and tests. Keep these deterministic and repository-local. |
+| `artifacts/` | artifact hub | Central catalog, cloud-bundle manifest, and static showcase for benchmark/domain `vis_artifacts`, local inputs, and historical archives. |
 | `tools_example/` | tool-ready wrappers | JSON-friendly Industrial scenarios that expose `list_tool_specs()` and `invoke_tool()` for external agents or MCP tool adapters. Local inputs are documented in `tool_defaults.json` and README. |
 | `real_world_examples/` | current wrappers plus local scenarios | Domain examples and benchmark-like scripts with current API wrappers. Notebooks with local data are preserved and documented as local scenarios. |
 | `real_world_examples/benchmark_example/rkhs_okhs/` | current forecasting scenario | RKHS/OKHS forecasting example integrated as a benchmark-style forecasting scenario. |
@@ -18,6 +19,7 @@ repository contract.
 ## Recommended Entry Points
 
 - `python -m examples.utils.current_api`
+- `python -m examples.artifacts`
 - `python -m benchmark.industrial --manifest examples/utils/current_api/manifests/toy_tser_suite.json`
 
 The supervised current examples avoid external downloads by default and use
@@ -32,6 +34,10 @@ Untracked datasets and generated artifacts inside `examples/` are treated as
 local inputs or outputs. Do not add them to git. Prefer task-based data paths
 under `examples/utils/data/{ts_classification,ts_regression,forecasting,anomaly_detection}`
 and document any external dataset in the corresponding README.
+Use `examples/artifacts/artifact_catalog.json` and the generated
+`examples/artifacts/cloud_bundle/cloud_bundle_manifest.json` as the cloud upload
+checklist for raw data, benchmark history, run outputs, notebooks, and
+publication artifacts.
 
 Tracked notebooks that still depend on optional packages or private/local data
 are preserved as scenario references. Their READMEs document the expected input

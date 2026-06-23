@@ -9,6 +9,7 @@ from benchmark.industrial import (
     ResultAnalysisSpec,
     build_coverage_frame,
     build_forecast_comparison_frame,
+    build_forecast_comparison_from_aggregate_predictions,
     build_forecast_comparison_from_progress_items,
     build_forecast_metric_frame,
     build_best_per_dataset_frame,
@@ -17,6 +18,7 @@ from benchmark.industrial import (
     build_mean_rank_frame,
     build_model_diagnostics_frame,
     build_operation_frequency_frame,
+    build_source_delta_frame,
     build_topk_summary_frame,
     file_md5,
     load_incremental_metric_records,
@@ -61,6 +63,114 @@ def test_result_analysis_builds_ranks_topk_and_deltas(tmp_path: Path) -> None:
     assert deltas.loc[deltas["dataset_name"] == "D2", "improvement"].item() < 0
     assert (tmp_path / "pack" / "summary.md").is_file()
     assert any(record.kind == "plot" for record in manifest)
+
+
+def test_wide_ingestion_drops_empty_unnamed_and_rank_columns() -> None:
+    source = pd.DataFrame(
+        [
+            {
+                "ds/type": "D1",
+                "algorithm": "average",
+                "ModelA_RMSE": "1,5",
+                "Ind_af_place": 1,
+                "Unnamed: 31": None,
+                "Unnamed: 32": "",
+            }
+        ]
+    )
+    spec = ResultAnalysisSpec(
+        metric_name="rmse",
+        metric_direction="lower",
+        source_label="unit",
+        dataset_column="ds/type",
+    )
+
+    normalized = normalize_result_table(source, spec=spec)
+
+    assert set(normalized["model_name"]) == {"ModelA_RMSE"}
+    assert normalized["metric_value"].item() == 1.5
+
+
+def test_long_ingestion_preserves_source_labels_and_source_delta() -> None:
+    source = pd.DataFrame(
+        [
+            {
+                "dataset_name": "D1",
+                "model_name": "IndustrialA",
+                "metric_name": "accuracy",
+                "metric_value": 0.8,
+                "source_label": "industrial",
+                "task_type": "ts_classification",
+                "metric_direction": "higher",
+            },
+            {
+                "dataset_name": "D1",
+                "model_name": "IndustrialB",
+                "metric_name": "accuracy",
+                "metric_value": 0.9,
+                "source_label": "industrial",
+                "task_type": "ts_classification",
+                "metric_direction": "higher",
+            },
+            {
+                "dataset_name": "D1",
+                "model_name": "SOTA",
+                "metric_name": "accuracy",
+                "metric_value": 0.85,
+                "source_label": "sota",
+                "task_type": "ts_classification",
+                "metric_direction": "higher",
+            },
+        ]
+    )
+    spec = ResultAnalysisSpec(metric_name="accuracy", metric_direction="higher", source_label="combined")
+
+    normalized = normalize_result_table(source, spec=spec)
+    delta = build_source_delta_frame(
+        normalized,
+        target_source_labels=("industrial",),
+        reference_source_labels=("sota",),
+        metric_direction="higher",
+    )
+
+    assert set(normalized["source_label"]) == {"industrial", "sota"}
+    assert delta.loc[0, "target_model"] == "IndustrialB"
+    assert delta.loc[0, "improvement"] > 0
+
+
+def test_single_source_render_coverage_uses_normalized_source_label(tmp_path: Path) -> None:
+    source = pd.DataFrame(
+        [
+            {
+                "dataset_name": "S1",
+                "model_name": "ModelA",
+                "metric_name": "mae",
+                "metric_value": 1.0,
+                "series_id": "series_1",
+                "source_label": "manifest_source",
+                "task_type": "forecasting",
+                "metric_direction": "lower",
+            }
+        ]
+    )
+    spec = ResultAnalysisSpec(
+        metric_name="mae",
+        metric_direction="lower",
+        source_label="generic_fallback",
+        task_type="forecasting",
+    )
+
+    render_benchmark_result_analysis_pack(
+        source,
+        tmp_path / "pack",
+        spec=spec,
+        coverage_unit_column="series_id",
+        expected_dataset_count=1,
+    )
+    coverage = pd.read_csv(tmp_path / "pack" / "tables" / "coverage.csv")
+
+    assert coverage.loc[0, "source_label"] == "manifest_source"
+    assert coverage.loc[0, "coverage_unit"] == "series_id"
 
 
 def test_incremental_ingestion_coverage_and_model_diagnostics(tmp_path: Path) -> None:
@@ -206,6 +316,50 @@ def test_forecast_comparison_from_progress_items_requires_real_predictions(tmp_p
     assert actual == (3.0, 4.0)
     assert forecasts["ModelA"] == (2.9, 4.2)
     assert len(digest) == 32
+
+
+def test_forecast_comparison_from_aggregate_predictions(tmp_path: Path) -> None:
+    aggregate = tmp_path / "run" / "aggregate"
+    aggregate.mkdir(parents=True)
+    pd.DataFrame(
+        [
+            {
+                "run_id": "run_1",
+                "benchmark": "m4",
+                "dataset_name": "m4_monthly",
+                "subset": "Monthly",
+                "series_id": "S1",
+                "model_name": "NaiveLastValue",
+                "horizon_index": 1,
+                "y_true": 10.0,
+                "y_pred": 9.5,
+                "status": "success",
+            },
+            {
+                "run_id": "run_1",
+                "benchmark": "m4",
+                "dataset_name": "m4_monthly",
+                "subset": "Monthly",
+                "series_id": "S1",
+                "model_name": "NaiveLastValue",
+                "horizon_index": 2,
+                "y_true": 11.0,
+                "y_pred": 11.5,
+                "status": "success",
+            },
+        ]
+    ).to_csv(aggregate / "predictions.csv", index=False)
+
+    history, actual, forecasts, metadata = build_forecast_comparison_from_aggregate_predictions(
+        tmp_path,
+        series_id="S1",
+        dataset_name="m4_monthly",
+    )
+
+    assert history == ()
+    assert actual == (10.0, 11.0)
+    assert forecasts["NaiveLastValue"] == (9.5, 11.5)
+    assert metadata["source_kind"] == "aggregate_predictions"
 
 
 def _write_pipeline(path: Path, *, fitness: float, nodes: tuple[str, ...]) -> None:

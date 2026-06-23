@@ -1,8 +1,0 @@
-| model_name                                   | top_1 | top_3 | top_5 | top_half | dataset_count |
-| -------------------------------------------- | ----- | ----- | ----- | -------- | ------------- |
-| KernelEnsembleRegressor_score_linear_summary | 2     | 2     | 2     | 2        | 2             |
-| KernelEnsembleRegressor_adaptive_rbf_summary | 0     | 2     | 2     | 2        | 2             |
-| KernelEnsembleRegressor_shapelet_rbf         | 0     | 2     | 2     | 2        | 2             |
-| KernelEnsembleRegressor                      | 0     | 0     | 2     | 0        | 2             |
-| KernelEnsembleRegressor_embedding_nystrom    | 0     | 0     | 2     | 0        | 2             |
-| LinearRegressor                              | 0     | 0     | 0     | 0        | 2             |
