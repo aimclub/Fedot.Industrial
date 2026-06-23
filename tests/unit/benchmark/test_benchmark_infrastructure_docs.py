@@ -21,6 +21,8 @@ def test_benchmark_infrastructure_doc_covers_public_contract() -> None:
         "benchmark.industrial",
         "BenchmarkSuiteConfig",
         "run_registered_suite",
+        "benchmark.industrial.evaluation.aggregation",
+        "render_benchmark_aggregate_artifacts",
         "benchmark/results/showcase",
         "python -m benchmark.results.showcase",
         "benchmark/experiments/kernel_learning/defaults.json",

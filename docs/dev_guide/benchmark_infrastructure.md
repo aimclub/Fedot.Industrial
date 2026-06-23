@@ -200,6 +200,26 @@ contract for aggregation and showcase generation.
 
 ## Aggregation And Visualization Rules
 
+The canonical aggregation layer is:
+
+```python
+benchmark.industrial.evaluation.aggregation
+```
+
+Use it when a runner or notebook needs to rebuild reference-style
+`aggregate/*` artifacts from saved `records/*` files. The public entrypoints
+are:
+
+- `resolve_task_aggregation_rule` for task-specific metric direction,
+  grouping, count column, and prediction index rules;
+- `load_benchmark_artifact_frames` for loading `runs`, `metrics`,
+  `predictions`, `errors`, and optional Kernel Learning diagnostics;
+- `build_benchmark_aggregate_tables` for deterministic in-memory aggregate
+  tables;
+- `render_benchmark_aggregate_artifacts` for writing `leaderboard.csv`,
+  `metrics.csv`, `predictions.csv`, `runs.csv`, `run_metadata.json`,
+  `summary.md`, and `artifact_manifest.json`.
+
 Use `benchmark.industrial.evaluation.result_analysis` for result ingestion and
 comparison logic:
 
