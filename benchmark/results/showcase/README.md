@@ -1,0 +1,51 @@
+# IndustrialTS Benchmark Results Showcase
+
+Canonical benchmark/results view for current Industrial, legacy Industrial, and SoTA reference tables.
+
+This directory is the canonical entrypoint for benchmark result comparisons.
+Raw historical folders are kept in place and indexed here instead of being duplicated.
+
+## Rebuild
+
+```bash
+python -m benchmark.results.showcase
+```
+
+## Benchmark Directions
+
+| group_key                   | title                             | task_type         | metric_name | metric_direction | target_model     | source_count | dataset_count | model_count | metric_row_count | diagnostic_row_count | notes                                                                                                                                        |
+| --------------------------- | --------------------------------- | ----------------- | ----------- | ---------------- | ---------------- | ------------ | ------------- | ----------- | ---------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| ucr_classification          | UCR/UEA Univariate Classification | ts_classification | accuracy    | higher           |                  | 3            | 113           | 12          | 1784             | 892                  | Compares current and v2 Kernel Learning UCR runs against the SoTA reference table.                                                           |
+| multivariate_classification | Multivariate Classification       | ts_classification | accuracy    | higher           | Fedot_Industrial | 1            | 26            | 21          | 521              | 0                    | Indexes the existing multivariate classification comparison table; no new Kernel Learning full-run source is present yet.                    |
+| tser_regression             | TSER Regression                   | ts_regression     | rmse        | lower            |                  | 3            | 63            | 29          | 1679             | 258                  | Compares current and v2 Kernel Learning TSER runs against the cleaned average rows from the SoTA/legacy Industrial table.                    |
+| m4_forecasting              | M4 Monthly Forecasting            | forecasting       | mae         | lower            |                  | 2            | 1             | 4           | 8                | 0                    | Indexes current and v2 Kernel Learning forecasting leaderboards; SoTA forecasting reference tables are not present in benchmark/results yet. |
+
+## Source Inventory
+
+| group_key                   | source_key                                | source_label                                  | role               | kind              | task_type         | metric_name | metric_direction | path                                                                                                                                 | exists_locally | file_count | notes                                                                            |
+| --------------------------- | ----------------------------------------- | --------------------------------------------- | ------------------ | ----------------- | ----------------- | ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ---------- | -------------------------------------------------------------------------------- |
+| ucr_classification          | sota_ucr_2024                             | sota_ucr_reference_2024                       | sota_reference     | table             | ts_classification | accuracy    | higher           | benchmark/results/time_series_uni_clf_comparasion_2024.csv                                                                           | True           | 1          | Legacy wide SoTA comparison table stored at benchmark/results root.              |
+| ucr_classification          | industrial_ucr_full                       | industrial_kernel_learning_ucr_full           | current_industrial | aggregate_metrics | ts_classification | accuracy    | higher           | benchmark/results/kernel_learning/ucr_full                                                                                           | True           | 2245       | Current resumable Kernel Learning UCR full-run artifacts.                        |
+| ucr_classification          | industrial_ucr_020626                     | industrial_kernel_learning_ucr_020626         | legacy_industrial  | aggregate_metrics | ts_classification | accuracy    | higher           | benchmark/results/v2_kernel_learning/ucr_suite_020626                                                                                | True           | 2249       | Reference v2 Kernel Learning UCR suite requested as the first comparison source. |
+| multivariate_classification | sota_multivariate_2023                    | historical_multivariate_reference_2023        | sota_reference     | table             | ts_classification | accuracy    | higher           | benchmark/results/time_series_multI_clf_comparasion_241223.csv                                                                       | True           | 1          | Historical multivariate SoTA table with Fedot_Industrial column included.        |
+| tser_regression             | sota_tser_2024_average                    | sota_tser_reference_2024                      | sota_reference     | table             | ts_regression     | rmse        | lower            | benchmark/results/time_series_multi_reg_comparasion_2024.csv                                                                         | True           | 1          | Only average rows are used; min/max rows stay out of the canonical comparison.   |
+| tser_regression             | industrial_tser_full                      | industrial_kernel_learning_tser_full          | current_industrial | aggregate_metrics | ts_regression     | rmse        | lower            | benchmark/results/kernel_learning/tser_full                                                                                          | True           | 945        | Current resumable Kernel Learning TSER full-run artifacts.                       |
+| tser_regression             | industrial_tser_140526                    | industrial_kernel_learning_tser_140526        | legacy_industrial  | aggregate_metrics | ts_regression     | rmse        | lower            | benchmark/results/v2_kernel_learning/tser_suite_140526                                                                               | True           | 79         | Reference v2 Kernel Learning TSER suite.                                         |
+| m4_forecasting              | industrial_m4_full_leaderboard            | industrial_kernel_learning_m4_full            | current_industrial | table             | forecasting       | mae         | lower            | benchmark/results/kernel_learning/m4_full/kernel_learning_m4_full_5f2912e104/aggregate/leaderboard.csv                               | True           | 1          | Current M4 Monthly full-run aggregate leaderboard.                               |
+| m4_forecasting              | industrial_forecasting_140526_leaderboard | industrial_kernel_learning_forecasting_140526 | legacy_industrial  | table             | forecasting       | mae         | lower            | benchmark/results/v2_kernel_learning/forecasting_suite_140526/kernel_learning_forecasting_suite_f184092168/aggregate/leaderboard.csv | True           | 1          | Reference v2 forecasting suite aggregate leaderboard.                            |
+
+## Archive Candidates
+
+| path                                                             | reason                                                                              | recommended_action                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| benchmark/results/server_results                                 | historical raw run artifacts; keep as archive input, not canonical comparison table | move to external archive or DVC when raw history is published |
+| benchmark/results/ts_uni_classification                          | legacy per-dataset fitted pipelines and logs                                        | keep out of showcase; describe through archive manifest       |
+| benchmark/results/ts_multi_classification                        | legacy per-dataset fitted pipelines and logs                                        | keep out of showcase; describe through archive manifest       |
+| benchmark/results/ts_regression                                  | legacy per-dataset fitted pipelines and logs                                        | keep out of showcase; describe through archive manifest       |
+| benchmark/results/benchmark_results/archive                      | large historical forecasting archive with raw metrics and pipeline outputs          | publish through DVC/cloud and keep only manifests in git      |
+| benchmark/results/time_series_multi_reg_comparasion_09022024.csv | superseded by time_series_multi_reg_comparasion_2024.csv                            | archive after confirming no unique model columns are needed   |
+| benchmark/results/time_series_multi_reg_comparasion_261222.csv   | superseded regression comparison table                                              | archive after confirming no unique model columns are needed   |
+| benchmark/results/time_series_uni_clf_09022024.csv               | superseded by time_series_uni_clf_comparasion_2024.csv                              | archive after confirming no unique dataset rows are needed    |
+| benchmark/results/time_series_uni_clf_25122003.csv               | old univariate classification table with unclear date/version                       | archive after confirming no unique dataset rows are needed    |
+
+Per-benchmark report packs are stored in sibling folders such as `ucr_classification/` and `tser_regression/`.

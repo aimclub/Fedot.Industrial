@@ -5,6 +5,11 @@
 This runbook covers the MVP kernel-learning benchmark flow for supervised UCR time-series classification and the
 two-stage warm-start experiment.
 
+For the general benchmark development contract, typed config rules, result
+storage layout, and showcase-table policy, see
+`docs/dev_guide/benchmark_infrastructure.md`. This runbook only documents the
+Kernel Learning-specific execution flow.
+
 The public estimator API remains:
 
 ```python
