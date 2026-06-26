@@ -267,6 +267,16 @@ class RepositoryFeatureGeneratorAdapter:
             "operations": tuple(spec.name for spec in self.operation_specs),
             "n_features": int(matrix.shape[1]),
         }
+
+        for op in self.operations_:
+            if hasattr(op, "logging_params") and isinstance(getattr(op, "logging_params"), dict):
+                diagnostics.update(op.logging_params)
+
+        for spec in self.operation_specs:
+            if spec.params:
+                diagnostics.update({k: v for k, v in spec.params.items() if k not in diagnostics})
+
+
         if self.resolved_torch_device_ is not None:
             diagnostics["torch_device"] = self.resolved_torch_device_
         return FeatureBundle(
@@ -775,12 +785,13 @@ def _riemann_spec() -> OperationSpec:
         name="riemann_extractor",
         module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
         class_name="RiemannExtractor",
-        params={"Classes": None, 
-                "estimator": "scm", 
-                "SPD_metric": "riemann", 
-                "tangent_metric": "riemann", 
-                "spd_space": None, 
-                "tangent_space": None,  
+        params={"Classes": None,
+                "estimator": "scm",
+                "SPD_metric": "riemann",
+                "tangent_metric": "riemann",
+                "extraction_strategy": "ensemble",
+                "spd_space": None,
+                "tangent_space": None,
                 "use_cache": False
                 },
     )
