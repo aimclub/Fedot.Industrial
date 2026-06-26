@@ -22,6 +22,7 @@ from fedot_ind.core.kernel_learning import (
 from fedot_ind.core.kernel_learning.contracts import FeatureBundle
 from fedot_ind.core.kernel_learning.generators import adapters
 from fedot_ind.core.kernel_learning.generators import repository as repository_module
+from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 
 
 def test_statistical_summary_is_repo_native_adapter_not_manual_summary():
@@ -289,6 +290,63 @@ def test_riemann_extractor_is_budgeted_repo_adapter():
     assert generator.operation_specs[0].name == "riemann_extractor"
 
 
+def test_riemann_extractor_adapter_passes_extraction_strategy_param():
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="riemann_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="riemann_extractor",
+                module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
+                class_name="RiemannExtractor",
+                params={"extraction_strategy": "tangent"},
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=100, fallback_generator="identity"),
+    )
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+
+    generator.fit(X)
+
+    assert generator.operations_[0].extraction_strategy == "tangent"
+
+
+def test_riemann_extractor_handles_short_series_without_nan_or_inf():
+    generator = create_feature_generator("riemann_extractor")
+    X = np.array(
+        [
+            [0.0, 1.0],
+            [1.0, 0.0],
+            [0.5, 0.5],
+        ]
+    )
+
+    features = generator.fit_transform(X).features
+
+    assert features.shape[0] == X.shape[0]
+    assert np.all(np.isfinite(features))
+
+
+def test_riemann_extractor_sanitizes_nan_and_inf_inputs():
+    generator = create_feature_generator("riemann_extractor")
+    X = np.array(
+        [
+            [0.0, np.nan, 1.0],
+            [np.inf, -1.0, 0.0],
+            [1.0, 0.0, 0.5],
+        ]
+    )
+
+    features = generator.fit_transform(X).features
+
+    assert features.shape[0] == X.shape[0]
+    assert np.all(np.isfinite(features))
+
+
 def test_riemann_extractor_fit_transform_and_transform_are_target_free():
     pytest.importorskip("fedot")
     pytest.importorskip("torch")
@@ -422,8 +480,8 @@ def test_budgeted_topological_adapter_falls_back_on_budget_exceeded():
         operation_specs=(
             OperationSpec(
                 name="topological_extractor",
-                module_path="missing_topology_module",
-                class_name="MissingTopology",
+                module_path="fedot_ind.core.operation.transformation.representation.topological.topological_extractor",
+                class_name="TopologicalExtractor",
             ),
         ),
         budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
@@ -441,6 +499,7 @@ def test_budgeted_topological_adapter_falls_back_on_budget_exceeded():
     assert bundle.name == "topological_extractor"
     assert bundle.features.shape[0] == 2
     assert bundle.diagnostics["source"] == "budgeted_fallback"
+
 
 def test_riemann_extractor_same_for_classification_and_regression_and_ts_forecasting():
     pytest.importorskip("fedot")
@@ -470,6 +529,7 @@ def test_riemann_extractor_same_for_classification_and_regression_and_ts_forecas
     assert np.allclose(out_clf, out_reg)
     assert np.allclose(out_clf, out_ts)
 
+
 def test_topological_extractor_same_for_classification_and_regression_and_ts_forecasting():
     pytest.importorskip("fedot")
     pytest.importorskip("torch")
@@ -498,11 +558,58 @@ def test_topological_extractor_same_for_classification_and_regression_and_ts_for
     assert np.allclose(out_clf, out_reg)
 
 
+def test_budgeted_riemann_adapter_diagnostics_include_operation_params():
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="riemann_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="riemann_extractor",
+                module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
+                class_name="RiemannExtractor",
+                params={"SPD_metric": "logeuclid", "tangent_metric": "euclid"},
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=100, fallback_generator="statistical_summary"),
+    )
+    X = np.array(
+        [
+            [0.0, 1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0, 0.0],
+        ]
+    )
+    y = np.array([0, 1])
+
+    bundle = generator.fit_transform(X, y)
+
+    assert bundle.name == "riemann_extractor"
+    assert bundle.features.shape[0] == 2
+    assert bundle.diagnostics["SPD_metric"] == "logeuclid"
+    assert bundle.diagnostics["tangent_metric"] == "euclid"
+    assert bundle.diagnostics['estimator'] == 'scm'
 
 
+@pytest.mark.parametrize("invalid_params, expected_error_match", [
+    (
+        {"extraction_strategy": "magic_method"}, 
+        "Unsupported extraction strategy: 'magic_method'"
+    ),
+    (
+        {"estimator": "pearson"}, 
+        "Unsupported estimator: 'pearson'"
+    ),
+    (
+        {"SPD_metric": "manhattan"}, 
+        "Unsupported SPD_metric: 'manhattan'"
+    ),
+    (
+        {"tangent_metric": "cosine"}, 
+        "Unsupported tangent_metric: 'cosine'"
+    ),
+])
+def test_riemann_extractor_incorrect_params_raise_value_error(invalid_params, expected_error_match):
 
-
-
+    with pytest.raises(ValueError, match=expected_error_match):
+        RiemannExtractor(invalid_params)
 
 
 
