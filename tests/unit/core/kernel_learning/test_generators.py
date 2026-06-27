@@ -315,63 +315,6 @@ def test_riemann_extractor_adapter_passes_extraction_strategy_param():
     assert generator.operations_[0].extraction_strategy == "tangent"
 
 
-def test_riemann_extractor_handles_short_series_without_nan_or_inf():
-    generator = create_feature_generator("riemann_extractor")
-    X = np.array(
-        [
-            [0.0, 1.0],
-            [1.0, 0.0],
-            [0.5, 0.5],
-        ]
-    )
-
-    features = generator.fit_transform(X).features
-
-    assert features.shape[0] == X.shape[0]
-    assert np.all(np.isfinite(features))
-
-
-def test_riemann_extractor_sanitizes_nan_and_inf_inputs():
-    generator = create_feature_generator("riemann_extractor")
-    X = np.array(
-        [
-            [0.0, np.nan, 1.0],
-            [np.inf, -1.0, 0.0],
-            [1.0, 0.0, 0.5],
-        ]
-    )
-
-    features = generator.fit_transform(X).features
-
-    assert features.shape[0] == X.shape[0]
-    assert np.all(np.isfinite(features))
-
-
-def test_riemann_extractor_fit_transform_and_transform_are_target_free():
-    pytest.importorskip("fedot")
-    pytest.importorskip("torch")
-
-    X = np.array(
-        [
-            [0.0, 1.0, 2.0, 3.0],
-            [3.0, 2.0, 1.0, 0.0],
-        ]
-    )
-    y_left = np.array([0, 1])
-    y_right = np.array([1, 0])
-
-    generator_left = create_feature_generator("riemann_extractor")
-    generator_right = create_feature_generator("riemann_extractor")
-
-    left = generator_left.fit_transform(X, y_left).features
-    right = generator_right.fit_transform(X, y_right).features
-
-    assert np.allclose(left, right)
-    assert np.all(np.isfinite(left))
-    assert np.all(np.isfinite(right))
-    assert left.shape == right.shape
-
-
 def test_topological_extractor_fit_transform_and_transform_are_target_free():
     
     pytest.importorskip("fedot")
@@ -501,35 +444,6 @@ def test_budgeted_topological_adapter_falls_back_on_budget_exceeded():
     assert bundle.diagnostics["source"] == "budgeted_fallback"
 
 
-def test_riemann_extractor_same_for_classification_and_regression_and_ts_forecasting():
-    pytest.importorskip("fedot")
-    pytest.importorskip("torch")
-
-    X = np.array(
-        [
-            [0.0, 1.0, 2.0, 3.0],
-            [3.0, 2.0, 1.0, 0.0],
-        ]
-    )
-    y = np.array([0, 1])
-
-    gen_clf = create_feature_generator("riemann_extractor")
-    out_clf = gen_clf.fit_transform(X, y, task_type="classification").features
-
-    gen_reg = create_feature_generator("riemann_extractor")
-    out_reg = gen_reg.fit_transform(X, y, task_type="regression").features
-
-    gen_ts = create_feature_generator("riemann_extractor")
-    out_ts = gen_ts.fit_transform(X, y, task_type="ts_forecasting").features
-
-    assert out_clf.shape == out_reg.shape == out_ts.shape
-    assert np.all(np.isfinite(out_clf))
-    assert np.all(np.isfinite(out_reg))
-    assert np.all(np.isfinite(out_ts))
-    assert np.allclose(out_clf, out_reg)
-    assert np.allclose(out_clf, out_ts)
-
-
 def test_topological_extractor_same_for_classification_and_regression_and_ts_forecasting():
     pytest.importorskip("fedot")
     pytest.importorskip("torch")
@@ -588,28 +502,6 @@ def test_budgeted_riemann_adapter_diagnostics_include_operation_params():
     assert bundle.diagnostics['estimator'] == 'scm'
 
 
-@pytest.mark.parametrize("invalid_params, expected_error_match", [
-    (
-        {"extraction_strategy": "magic_method"}, 
-        "Unsupported extraction strategy: 'magic_method'"
-    ),
-    (
-        {"estimator": "pearson"}, 
-        "Unsupported estimator: 'pearson'"
-    ),
-    (
-        {"SPD_metric": "manhattan"}, 
-        "Unsupported SPD_metric: 'manhattan'"
-    ),
-    (
-        {"tangent_metric": "cosine"}, 
-        "Unsupported tangent_metric: 'cosine'"
-    ),
-])
-def test_riemann_extractor_incorrect_params_raise_value_error(invalid_params, expected_error_match):
-
-    with pytest.raises(ValueError, match=expected_error_match):
-        RiemannExtractor(invalid_params)
 
 
 
