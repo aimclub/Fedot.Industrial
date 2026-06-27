@@ -790,8 +790,8 @@ def _riemann_spec() -> OperationSpec:
                 "SPD_metric": "riemann",
                 "tangent_metric": "riemann",
                 "extraction_strategy": "ensemble",
-                "spd_space": None,
-                "tangent_space": None,
+                "centroid_strategy": "riemann",
+                "centroid_type": "mean",
                 "use_cache": False
                 },
     )
