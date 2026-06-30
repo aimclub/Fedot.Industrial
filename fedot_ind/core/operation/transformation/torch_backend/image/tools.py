@@ -6,17 +6,21 @@ import warnings
 from fedot_ind.core.kernel_learning import resolve_torch_device
 
 
-def MinMaxScalerTorch(X: torch.Tensor,
-                      sample_range: Tuple[float, float] = (-1., 1.)):
-    min_val, max_val = sample_range
+def per_sample_minmax_scale(
+    X: torch.Tensor,
+    *,
+    feature_range: tuple[float, float] = (-1.0, 1.0),
+    dim: int = -1,
+    eps: float = 1e-8,
+) -> torch.Tensor:
+    min_value = X.amin(dim=dim, keepdim=True)
+    max_value = X.amax(dim=dim, keepdim=True)
+    scale = (max_value - min_value).clamp_min(eps)
 
-    X_min = X.min(dim=1, keepdim=True)[0]
-    X_max = X.max(dim=1, keepdim=True)[0]
-    X_max[X_max == X_min] = X_min[X_max == X_min] + 1e-8
-
-    X_scaled = (X - X_min) / (X_max - X_min)
-    X_scaled = X_scaled * (max_val - min_val) + min_val
-    return X_scaled
+    low, high = feature_range
+    X_scaled = (X - min_value) / scale
+    X_scaled = X_scaled * (high - low) + low
+    return torch.nan_to_num(X_scaled)
 
 
 def check_input_shape(X: Any) -> Tuple[torch.Tensor, Tuple[int, ...]]:

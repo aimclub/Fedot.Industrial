@@ -3,10 +3,10 @@ import math
 import torch
 
 from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
-    MinMaxScalerTorch,
     PAA,
     prepare_series_input,
     convert_to_init_dim,
+    per_sample_minmax_scale,
 )
 
 
@@ -33,8 +33,11 @@ class GAF:
             ``image_size`` is derived from ``T`` and ``window_size`` instead
             of taken directly from ``image_size``.
         sample_range (tuple or None, default ``(-1, 1)``): Per-sample min-max
-            scaling range before GAF encoding. If ``None``, input values must
-            already lie in ``[-1, 1]``.
+            scaling range before GAF encoding. If ``None`` and
+            ``use_per_sample_minmax=True``, ``(-1, 1)`` is used.
+        use_per_sample_minmax (bool, default ``True``): If ``True``, apply
+            per-sample min-max scaling before GAF encoding. If ``False``, input
+            values must already lie in ``[-1, 1]``.
         return_init_dim (bool, default ``True``): If ``True``, restore batch/
             channel axes for 3D input ``(B, C, T)`` → ``(B, C, H, W)``.
             For 1D/2D inputs the output batch layout is left unchanged.
@@ -45,6 +48,7 @@ class GAF:
         params = params or {}
         self.window_size = params.get('window_size', None)
         self.sample_range = params.get('sample_range', (-1, 1))
+        self.use_per_sample_minmax = bool(params.get("use_per_sample_minmax", True))
         self.method = params.get('method', 'summation')
         self.image_size = params.get('image_size', 1.)
         self.overlapping = params.get('overlapping', False)
@@ -82,15 +86,18 @@ class GAF:
             overlapping=self.overlapping,
         )
         X_paa = paa.transform(X)
-        if self.sample_range is None:
+        if self.use_per_sample_minmax:
+            feature_range = self.sample_range if self.sample_range is not None else (-1, 1)
+            X_cos = per_sample_minmax_scale(X_paa, feature_range=feature_range, dim=1)
+        else:
             X_min, X_max = torch.min(X_paa), torch.max(X_paa)
             eps = 1e-5
             if (X_min < -1 - eps) or (X_max > 1 + eps):
-                raise ValueError("If 'sample_range' is None, all the values "
-                                 "of X must be between -1 and 1.")
+                raise ValueError(
+                    "If 'use_per_sample_minmax' is False, all the values "
+                    "of X must be between -1 and 1."
+                )
             X_cos = X_paa.clamp(-1.0, 1.0)
-        else:
-            X_cos = MinMaxScalerTorch(X_paa, self.sample_range)
         X_sin = torch.sqrt(torch.clamp(1 - X_cos**2, min=0, max=1))
 
         if method == "gasf":
