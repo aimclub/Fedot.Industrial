@@ -1,4 +1,5 @@
 from typing import Any
+
 import torch
 
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
@@ -38,7 +39,13 @@ class MultimodalPreprocessor:
                 "input_shape": tuple(current.shape),
             }
             for step in steps:
-                if step is NormalizationMethod.log1p:
+                if step is NormalizationMethod.imputation:
+                    self._fit_train_mean_imputation(modality, current)
+                    current = self._apply_train_mean_imputation(modality, current)
+                elif step is NormalizationMethod.feature_standardization:
+                    self._fit_feature_standardizer(modality, current)
+                    current = self._apply_feature_standardizer(modality, current)
+                elif step is NormalizationMethod.log1p:
                     current = torch.log1p(current.float().clamp_min(0))
                 elif step is NormalizationMethod.image_standardization:
                     self._fit_image_standardizer(modality, current)
@@ -57,7 +64,11 @@ class MultimodalPreprocessor:
         for modality, steps in self.normalization_config.items():
             current = modalities[modality]
             for step in steps:
-                if step is NormalizationMethod.log1p:
+                if step is NormalizationMethod.imputation:
+                    current = self._apply_train_mean_imputation(modality, current)
+                elif step is NormalizationMethod.feature_standardization:
+                    current = self._apply_feature_standardizer(modality, current)
+                elif step is NormalizationMethod.log1p:
                     current = torch.log1p(current.float().clamp_min(0))
                 elif step is NormalizationMethod.image_standardization:
                     current = self._apply_image_standardizer(modality, current)
@@ -71,6 +82,62 @@ class MultimodalPreprocessor:
 
     def fit_transform(self, bundle: MultimodalDataBundle) -> MultimodalDataBundle:
         return self.fit(bundle).transform(bundle)
+
+    def _fit_train_mean_imputation(
+        self,
+        modality: MultimodalModality,
+        tensor: torch.Tensor,
+    ) -> None:
+        values = tensor.float()
+        if values.ndim < 2:
+            raise ValueError(
+                "Imputation expects at least a 2D tensor (batch, features), "
+                f"got shape={tuple(values.shape)}."
+            )
+        column_mean = self._column_mean_ignore_invalid(values)
+        self.fitted_statistics_[modality.value]["imputation"] = {
+            "column_mean": column_mean.detach().clone(),
+        }
+
+    def _apply_train_mean_imputation(
+        self,
+        modality: MultimodalModality,
+        tensor: torch.Tensor,
+    ) -> torch.Tensor:
+        stats = self.fitted_statistics_[modality.value]["imputation"]
+        column_mean = stats["column_mean"].to(device=tensor.device, dtype=tensor.dtype)
+        values = tensor.float()
+        invalid = ~torch.isfinite(values)
+        return torch.where(invalid, column_mean, values)
+
+    def _fit_feature_standardizer(
+        self,
+        modality: MultimodalModality,
+        tensor: torch.Tensor,
+    ) -> None:
+        values = tensor.float()
+        if values.ndim < 2:
+            raise ValueError(
+                "Feature standardization expects at least a 2D tensor (batch, features), "
+                f"got shape={tuple(values.shape)}."
+            )
+        mean = values.mean(dim=0, keepdim=True)
+        std = values.std(dim=0, unbiased=False, keepdim=True).clamp_min(self.eps)
+        self.fitted_statistics_[modality.value]["feature_standardization"] = {
+            "mean": mean.detach().clone(),
+            "std": std.detach().clone(),
+            "eps": float(self.eps),
+        }
+
+    def _apply_feature_standardizer(
+        self,
+        modality: MultimodalModality,
+        tensor: torch.Tensor,
+    ) -> torch.Tensor:
+        stats = self.fitted_statistics_[modality.value]["feature_standardization"]
+        mean = stats["mean"].to(device=tensor.device, dtype=tensor.dtype)
+        std = stats["std"].to(device=tensor.device, dtype=tensor.dtype)
+        return torch.nan_to_num(((tensor.float() - mean) / std))
 
     def _fit_image_standardizer(
         self,
@@ -101,6 +168,13 @@ class MultimodalPreprocessor:
         mean = stats["mean"].to(device=tensor.device, dtype=tensor.dtype)
         std = stats["std"].to(device=tensor.device, dtype=tensor.dtype)
         return torch.nan_to_num(((tensor - mean) / std).float())
+
+    @staticmethod
+    def _column_mean_ignore_invalid(tensor: torch.Tensor) -> torch.Tensor:
+        finite = torch.isfinite(tensor)
+        masked = torch.where(finite, tensor, torch.zeros_like(tensor))
+        counts = finite.sum(dim=0, keepdim=True).clamp_min(1)
+        return masked.sum(dim=0, keepdim=True) / counts
 
     def _validate_bundle(self, bundle: MultimodalDataBundle) -> None:
         if not isinstance(bundle, MultimodalDataBundle):

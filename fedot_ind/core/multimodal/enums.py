@@ -11,6 +11,8 @@ class MultimodalModality(Enum):
 
 
 class NormalizationMethod(str, Enum):
+    imputation = "imputation"
+    feature_standardization = "feature_standardization"
     image_standardization = "image_standardization"
     log1p = "log1p"
 

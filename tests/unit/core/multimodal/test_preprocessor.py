@@ -9,6 +9,7 @@ from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
 def make_bundle(
     *,
     raw: torch.Tensor | None = None,
+    stats: torch.Tensor | None = None,
     gaf: torch.Tensor | None = None,
     stft: torch.Tensor | None = None,
     target: torch.Tensor | None = None,
@@ -16,6 +17,8 @@ def make_bundle(
     modalities = {}
     if raw is not None:
         modalities[MultimodalModality.raw] = raw
+    if stats is not None:
+        modalities[MultimodalModality.stats] = stats
     if gaf is not None:
         modalities[MultimodalModality.gaf] = gaf
     if stft is not None:
@@ -136,6 +139,119 @@ def test_multimodal_preprocessor_supports_configured_steps():
         torch.log1p(stft.float().clamp_min(0)),
     )
     assert "image_standardization" not in preprocessor.fitted_statistics_["stft"]
+
+
+def test_multimodal_preprocessor_imputes_stats_with_train_column_means():
+    train_stats = torch.tensor(
+        [
+            [1.0, float("nan")],
+            [3.0, 4.0],
+        ]
+    )
+    test_stats = torch.tensor(
+        [
+            [float("inf"), 10.0],
+            [5.0, float("nan")],
+        ]
+    )
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.stats: [NormalizationMethod.imputation],
+        }
+    )
+
+    train_bundle = preprocessor.fit_transform(make_bundle(stats=train_stats))
+    test_bundle = preprocessor.transform(make_bundle(stats=test_stats))
+    column_mean = preprocessor.fitted_statistics_["stats"]["imputation"]["column_mean"]
+
+    assert torch.allclose(column_mean, torch.tensor([[2.0, 4.0]]))
+    assert torch.allclose(
+        train_bundle.modalities[MultimodalModality.stats],
+        torch.tensor([[1.0, 4.0], [3.0, 4.0]]),
+    )
+    assert torch.allclose(
+        test_bundle.modalities[MultimodalModality.stats],
+        torch.tensor([[2.0, 10.0], [5.0, 4.0]]),
+    )
+
+
+def test_multimodal_preprocessor_standardizes_stats_per_feature_with_train_statistics():
+    train_stats = torch.tensor([[0.0, 2.0], [2.0, 6.0]])
+    test_stats = torch.tensor([[4.0, 10.0]])
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.stats: [NormalizationMethod.feature_standardization],
+        }
+    )
+
+    train_bundle = preprocessor.fit_transform(make_bundle(stats=train_stats))
+    test_bundle = preprocessor.transform(make_bundle(stats=test_stats))
+    stats = preprocessor.fitted_statistics_["stats"]["feature_standardization"]
+
+    assert torch.allclose(stats["mean"], torch.tensor([[1.0, 4.0]]))
+    assert torch.allclose(stats["std"], torch.tensor([[1.0, 2.0]]))
+    assert torch.allclose(
+        train_bundle.modalities[MultimodalModality.stats],
+        torch.tensor([[-1.0, -1.0], [1.0, 1.0]]),
+    )
+    expected_test = torch.tensor([[3.0, 3.0]])
+    assert torch.allclose(test_bundle.modalities[MultimodalModality.stats], expected_test)
+
+
+def test_multimodal_preprocessor_applies_stats_imputation_before_feature_standardization():
+    train_stats = torch.tensor(
+        [
+            [1.0, float("nan")],
+            [3.0, 5.0],
+            [5.0, 1.0],
+        ]
+    )
+    test_stats = torch.tensor([[float("inf"), 9.0]])
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.stats: [
+                NormalizationMethod.imputation,
+                NormalizationMethod.feature_standardization,
+            ],
+        }
+    )
+
+    train_bundle = preprocessor.fit_transform(make_bundle(stats=train_stats))
+    test_bundle = preprocessor.transform(make_bundle(stats=test_stats))
+
+    imputed_train = torch.tensor([[1.0, 3.0], [3.0, 5.0], [5.0, 1.0]])
+    mean = imputed_train.mean(dim=0, keepdim=True)
+    std = imputed_train.std(dim=0, unbiased=False, keepdim=True)
+    expected_train = (imputed_train - mean) / std
+    imputed_test = torch.tensor([[3.0, 9.0]])
+    expected_test = (imputed_test - mean) / std
+
+    assert torch.allclose(
+        train_bundle.modalities[MultimodalModality.stats],
+        expected_train,
+    )
+    assert torch.allclose(
+        test_bundle.modalities[MultimodalModality.stats],
+        expected_test,
+    )
+
+
+def test_multimodal_preprocessor_does_not_update_stats_statistics_on_transform():
+    train_stats = torch.tensor([[0.0, 2.0], [2.0, 6.0]])
+    test_stats = torch.tensor([[4.0, 10.0]])
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.stats: [NormalizationMethod.feature_standardization],
+        }
+    ).fit(make_bundle(stats=train_stats))
+    train_mean = preprocessor.fitted_statistics_["stats"]["feature_standardization"]["mean"].clone()
+    train_std = preprocessor.fitted_statistics_["stats"]["feature_standardization"]["std"].clone()
+
+    preprocessor.transform(make_bundle(stats=test_stats))
+
+    stats = preprocessor.fitted_statistics_["stats"]["feature_standardization"]
+    assert torch.equal(stats["mean"], train_mean)
+    assert torch.equal(stats["std"], train_std)
 
 
 def test_multimodal_preprocessor_rejects_unfitted_transform():
