@@ -26,14 +26,11 @@ try:
 except Exception as exc:  # pragma: no cover - legacy-only fallback
     LEGACY_IMPORT_ERROR = exc
 
-
     class AbstractBenchmark:
         def __init__(self, output_dir=None):
             self.output_dir = output_dir
 
-
     __version__ = 'unknown'
-
 
     class ResultsPicker:
         def __init__(self, path=None):
@@ -41,7 +38,6 @@ except Exception as exc:  # pragma: no cover - legacy-only fallback
 
         def run(self, *args, **kwargs):
             return pd.DataFrame()
-
 
     ApiTemplate = None
     np = None
@@ -175,9 +171,9 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                         prediction, model = self.finetune_loop(
                             dataset_name, experiment_setup, p)
                         metric_result.update({p:
-                                                  {'metric': Accuracy(model.predict_data.target,
-                                                                      prediction.ravel()).metric(),
-                                                   'tuned_model': model}})
+                                              {'metric': Accuracy(model.predict_data.target,
+                                                                  prediction.ravel()).metric(),
+                                               'tuned_model': model}})
                     except ModuleNotFoundError as ex:
                         print(f'{ex}.OLD VERSION OF PIPELINE. DELETE DIRECTORY')
                         if len(composed_model_path) != 1:
@@ -203,7 +199,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                         best_metric, best_model, path = metric_result[_][
                             'metric'], metric_result[_]['tuned_model'], _
                 fedot_results.loc[dataset_name,
-                'Fedot_Industrial_finetuned'] = best_metric
+                                  'Fedot_Industrial_finetuned'] = best_metric
                 best_model.output_folder = f'{_}_tuned'
                 best_model.save_best_model()
                 fedot_results.to_csv(dataset_path)
@@ -229,14 +225,14 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.result_dir_name + \
-                                f'/{dataset_name}' + '/metrics_report.csv'
+                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_resutls = np.stack(_, axis=1).T

@@ -21,4 +21,3 @@ __all__ = [
     "load_showcase_manifest",
     "render_results_showcase",
 ]
-

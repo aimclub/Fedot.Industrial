@@ -117,7 +117,8 @@ def _has_local_split(root: Path, dataset_name: str) -> bool:
         return False
     train_base = dataset_dir / f"{dataset_name}_TRAIN"
     test_base = dataset_dir / f"{dataset_name}_TEST"
-    return any(train_base.with_suffix(extension).exists() and test_base.with_suffix(extension).exists() for extension in (".tsv", ".csv", ".ts"))
+    return any(train_base.with_suffix(extension).exists() and test_base.with_suffix(extension).exists()
+               for extension in (".tsv", ".csv", ".ts"))
 
 
 if __name__ == "__main__":

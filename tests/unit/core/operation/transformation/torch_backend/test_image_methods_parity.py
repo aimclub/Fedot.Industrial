@@ -5,6 +5,11 @@ installed. They are intentionally **not** listed in project requirements.
 """
 
 from __future__ import annotations
+from fedot_ind.core.operation.transformation.torch_backend.image.stft_transformation import (
+    STFTSpectrogram,
+)
+from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
+from fedot_ind.core.operation.transformation.torch_backend.image.gaf_transformation import GAF
 
 import numpy as np
 import pytest
@@ -12,11 +17,6 @@ import torch
 
 pytest.importorskip("torch")
 
-from fedot_ind.core.operation.transformation.torch_backend.image.gaf_transformation import GAF
-from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
-from fedot_ind.core.operation.transformation.torch_backend.image.stft_transformation import (
-    STFTSpectrogram,
-)
 
 RMSE_TOL_PYTS = 1e-4
 RMSE_TOL_SCIPY = 1e-4
@@ -99,7 +99,7 @@ def _scipy_stft_reference_batch(
     SciPy ``scaling='spectrum'`` divides by ``sum(window)``; multiply back so
     amplitudes match the non-normalized torch implementation.
     """
-    scipy = pytest.importorskip("scipy")
+    pytest.importorskip("scipy")
     from scipy.signal import stft as scipy_stft, windows
 
     if n_fft != window_size:

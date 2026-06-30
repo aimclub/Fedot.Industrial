@@ -14,9 +14,9 @@ class GAF:
     """
     A PyTorch-based Gramian Angular Field (GAF) transformer for time series
     data.
-    
-    This class converts time series into Gramian Angular Field (GAF) images, 
-    which can be used for visualizing and analyzing time series data as images. 
+
+    This class converts time series into Gramian Angular Field (GAF) images,
+    which can be used for visualizing and analyzing time series data as images.
     The class supports two types of GAF: Gramian Angular Summation Field (GASF)
     and Gramian Angular Difference Field (GADF). It also supports batch
     processing and GPU acceleration.
@@ -40,6 +40,7 @@ class GAF:
             For 1D/2D inputs the output batch layout is left unchanged.
         torch_device (str, default ``'auto'``): Device to use for the transformation.
     """
+
     def __init__(self, params: Optional[dict[str, Any]] = None):
         params = params or {}
         self.window_size = params.get('window_size', None)
@@ -106,8 +107,8 @@ class GAF:
         """
         Computes the Gramian Angular Summation Field (GASF) for a batch of time
         series.
-        
-        GASF encodes temporal correlations using trigonometric summation. 
+
+        GASF encodes temporal correlations using trigonometric summation.
 
         Args:
             X_cos (torch.Tensor): Cosine-transformed time series tensor of shape
@@ -127,8 +128,8 @@ class GAF:
         """
         Computes the Gramian Angular Difference Field (GADF) for a batch of time
         series.
-        
-        GADF encodes temporal correlations using trigonometric differences. 
+
+        GADF encodes temporal correlations using trigonometric differences.
 
         Args:
             X_cos (torch.Tensor): Cosine-transformed time series tensor of shape

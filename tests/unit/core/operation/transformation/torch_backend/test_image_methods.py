@@ -1,6 +1,17 @@
 """Unit tests for torch image transformations (GAF, MTF, STFT)."""
 
 from __future__ import annotations
+from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
+    check_input_shape,
+    convert_to_init_dim,
+    prepare_series_input,
+)
+from fedot_ind.core.operation.transformation.torch_backend.image.stft_transformation import (
+    STFTSpectrogram,
+)
+from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
+from fedot_ind.core.operation.transformation.torch_backend.image.gaf_transformation import GAF
+from fedot_ind.core.kernel_learning import resolve_torch_device
 
 import numpy as np
 import pytest
@@ -8,17 +19,6 @@ import torch
 
 pytest.importorskip("torch")
 
-from fedot_ind.core.kernel_learning import resolve_torch_device
-from fedot_ind.core.operation.transformation.torch_backend.image.gaf_transformation import GAF
-from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
-from fedot_ind.core.operation.transformation.torch_backend.image.stft_transformation import (
-    STFTSpectrogram,
-)
-from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
-    check_input_shape,
-    convert_to_init_dim,
-    prepare_series_input,
-)
 
 T = 64
 B = 3

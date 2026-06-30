@@ -1,4 +1,5 @@
 from __future__ import annotations
+from benchmark.experiments.kernel_learning.configs import KernelLearningTwoStageUCRExperimentConfig
 
 import argparse
 import sys
@@ -7,8 +8,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
-from benchmark.experiments.kernel_learning.configs import KernelLearningTwoStageUCRExperimentConfig
 
 
 def parse_args() -> argparse.Namespace:

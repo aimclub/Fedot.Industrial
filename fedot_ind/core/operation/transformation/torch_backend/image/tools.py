@@ -1,4 +1,3 @@
-import math
 import torch
 from torch.nn import functional as F
 from typing import Any, Literal, Optional, Tuple
@@ -7,8 +6,8 @@ import warnings
 from fedot_ind.core.kernel_learning import resolve_torch_device
 
 
-def MinMaxScalerTorch(X: torch.Tensor, 
-                      sample_range: Tuple[float, float]=(-1., 1.)):
+def MinMaxScalerTorch(X: torch.Tensor,
+                      sample_range: Tuple[float, float] = (-1., 1.)):
     min_val, max_val = sample_range
 
     X_min = X.min(dim=1, keepdim=True)[0]
@@ -33,7 +32,7 @@ def check_input_shape(X: Any) -> Tuple[torch.Tensor, Tuple[int, ...]]:
     elif X.ndim == 3:
         B, C, T = X.shape
         X = X.reshape(B * C, T)
-    elif X.ndim >3:
+    elif X.ndim > 3:
         raise ValueError(f"X must be 1D, 2D or 3D, got shape={tuple(X.shape)}")
 
     if not torch.is_floating_point(X):
@@ -51,7 +50,6 @@ def prepare_series_input(
     resolved = resolve_torch_device(torch_device)
     X, init_shape = check_input_shape(X)
     return X.to(device=resolved, dtype=torch.float32), init_shape
-
 
 
 def convert_to_init_dim(
@@ -83,7 +81,7 @@ def convert_to_init_dim(
                 f"implies {expected} flat samples, got {X.shape[0]}."
             )
         return X.reshape(batch, n_channels, *X.shape[1:])
-    else: 
+    else:
         return X
 
 
@@ -93,12 +91,12 @@ class PAA:
     series data.
 
     This class reduces the dimensionality of time series by dividing them into
-    segments and computing the mean value for each segment. It supports both 
+    segments and computing the mean value for each segment. It supports both
     non-overlapping and overlapping windows, as well as batch processing and GPU
     acceleration.
 
     Attributes:
-        window_size (int or float): It specifies the number of time steps per 
+        window_size (int or float): It specifies the number of time steps per
             segment.
         output_size (int or float): It specifies the exact number of segments.
         overlapping (bool): If True, segments will overlap. Defaults to False.
@@ -107,7 +105,7 @@ class PAA:
     def __init__(self,
                  window_size: int,
                  output_size: int,
-                 overlapping: bool=False):
+                 overlapping: bool = False):
         self.window_size = window_size
         self.output_size = output_size
         self.overlapping = overlapping
@@ -140,19 +138,19 @@ class PAA:
         else:
             n_overlapping = (n_segments * self.window_size) - ts_size
             n_overlaps = n_segments - 1
-            overlaps = torch.linspace(0, 
-                                      n_overlapping, 
+            overlaps = torch.linspace(0,
+                                      n_overlapping,
                                       n_overlaps + 1).to(torch.long)
-            bounds = torch.arange(0, 
-                                  (n_segments + 1) * self.window_size, 
+            bounds = torch.arange(0,
+                                  (n_segments + 1) * self.window_size,
                                   self.window_size)
             start = bounds[:-1] - overlaps
             end = bounds[1:] - overlaps
             return start, end
 
     def _paa(self, X: torch.Tensor,
-            start: torch.Tensor,
-            end: torch.Tensor) -> torch.Tensor:
+             start: torch.Tensor,
+             end: torch.Tensor) -> torch.Tensor:
         """
         Applies Piecewise Aggregate Approximation to a batch of time series
         using vectorized operations.
@@ -179,7 +177,7 @@ class PAA:
         X_paa = segment_sums / segment_lengths
 
         return X_paa
-    
+
     def transform(self, x: torch.Tensor) -> torch.Tensor:
         """
         Transforms a batch of time series using Piecewise Aggregate
@@ -198,7 +196,7 @@ class PAA:
         """
         if self.window_size == 1:
             return x
-                # start, end = self.segmentation(n_timestamps)
+            # start, end = self.segmentation(n_timestamps)
         # start, end = segmentation_torch(x.shape[-1], self.window_size, self.overlapping, self.output_size)
         # print("start", start.shape, "end", end.shape)
         start, end, _ = segmentation_torch(
