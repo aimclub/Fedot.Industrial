@@ -144,8 +144,19 @@ def test_forecasting_aggregation_uses_lower_metric_and_series_count(tmp_path: Pa
         ("M100", "S1", "ForecasterB", 1.2),
         ("M100", "S2", "ForecasterB", 0.8),
     ):
-        _append_jsonl(records / "runs.jsonl", _run_record("run_f", dataset_name, model_name, "success", {"mae": mae}, series_id))
-        _append_jsonl(records / "metrics.jsonl", _metric_record("run_f", dataset_name, model_name, "mae", mae, "success", series_id))
+        _append_jsonl(records / "runs.jsonl", _run_record("run_f", dataset_name,
+                      model_name, "success", {"mae": mae}, series_id))
+        _append_jsonl(
+            records /
+            "metrics.jsonl",
+            _metric_record(
+                "run_f",
+                dataset_name,
+                model_name,
+                "mae",
+                mae,
+                "success",
+                series_id))
 
     tables = build_benchmark_aggregate_tables(tmp_path / "forecasting_run", task_type="forecasting")
 
@@ -154,14 +165,13 @@ def test_forecasting_aggregation_uses_lower_metric_and_series_count(tmp_path: Pa
     assert tables.leaderboard["n_series"].tolist() == [2, 2]
 
 
-@pytest.mark.parametrize(
-    "run_path,task_type,primary_metric,expected_columns",
-    [
-        (REFERENCE_UCR_RUN, "classification", "accuracy", {"dataset_name", "model_name", "accuracy", "n_runs", "rank"}),
-        (REFERENCE_TSER_RUN, "regression", "rmse", {"dataset_name", "model_name", "rmse", "n_runs", "rank"}),
-        (REFERENCE_M4_RUN, "forecasting", "mae", {"benchmark", "dataset_name", "model_name", "mae", "n_series", "rank"}),
-    ],
-)
+@pytest.mark.parametrize("run_path,task_type,primary_metric,expected_columns",
+                         [(REFERENCE_UCR_RUN, "classification", "accuracy",
+                           {"dataset_name", "model_name", "accuracy", "n_runs", "rank"}),
+                          (REFERENCE_TSER_RUN, "regression", "rmse",
+                           {"dataset_name", "model_name", "rmse", "n_runs", "rank"}),
+                          (REFERENCE_M4_RUN, "forecasting", "mae",
+                           {"benchmark", "dataset_name", "model_name", "mae", "n_series", "rank"}),],)
 def test_v2_kernel_learning_reference_runs_can_be_reaggregated_when_local_artifacts_exist(
     run_path: Path,
     task_type: str,

@@ -199,7 +199,7 @@ class SparseMKLSelector:
             return MKLOptimizationResult(
                 weights=tuple(float(weight) for weight in weights),
                 objective_history=(
-                float(self._objective(weights, names, alignments, complexities, redundancy_matrix)),),
+                    float(self._objective(weights, names, alignments, complexities, redundancy_matrix)),),
                 iterations=1,
                 converged=True,
                 optimizer="score",
@@ -264,9 +264,9 @@ class SparseMKLSelector:
         alignment_vector = np.asarray([alignments[name] for name in names], dtype=float)
         complexity_vector = np.asarray([complexities[name] for name in names], dtype=float)
         return (
-                alignment_vector
-                - self.complexity_penalty * complexity_vector
-                - 2.0 * self.redundancy_penalty * (redundancy_matrix @ weights)
+            alignment_vector
+            - self.complexity_penalty * complexity_vector
+            - 2.0 * self.redundancy_penalty * (redundancy_matrix @ weights)
         )
 
     def _apply_min_weight_threshold(self, weights: np.ndarray) -> np.ndarray:

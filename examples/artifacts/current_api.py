@@ -88,22 +88,19 @@ def build_artifact_inventory(
                 category=str(group["category"]),
                 task_type=str(group["task_type"]),
                 experiment_family=str(group.get("experiment_family", "")),
-                local_path=local_path,
-                inventory_mode=inventory_mode,
-                storage_policy=storage_policy,
+                local_path=local_path, inventory_mode=inventory_mode, storage_policy=storage_policy,
                 exists_locally=absolute_path.exists(),
                 file_count=len(files),
                 total_bytes=sum(path.stat().st_size for path in files),
                 summary_count=sum(1 for path in files if path.name == "summary.md"),
                 plot_count=sum(1 for path in files if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"}),
-                table_count=sum(1 for path in files if path.suffix.lower() in {".csv", ".md"} and "tables" in path.parts),
+                table_count=sum(
+                    1 for path in files if path.suffix.lower() in {".csv", ".md"} and "tables" in path.parts),
                 notebook_count=sum(1 for path in files if path.suffix.lower() == ".ipynb"),
                 primary_summary=_find_primary_summary(absolute_path, root, mode=inventory_mode),
                 cloud_path=str(group.get("cloud_path", "")),
                 include_policy=str(group.get("include_policy", "")),
-                notes=str(group.get("notes", "")),
-            )
-        )
+                notes=str(group.get("notes", "")),))
     return rows
 
 
@@ -241,9 +238,11 @@ def _collect_report_pack_files(path: Path) -> list[Path]:
         plots_dir = pack_root / "plots"
         tables_dir = pack_root / "tables"
         if plots_dir.is_dir():
-            files.extend(item for item in plots_dir.iterdir() if item.is_file() and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"})
+            files.extend(item for item in plots_dir.iterdir() if item.is_file()
+                         and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"})
         if tables_dir.is_dir():
-            files.extend(item for item in tables_dir.iterdir() if item.is_file() and item.suffix.lower() in {".csv", ".md", ".json"})
+            files.extend(item for item in tables_dir.iterdir() if item.is_file()
+                         and item.suffix.lower() in {".csv", ".md", ".json"})
         for nested_name in ("forecast_comparison",):
             nested = pack_root / nested_name
             if nested.is_dir():
@@ -251,9 +250,11 @@ def _collect_report_pack_files(path: Path) -> list[Path]:
                 nested_plots = nested / "plots"
                 nested_tables = nested / "tables"
                 if nested_plots.is_dir():
-                    files.extend(item for item in nested_plots.iterdir() if item.is_file() and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"})
+                    files.extend(item for item in nested_plots.iterdir() if item.is_file()
+                                 and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"})
                 if nested_tables.is_dir():
-                    files.extend(item for item in nested_tables.iterdir() if item.is_file() and item.suffix.lower() in {".csv", ".md", ".json"})
+                    files.extend(item for item in nested_tables.iterdir() if item.is_file()
+                                 and item.suffix.lower() in {".csv", ".md", ".json"})
     return sorted(set(files))
 
 
@@ -295,22 +296,15 @@ def _write_inventory_tables(output_path: Path, inventory: Iterable[ArtifactInven
 
 def _write_cloud_bundle_readme(path: Path, payload: dict[str, Any]) -> None:
     lines = [
-        "# IndustrialTS Artifact Cloud Bundle",
-        "",
+        "# IndustrialTS Artifact Cloud Bundle", "",
         "This folder is the handoff point for publishing examples artifacts outside git.",
-        "It contains a machine-readable manifest and keeps raw-data policy explicit.",
-        "",
-        "## Rules",
-        "",
+        "It contains a machine-readable manifest and keeps raw-data policy explicit.", "", "## Rules", "",
         "- Upload large raw datasets, checkpoints, archives, and full benchmark runs through DVC or a manual cloud folder.",
         "- Keep credentials in `.dvc/config.local` or environment variables only.",
-        "- Lightweight summaries, plots, notebooks, manifests, and CSV/Markdown tables can be mirrored for review.",
-        "",
-        "## Groups",
-        "",
+        "- Lightweight summaries, plots, notebooks, manifests, and CSV/Markdown tables can be mirrored for review.", "",
+        "## Groups", "",
         "| Key | Category | Inventory | Storage | Local path | Cloud path | Files | Size bytes | Local files |",
-        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: |",
-    ]
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: |",]
     for group in payload["groups"]:
         lines.append(
             f"| `{group['key']}` | `{group['category']}` | `{group['inventory_mode']}` | "
@@ -454,9 +448,14 @@ def _benchmark_card(item: dict[str, Any], repository_root: Path, output_path: Pa
     summary_path = artifact_path / "summary.md"
     plots = sorted((artifact_path / "plots").glob("*.png")) if (artifact_path / "plots").is_dir() else []
     tables = artifact_path / "tables"
-    summary_link = _link_to(summary_path, output_path, "summary") if summary_path.is_file() else "<span class=\"missing\">missing summary</span>"
-    plot_link = _link_to(plots[0], output_path, "first plot") if plots else "<span class=\"missing\">missing plot</span>"
-    tables_link = _link_to(tables, output_path, "tables") if tables.is_dir() else "<span class=\"missing\">missing tables</span>"
+    summary_link = _link_to(summary_path, output_path, "summary") if summary_path.is_file(
+    ) else "<span class=\"missing\">missing summary</span>"
+    plot_link = _link_to(
+        plots[0],
+        output_path,
+        "first plot") if plots else "<span class=\"missing\">missing plot</span>"
+    tables_link = _link_to(tables, output_path, "tables") if tables.is_dir(
+    ) else "<span class=\"missing\">missing tables</span>"
     return f"""
         <article class="card">
           <span class="badge">{escape(str(item.get("task_type", "")))}</span>
@@ -470,7 +469,8 @@ def _benchmark_card(item: dict[str, Any], repository_root: Path, output_path: Pa
 
 def _inventory_row(row: ArtifactInventoryRow, repository_root: Path, output_path: Path) -> str:
     local = repository_root / row.local_path
-    local_link = _link_to(local, output_path, row.local_path) if local.exists() else f"<span class=\"missing\">{escape(row.local_path)}</span>"
+    local_link = _link_to(local, output_path, row.local_path) if local.exists(
+    ) else f"<span class=\"missing\">{escape(row.local_path)}</span>"
     counts = f"{row.file_count} files<br>{row.plot_count} plots<br>{row.table_count} tables"
     return f"""
         <tr>

@@ -15,19 +15,19 @@ except Exception:
     from result_visualization import visualize_forecasting_progress_items
 
 DEFAULT_ITEMS_DIR = (
-        Path(__file__).resolve().parent
-        / 'results'
-        / 'industrial_demo'
-        / 'm4_regime_suite_220426'
-        / 'm4_regime_suite_6cb78aebac'
-        / 'progress'
-        / 'items'
+    Path(__file__).resolve().parent
+    / 'results'
+    / 'industrial_demo'
+    / 'm4_regime_suite_220426'
+    / 'm4_regime_suite_6cb78aebac'
+    / 'progress'
+    / 'items'
 )
 
 DEFAULT_OUTPUT_DIR = (
-        DEFAULT_ITEMS_DIR.parent.parent
-        / 'visualizations'
-        / 'lagged_forecaster_m4_daily'
+    DEFAULT_ITEMS_DIR.parent.parent
+    / 'visualizations'
+    / 'lagged_forecaster_m4_daily'
 )
 
 

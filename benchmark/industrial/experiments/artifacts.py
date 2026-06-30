@@ -207,7 +207,7 @@ def resolve_incremental_run_id(config: BenchmarkSuiteConfig) -> str | None:
 
 
 def load_incremental_run_records(config: BenchmarkSuiteConfig, run_id: str) -> dict[
-    tuple[str, str, str], BenchmarkRunRecord]:
+        tuple[str, str, str], BenchmarkRunRecord]:
     root_dir = Path(config.artifact_spec.output_dir) / run_id
     records: dict[tuple[str, str, str], BenchmarkRunRecord] = {}
     runs_dir = root_dir / "runs"
