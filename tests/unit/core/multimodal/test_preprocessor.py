@@ -1,98 +1,157 @@
-from copy import deepcopy
-
 import pytest
 import torch
 
-from fedot_ind.core.multimodal import (
-    MultimodalDataBundle,
-    MultimodalModality,
-    MultimodalPreprocessor,
-)
+from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
+from fedot_ind.core.multimodal.enums import MultimodalModality, NormalizationMethod
+from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
 
 
-def test_multimodal_preprocessor_builds_raw_bundle_metadata():
-    X = torch.tensor(
+def make_bundle(
+    *,
+    raw: torch.Tensor | None = None,
+    gaf: torch.Tensor | None = None,
+    stft: torch.Tensor | None = None,
+    target: torch.Tensor | None = None,
+) -> MultimodalDataBundle:
+    modalities = {}
+    if raw is not None:
+        modalities[MultimodalModality.raw] = raw
+    if gaf is not None:
+        modalities[MultimodalModality.gaf] = gaf
+    if stft is not None:
+        modalities[MultimodalModality.stft] = stft
+    return MultimodalDataBundle(modalities=modalities, target=target)
+
+
+def test_multimodal_preprocessor_keeps_raw_unchanged():
+    raw = torch.tensor(
         [
-            [0.0, 1.0, 2.0, 3.0],
-            [2.0, 4.0, 6.0, 8.0],
-            [3.0, 3.5, 4.0, 4.5],
-        ]
+            [[-1.0, 0.0, 1.0]],
+            [[1.0, 0.0, -1.0]],
+        ],
     )
-    y = torch.tensor([0, 1, 0])
+    target = torch.tensor([0, 1])
+    source = make_bundle(raw=raw, target=target)
 
-    bundle = MultimodalPreprocessor().fit_transform(X, y)
+    preprocessor = MultimodalPreprocessor()
+    bundle = preprocessor.fit_transform(source)
 
     assert isinstance(bundle, MultimodalDataBundle)
-    assert bundle.n_samples == 3
-    assert bundle.target.tolist() == [0, 1, 0]
+    assert bundle.n_samples == 2
+    assert bundle.target is target
     assert bundle.metadata["modalities"] == [MultimodalModality.raw]
-    assert bundle.metadata["shapes"][MultimodalModality.raw] == (3, 1, 4)
+    assert bundle.metadata["shapes"][MultimodalModality.raw] == (2, 1, 3)
     assert bundle.metadata["normalization"][MultimodalModality.raw] == "per_sample_z_norm"
-    assert bundle.metadata["transform_params"][MultimodalModality.raw]["eps"] == 1e-8
-    assert bundle.metadata["fitted_statistics"]["raw"]["train_input_shape"] == (3, 1, 4)
+    assert "fitted_statistics" not in bundle.metadata
+    assert preprocessor.fitted_statistics_ == {}
+    assert torch.equal(bundle.modalities[MultimodalModality.raw], raw)
 
-    raw = bundle.modalities[MultimodalModality.raw]
-    assert torch.allclose(raw.mean(dim=-1), torch.zeros(3, 1), atol=1e-6)
-    assert torch.allclose(raw.std(dim=-1, unbiased=False), torch.ones(3, 1), atol=1e-6)
+
+def test_multimodal_preprocessor_standardizes_gaf_images_with_train_statistics():
+    train_gaf = torch.arange(2 * 1 * 3 * 4, dtype=torch.float32).reshape(2, 1, 3, 4)
+    test_gaf = train_gaf + 100.0
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.gaf: [NormalizationMethod.image_standardization],
+        }
+    )
+
+    train_bundle = preprocessor.fit_transform(make_bundle(gaf=train_gaf))
+    test_bundle = preprocessor.transform(make_bundle(gaf=test_gaf))
+
+    train_normalized = train_bundle.modalities[MultimodalModality.gaf]
+    test_normalized = test_bundle.modalities[MultimodalModality.gaf]
+    stats = preprocessor.fitted_statistics_["gaf"]["image_standardization"]
+
+    assert stats["mean"].shape == (1, 1, 1, 1)
+    assert stats["std"].shape == (1, 1, 1, 1)
+    assert torch.allclose(train_normalized.mean(dim=(0, 2, 3)), torch.zeros(1), atol=1e-6)
+    assert torch.allclose(
+        train_normalized.std(dim=(0, 2, 3), unbiased=False),
+        torch.ones(1),
+        atol=1e-6,
+    )
+    expected_test = torch.nan_to_num(((test_gaf - stats["mean"]) / stats["std"]).float())
+    assert torch.allclose(test_normalized, expected_test)
+    assert "fitted_statistics" not in train_bundle.metadata
+
+
+def test_multimodal_preprocessor_applies_stft_log1p_before_image_standardization():
+    train_stft = torch.arange(1, 1 + 2 * 1 * 3 * 4, dtype=torch.float32).reshape(2, 1, 3, 4)
+    test_stft = train_stft + 10.0
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.stft: [
+                NormalizationMethod.log1p,
+                NormalizationMethod.image_standardization,
+            ],
+        }
+    )
+
+    train_bundle = preprocessor.fit_transform(make_bundle(stft=train_stft))
+    test_bundle = preprocessor.transform(make_bundle(stft=test_stft))
+
+    stats = preprocessor.fitted_statistics_["stft"]["image_standardization"]
+    log_train = torch.log1p(train_stft.float().clamp_min(0))
+    expected_train = torch.nan_to_num(((log_train - stats["mean"]) / stats["std"]).float())
+    log_test = torch.log1p(test_stft.float().clamp_min(0))
+    expected_test = torch.nan_to_num(((log_test - stats["mean"]) / stats["std"]).float())
+
+    assert preprocessor.fitted_statistics_["stft"]["steps"] == [
+        "log1p",
+        "image_standardization",
+    ]
+    assert torch.allclose(train_bundle.modalities[MultimodalModality.stft], expected_train)
+    assert torch.allclose(test_bundle.modalities[MultimodalModality.stft], expected_test)
 
 
 def test_multimodal_preprocessor_does_not_update_statistics_on_transform():
-    train = torch.tensor([[0.0, 1.0, 2.0], [10.0, 11.0, 12.0]])
-    test = torch.tensor([[100.0, 101.0, 102.0]])
-    preprocessor = MultimodalPreprocessor().fit(train)
-    train_statistics = deepcopy(preprocessor.fitted_statistics_)
+    train_gaf = torch.arange(2 * 1 * 2 * 2, dtype=torch.float32).reshape(2, 1, 2, 2)
+    test_gaf = train_gaf + 100.0
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={
+            MultimodalModality.gaf: [NormalizationMethod.image_standardization],
+        }
+    ).fit(make_bundle(gaf=train_gaf))
+    train_mean = preprocessor.fitted_statistics_["gaf"]["image_standardization"]["mean"].clone()
+    train_std = preprocessor.fitted_statistics_["gaf"]["image_standardization"]["std"].clone()
 
-    bundle = preprocessor.transform(test)
+    preprocessor.transform(make_bundle(gaf=test_gaf))
 
-    assert preprocessor.fitted_statistics_ == train_statistics
-    assert bundle.metadata["fitted_statistics"] == train_statistics
-    raw = bundle.modalities[MultimodalModality.raw]
-    assert raw.shape == (1, 1, 3)
-    assert torch.allclose(raw.mean(dim=-1), torch.zeros(1, 1), atol=1e-6)
-
-
-def test_multimodal_preprocessor_handles_constant_and_short_series():
-    X = torch.tensor([[5.0], [5.0]])
-
-    bundle = MultimodalPreprocessor().fit_transform(X)
-    raw = bundle.modalities[MultimodalModality.raw]
-
-    assert raw.shape == (2, 1, 1)
-    assert torch.all(torch.isfinite(raw))
-    assert torch.allclose(raw, torch.zeros_like(raw))
+    stats = preprocessor.fitted_statistics_["gaf"]["image_standardization"]
+    assert torch.equal(stats["mean"], train_mean)
+    assert torch.equal(stats["std"], train_std)
 
 
-def test_multimodal_preprocessor_preserves_multichannel_layout():
-    X = torch.arange(24, dtype=torch.float32).reshape(2, 3, 4)
+def test_multimodal_preprocessor_supports_configured_steps():
+    stft = torch.arange(1, 1 + 2 * 1 * 2 * 2, dtype=torch.float32).reshape(2, 1, 2, 2)
+    preprocessor = MultimodalPreprocessor(
+        normalization_config={MultimodalModality.stft: [NormalizationMethod.log1p]},
+    )
 
-    bundle = MultimodalPreprocessor().fit_transform(X)
-    raw = bundle.modalities[MultimodalModality.raw]
+    bundle = preprocessor.fit_transform(make_bundle(stft=stft))
 
-    assert raw.shape == (2, 3, 4)
-    assert bundle.metadata["shapes"][MultimodalModality.raw] == (2, 3, 4)
-    assert torch.allclose(raw.mean(dim=-1), torch.zeros(2, 3), atol=1e-6)
-    assert torch.allclose(raw.std(dim=-1, unbiased=False), torch.ones(2, 3), atol=1e-6)
-
-
-def test_multimodal_preprocessor_checks_target_sample_consistency():
-    with pytest.raises(ValueError, match="Target and modalities"):
-        MultimodalPreprocessor().fit_transform(
-            torch.tensor([[0.0, 1.0], [1.0, 2.0]]),
-            torch.tensor([0]),
-        )
+    assert torch.allclose(
+        bundle.modalities[MultimodalModality.stft],
+        torch.log1p(stft.float().clamp_min(0)),
+    )
+    assert "image_standardization" not in preprocessor.fitted_statistics_["stft"]
 
 
 def test_multimodal_preprocessor_rejects_unfitted_transform():
     with pytest.raises(ValueError, match="must be fitted"):
-        MultimodalPreprocessor().transform(torch.tensor([[0.0, 1.0]]))
+        MultimodalPreprocessor().transform(make_bundle(raw=torch.randn(2, 1, 4)))
 
 
-def test_multimodal_preprocessor_rejects_non_tensor_input():
-    with pytest.raises(TypeError, match="X must be torch.Tensor"):
-        MultimodalPreprocessor().fit([[0.0, 1.0]])
+def test_multimodal_preprocessor_rejects_non_bundle_input():
+    with pytest.raises(TypeError, match="MultimodalDataBundle"):
+        MultimodalPreprocessor().fit(torch.randn(2, 1, 4))
 
-    with pytest.raises(TypeError, match="Target must be torch.Tensor"):
-        MultimodalPreprocessor().fit_transform(
-            torch.tensor([[0.0, 1.0]]),
-            [0],
-        )
+
+def test_multimodal_preprocessor_requires_configured_modalities():
+    with pytest.raises(ValueError, match="required modalities"):
+        MultimodalPreprocessor(
+            normalization_config={
+                MultimodalModality.gaf: [NormalizationMethod.image_standardization],
+            }
+        ).fit(make_bundle(raw=torch.randn(2, 1, 4)))
