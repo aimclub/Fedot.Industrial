@@ -24,7 +24,7 @@ def test_multimodal_data_bundle_builds_metadata():
         MultimodalModality.stft,
     ]
     assert bundle.metadata["shapes"][MultimodalModality.raw] == (8, 1, 128)
-    assert bundle.metadata["normalization"][MultimodalModality.raw] == "per_sample_z_norm"
+    assert bundle.metadata["normalization"][MultimodalModality.raw] == "none"
     assert bundle.metadata["normalization"][MultimodalModality.stats] == "train_mean_std"
     assert bundle.metadata["device"] == torch.device("cpu")
     assert bundle.metadata["dtype"] == torch.float32

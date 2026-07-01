@@ -89,7 +89,7 @@ class TorchQuantileExtractor(BaseExtractor):
         else:
             return window_stat_features
 
-    def generate_features_from_ts(self, ts: torch.Tensor) -> torch.Tensor:
+    def generate_features_from_ts(self, ts: torch.Tensor, ) -> torch.Tensor:
         """
         Generate statistical features from a single time series or a batch of time series.
 

@@ -7,7 +7,7 @@ from fedot_ind.core.multimodal.enums import MultimodalModality
 
 
 DEFAULT_NORMALIZATION_POLICY = {
-    MultimodalModality.raw: "per_sample_z_norm",
+    MultimodalModality.raw: "none",
     MultimodalModality.stats: "train_mean_std",
     MultimodalModality.gaf: "per_sample_minmax_then_train_image_standardization",
     MultimodalModality.stft: "log1p_then_train_image_standardization",
