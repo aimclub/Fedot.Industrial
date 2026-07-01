@@ -6,12 +6,41 @@ import itertools
 import logging
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
+from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
+from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import (
+    q25_torch,
+    q75_torch,
+    n_peaks_torch,
+)
 from fedot.core.operations.operation_parameters import OperationParameters
 from tests.unit.api.fixtures import warm_up_cuda_computations
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
 logger = logging.getLogger(__name__)
+
+
+def test_torch_quantile_extractor_applies_stat_feature_config():
+    params = OperationParameters(
+        stat_feature_config={
+            StatisticalFeature.q25: {},
+            StatisticalFeature.q75: {},
+        },
+        stat_feature_global_config={
+            StatisticalFeature.n_peaks: {"normalized": True},
+        },
+    )
+    extractor = TorchQuantileExtractor(params)
+    ts = torch.tensor([[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 1.0]])
+
+    local = extractor.get_statistical_features_torch(ts, add_global_features=False, axis=-1)
+    global_ = extractor.get_statistical_features_torch(ts, add_global_features=True, axis=-1)
+
+    assert len(local) == 2
+    assert torch.allclose(local[0], q25_torch(ts, axis=-1))
+    assert torch.allclose(local[1], q75_torch(ts, axis=-1))
+    assert len(global_) == 1
+    assert torch.allclose(global_[0], n_peaks_torch(ts, axis=-1, normalized=True))
 
 
 def test_stat_extractor(length=10000, window_size=10, stride=2, add_global_features=True):
