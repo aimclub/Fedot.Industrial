@@ -130,13 +130,15 @@ def predict_similarity_by_chunks(
     rows_per_chunk = max(1, int(config.chunk_size) // max(1, n_anchors))
     chunks = []
     for start in range(0, n_samples, rows_per_chunk):
-        chunk = feature_matrix[start : start + rows_per_chunk]
+        chunk = feature_matrix[start: start + rows_per_chunk]
         pair_features = build_pair_features(chunk, anchors, config)
         same_probability = _predict_same_probability(base_model, pair_features)
         chunks.append(same_probability.reshape(len(chunk), n_anchors))
     return np.vstack(chunks) if chunks else np.empty((0, n_anchors), dtype=float)
 
 # TODO: left over from the previous version, used in paiwise_model in one place (prediction in the regression model)
+
+
 def predict_regression_by_chunks(
     base_model: Any,
     features: Any,
@@ -153,7 +155,7 @@ def predict_regression_by_chunks(
     rows_per_chunk = max(1, int(config.chunk_size) // max(1, n_anchors))
     predictions = []
     for start in range(0, n_samples, rows_per_chunk):
-        chunk = feature_matrix[start : start + rows_per_chunk]
+        chunk = feature_matrix[start: start + rows_per_chunk]
         pair_features = build_pair_features(chunk, anchors, config)
         deltas = np.asarray(base_model.predict(pair_features), dtype=float).reshape(
             len(chunk), n_anchors
@@ -166,10 +168,13 @@ def predict_regression_by_chunks(
     )
 
 # Helper for predict_similarity_by_chunks()
+
+
 def _predict_same_probability(base_model: Any, pair_features: np.ndarray) -> np.ndarray:
     """Extract P(same) from a pairwise classifier's outputs."""
     if hasattr(base_model, "predict_proba"):
-        probability = np.asarray(base_model.predict_proba(pair_features), dtype=float)
+        probability = np.asarray(
+            base_model.predict_proba(pair_features), dtype=float)
         classes = np.asarray(
             getattr(base_model, "classes_", np.arange(probability.shape[1]))
         )

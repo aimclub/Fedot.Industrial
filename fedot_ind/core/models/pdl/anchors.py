@@ -44,7 +44,8 @@ class ClassificationAdaptiveAnchorSelector:
         for label in np.unique(target):
             class_indices = np.flatnonzero(target == label)
             selected.extend(
-                _evenly_spaced_indices(class_indices, self._config.anchors_per_class)
+                _evenly_spaced_indices(
+                    class_indices, self._config.anchors_per_class)
             )
         return np.asarray(sorted(set(selected)), dtype=int)
 

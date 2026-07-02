@@ -184,7 +184,8 @@ class SampleWeights:
         """
         if all(np.isclose(weights, weights.values[0])):
             weights = pd.Series(1.0, index=weights.index)
-        assert weights.min() >= 0, f"Negative weights found: {weights[weights < 0]}"
+        assert weights.min(
+        ) >= 0, f"Negative weights found: {weights[weights < 0]}"
         weights /= weights.sum()
         return weights
 
@@ -211,7 +212,8 @@ class SampleWeights:
             train_size = len(weights)
             weights_initial_guess = np.ones(train_size) / train_size
             regularisation += (
-                kld_lambda * entropy(weights, weights_initial_guess) / train_size
+                kld_lambda * entropy(weights,
+                                     weights_initial_guess) / train_size
             )
         if l1_lambda > 0:
             regularisation += l1_lambda * (
@@ -388,5 +390,6 @@ class SampleWeights:
 
         s = pd.Series(closest_array, index=self.X_train_.index)
         s = s.fillna(0)  # I don't know why there are NaNs rather than 0s
-        assert not s.isna().any(), f"Nans values in sample_weights using KMeans\n {s}"
+        assert not s.isna().any(
+        ), f"Nans values in sample_weights using KMeans\n {s}"
         return s

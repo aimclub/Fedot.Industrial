@@ -31,8 +31,10 @@ class TestAggregators:
         similarity = np.array([[0.9, 0.1, 0.2], [0.3, 0.8, 0.7]])
         anchor_labels = np.array([0, 1, 1])
 
-        strategy = MeanSimilarityAggregator().aggregate(similarity, anchor_labels, n_classes=2)
-        np.testing.assert_allclose(strategy, np.array([[0.9 , 0.15],[0.3 , 0.75]]) / 1.05)
+        strategy = MeanSimilarityAggregator().aggregate(
+            similarity, anchor_labels, n_classes=2)
+        np.testing.assert_allclose(strategy, np.array(
+            [[0.9, 0.15], [0.3, 0.75]]) / 1.05)
 
     def test_non_default_aggregation_policy_raises_until_pr3(self):
         config = PairwiseLearningConfig(aggregation_policy="paper_posterior")
@@ -45,12 +47,12 @@ class TestErrorsInConfig:
         config = PairwiseLearningConfig(pair_feature_mode='aaaa')
         with pytest.raises(ValueError, match='Unsupported pair_feature_mode='):
             config.normalized()
-    
+
     def test_error_pairing_policy(self):
         config = PairwiseLearningConfig(pairing_policy='aaaa')
         with pytest.raises(ValueError, match='Unsupported pairing_policy='):
             config.normalized()
-    
+
     def test_error_aggregation_policy(self):
         config = PairwiseLearningConfig(aggregation_policy='aaaa')
         with pytest.raises(ValueError, match='Unsupported aggregation_policy='):
@@ -60,25 +62,32 @@ class TestErrorsInConfig:
         config = PairwiseLearningConfig(symmetric_inference=1.1)
         with pytest.raises(ValueError, match='symmetric_inference must be bool, got '):
             config.normalized()
-    
+
     def test_error_symmetric_inference_2(self):
         config = PairwiseLearningConfig(symmetric_inference=1.0)
         res = config.normalized()
-        assert res.symmetric_inference==1
+        assert res.symmetric_inference == 1
 
 
 class TestPairFeatures:
     def test_pair_feature_builder_resolution_matches_legacy_modes(self):
-        config_concat = PairwiseLearningConfig(pair_feature_mode="concat_diff", backend="numpy")
-        config_abs = PairwiseLearningConfig(pair_feature_mode="concat_absdiff", backend="numpy")
-        config_diff = PairwiseLearningConfig(pair_feature_mode="diff_only", backend="numpy")
+        config_concat = PairwiseLearningConfig(
+            pair_feature_mode="concat_diff", backend="numpy")
+        config_abs = PairwiseLearningConfig(
+            pair_feature_mode="concat_absdiff", backend="numpy")
+        config_diff = PairwiseLearningConfig(
+            pair_feature_mode="diff_only", backend="numpy")
 
-        assert isinstance(resolve_pair_feature_builder(config_concat), ConcatDiffPairFeatureBuilder)
-        assert isinstance(resolve_pair_feature_builder(config_abs), ConcatAbsdiffPairFeatureBuilder)
-        assert isinstance(resolve_pair_feature_builder(config_diff), DiffOnlyPairFeatureBuilder)
+        assert isinstance(resolve_pair_feature_builder(
+            config_concat), ConcatDiffPairFeatureBuilder)
+        assert isinstance(resolve_pair_feature_builder(
+            config_abs), ConcatAbsdiffPairFeatureBuilder)
+        assert isinstance(resolve_pair_feature_builder(
+            config_diff), DiffOnlyPairFeatureBuilder)
 
     def test_unknown_builder(self):
-        config = PairwiseLearningConfig(pair_feature_mode="aaa", backend="numpy")
+        config = PairwiseLearningConfig(
+            pair_feature_mode="aaa", backend="numpy")
         with pytest.raises(ValueError, match='Unsupported pair_feature_mode='):
             resolve_pair_feature_builder(config)
 
@@ -88,8 +97,10 @@ class TestSamplers:
         anchors = np.array([1, 3, 5], dtype=int)
         sampler_left, sampler_anchor = AllPairsSampler().sample(4, anchors)
 
-        np.testing.assert_array_equal(sampler_left, [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
-        np.testing.assert_array_equal(sampler_anchor, [1, 3, 5, 1, 3, 5, 1, 3, 5, 1, 3, 5])
+        np.testing.assert_array_equal(
+            sampler_left, [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+        np.testing.assert_array_equal(
+            sampler_anchor, [1, 3, 5, 1, 3, 5, 1, 3, 5, 1, 3, 5])
 
 
 class TestStrategies:
@@ -98,8 +109,10 @@ class TestStrategies:
         strategies = resolve_pdl_strategies(config, task="classification")
 
         assert strategies.task == "classification"
-        assert isinstance(strategies.anchor_selector, ClassificationAdaptiveAnchorSelector)
-        assert isinstance(strategies.pair_target_builder, ClassificationDissimilarityTargetBuilder)
+        assert isinstance(strategies.anchor_selector,
+                          ClassificationAdaptiveAnchorSelector)
+        assert isinstance(strategies.pair_target_builder,
+                          ClassificationDissimilarityTargetBuilder)
         assert isinstance(strategies.pair_sampler, AllPairsSampler)
         assert isinstance(strategies.pair_aggregator, MeanSimilarityAggregator)
         assert strategies.random_state == config.random_state
@@ -109,8 +122,10 @@ class TestStrategies:
         strategies = resolve_pdl_strategies(config, task="regression")
 
         assert strategies.task == "regression"
-        assert isinstance(strategies.anchor_selector, RegressionEvenAnchorSelector)
-        assert isinstance(strategies.pair_target_builder, RegressionDeltaLeftMinusAnchorTargetBuilder)
+        assert isinstance(strategies.anchor_selector,
+                          RegressionEvenAnchorSelector)
+        assert isinstance(strategies.pair_target_builder,
+                          RegressionDeltaLeftMinusAnchorTargetBuilder)
         assert isinstance(strategies.pair_sampler, AllPairsSampler)
         assert strategies.pair_aggregator is None
 
@@ -154,7 +169,8 @@ class TestBuildPairBatch:
                                                        [2., 0.,  2.],
                                                        [2., 1.,  1.],
                                                        [2., 2.,  0.]])
-        np.testing.assert_array_equal(batch.target, [0, 0, 1, 0, 0, 1, 1, 1, 0])
+        np.testing.assert_array_equal(
+            batch.target, [0, 0, 1, 0, 0, 1, 1, 1, 0])
 
     def test_build_regression_pairs_facade_matches_strategy_batch(self):
         features = np.array([[0.0], [1.0]])
@@ -200,5 +216,3 @@ class TestBuildPairBatch:
 
         reg_semantics = reg_batch.diagnostics["pair_target_semantics"]
         assert reg_semantics["delta_sign"] == "left_minus_anchor"
-
-

@@ -25,7 +25,8 @@ from .samplers import AllPairsSampler
 def _ensure_supported_symmetric_inference(config: PairwiseLearningConfig) -> PairwiseLearningConfig:
     config = config.normalized()
     if config.symmetric_inference:
-        raise NotImplementedError("symmetric_inference=True is reserved for future PR (PR 3).")
+        raise NotImplementedError(
+            "symmetric_inference=True is reserved for future PR (PR 3).")
     return config
 
 

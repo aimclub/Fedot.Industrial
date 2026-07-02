@@ -66,7 +66,8 @@ class TestPDCDataTransformer:
         with pytest.warns(DeprecationWarning, match="PDCDataTransformer"):
             with pytest.raises(ValueError) as excinfo:
                 PDCDataTransformer(y_type='invalid_type')
-        assert "y_type must be one of 'numeric', 'ordinal', 'string'" in str(excinfo.value)
+        assert "y_type must be one of 'numeric', 'ordinal', 'string'" in str(
+            excinfo.value)
 
     def test_fit_auto_feature_detection(self, sample_dataframe):
         """Test automatic feature type detection during fit."""
@@ -74,7 +75,8 @@ class TestPDCDataTransformer:
             transformer = PDCDataTransformer()
         transformer.fit(sample_dataframe)
 
-        assert set(transformer.numeric_features) == {'numeric_col1', 'numeric_col2', 'bool_col'}
+        assert set(transformer.numeric_features) == {
+            'numeric_col1', 'numeric_col2', 'bool_col'}
 
     def test_fit_y_transformers(self, sample_dataframe, y_numeric, y_categorical):
         """Test fitting of y preprocessors."""
@@ -90,7 +92,7 @@ class TestPDCDataTransformer:
         assert isinstance(transformer_ord.preprocessing_y_, OrdinalEncoder)
 
         transformer_str.fit(sample_dataframe, y_categorical)
-        
+
         # Test string target
         # transformer_str = PDCDataTransformer(y_type='string')
         # assert isinstance(transformer_str.preprocessing_y_, OneHotEncoder)
@@ -113,6 +115,7 @@ class TestPDCDataTransformer:
         transformer.fit(sample_dataframe)
         with pytest.raises(NotImplementedError, match="legacy module"):
             transformer.transform(sample_dataframe)
+
 
 class TestSampleWeights:
     @pytest.fixture
@@ -157,7 +160,7 @@ class TestSampleWeights:
         """Test initialization with default parameters."""
         with pytest.warns(DeprecationWarning, match="SampleWeights"):
             weights = SampleWeights(dict())
-        assert weights.method == 'L2' # Default method
+        assert weights.method == 'L2'  # Default method
 
     def test_normalize_weights(self, sample_weights_instance):
         """Test normalize_weights method."""
@@ -169,7 +172,8 @@ class TestSampleWeights:
 
         # Test with uniform weights
         uniform_weights = pd.Series([2.0, 2.0, 2.0, 2.0])
-        normalized_uniform = sample_weights_instance._normalize_weights(uniform_weights)
+        normalized_uniform = sample_weights_instance._normalize_weights(
+            uniform_weights)
         assert np.isclose(normalized_uniform.sum(), 1.0)
         assert all(normalized_uniform == 0.25)
 
@@ -237,7 +241,8 @@ class TestSampleWeights:
             mock_minimize.return_value = mock_result
 
             # Test
-            result = sample_weights_instance._sample_weight_optimize(X_val, y_val)
+            result = sample_weights_instance._sample_weight_optimize(
+                X_val, y_val)
 
             # Assertions
             assert mock_minimize.called
@@ -248,7 +253,8 @@ class TestSampleWeights:
     def _test_sample_weight_ordered_votes_from_weights(self, sample_weights_instance):
         """Test _sample_weight_ordered_votes_from_weights static method."""
         received_weights = np.array([0.1, 0.3, 0.2, 0.4])
-        result = SampleWeights._sample_weight_ordered_votes_from_weights(received_weights)
+        result = SampleWeights._sample_weight_ordered_votes_from_weights(
+            received_weights)
 
         # Should assign weights based on rank (higher values of received_weights get lower ranks)
         expected = np.array([4, 2, 3, 1]) / 10  # Ranks converted to weights
@@ -269,9 +275,11 @@ class TestSampleWeights:
             return_value=np.array([0.2, 0.2, 0.2, 0.2, 0.2])
         ) as mock_ordered:
             # Test
-            result = sample_weights_instance._sample_weight_ordered_votes(X_val, y_val)
+            result = sample_weights_instance._sample_weight_ordered_votes(
+                X_val, y_val)
 
             # Assertions
-            mock_neg_error.assert_called_once_with(X_val, y_val, force_symmetry=True)
+            mock_neg_error.assert_called_once_with(
+                X_val, y_val, force_symmetry=True)
             mock_ordered.assert_called_once_with(mock_neg_error.return_value)
             assert np.array_equal(result, np.array([0.2, 0.2, 0.2, 0.2, 0.2]))

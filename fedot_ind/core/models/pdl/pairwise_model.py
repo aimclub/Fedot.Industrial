@@ -35,6 +35,7 @@ __all__ = [
     "PairwiseLearningConfig",
 ]
 
+
 class PairwiseDifferenceEstimator:
     """Compatibility helper exposing the legacy pair construction methods without pandas cross-merge."""
 
@@ -181,10 +182,12 @@ class PairwiseDifferenceClassifier:
         """
         raw_params = _operation_params_to_dict(params)
         self.config = _extract_pairwise_config(raw_params)
-        self.strategies_ = resolve_pdl_strategies(self.config, task="classification")
+        self.strategies_ = resolve_pdl_strategies(
+            self.config, task="classification")
         self.model_name = raw_params.pop("model", "rf")
         self.base_model_params = dict(raw_params)
-        self.base_model = SKLEARN_CLF_IMP[self.model_name](**self.base_model_params)
+        self.base_model = SKLEARN_CLF_IMP[self.model_name](
+            **self.base_model_params)
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
         # TODO: unify the diagnostics payload behind a typed contract.
@@ -205,7 +208,8 @@ class PairwiseDifferenceClassifier:
         """
         features, raw_target, _ = _extract_features_target(input_data, target)
         if raw_target is None:
-            raise ValueError("PairwiseDifferenceClassifier.fit expects target labels.")
+            raise ValueError(
+                "PairwiseDifferenceClassifier.fit expects target labels.")
 
         self.train_features_ = normalize_feature_matrix(features)
         self.train_features = self.train_features_
@@ -257,7 +261,8 @@ class PairwiseDifferenceClassifier:
         Returns:
             Decoded labels of shape ``(n_samples, 1)`` or a probability matrix.
         """
-        probabilities = self._predict_encoded_proba(_extract_features(input_data))
+        probabilities = self._predict_encoded_proba(
+            _extract_features(input_data))
         if "label" not in output_mode:
             return probabilities
         encoded_labels = np.argmax(probabilities, axis=1)
@@ -276,7 +281,8 @@ class PairwiseDifferenceClassifier:
         Returns:
             A probability matrix of shape ``(n_samples, n_classes)``.
         """
-        probabilities = self._predict_encoded_proba(_extract_features(input_data))
+        probabilities = self._predict_encoded_proba(
+            _extract_features(input_data))
         if "label" in output_mode:
             return self.predict(input_data, output_mode=output_mode)
         return probabilities
@@ -328,7 +334,8 @@ class PairwiseDifferenceClassifier:
 
     def _predict_encoded_proba(self, features: Any) -> np.ndarray:
         """Predict encoded class probabilities for already-extracted features."""
-        _check_is_fitted(self, ("anchor_features_", "anchor_labels_", "label_encoder_"))
+        _check_is_fitted(
+            self, ("anchor_features_", "anchor_labels_", "label_encoder_"))
         similarity = predict_similarity_by_chunks(
             self.base_model, features, self.anchor_features_, self.config
         )
@@ -351,10 +358,12 @@ class PairwiseDifferenceRegressor:
         """
         raw_params = _operation_params_to_dict(params)
         self.config = _extract_pairwise_config(raw_params)
-        self.strategies_ = resolve_pdl_strategies(self.config, task="regression")
+        self.strategies_ = resolve_pdl_strategies(
+            self.config, task="regression")
         self.model_name = raw_params.pop("model", "treg")
         self.base_model_params = dict(raw_params)
-        self.base_model = SKLEARN_REG_IMP[self.model_name](**self.base_model_params)
+        self.base_model = SKLEARN_REG_IMP[self.model_name](
+            **self.base_model_params)
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
         self.diagnostics_: dict[str, Any] = {}
@@ -374,7 +383,8 @@ class PairwiseDifferenceRegressor:
         """
         features, raw_target, _ = _extract_features_target(input_data, target)
         if raw_target is None:
-            raise ValueError("PairwiseDifferenceRegressor.fit expects target values.")
+            raise ValueError(
+                "PairwiseDifferenceRegressor.fit expects target values.")
 
         self.train_features_ = normalize_feature_matrix(features)
         self.train_features = self.train_features_
@@ -544,7 +554,8 @@ def _extract_pairwise_config(params: dict[str, Any]) -> PairwiseLearningConfig:
 
 def _check_is_fitted(model: Any, attributes: tuple[str, ...]) -> None:
     """Raise if any of the required fitted attributes are missing."""
-    missing = [attribute for attribute in attributes if not hasattr(model, attribute)]
+    missing = [attribute for attribute in attributes if not hasattr(
+        model, attribute)]
     if missing:
         raise ValueError(
             f"{model.__class__.__name__} is not fitted yet. Missing attributes: {missing}."

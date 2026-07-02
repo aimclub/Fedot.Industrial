@@ -72,7 +72,8 @@ class PairwiseLearningConfig:
             "exact",
             "stratified_anchors",
         }:
-            raise ValueError(f"Unsupported pairing_policy={self.pairing_policy!r}.")
+            raise ValueError(
+                f"Unsupported pairing_policy={self.pairing_policy!r}.")
         resolved_policy = resolve_aggregation_policy(self.aggregation_policy)
         if self.class_prior_mode not in {"empirical", "uniform"}:
             raise ValueError(
@@ -80,7 +81,8 @@ class PairwiseLearningConfig:
                 f"Supported modes: 'empirical', 'uniform'."
             )
         # if not isinstance(self.symmetric_inference, bool):
-        if not(self.symmetric_inference==True or self.symmetric_inference==False): # This condition can check bool, int and float values (eg. True == 1 == 1.0)
+        # This condition can check bool, int and float values (eg. True == 1 == 1.0)
+        if not (self.symmetric_inference == True or self.symmetric_inference == False):
             raise ValueError(
                 f"symmetric_inference must be bool, got {type(self.symmetric_inference).__name__}."
             )

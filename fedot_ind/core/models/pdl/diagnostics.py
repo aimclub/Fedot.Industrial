@@ -24,7 +24,7 @@ def pair_target_semantics(*, task: str) -> dict[str, Any]:
             "different_label": CLASSIFICATION_DIFFERENT_LABEL,
             "target_type": "dissimilarity",
             "target_formula": "int(left_class != anchor_class)",
-            "inference_output": "same_probability", # P(same_label)
+            "inference_output": "same_probability",  # P(same_label)
         }
     if task == "regression":
         return {

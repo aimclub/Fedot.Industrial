@@ -86,14 +86,17 @@ def _build_pair_features_torch(
     left: np.ndarray, anchors: np.ndarray, mode: str, device: Any
 ) -> np.ndarray:
     left_tensor = torch.as_tensor(left, dtype=torch.float32, device=device)
-    anchor_tensor = torch.as_tensor(anchors, dtype=torch.float32, device=device)
-    left_repeated = left_tensor.repeat_interleave(anchor_tensor.shape[0], dim=0)
+    anchor_tensor = torch.as_tensor(
+        anchors, dtype=torch.float32, device=device)
+    left_repeated = left_tensor.repeat_interleave(
+        anchor_tensor.shape[0], dim=0)
     anchors_tiled = anchor_tensor.repeat(left_tensor.shape[0], 1)
     difference = left_repeated - anchors_tiled
     if mode == "concat_diff":
         paired = torch.cat((left_repeated, anchors_tiled, difference), dim=1)
     elif mode == "concat_absdiff":
-        paired = torch.cat((left_repeated, anchors_tiled, torch.abs(difference)), dim=1)
+        paired = torch.cat((left_repeated, anchors_tiled,
+                           torch.abs(difference)), dim=1)
     elif mode == "diff_only":
         paired = difference
     else:  # pragma: no cover - normalized config prevents this branch.
@@ -143,7 +146,7 @@ def resolve_pair_feature_builder(config: PairwiseLearningConfig):
         "concat_absdiff": ConcatAbsdiffPairFeatureBuilder,
         "diff_only": DiffOnlyPairFeatureBuilder,
     }
-    # As a rule, this error will not appear because there is such a check in config.py or 
+    # As a rule, this error will not appear because there is such a check in config.py or
     # it can raises if there is mistake in builders = {...}
     if config.pair_feature_mode not in builders:
         raise ValueError(
