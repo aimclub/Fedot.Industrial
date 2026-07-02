@@ -150,15 +150,15 @@ feature/pdl-strategy-refactor
 ### Изменяемые зоны
 
 ```text
+fedot_ind/core/models/pdl/aggregators.py
+fedot_ind/core/models/pdl/anchors.py
 fedot_ind/core/models/pdl/config.py
+fedot_ind/core/models/pdl/diagnostics.py
 fedot_ind/core/models/pdl/pair_features.py
 fedot_ind/core/models/pdl/pair_targets.py
-fedot_ind/core/models/pdl/anchors.py
-fedot_ind/core/models/pdl/samplers.py
-fedot_ind/core/models/pdl/aggregators.py
-fedot_ind/core/models/pdl/diagnostics.py
 fedot_ind/core/models/pdl/pairwise_core.py
 fedot_ind/core/models/pdl/pairwise_model.py
+fedot_ind/core/models/pdl/samplers.py
 ```
 
 ### Состав изменений

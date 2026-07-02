@@ -18,20 +18,22 @@ from sklearn.preprocessing import LabelEncoder
 
 from .pairwise_core import (
     PairwiseLearningConfig,
-    aggregate_similarity_to_class_proba,
-    build_classification_pairs,
+    build_pair_batch,
     build_pair_features,
-    build_regression_pairs,
     normalize_feature_matrix,
     normalize_target_vector,
-    pair_feature_dim,
     predict_regression_by_chunks,
     predict_similarity_by_chunks,
-    select_classification_anchor_indices,
-    select_regression_anchor_indices,
+    resolve_pdl_strategies,
 )
 from .pdl_model_registry import SKLEARN_CLF_IMP, SKLEARN_REG_IMP
 
+__all__ = [
+    "PairwiseDifferenceClassifier",
+    "PairwiseDifferenceEstimator",
+    "PairwiseDifferenceRegressor",
+    "PairwiseLearningConfig",
+]
 
 class PairwiseDifferenceEstimator:
     """Compatibility helper exposing the legacy pair construction methods without pandas cross-merge."""
@@ -179,6 +181,7 @@ class PairwiseDifferenceClassifier:
         """
         raw_params = _operation_params_to_dict(params)
         self.config = _extract_pairwise_config(raw_params)
+        self.strategies_ = resolve_pdl_strategies(self.config, task="classification")
         self.model_name = raw_params.pop("model", "rf")
         self.base_model_params = dict(raw_params)
         self.base_model = SKLEARN_CLF_IMP[self.model_name](**self.base_model_params)
@@ -216,17 +219,19 @@ class PairwiseDifferenceClassifier:
                 "PairwiseDifferenceClassifier requires at least two classes."
             )
 
-        self.anchor_indices_ = select_classification_anchor_indices(
-            self.target_encoded_, self.config
+        self.anchor_indices_ = self.strategies_.anchor_selector.select(
+            self.train_features_, self.target_encoded_
         )
         self.anchor_features_ = self.train_features_[self.anchor_indices_]
         self.anchor_labels_ = self.target_encoded_[self.anchor_indices_]
 
-        batch = build_classification_pairs(
+        batch = build_pair_batch(
             self.train_features_,
             self.target_encoded_,
             self.anchor_indices_,
             self.config,
+            task="classification",
+            strategies=self.strategies_,
         )
         self.base_model.fit(batch.features, batch.target)
         self.diagnostics_ = {
@@ -327,8 +332,9 @@ class PairwiseDifferenceClassifier:
         similarity = predict_similarity_by_chunks(
             self.base_model, features, self.anchor_features_, self.config
         )
-        return aggregate_similarity_to_class_proba(
-            similarity, self.anchor_labels_, self.num_classes
+        assert self.strategies_.pair_aggregator is not None
+        return self.strategies_.pair_aggregator.aggregate(
+            similarity, self.anchor_labels_, n_classes=self.num_classes
         )
 
 
@@ -345,6 +351,7 @@ class PairwiseDifferenceRegressor:
         """
         raw_params = _operation_params_to_dict(params)
         self.config = _extract_pairwise_config(raw_params)
+        self.strategies_ = resolve_pdl_strategies(self.config, task="regression")
         self.model_name = raw_params.pop("model", "treg")
         self.base_model_params = dict(raw_params)
         self.base_model = SKLEARN_REG_IMP[self.model_name](**self.base_model_params)
@@ -375,14 +382,19 @@ class PairwiseDifferenceRegressor:
         self.target = self.target_
         self.num_classes = getattr(input_data, "num_classes", None)
         self.y_train_ = pd.Series(self.target_)
-        self.anchor_indices_ = select_regression_anchor_indices(
-            self.target_, self.config
+        self.anchor_indices_ = self.strategies_.anchor_selector.select(
+            self.train_features_, self.target_
         )
         self.anchor_features_ = self.train_features_[self.anchor_indices_]
         self.anchor_target_ = self.target_[self.anchor_indices_]
 
-        batch = build_regression_pairs(
-            self.train_features_, self.target_, self.anchor_indices_, self.config
+        batch = build_pair_batch(
+            self.train_features_,
+            self.target_,
+            self.anchor_indices_,
+            self.config,
+            task="regression",
+            strategies=self.strategies_,
         )
         self.base_model.fit(batch.features, batch.target)
         # TODO: unify the diagnostics payload behind a typed contract.
@@ -537,12 +549,3 @@ def _check_is_fitted(model: Any, attributes: tuple[str, ...]) -> None:
         raise ValueError(
             f"{model.__class__.__name__} is not fitted yet. Missing attributes: {missing}."
         )
-
-
-__all__ = [
-    "PairwiseDifferenceClassifier",
-    "PairwiseDifferenceEstimator",
-    "PairwiseDifferenceRegressor",
-    "PairwiseLearningConfig",
-    "pair_feature_dim",
-]
