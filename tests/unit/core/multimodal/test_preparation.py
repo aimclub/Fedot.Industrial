@@ -144,11 +144,11 @@ def test_preparer_keeps_raw_unchanged_and_builds_stats_from_input():
     bundle = preparer.fit_transform(train_x, np.array([0, 1]))
 
     assert torch.allclose(
-        bundle.modalities[MultimodalModality.raw],
+        bundle.modalities[MultimodalModality.raw].cpu(),
         torch.tensor([[[1.0, 2.0, 3.0]], [[5.0, 5.0, 5.0]]]),
     )
     assert torch.allclose(
-        bundle.modalities[MultimodalModality.stats],
+        bundle.modalities[MultimodalModality.stats].cpu(),
         torch.tensor([[2.0, 0.8165], [5.0, 0.0]]),
         atol=1e-4,
     )
@@ -174,22 +174,22 @@ def test_preparer_can_per_sample_z_normalize_before_building_modalities():
     bundle = preparer.fit_transform(train_x, np.array([0, 1]))
 
     assert torch.allclose(
-        bundle.modalities[MultimodalModality.raw][0].mean(dim=-1),
+        bundle.modalities[MultimodalModality.raw][0].mean(dim=-1).cpu(),
         torch.zeros(1),
         atol=1e-6,
     )
     assert torch.allclose(
-        bundle.modalities[MultimodalModality.raw][0].std(dim=-1, unbiased=False),
+        bundle.modalities[MultimodalModality.raw][0].std(dim=-1, unbiased=False).cpu(),
         torch.ones(1),
         atol=1e-6,
     )
     assert torch.allclose(
-        bundle.modalities[MultimodalModality.raw][1],
+        bundle.modalities[MultimodalModality.raw][1].cpu(),
         torch.zeros(1, 3),
         atol=1e-6,
     )
     assert torch.allclose(
-        bundle.modalities[MultimodalModality.stats],
+        bundle.modalities[MultimodalModality.stats].cpu(),
         torch.tensor([[0.0, 1.0], [0.0, 0.0]]),
         atol=1e-6,
     )

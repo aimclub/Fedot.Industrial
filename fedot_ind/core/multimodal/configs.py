@@ -7,11 +7,14 @@ from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
     NormalizationConfig,
     NormalizationMethod,
-    StatisticalFeature,
 )
 from fedot_ind.core.multimodal.mapping import (
+    DEFAULT_STAT_FEATURE_CONFIG,
+    DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
     DEFAULT_STAT_FEATURES as MAPPING_DEFAULT_STAT_FEATURES,
-    STAT_FEATURE_TO_METHOD,
+)
+from fedot_ind.core.operation.transformation.torch_backend.enums import (
+    StatisticalFeature,
 )
 
 DEFAULT_STAT_FEATURES = tuple(MAPPING_DEFAULT_STAT_FEATURES)
@@ -51,6 +54,8 @@ def default_transformation_config() -> dict[str, dict[str, Any]]:
             "stride": 50,
             "add_global_features": True,
             "feature_names": DEFAULT_STAT_FEATURES,
+            "stat_feature_config": DEFAULT_STAT_FEATURE_CONFIG,
+            "stat_feature_global_config": DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
         },
         "gaf": {
             "method": "summation",
@@ -107,7 +112,7 @@ def _coerce_stat_feature(value: StatisticalFeature | str) -> str:
     return StatisticalFeature(str(value)).value
 
 
-@dataclass(frozen=True)
+@dataclass
 class PreparationConfig:
     """Configuration for benchmark/DataLoader multimodal representation building."""
 
@@ -152,9 +157,14 @@ class PreparationConfig:
         stats_config["feature_names"] = tuple(
             _coerce_stat_feature(feature) for feature in stats_features
         )
-        unsupported = sorted(set(stats_config["feature_names"]) - set(STAT_FEATURE_TO_METHOD))
+        unsupported = []
+        for feature_name in stats_config["feature_names"]:
+            try:
+                StatisticalFeature(str(feature_name))
+            except ValueError:
+                unsupported.append(feature_name)
         if unsupported:
-            raise ValueError(f"Unsupported statistical features: {unsupported}.")
+            raise ValueError(f"Unsupported statistical features: {sorted(unsupported)}.")
         if MultimodalModality.stats in normalized_transform_config:
             normalized_transform_config[MultimodalModality.stats] = stats_config
 
@@ -181,8 +191,8 @@ class PreparationConfig:
                 "Raw modality is not normalized by MultimodalPreprocessor. "
                 "Use transformation_config['raw']['per_sample_z_normalize']."
             )
-        object.__setattr__(self, "transformation_config", normalized_transform_config)
-        object.__setattr__(self, "normalization_config", normalization_config)
+        self.transformation_config = normalized_transform_config
+        self.normalization_config = normalization_config
 
     @property
     def modalities(self) -> tuple[MultimodalModality, ...]:

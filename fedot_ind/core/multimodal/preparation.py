@@ -15,7 +15,50 @@ from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
 from fedot_ind.core.multimodal.configs import PreparationConfig
-from fedot_ind.core.multimodal.mapping import TRANSFORMATION_HANDLERS
+from fedot_ind.core.multimodal.mapping import (
+    DEFAULT_STAT_FEATURE_CONFIG,
+    DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
+    TRANSFORMATION_HANDLERS,
+)
+from fedot_ind.core.operation.transformation.torch_backend.enums import (
+    StatisticalFeature,
+)
+from fedot_ind.core.operation.transformation.torch_backend.statistical.tools import (
+    normalize_feature_key,
+)
+
+# TODO: remove it
+LOCAL_STAT_FEATURES = {
+    StatisticalFeature.mean,
+    StatisticalFeature.median,
+    StatisticalFeature.std,
+    StatisticalFeature.max,
+    StatisticalFeature.min,
+    StatisticalFeature.q5,
+    StatisticalFeature.q25,
+    StatisticalFeature.q75,
+    StatisticalFeature.q95,
+}
+GLOBAL_STAT_FEATURES = {
+    StatisticalFeature.skewness,
+    StatisticalFeature.kurtosis,
+    StatisticalFeature.n_peaks,
+    StatisticalFeature.slope,
+    StatisticalFeature.ben_corr,
+    StatisticalFeature.interquartile_range,
+    StatisticalFeature.energy,
+    StatisticalFeature.cross_rate,
+    StatisticalFeature.autocorrelation,
+    StatisticalFeature.ptp_amplitude,
+    StatisticalFeature.mean_ptp_distance,
+    StatisticalFeature.crest_factor,
+    StatisticalFeature.mean_ema,
+    StatisticalFeature.mean_moving_median,
+    StatisticalFeature.hjorth_mobility,
+    StatisticalFeature.hjorth_complexity,
+    StatisticalFeature.hurst_exponent,
+    StatisticalFeature.petrosian_fractal_dimension,
+}
 
 
 def per_sample_z_normalize(series: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
@@ -24,6 +67,7 @@ def per_sample_z_normalize(series: torch.Tensor, eps: float = 1e-6) -> torch.Ten
     return torch.nan_to_num((series - mean) / std)
 
 
+# TODO @romankuklo: add marshmallow validation schema
 @dataclass
 class MultimodalDatasetPreparer:
     """Build and normalize multimodal time-series bundles from Industrial inputs."""
@@ -149,23 +193,83 @@ class MultimodalDatasetPreparer:
     ) -> torch.Tensor:
         if modality is MultimodalModality.raw:
             return series
-        handler = TRANSFORMATION_HANDLERS.get(modality)
-        if handler is None:
-            raise ValueError(f"Unsupported modality: {modality}.")
         params = self._resolve_modality_params(modality, series.shape[-1])
         params["torch_device"] = self._resolve_device()
-        return handler(series, params)
+        transformer_cls = TRANSFORMATION_HANDLERS.get(modality)
+        if transformer_cls is None and modality is MultimodalModality.stats:
+            from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import (
+                TorchQuantileExtractor,
+            )
+            transformer_cls = TorchQuantileExtractor
+        if transformer_cls is None:
+            raise ValueError(f"Unsupported modality: {modality}.")
+        transformer = transformer_cls(params)
+        return transformer.transform(series)
+
+    @staticmethod
+    def _normalize_stats_config(config: Any) -> dict[StatisticalFeature, dict[str, Any]]:
+        normalized: dict[StatisticalFeature, dict[str, Any]] = {}
+        if not config:
+            return normalized
+        for raw_key, raw_kwargs in dict(config).items():
+            key = normalize_feature_key(raw_key)
+            normalized[key] = dict(raw_kwargs or {})
+        return normalized
+
+    @staticmethod
+    def _feature_configs_from_names(
+        feature_names: Any,
+    ) -> tuple[dict[StatisticalFeature, dict[str, Any]], dict[StatisticalFeature, dict[str, Any]]]:
+        local = {}
+        global_ = {}
+        local_methods = set(normalize_feature_key(name) for name in LOCAL_STAT_FEATURES)
+        global_methods = set(normalize_feature_key(name) for name in GLOBAL_STAT_FEATURES)
+        for feature_name in feature_names:
+            feature = normalize_feature_key(feature_name)
+            if feature in local_methods:
+                local[feature] = {}
+            elif feature in global_methods:
+                global_[feature] = {}
+            else:
+                raise ValueError(f"Unsupported statistical feature: {feature_name}")
+        if StatisticalFeature.n_peaks in global_:
+            global_[StatisticalFeature.n_peaks]["normalized"] = True
+        if StatisticalFeature.mean_ptp_distance in global_:
+            global_[StatisticalFeature.mean_ptp_distance]["normalized"] = True
+        return local, global_
 
     def _resolve_modality_params(
         self,
         modality: MultimodalModality,
         n_timestamps: int,
     ) -> dict[str, Any]:
+        if modality is MultimodalModality.stats:
+            return self._resolve_stats_params()
         if modality is MultimodalModality.gaf:
             return self._resolve_gaf_params(n_timestamps)
         if modality is MultimodalModality.stft:
             return self._resolve_stft_params(n_timestamps)
         return self.config.modality_config(modality)
+
+    def _resolve_stats_params(self) -> dict[str, Any]:
+        params = self.config.modality_config(MultimodalModality.stats)
+        local_config = self._normalize_stats_config(
+            params.get("stat_feature_config", DEFAULT_STAT_FEATURE_CONFIG)
+        )
+        global_config = self._normalize_stats_config(
+            params.get("stat_feature_global_config", DEFAULT_STAT_FEATURE_GLOBAL_CONFIG)
+        )
+
+        feature_names = params.get("feature_names")
+        if feature_names is not None:
+            local_config, global_config = self._feature_configs_from_names(feature_names)
+
+        params["stat_feature_config"] = local_config
+        params["stat_feature_global_config"] = global_config
+        params["add_global_features"] = bool(params.get("add_global_features", True)) and bool(
+            global_config
+        )
+        return params
 
     def _resolve_gaf_params(self, n_timestamps: int) -> dict[str, Any]:
         if n_timestamps < 2:
@@ -217,6 +321,7 @@ class MultimodalDatasetPreparer:
         )
         return params
 
+    # TODO @romankuklo: use TensorData for this
     def _target_to_tensor(
         self,
         y: Any | None,

@@ -200,11 +200,13 @@ class PAA:
         """
         if self.window_size == 1:
             return x
-            # start, end = self.segmentation(n_timestamps)
-        # start, end = segmentation_torch(x.shape[-1], self.window_size, self.overlapping, self.output_size)
-        # print("start", start.shape, "end", end.shape)
+
         start, end, _ = segmentation_torch(
-            x.shape[-1], self.window_size, self.overlapping, self.output_size
+            x.shape[-1],
+            self.window_size,
+            self.overlapping,
+            self.output_size,
+            device=x.device,
         )
         return self._paa(x, start, end)
 

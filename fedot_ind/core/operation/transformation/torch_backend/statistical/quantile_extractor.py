@@ -2,7 +2,6 @@ from typing import Optional, Any
 import inspect
 import torch
 
-from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -113,7 +112,7 @@ class TorchQuantileExtractor(BaseExtractor):
             matrices.append(tensor)
         return torch.cat(matrices, dim=-1)
 
-    def extract_stats_features_torch(self, ts: torch.Tensor, axis: int) -> InputData:
+    def extract_stats_features_torch(self, ts: torch.Tensor, axis: int) -> torch.Tensor:
         """
         This method computes global statistical features and window-based features,
         then concatenates them if `add_global_features` is True.
@@ -152,8 +151,10 @@ class TorchQuantileExtractor(BaseExtractor):
                                                                         window_stat_features.shape[-1] *
                                                                         window_stat_features.shape[-2]).squeeze()
                 else:
-                    window_stat_features = window_stat_features.reshape(window_stat_features.shape[-1] *
-                                                                        window_stat_features.shape[-2]).squeeze()
+                    window_stat_features = window_stat_features.reshape(
+                        window_stat_features.shape[0],
+                        -1,
+                    )
             return torch.cat([global_features, window_stat_features], dim=-1)
         else:
             return window_stat_features
@@ -241,10 +242,7 @@ class TorchQuantileExtractor(BaseExtractor):
 
         """
         if self.is_multichanel:
-            if time_series.ndim == 3:
-                batch = time_series.shape[0]
-                time_series = time_series.reshape(batch, -1)
-            elif time_series.ndim > 3:
+            if time_series.ndim > 3:
                 batch, b, *rest = time_series.shape
                 time_series = time_series.reshape(batch, b, -1)
 
@@ -293,3 +291,7 @@ class TorchQuantileExtractor(BaseExtractor):
             else:
                 merged.append(torch.cat(parts, dim=0))
         return merged
+
+    def transform(self, X: torch.Tensor) -> torch.Tensor:
+        result = self.generate_features_from_ts(X).to(X.device)
+        return torch.nan_to_num(result)
