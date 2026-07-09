@@ -48,6 +48,31 @@ def _classification_record() -> dict:
     }
 
 
+def _classification_multichannel_record() -> dict:
+    train_features = np.array(
+        [
+            [[0.0, 0.1, 0.2], [1.0, 1.1, 1.2]],
+            [[0.2, 0.1, 0.0], [1.2, 1.1, 1.0]],
+            [[2.0, 2.1, 2.2], [3.0, 3.1, 3.2]],
+            [[2.2, 2.1, 2.0], [3.2, 3.1, 3.0]],
+        ],
+        dtype=float,
+    )
+    test_features = np.array(
+        [
+            [[0.05, 0.1, 0.15], [1.05, 1.1, 1.15]],
+            [[2.05, 2.1, 2.15], [3.05, 3.1, 3.15]],
+        ],
+        dtype=float,
+    )
+    return {
+        'train_features': train_features,
+        'train_target': np.array(['a', 'a', 'b', 'b']),
+        'test_features': test_features,
+        'test_target': np.array(['a', 'b']),
+    }
+
+
 def _regression_record() -> dict:
     train_features = np.array([[0.0], [1.0], [2.0], [3.0], [4.0]])
     train_target = np.array([1.0, 3.0, 5.0, 7.0, 9.0])
@@ -143,6 +168,32 @@ def test_local_tsc_adapter_reads_real_ts_dataset() -> None:
     assert record.metadata['source_train_file'] == 'BasicMotions_TRAIN.ts'
     assert record.metadata['dimensions'] == 6
     assert len(record.train_features[0]) == 600
+
+
+def test_in_memory_tsc_multichannel_record_keeps_matrix_path_compatible(tmp_path: Path) -> None:
+    spec = DatasetSpec(
+        benchmark='in_memory_tsc',
+        dataset_name='toy_multichannel_tsc',
+        adapter_options={'record': _classification_multichannel_record()},
+    )
+    adapter = build_classification_dataset_adapter(spec)
+    records = adapter.load_dataset(spec)
+    assert len(records) == 1
+    record = records[0]
+    # Matrix-based baseline path expects flattened 2D features.
+    assert len(record.train_features[0]) == 6
+    assert len(record.test_features[0]) == 6
+
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.TS_CLASSIFICATION,
+        datasets=(spec,),
+        models=(ModelSpec(adapter_name='nearest_centroid', display_name='NearestCentroid'),),
+        metrics=('accuracy',),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='toy_multichannel_matrix_path', primary_metric='accuracy'),
+    )
+    result = run_tsc_benchmark_suite(config)
+    assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
 
 
 def test_tser_suite_runs_and_writes_artifacts(tmp_path: Path) -> None:

@@ -159,6 +159,25 @@ class TestGAF:
         out = gaf.transform(torch.randn(B, T))
         assert out.shape == (B, T // 2, T // 2)
 
+    def test_per_sample_minmax_handles_unnormalized_input_by_default(self):
+        gaf = GAF({"image_size": IMAGE_SIDE, "torch_device": "cpu"})
+        out = gaf.transform(torch.randn(B, T) * 10.0 + 100.0)
+        assert out.shape == (B, IMAGE_SIDE, IMAGE_SIDE)
+        assert_finite(out)
+
+    def test_can_disable_per_sample_minmax_for_pre_normalized_input(self):
+        gaf = GAF(
+            {
+                "image_size": IMAGE_SIDE,
+                "use_per_sample_minmax": False,
+                "torch_device": "cpu",
+            }
+        )
+
+        assert_finite(gaf.transform(torch.linspace(-1.0, 1.0, T).repeat(B, 1)))
+        with pytest.raises(ValueError, match="use_per_sample_minmax"):
+            gaf.transform(torch.randn(B, T) * 10.0)
+
     def test_config_not_mutated_on_repeated_transform(self):
         gaf = GAF({"image_size": 0.5, "torch_device": "cpu"})
         out_short = gaf.transform(torch.randn(2, 100))

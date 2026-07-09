@@ -1,0 +1,3 @@
+from fedot_ind.core.multimodal.mapping import TRANSFORMATION_HANDLERS
+
+print(TRANSFORMATION_HANDLERS)

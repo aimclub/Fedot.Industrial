@@ -152,65 +152,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
 
-    def get_statistical_features_torch(
-            self,
-            time_series: torch.Tensor,
-            add_global_features: bool = False,
-            axis: int = -1,
-            max_elements: int = 50000000) -> tuple:
-        """
-        Method for creating baseline statistical features for a given time series.
-        Creates batches, if number of values in time series is more than max_elements.
-
-        Args:
-            add_global_features: if True, global features are added to the feature set
-            time_series: time series for which features are generated
-            max_elements: threshold for using batches
-
-        Returns:
-            tuple: features
-
-        """
-        if self.is_multichanel:
-            if time_series.ndim == 3:
-                batch = time_series.shape[0]
-                time_series = time_series.reshape(batch, -1)
-            elif time_series.ndim > 3:
-                batch, b, *rest = time_series.shape
-                time_series = time_series.reshape(batch, b, -1)
-
-        if add_global_features:
-            list_of_methods = [*STAT_METHODS_GLOBAL_TORCH.items()]
-        else:
-            list_of_methods = [*STAT_METHODS_TORCH.items()]
-
-        if time_series.numel() <= max_elements:
-            return list(map(lambda method: method[1](time_series, axis),
-                            list_of_methods))
-        B = time_series.shape[0]
-        elems_per_sample = time_series[0].numel()
-        batch_size = max(1, max_elements // elems_per_sample)
-        accumulators = [[] for _ in list_of_methods]
-        for start in range(0, B, batch_size):
-            end = min(start + batch_size, B)
-            ts_batch = time_series[start:end]
-            batch_results = [
-                method(ts_batch, axis)
-                for _, method in list_of_methods
-            ]
-            for i, res in enumerate(batch_results):
-                accumulators[i].append(res)
-
-        merged = []
-        for parts in accumulators:
-            if isinstance(parts[0], (float, int)):
-                merged.append(
-                    torch.tensor(parts) if isinstance(parts[0], torch.Tensor) else parts
-                )
-            else:
-                merged.append(torch.cat(parts, dim=0))
-        return merged
-
     def apply_window_for_stat_feature(self,
                                       ts_data: np.array,
                                       feature_generator: callable,
@@ -255,49 +196,4 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         multi_channel_features = [extraction_func(x) for x in ts]
         features = torch.concat([channel_feature.unsqueeze(0)
                                  for channel_feature in multi_channel_features])
-        return features
-
-    def apply_window_for_stat_feature_torch(self,
-                                            ts_data: torch.Tensor,
-                                            feature_generator: callable,
-                                            window_size: int = None) -> torch.Tensor:
-        """
-        Method for creating windows and extracting base statistical features
-        for a given time series or batch of time series.
-        """
-        axis = ts_data.ndim - 1
-        if window_size is None:
-            window_size = round(ts_data.shape[axis] / 10)
-        else:
-            window_size = round(ts_data.shape[axis] * (window_size / 100))
-        window_size = max(window_size, 5)
-
-        if self.use_sliding_window:
-            if self.stride > 1:
-                subseq_set = HankelMatrix(time_series=ts_data,
-                                          window_size=window_size,
-                                          strides=self.stride).trajectory_matrix
-            else:
-                window_length = ts_data.shape[axis] - window_size
-                subseq_set = ts_data.unfold(
-                    dimension=axis,
-                    size=window_length,
-                    step=self.stride
-                )
-            if subseq_set.ndim > 2:
-                subseq_set = subseq_set.transpose(1, 2)
-            else:
-                subseq_set = subseq_set.T
-        else:
-            T = ts_data.shape[1]
-            num_windows = T // window_size
-            T_eff = num_windows * window_size
-            ts_cut = ts_data[:, :T_eff]
-            subseq_set = ts_cut.reshape(2, num_windows, window_size)
-        features = feature_generator(subseq_set)
-        features = torch.stack(features, dim=0).to(ts_data.device)
-        if features.ndim > 2:
-            features = features.permute(1, 2, 0)
-        else:
-            features = features.T
         return features

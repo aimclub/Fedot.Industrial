@@ -53,6 +53,8 @@ from fedot_ind.core.operation.transformation.representation.topological.topofeat
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
+
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,
@@ -202,16 +204,17 @@ class FeatureConstant(Enum):
         'q75_': q75,
         'q95_': q95
     }
+
     STAT_METHODS_TORCH = {
-        'mean_': mean_torch,
-        'median_': median_torch,
-        'std_': std_torch,
-        'max_': max_torch,
-        'min_': min_torch,
-        'q5_': q5_torch,
-        'q25_': q25_torch,
-        'q75_': q75_torch,
-        'q95_': q95_torch
+        StatisticalFeature.mean: mean_torch,
+        StatisticalFeature.median.value: median_torch,
+        StatisticalFeature.std.value: std_torch,
+        StatisticalFeature.max.value: max_torch,
+        StatisticalFeature.min.value: min_torch,
+        StatisticalFeature.q5.value: q5_torch,
+        StatisticalFeature.q25.value: q25_torch,
+        StatisticalFeature.q75.value: q75_torch,
+        StatisticalFeature.q95.value: q95_torch
     }
 
     BAGGING_METHOD = {
@@ -245,25 +248,24 @@ class FeatureConstant(Enum):
     }
 
     STAT_METHODS_GLOBAL_TORCH = {
-        'skewness_': skewness_torch,
-        'kurtosis_': kurtosis_torch,
-        'n_peaks_': n_peaks_torch,
-        'slope_': slope_torch,
-        'ben_corr_': ben_corr_torch,
-        'interquartile_range_': interquantile_range_torch,
-        'energy_': energy_torch,
-        'cross_rate_': zero_crossing_rate_torch,
-        'autocorrelation_': autocorrelation_torch,
-        'shannon_entropy_': shannon_entropy_torch,
-        'ptp_amplitude_': ptp_amp_torch,
-        'mean_ptp_distance_': mean_ptp_distance_torch,
-        'crest_factor_': crest_factor_torch,
-        'mean_ema_': mean_ema_torch,
-        'mean_moving_median_': mean_moving_median_torch,
-        'hjorth_mobility_': hjorth_mobility_torch,
-        'hjorth_complexity_': hjorth_complexity_torch,
-        'hurst_exponent_': hurst_exponent_torch,
-        'petrosian_fractal_dimension_': pfd_torch
+        StatisticalFeature.skewness: skewness_torch,
+        StatisticalFeature.kurtosis: kurtosis_torch,
+        StatisticalFeature.n_peaks: n_peaks_torch,
+        StatisticalFeature.slope: slope_torch,
+        StatisticalFeature.ben_corr: ben_corr_torch,
+        StatisticalFeature.interquartile_range: interquantile_range_torch,
+        StatisticalFeature.energy: energy_torch,
+        StatisticalFeature.cross_rate: zero_crossing_rate_torch,
+        StatisticalFeature.autocorrelation: autocorrelation_torch,
+        StatisticalFeature.ptp_amplitude: ptp_amp_torch,
+        StatisticalFeature.mean_ptp_distance: mean_ptp_distance_torch,
+        StatisticalFeature.crest_factor: crest_factor_torch,
+        StatisticalFeature.mean_ema: mean_ema_torch,
+        StatisticalFeature.mean_moving_median: mean_moving_median_torch,
+        StatisticalFeature.hjorth_mobility: hjorth_mobility_torch,
+        StatisticalFeature.hjorth_complexity: hjorth_complexity_torch,
+        StatisticalFeature.hurst_exponent: hurst_exponent_torch,
+        StatisticalFeature.petrosian_fractal_dimension: pfd_torch
     }
 
     METRICS_DICT = {'euclidean': euclidean,
