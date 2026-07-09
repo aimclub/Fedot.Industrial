@@ -14,8 +14,8 @@ from fedot_ind.core.operation.transformation.torch_backend.image.stft_transforma
     STFTSpectrogram,
 )
 from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import (
-        TorchQuantileExtractor,
-    )
+    TorchQuantileExtractor,
+)
 from fedot_ind.core.operation.transformation.torch_backend.enums import (
     StatisticalFeature,
     STAT_FEATURE_CONFIG,
