@@ -22,8 +22,8 @@ class AuxOutputConfig:
 
 
 KNOWN_FUSION_KEYS = frozenset(
-        {"gates", "alpha", "gamma", "beta", "h_raw", "h_context", "delta", "h_final"}
-    )
+    {"gates", "alpha", "gamma", "beta", "h_raw", "h_context", "delta", "h_final"}
+)
 
 
 @dataclass
