@@ -44,7 +44,7 @@ from fedot_ind.core.operation.transformation.representation.statistical.stat_fea
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
-    PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
+    PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, \
     max_torch, min_torch, \
@@ -300,9 +300,6 @@ class FeatureConstant(Enum):
         'BettiNumbersSumFeature': BettiNumbersSumFeature(),
         'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
 
-    PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(
-        takens_embedding_dim=1, takens_embedding_delay=2, homology_dimensions=(
-            0, 1), parallel=False)
     DISCRETE_WAVELETS = pywt.wavelist(kind='discrete')
     CONTINUOUS_WAVELETS = pywt.wavelist(kind='continuous')
     WAVELET_SCALES = [2, 4, 10, 20]
@@ -1038,7 +1035,6 @@ STAT_METHODS_TORCH = FeatureConstant.STAT_METHODS_TORCH.value
 STAT_METHODS_GLOBAL_TORCH = FeatureConstant.STAT_METHODS_GLOBAL_TORCH.value
 BAGGING_METHOD = FeatureConstant.BAGGING_METHOD.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
-PERSISTENCE_DIAGRAM_EXTRACTOR = FeatureConstant.PERSISTENCE_DIAGRAM_EXTRACTOR.value
 DISCRETE_WAVELETS = FeatureConstant.DISCRETE_WAVELETS.value
 CONTINUOUS_WAVELETS = FeatureConstant.CONTINUOUS_WAVELETS.value
 WAVELET_SCALES = FeatureConstant.WAVELET_SCALES.value
