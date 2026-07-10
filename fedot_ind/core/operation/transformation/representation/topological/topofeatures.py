@@ -19,93 +19,45 @@ class PersistenceDiagramFeatureExtractor(ABC):
 
     def fit_transform(self, x_pd):
         return self.extract_feature_(x_pd)
-
-
-class PersistenceDiagramsExtractor:
-    """Class to extract persistence diagrams from time series.
-
-    Args:
-        takens_embedding_dim: Dimension of the Takens embedding.
-        takens_embedding_delay: Delay of the Takens embedding.
-        homology_dimensions: Homology dimensions to compute.
-        filtering: Whether to filter the persistence diagrams.
-        filtering_dimensions: Homology dimensions to filter.
-        parallel: Whether to parallelize the computation.
-
-    """
-
-    def __init__(self, takens_embedding_dim: int,
-                 takens_embedding_delay: int,
-                 homology_dimensions: tuple,
-                 filtering: bool = False,
-                 filtering_dimensions: tuple = (1, 2),
-                 parallel: bool = False):
-        self.takens_embedding_dim_ = takens_embedding_dim
-        self.takens_embedding_delay_ = takens_embedding_delay
-        self.homology_dimensions_ = homology_dimensions
-        self.filtering_ = filtering
-        self.filtering_dimensions_ = filtering_dimensions
-        self.parallel_ = parallel
-        self.n_job = None
-
-    def persistence_diagrams_(self, x_embeddings):
-        if self.parallel_:
-            pool = ThreadPool()
-            x_transformed = pool.map(self.parallel_embed_, x_embeddings)
-            pool.close()
-            pool.join()
-            return x_transformed
-        else:
-            return self.parallel_embed_(x_embeddings)
-
-    def parallel_embed_(self, embedding):
-        vr = VietorisRipsPersistence(
-            metric='euclidean',
-            homology_dimensions=self.homology_dimensions_,
-            n_jobs=self.n_job)
-        # TODO: remove workaround (gtda expects `function` to be a plain function, not a NumPy dispatcher)
-        diagram_scaler = Scaler(function=lambda x: float(np.max(x)), n_jobs=self.n_job)
-        persistence_diagrams = diagram_scaler.fit_transform(
-            vr.fit_transform([embedding]))
-        if self.filtering_:
-            diagram_filter = Filtering(
-                epsilon=0.1, homology_dimensions=self.filtering_dimensions_)
-            persistence_diagrams = diagram_filter.fit_transform(
-                persistence_diagrams)
-        return persistence_diagrams[0]
-
-    def transform(self, x_embeddings):
-        x_persistence_diagrams = self.persistence_diagrams_(x_embeddings)
-        return x_persistence_diagrams
-
+    
 
 class TopologicalFeaturesExtractor:
-    def __init__(
-            self,
-            persistence_diagram_extractor,
-            persistence_diagram_features):
-        self.persistence_diagram_extractor_ = persistence_diagram_extractor
+    def __init__(self, persistence_diagram_features: dict):
         self.persistence_diagram_features_ = persistence_diagram_features
 
-    def transform(self, x):
+    def transform(self, diagrams_batch: np.ndarray) -> pd.DataFrame:
+        """
+        Extracts features from a batch of persistence diagrams.
+        Parameters:
+            diagrams_batch: np.ndarray
+                A batch of persistence diagrams with shape (B, K, 3), where B is the batch size, K is the number of points in each diagram, and 3 corresponds to (birth, death, dimension).
+        Returns:
+            pd.DataFrame
+                A DataFrame containing the extracted features for each persistence diagram in the batch.
+        """
+        batch_size = diagrams_batch.shape[0]
+        batch_features = []
 
-        x_pers_diag = self.persistence_diagram_extractor_.transform(x)
-        feature_list = []
-        column_list = []
-        for feature_name, feature_model in self.persistence_diagram_features_.items():
-            try:
-                x_features = feature_model.fit_transform(x_pers_diag)
-                feature_list.append(x_features)
-                for dim in range(len(x_features)):
-                    column_list.append('{}_{}'.format(feature_name, dim))
-            except Exception:
-                feature_list.append(
-                    np.array([0 for i in range(len(x_features))]))
-                for dim in range(len(x_features)):
-                    column_list.append('{}_{}'.format(feature_name, dim))
-                continue
-        x_transformed = pd.DataFrame(data=np.hstack(feature_list)).T
-        x_transformed.columns = column_list
+        for i in range(batch_size):
+            diagram = diagrams_batch[i]
+            feature_list = []
+            column_list = []
+            
+            for feature_name, feature_model in self.persistence_diagram_features_.items():
+                try:
+                    x_features = feature_model.fit_transform(diagram)
+                    feature_list.append(x_features)
+                    for dim in range(len(x_features)):
+                        column_list.append(f'{feature_name}_{dim}')
+                except Exception:
+                    expected_len = getattr(feature_model, 'expected_len_', 3) 
+                    feature_list.append(np.zeros(expected_len))
+                    for dim in range(expected_len):
+                        column_list.append(f'{feature_name}_{dim}')
+                        
+            batch_features.append(np.concatenate(feature_list))
+
+        x_transformed = pd.DataFrame(data=np.vstack(batch_features), columns=column_list)
         return x_transformed
 
 

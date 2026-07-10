@@ -1,27 +1,18 @@
 import sys
 from functools import partial
 from itertools import product
-from typing import Optional
-
-# import open3d as o3d
+from typing import Optional, Union
 import pandas as pd
-from fedot.core.data.data import InputData
-from fedot.core.operations.operation_parameters import OperationParameters
-from gtda.homology import VietorisRipsPersistence
-from gtda.time_series import takens_embedding_optimal_parameters
-from scipy import stats
-from scipy.spatial.distance import squareform, pdist
-from tqdm import tqdm
+import numpy as np
+import torch
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
-from fedot_ind.core.operation.transformation.representation.topological.topofeatures import \
-    PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
-from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, PERSISTENCE_DIAGRAM_FEATURES
+from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalEmbeddingConfig, PointCloudBuilder, PersistenceConfig, PersistenceDiagramsExtractor
+from fedot_ind.core.operation.transformation.representation.topological.topofeatures import TopologicalFeaturesExtractor
+from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_FEATURES
 
 sys.setrecursionlimit(1000000000)
-
 
 class TopologicalExtractor(BaseExtractor):
     """Class for extracting topological features from time series data.
@@ -48,123 +39,84 @@ class TopologicalExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.window_size = self.params.get('window_size', 10)
-        self.stride = self.params.get('stride', 1)
-        self.feature_extractor = TopologicalFeaturesExtractor(
-            persistence_diagram_extractor=PERSISTENCE_DIAGRAM_EXTRACTOR,
-            persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES
+        
+        self.point_cloud_builder = None
+        self.persistence_extractor = None
+        self.feature_extractor = None
+        self._current_ts_length = None
+        self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def _resolve_params(self, ts_length: int) -> tuple[TopologicalEmbeddingConfig, PersistenceConfig]:
+        window_share = self.params.get('window_size_as_share', 0.1)
+        stride = self.params.get('stride', 1)
+        delay = self.params.get('delay', 1)
+        filtration = self.params.get('filtration_type', 'vietoris-rips')
+        backend = self.params.get('backend', 'gtda')
+        
+        max_dim = self.params.get('max_homology_dimension', 2)
+        homology_dims = tuple(range(max_dim + 1))
+        
+        absolute_window = max(2, int(ts_length * window_share))
+
+        embed_config = TopologicalEmbeddingConfig(
+            window_size=absolute_window,
+            stride=stride,
+            delay=delay,
+            multivariate_strategy=self.params.get('multivariate_strategy', 'independent')
         )
-        self.data_transformer = None
-        self.save_pcd = False
 
-    def __evaluate_persistence_params(self, ts_data: np.array):
-        if self.feature_extractor is None:
-            te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
+        pers_config = PersistenceConfig(
+            homology_dimensions=homology_dims,
+            backend=backend,
+            filtration_type=filtration,
+            normalize=self.params.get('normalize', True),
+            distance_device='cuda' if torch.cuda.is_available() else 'cpu'
+        )
 
-            persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
-                                                                         takens_embedding_delay=te_time_delay,
-                                                                         homology_dimensions=(0, 1, 2),
-                                                                         parallel=True)
+        return embed_config, pers_config
 
-            self.feature_extractor = TopologicalFeaturesExtractor(
-                persistence_diagram_extractor=persistence_diagram_extractor,
-                persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
+    def _init_pipeline(self, ts_length: int):
+        """Initialize the topological feature extraction pipeline if the time series length has changed."""
+        if self._current_ts_length == ts_length and self.point_cloud_builder is not None:
+            return  
 
-    def _generate_vr_mesh(self, pcd):
-        # Corresponding matrix of Euclidean pairwise distances
-        pairwise_distances = squareform(pdist(pcd))
-        # Default parameter for ``metric`` is "euclidean"
-        vr_graph = VietorisRipsPersistence(metric="precomputed").fit_transform([pairwise_distances])
-        return vr_graph
+        embed_config, pers_config = self._resolve_params(ts_length)
 
-    def _generate_pcd(self, ts_data, persistence_params):
-        window_size_range = list(range(1, 35, 5))
-        stride_range = list(range(1, 15, 3))
-        list(product(window_size_range, stride_range))
-        # for params in pcd_params:
-        #     data_transformer = TopologicalTransformation(stride=params[1], persistence_params=persistence_params,
-        #                                                  window_length=round(ts_data.shape[0] * 0.01 * params[0]))
-        #     point_cloud = data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
-        #     # VR_mesh = self._generate_vr_mesh(point_cloud)
-        #     for scale in range(1, 15, 3):
-        #         numpy2stl(point_cloud,
-        #                   f"./stl_scale_{scale}_ws_{params[0]}_stride_{params[1]}.stl",
-        #                   max_width=300.,
-        #                   max_depth=200.,
-        #                   max_height=300.,
-        #                   scale=scale,
-        #                   min_thickness_percent=0.5,
-        #                   solid=False)
-        #     pcd = o3d.geometry.PointCloud()
-        #     pcd.points = o3d.utility.Vector3dVector(point_cloud)
-        #     o3d.io.write_point_cloud(f"./pcd_ws_{params[0]}_stride_{params[1]}.ply", pcd)
+        self.point_cloud_builder = PointCloudBuilder(embed_config)
+        self.persistence_extractor = PersistenceDiagramsExtractor(pers_config)
 
-    def _generate_features_from_ts(self, ts_data: np.array, persistence_params: dict) -> InputData:
-        if self.save_pcd:
-            self._generate_pcd(ts_data, persistence_params)
-        if self.data_transformer is None:
-            self.data_transformer = TopologicalTransformation(
-                persistence_params=persistence_params, window_length=round(ts_data.shape[0] * 0.01 * self.window_size))
+        max_dim = max(pers_config.homology_dimensions)
+        
+        initialized_features = {
+            name: feature_class(max_homology_dim=max_dim)
+            for name, feature_class in PERSISTENCE_DIAGRAM_FEATURES.items()
+        }
+        
+        self.feature_extractor = TopologicalFeaturesExtractor(initialized_features)
+        self._current_ts_length = ts_length
 
-        point_cloud = self.data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
-        topological_features = self.feature_extractor.transform(point_cloud)
-        # topological_features = InputData(idx=np.arange(len(topological_features.values)),
-        #                                  features=topological_features.values,
-        #                                  target='no_target',
-        #                                  task='no_task',
-        #                                  data_type=DataTypesEnum.table,
-        #                                  supplementary_data={'feature_name': topological_features.columns})
-        return topological_features.values
-
-    def generate_topological_features(self, ts: np.array, persistence_params: dict = None) -> InputData:
-        if persistence_params is not None:
-            self.__evaluate_persistence_params(ts)
-
-        if len(ts.shape) == 1:
-            aggregation_df = self._generate_features_from_ts(ts, persistence_params)
+    def generate_features_from_ts(self, ts_data: Union[pd.DataFrame, np.ndarray, torch.Tensor]) -> pd.DataFrame:
+        if isinstance(ts_data, pd.DataFrame):
+            ts_data = ts_data.values
+        if not isinstance(ts_data, torch.Tensor):
+            ts_tensor = torch.tensor(ts_data, dtype=torch.float32, device=self._device)
         else:
-            aggregation_df = self._get_feature_matrix(
-                partial(self._generate_features_from_ts, persistence_params=persistence_params),
-                ts
-            )
+            ts_tensor = ts_data.to(self._device)
 
-        return aggregation_df
+        if ts_tensor.ndim == 1:
+            ts_tensor = ts_tensor.view(1, 1, -1)
+        elif ts_tensor.ndim == 2:
+            ts_tensor = ts_tensor.unsqueeze(1)
 
-    def generate_features_from_ts(self, ts_data: np.array, dataset_name: str = None):
-        return self.generate_topological_features(ts=ts_data)
+        N = ts_tensor.shape[-1] 
 
-    def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
-        """Method for getting optimal Takens embedding parameters.
+        self._init_pipeline(N)
 
-        Args:
-            ts_data: dataframe with time series data
-            method: method for getting optimal parameters
+        point_cloud = self.point_cloud_builder.build(ts_tensor)
+        
+        diagrams = self.persistence_extractor.transform(point_cloud)
+        if isinstance(diagrams, np.ndarray):
+            diagrams = torch.tensor(diagrams, dtype=torch.float32, device=self._device)
 
-        Returns:
-            Optimal Takens embedding parameters
-
-        """
-        methods = {'mode': self._mode,
-                   'mean': np.mean,
-                   'median': np.median}
-
-        dim_list, delay_list = list(), list()
-
-        for _ in tqdm(range(len(ts_data)), initial=0, desc='Time series processed: ', unit='ts', colour='black'):
-            ts_data = pd.DataFrame(ts_data)
-            single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
-            delay, dim = takens_embedding_optimal_parameters(X=single_time_series,
-                                                             max_time_delay=1,
-                                                             max_dimension=5,
-                                                             n_jobs=-1)
-            delay_list.append(delay)
-            dim_list.append(dim)
-
-        dimension = int(methods[method](dim_list))
-        delay = int(methods[method](delay_list))
-
-        return dimension, delay
-
-    @staticmethod
-    def _mode(arr: list) -> int:
-        return int(stats.mode(arr)[0][0])
+        features_df = self.feature_extractor.transform(diagrams)
+        return features_df
