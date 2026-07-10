@@ -8,18 +8,20 @@ import torch.nn as nn
 
 from fedot_ind.core.models.future.mapping import (
     FUSION_REGISTRY,
+    FusionMethod,
     RAW_CENTERED_FUSION_METHODS,
 )
 from fedot_ind.core.models.future.rules import (
     normalize_unique_modalities,
     resolve_modalities_from_bundle,
-    validate_bundle_has_modalities,
     validate_context_modalities_for_raw_centered,
     validate_encoder_registry_has_modalities,
-    validate_input_mapping_has_modalities,
+    validate_supported_modalities,
+    validate_modalities_presence,
     validate_multimodal_bundle_input,
     validate_positive_int,
     validate_supported_fusion_method,
+    require_initialized_model_parts,
 )
 from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
 from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
@@ -36,14 +38,11 @@ from fedot_ind.core.models.future.tools import (
 
 class ConfigurableMultimodalFusionClassifier(nn.Module):
     """Multimodal classifier composed from encoders, fusion strategy and head."""
-    _KNOWN_FUSION_KEYS = frozenset(
-        {"gates", "alpha", "gamma", "beta", "h_raw", "h_context", "delta", "h_final"}
-    )
 
     def __init__(
         self,
         num_classes: int,
-        fusion_method: str,
+        fusion_method: FusionMethod | str,
         d_model: int = 128,
         modalities: Sequence[MultimodalModality | str] | None = None,
         encoder_kwargs: Mapping[str, dict[str, Any]] | None = None,
@@ -66,7 +65,7 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
             )
 
         self.fusion_method = fusion_method
-        validate_supported_fusion_method(
+        self.fusion_method = validate_supported_fusion_method(
             fusion_method=fusion_method,
             fusion_registry=FUSION_REGISTRY,
         )
@@ -123,6 +122,7 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
             modalities=self.modalities,
             preset_registry=ENCODER_PRESET_BUILDERS,
         )
+        validate_supported_modalities(self.modalities)
         if self.fusion_method in RAW_CENTERED_FUSION_METHODS:
             validate_context_modalities_for_raw_centered(
                 raw_modality=self.raw_modality,
@@ -135,10 +135,19 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
     def _initialize_encoders(self, bundle: MultimodalDataBundle) -> None:
         if self.modalities is None:
             self._resolve_model_modalities(bundle)
-        assert self.modalities is not None
-        validate_bundle_has_modalities(bundle=bundle, required_modalities=self.modalities)
+        _, _, modalities = require_initialized_model_parts(
+            encoders=None,
+            fusion=None,
+            modalities=self.modalities,
+            require_modules=False,
+        )
+        validate_modalities_presence(
+            required_modalities=modalities,
+            available_modalities=bundle.modalities.keys(),
+            source_label="Bundle",
+        )
         encoders = nn.ModuleDict()
-        for modality in self.modalities:
+        for modality in modalities:
             preset_builder, shape_key = ENCODER_PRESET_BUILDERS[modality]
             shape = bundle.shapes[modality]
             modality_kwargs = dict(self.encoder_kwargs.get(modality.value, {}))
@@ -158,20 +167,21 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
         fusion_aux: dict[str, Any],
         embeddings: dict[MultimodalModality, torch.Tensor],
     ) -> FusionAuxOutput:
-        assert self.modalities is not None
-        assert self.encoders is not None
-        assert self.fusion is not None
+        encoders, fusion, modalities = require_initialized_model_parts(
+            encoders=self.encoders,
+            fusion=self.fusion,
+            modalities=self.modalities,
+        )
 
         aux = FusionAuxOutput(
             logits=logits,
             h_final=h_final,
-            active_modalities=[modality.value for modality in self.modalities],
+            active_modalities=[modality.value for modality in modalities],
             embedding_dim=self.d_model,
         )
         aux.populate_fusion(
             fusion_aux=fusion_aux,
-            include_fusion_aux=self.aux_output_config.include_fusion_aux,
-            known_fusion_keys=self._KNOWN_FUSION_KEYS,
+            include_fusion_aux=self.aux_output_config.include_fusion_aux
         )
         aux.populate_profiling(
             include_num_parameters=self.aux_output_config.include_num_parameters,
@@ -179,14 +189,14 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
             num_parameters={
                 "total": count_parameters(self),
                 "encoders": {
-                    modality.value: count_parameters(self.encoders[modality.value])
-                    for modality in self.modalities
+                    modality.value: count_parameters(encoders[modality.value])
+                    for modality in modalities
                 },
-                "fusion": count_parameters(self.fusion),
+                "fusion": count_parameters(fusion),
                 "head": count_parameters(self.head),
             },
             embeddings={
-                modality.value: embeddings[modality] for modality in self.modalities
+                modality.value: embeddings[modality] for modality in modalities
             },
         )
         return aux
@@ -199,40 +209,43 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
         input = validate_multimodal_bundle_input(input)
         if self.encoders is None:
             self._initialize_encoders(input)
-        assert self.encoders is not None
-        assert self.fusion is not None
-        assert self.modalities is not None
+        encoders, fusion, modalities = require_initialized_model_parts(
+            encoders=self.encoders,
+            fusion=self.fusion,
+            modalities=self.modalities,
+        )
 
         inputs = input.modalities
-        validate_input_mapping_has_modalities(
-            inputs=inputs,
-            required_modalities=self.modalities,
+        validate_modalities_presence(
+            required_modalities=modalities,
+            available_modalities=inputs.keys(),
+            source_label="Inputs",
         )
 
         embeddings: dict[MultimodalModality, torch.Tensor] = {}
-        for modality in self.modalities:
-            embeddings[modality] = self.encoders[modality.value](inputs[modality])
+        for modality in modalities:
+            embeddings[modality] = encoders[modality.value](inputs[modality])
 
         fusion_aux: dict[str, Any] = {}
         if self.fusion_method in RAW_CENTERED_FUSION_METHODS:
             h_raw = embeddings[self.raw_modality]
             context_embeddings = [embeddings[modality] for modality in self.context_modalities]
             if return_aux:
-                fusion_output = self.fusion(h_raw, *context_embeddings, return_aux=True)
+                fusion_output = fusion(h_raw, *context_embeddings, return_aux=True)
                 h_final = fusion_output["h_final"]
                 fusion_aux = dict(fusion_output)
             else:
-                h_final = self.fusion(h_raw, *context_embeddings, return_aux=False)
+                h_final = fusion(h_raw, *context_embeddings, return_aux=False)
         else:
-            ordered_embeddings = [embeddings[modality] for modality in self.modalities]
-            if self.fusion_method == "gated":
+            ordered_embeddings = [embeddings[modality] for modality in modalities]
+            if self.fusion_method is FusionMethod.gated:
                 if return_aux:
-                    h_final, gates = self.fusion(*ordered_embeddings, return_gates=True)
+                    h_final, gates = fusion(*ordered_embeddings, return_gates=True)
                     fusion_aux["gates"] = gates
                 else:
-                    h_final = self.fusion(*ordered_embeddings, return_gates=False)
+                    h_final = fusion(*ordered_embeddings, return_gates=False)
             else:
-                h_final = self.fusion(*ordered_embeddings)
+                h_final = fusion(*ordered_embeddings)
 
         logits = self.head(h_final)
         if not return_aux:

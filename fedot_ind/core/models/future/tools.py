@@ -21,6 +21,11 @@ class AuxOutputConfig:
     include_fusion_aux: bool = True
 
 
+KNOWN_FUSION_KEYS = frozenset(
+        {"gates", "alpha", "gamma", "beta", "h_raw", "h_context", "delta", "h_final"}
+    )
+
+
 @dataclass
 class FusionAuxOutput:
     """Typed auxiliary output for multimodal fusion classifier."""
@@ -38,13 +43,24 @@ class FusionAuxOutput:
     h_raw: torch.Tensor | None = None
     h_context: torch.Tensor | None = None
     delta: torch.Tensor | None = None
+    alpha_stats: dict[str, float] | None = None
+    gamma_beta_summary: dict[str, float] | None = None
     extra: dict[str, Any] | None = None
+
+    @staticmethod
+    def _summary_stats(tensor: torch.Tensor) -> dict[str, float]:
+        detached = tensor.detach()
+        return {
+            "mean": float(detached.mean().item()),
+            "std": float(detached.std(unbiased=False).item()),
+            "l2_norm": float(detached.norm(p=2).item()),
+        }
 
     def populate_fusion(
         self,
         fusion_aux: Mapping[str, Any],
         include_fusion_aux: bool,
-        known_fusion_keys: set[str] | frozenset[str],
+        known_fusion_keys: set[str] | frozenset[str] = KNOWN_FUSION_KEYS,
     ) -> None:
         """Populate fusion-specific diagnostics in-place."""
         if not include_fusion_aux:
@@ -57,6 +73,17 @@ class FusionAuxOutput:
         self.h_raw = fusion_aux.get("h_raw")
         self.h_context = fusion_aux.get("h_context")
         self.delta = fusion_aux.get("delta")
+        if self.alpha is not None:
+            self.alpha_stats = self._summary_stats(self.alpha)
+        if self.gamma is not None and self.beta is not None:
+            gamma_stats = self._summary_stats(self.gamma)
+            beta_stats = self._summary_stats(self.beta)
+            self.gamma_beta_summary = {
+                "gamma_l2_norm": gamma_stats["l2_norm"],
+                "gamma_mean": gamma_stats["mean"],
+                "beta_l2_norm": beta_stats["l2_norm"],
+                "beta_mean": beta_stats["mean"],
+            }
 
         extra_fusion_aux = {
             key: value

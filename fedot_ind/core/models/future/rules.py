@@ -4,7 +4,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 import torch
+import torch.nn as nn
 
+from fedot_ind.core.models.future.mapping import FusionMethod
 from fedot_ind.core.models.nn.models_rules import normalize_modality
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
@@ -40,14 +42,26 @@ def normalize_unique_modalities(
 
 
 def validate_supported_fusion_method(
-    fusion_method: str,
-    fusion_registry: Mapping[str, Any],
-) -> None:
-    if fusion_method not in fusion_registry:
-        available = ", ".join(sorted(fusion_registry.keys()))
+    fusion_method: FusionMethod | str,
+    fusion_registry: Mapping[FusionMethod, Any],
+) -> FusionMethod:
+    if isinstance(fusion_method, FusionMethod):
+        normalized = fusion_method
+    else:
+        try:
+            normalized = FusionMethod(str(fusion_method))
+        except ValueError as exc:
+            available = [method.value for method in FusionMethod]
+            raise ValueError(
+                f"Unknown fusion method '{fusion_method}'. Available methods: {available}."
+            ) from exc
+
+    if normalized not in fusion_registry:
+        available = [method.value for method in fusion_registry]
         raise ValueError(
-            f"Unknown fusion method '{fusion_method}'. Available methods: {available}."
+            f"Unknown fusion method '{normalized.value}'. Available methods: {available}."
         )
+    return normalized
 
 
 def validate_multimodal_bundle_input(input_data: Any) -> MultimodalDataBundle:
@@ -69,25 +83,19 @@ def resolve_modalities_from_bundle(
     return normalize_unique_modalities(resolved)
 
 
-def validate_bundle_has_modalities(
-    bundle: MultimodalDataBundle,
+def validate_modalities_presence(
     required_modalities: Sequence[MultimodalModality],
+    available_modalities: Sequence[MultimodalModality],
+    source_label: str,
 ) -> None:
-    missing = [modality.value for modality in required_modalities if modality not in bundle.modalities]
+    missing = [
+        modality.value
+        for modality in required_modalities
+        if modality not in available_modalities
+    ]
     if missing:
         raise ValueError(
-            f"Bundle does not contain required modalities: {sorted(missing)}."
-        )
-
-
-def validate_input_mapping_has_modalities(
-    inputs: Mapping[MultimodalModality, torch.Tensor],
-    required_modalities: Sequence[MultimodalModality],
-) -> None:
-    missing = [modality.value for modality in required_modalities if modality not in inputs]
-    if missing:
-        raise ValueError(
-            f"Missing input modalities: {sorted(missing)}."
+            f"{source_label} does not contain required modalities: {sorted(missing)}."
         )
 
 
@@ -99,6 +107,17 @@ def validate_encoder_registry_has_modalities(
     if unsupported:
         raise ValueError(
             f"Unsupported modalities for encoder presets: {sorted(unsupported)}."
+        )
+
+
+def validate_supported_modalities(modalities: Sequence[MultimodalModality]) -> None:
+    supported_modalities = frozenset(MultimodalModality)
+    unsupported = [m.value for m in modalities if m not in supported_modalities]
+    if unsupported:
+        raise ValueError(
+            "Supported modalities are "
+            f"{sorted(m.value for m in supported_modalities)}. "
+            f"Got unsupported modalities: {sorted(unsupported)}."
         )
 
 
@@ -141,3 +160,21 @@ def validate_stacked_embeddings_shape(
         raise ValueError(
             f"Expected d_model={expected_d_model}, got {d_model}."
         )
+
+
+def require_initialized_model_parts(
+    encoders: nn.ModuleDict | None,
+    fusion: nn.Module | None,
+    modalities: Sequence[MultimodalModality] | None,
+    require_modules: bool = True,
+) -> tuple[nn.ModuleDict | None, nn.Module | None, Sequence[MultimodalModality]]:
+    """Require initialized model parts and return normalized references."""
+
+    if modalities is None:
+        raise ValueError("Model modalities are not resolved.")
+
+    if require_modules and encoders is None:
+        raise ValueError("Model encoders are not initialized.")
+    if require_modules and fusion is None:
+        raise ValueError("Fusion module is not initialized.")
+    return encoders, fusion, modalities
