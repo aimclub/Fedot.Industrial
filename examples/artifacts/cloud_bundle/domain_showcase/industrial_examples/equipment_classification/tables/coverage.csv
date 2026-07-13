@@ -1,0 +1,2 @@
+source_label,coverage_unit,expected_dataset_count,observed_dataset_count,coverage_pct,missing_dataset_count,missing_datasets,status
+equipment_classification_current_api_preview,dataset_name,2,2,100.0,0,,full

@@ -1,0 +1,2242 @@
+[
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\plots\\metric_by_model.png",
+    "size_bytes": 49503
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\summary.md",
+    "size_bytes": 1169
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\best_per_dataset.csv",
+    "size_bytes": 2289
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\best_target_delta.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\coverage.csv",
+    "size_bytes": 189
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\dataset_delta.csv",
+    "size_bytes": 2309
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\dataset_difficulty.csv",
+    "size_bytes": 908
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\mean_rank.csv",
+    "size_bytes": 568
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\model_aliases.csv",
+    "size_bytes": 317
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\model_diagnostics.csv",
+    "size_bytes": 128
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\normalized_results.csv",
+    "size_bytes": 43628
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\source_metadata.csv",
+    "size_bytes": 236
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_multi_clf\\tables\\topk_summary.csv",
+    "size_bytes": 467
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\plots\\metric_by_model.png",
+    "size_bytes": 83338
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\summary.md",
+    "size_bytes": 1375
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\best_per_dataset.csv",
+    "size_bytes": 5967
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\best_target_delta.csv",
+    "size_bytes": 4841
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\coverage.csv",
+    "size_bytes": 257
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\dataset_delta.csv",
+    "size_bytes": 4925
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\dataset_difficulty.csv",
+    "size_bytes": 3919
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\generator_usage.csv",
+    "size_bytes": 144
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\mean_rank.csv",
+    "size_bytes": 1091
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\model_aliases.csv",
+    "size_bytes": 720
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\model_diagnostics.csv",
+    "size_bytes": 51037
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\normalized_results.csv",
+    "size_bytes": 151729
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 99784
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\source_metadata.csv",
+    "size_bytes": 386
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_regr\\tables\\topk_summary.csv",
+    "size_bytes": 861
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\plots\\metric_by_model.png",
+    "size_bytes": 59794
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\summary.md",
+    "size_bytes": 1383
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\best_per_dataset.csv",
+    "size_bytes": 9906
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\best_target_delta.csv",
+    "size_bytes": 15285
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\coverage.csv",
+    "size_bytes": 267
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\dataset_delta.csv",
+    "size_bytes": 16141
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\dataset_difficulty.csv",
+    "size_bytes": 4996
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\generator_usage.csv",
+    "size_bytes": 291
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\mean_rank.csv",
+    "size_bytes": 539
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\model_aliases.csv",
+    "size_bytes": 394
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\model_diagnostics.csv",
+    "size_bytes": 87413
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\normalized_results.csv",
+    "size_bytes": 150984
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 118480
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\source_metadata.csv",
+    "size_bytes": 402
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\analysis_uni_clf\\tables\\topk_summary.csv",
+    "size_bytes": 496
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\plots\\metric_by_model.png",
+    "size_bytes": 40492
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\source_metadata.json",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\source_metadata.json",
+    "size_bytes": 605
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\summary.md",
+    "size_bytes": 446
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\tables\\forecast_comparison.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\tables\\forecast_comparison.csv",
+    "size_bytes": 4762
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\tables\\forecast_metrics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\forecasting_model_comparison\\tables\\forecast_metrics.csv",
+    "size_bytes": 383
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\plots\\metric_by_model.png",
+    "size_bytes": 39382
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\summary.md",
+    "size_bytes": 1184
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\best_per_dataset.csv",
+    "size_bytes": 212
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\best_target_delta.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\coverage.csv",
+    "size_bytes": 214
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\dataset_delta.csv",
+    "size_bytes": 288
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\dataset_difficulty.csv",
+    "size_bytes": 100
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\mean_rank.csv",
+    "size_bytes": 248
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\model_aliases.csv",
+    "size_bytes": 197
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\model_diagnostics.csv",
+    "size_bytes": 87728
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\normalized_results.csv",
+    "size_bytes": 1157250
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 1006
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\source_metadata.csv",
+    "size_bytes": 265
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis\\tables\\topk_summary.csv",
+    "size_bytes": 229
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\plots\\metric_by_model.png",
+    "size_bytes": 39489
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\source_metadata.json",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\source_metadata.json",
+    "size_bytes": 605
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\summary.md",
+    "size_bytes": 445
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\tables\\forecast_comparison.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\tables\\forecast_comparison.csv",
+    "size_bytes": 4762
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\tables\\forecast_metrics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\m4_analysis_forecast_models\\tables\\forecast_metrics.csv",
+    "size_bytes": 383
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\plots\\metric_by_model.png",
+    "size_bytes": 59954
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\summary.md",
+    "size_bytes": 1382
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\best_per_dataset.csv",
+    "size_bytes": 9906
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\best_target_delta.csv",
+    "size_bytes": 15285
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\coverage.csv",
+    "size_bytes": 267
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\dataset_delta.csv",
+    "size_bytes": 121
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\dataset_difficulty.csv",
+    "size_bytes": 4996
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\generator_usage.csv",
+    "size_bytes": 291
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\mean_rank.csv",
+    "size_bytes": 539
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\model_aliases.csv",
+    "size_bytes": 394
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\model_diagnostics.csv",
+    "size_bytes": 87413
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\normalized_results.csv",
+    "size_bytes": 150984
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 118480
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\source_metadata.csv",
+    "size_bytes": 572
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pdl_uni_benchmark\\tables\\topk_summary.csv",
+    "size_bytes": 496
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\plots\\metric_by_model.png",
+    "size_bytes": 66911
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\summary.md",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\summary.md",
+    "size_bytes": 735
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\composition_history.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\composition_history.csv",
+    "size_bytes": 815291
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\coverage.csv",
+    "size_bytes": 92
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\evolution_dynamics.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\evolution_dynamics.csv",
+    "size_bytes": 15945
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\notable_pipelines.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\notable_pipelines.csv",
+    "size_bytes": 73980
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\operation_frequency.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\operation_frequency.csv",
+    "size_bytes": 452
+  },
+  {
+    "group_key": "benchmark_analysis_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\pipeline_complexity.csv",
+    "bundle_path": "benchmark_showcase\\analysis_of_results\\pipeline_population\\tables\\pipeline_complexity.csv",
+    "size_bytes": 280819
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\plots\\metric_by_model.png",
+    "size_bytes": 40086
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\summary.md",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\summary.md",
+    "size_bytes": 1147
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\best_per_dataset.csv",
+    "size_bytes": 212
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\best_target_delta.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\coverage.csv",
+    "size_bytes": 174
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\dataset_delta.csv",
+    "size_bytes": 288
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\dataset_difficulty.csv",
+    "size_bytes": 100
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\mean_rank.csv",
+    "size_bytes": 248
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\model_aliases.csv",
+    "size_bytes": 197
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\model_diagnostics.csv",
+    "size_bytes": 87728
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\normalized_results.csv",
+    "size_bytes": 1157250
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 1006
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\source_metadata.csv",
+    "size_bytes": 265
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting\\tables\\topk_summary.csv",
+    "size_bytes": 229
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\plots\\metric_by_model.png",
+    "size_bytes": 39935
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\source_metadata.json",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\source_metadata.json",
+    "size_bytes": 605
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\summary.md",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\summary.md",
+    "size_bytes": 448
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\tables\\forecast_comparison.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\tables\\forecast_comparison.csv",
+    "size_bytes": 4762
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\tables\\forecast_metrics.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\m4_forecasting_forecast_models\\tables\\forecast_metrics.csv",
+    "size_bytes": 383
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\plots\\metric_by_model.png",
+    "size_bytes": 40824
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\summary.md",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\summary.md",
+    "size_bytes": 1151
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\best_per_dataset.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\best_per_dataset.csv",
+    "size_bytes": 212
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\best_target_delta.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\best_target_delta.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\coverage.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\coverage.csv",
+    "size_bytes": 174
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\dataset_delta.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\dataset_delta.csv",
+    "size_bytes": 288
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\dataset_difficulty.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\dataset_difficulty.csv",
+    "size_bytes": 100
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\generator_usage.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\mean_rank.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\mean_rank.csv",
+    "size_bytes": 248
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\model_aliases.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\model_aliases.csv",
+    "size_bytes": 197
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\model_diagnostics.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\model_diagnostics.csv",
+    "size_bytes": 87728
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\normalized_results.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\normalized_results.csv",
+    "size_bytes": 1157250
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 1006
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\source_metadata.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\source_metadata.csv",
+    "size_bytes": 265
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting\\tables\\topk_summary.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting\\tables\\topk_summary.csv",
+    "size_bytes": 229
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\plots\\metric_by_model.png",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\plots\\metric_by_model.png",
+    "size_bytes": 40594
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\source_metadata.json",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\source_metadata.json",
+    "size_bytes": 605
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\summary.md",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\summary.md",
+    "size_bytes": 452
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\tables\\forecast_comparison.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\tables\\forecast_comparison.csv",
+    "size_bytes": 4762
+  },
+  {
+    "group_key": "forecasting_benchmark_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\tables\\forecast_metrics.csv",
+    "bundle_path": "benchmark_showcase\\forecasting\\monash_forecasting_forecast_models\\tables\\forecast_metrics.csv",
+    "size_bytes": 383
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\plots\\metric_by_model.png",
+    "size_bytes": 42240
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\source_metadata.json",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\source_metadata.json",
+    "size_bytes": 389
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\summary.md",
+    "size_bytes": 438
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\tables\\forecast_comparison.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\tables\\forecast_comparison.csv",
+    "size_bytes": 4666
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\tables\\forecast_metrics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\forecast_comparison\\tables\\forecast_metrics.csv",
+    "size_bytes": 479
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\plots\\metric_by_model.png",
+    "size_bytes": 43136
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\summary.md",
+    "size_bytes": 1059
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\best_per_dataset.csv",
+    "size_bytes": 325
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\coverage.csv",
+    "size_bytes": 205
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\dataset_delta.csv",
+    "size_bytes": 353
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\dataset_difficulty.csv",
+    "size_bytes": 160
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\mean_rank.csv",
+    "size_bytes": 224
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\normalized_results.csv",
+    "size_bytes": 1395
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_forecasting\\tables\\topk_summary.csv",
+    "size_bytes": 261
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\plots\\metric_by_model.png",
+    "size_bytes": 56760
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\summary.md",
+    "size_bytes": 1057
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\best_per_dataset.csv",
+    "size_bytes": 383
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\coverage.csv",
+    "size_bytes": 204
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\dataset_delta.csv",
+    "size_bytes": 457
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\dataset_difficulty.csv",
+    "size_bytes": 218
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\mean_rank.csv",
+    "size_bytes": 307
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\normalized_results.csv",
+    "size_bytes": 1919
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\bitcoin_regression\\tables\\topk_summary.csv",
+    "size_bytes": 352
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\plots\\metric_by_model.png",
+    "size_bytes": 42240
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\source_metadata.json",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\source_metadata.json",
+    "size_bytes": 391
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\summary.md",
+    "size_bytes": 438
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\tables\\forecast_comparison.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\tables\\forecast_comparison.csv",
+    "size_bytes": 4666
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\tables\\forecast_metrics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\forecast_comparison\\tables\\forecast_metrics.csv",
+    "size_bytes": 479
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\plots\\metric_by_model.png",
+    "size_bytes": 43417
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\summary.md",
+    "size_bytes": 1061
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\best_per_dataset.csv",
+    "size_bytes": 329
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\coverage.csv",
+    "size_bytes": 206
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\dataset_delta.csv",
+    "size_bytes": 355
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\dataset_difficulty.csv",
+    "size_bytes": 162
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\mean_rank.csv",
+    "size_bytes": 224
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\normalized_results.csv",
+    "size_bytes": 1415
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_forecasting\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_forecasting\\tables\\topk_summary.csv",
+    "size_bytes": 261
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\plots\\metric_by_model.png",
+    "size_bytes": 57011
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\summary.md",
+    "size_bytes": 1059
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\best_per_dataset.csv",
+    "size_bytes": 387
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\coverage.csv",
+    "size_bytes": 205
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\dataset_delta.csv",
+    "size_bytes": 459
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\dataset_difficulty.csv",
+    "size_bytes": 220
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\mean_rank.csv",
+    "size_bytes": 307
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\normalized_results.csv",
+    "size_bytes": 1947
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_regression\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_regression\\tables\\topk_summary.csv",
+    "size_bytes": 352
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\plots\\metric_by_model.png",
+    "size_bytes": 57947
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\summary.md",
+    "size_bytes": 1082
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\best_per_dataset.csv",
+    "size_bytes": 458
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\coverage.csv",
+    "size_bytes": 217
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\dataset_delta.csv",
+    "size_bytes": 508
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\dataset_difficulty.csv",
+    "size_bytes": 251
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\mean_rank.csv",
+    "size_bytes": 329
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\normalized_results.csv",
+    "size_bytes": 2451
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\economic_scoring_classification\\tables\\topk_summary.csv",
+    "size_bytes": 374
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\plots\\metric_by_model.png",
+    "size_bytes": 56371
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\summary.md",
+    "size_bytes": 1056
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\best_per_dataset.csv",
+    "size_bytes": 406
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\coverage.csv",
+    "size_bytes": 204
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\dataset_delta.csv",
+    "size_bytes": 482
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\dataset_difficulty.csv",
+    "size_bytes": 225
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\mean_rank.csv",
+    "size_bytes": 329
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\normalized_results.csv",
+    "size_bytes": 2087
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\eeg_classification\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\eeg_classification\\tables\\topk_summary.csv",
+    "size_bytes": 374
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\plots\\metric_by_model.png",
+    "size_bytes": 56757
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\summary.md",
+    "size_bytes": 1055
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\best_per_dataset.csv",
+    "size_bytes": 379
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\coverage.csv",
+    "size_bytes": 203
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\dataset_delta.csv",
+    "size_bytes": 455
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\dataset_difficulty.csv",
+    "size_bytes": 216
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\mean_rank.csv",
+    "size_bytes": 307
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\normalized_results.csv",
+    "size_bytes": 1891
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\energy_regression\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\energy_regression\\tables\\topk_summary.csv",
+    "size_bytes": 352
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\plots\\metric_by_model.png",
+    "size_bytes": 54078
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\summary.md",
+    "size_bytes": 1065
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\best_per_dataset.csv",
+    "size_bytes": 399
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\coverage.csv",
+    "size_bytes": 208
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\dataset_delta.csv",
+    "size_bytes": 465
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\dataset_difficulty.csv",
+    "size_bytes": 226
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\mean_rank.csv",
+    "size_bytes": 287
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\normalized_results.csv",
+    "size_bytes": 1791
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\environment_regression\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\environment_regression\\tables\\topk_summary.csv",
+    "size_bytes": 328
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\plots\\metric_by_model.png",
+    "size_bytes": 57264
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\summary.md",
+    "size_bytes": 1068
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\best_per_dataset.csv",
+    "size_bytes": 430
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\coverage.csv",
+    "size_bytes": 210
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\dataset_delta.csv",
+    "size_bytes": 494
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\dataset_difficulty.csv",
+    "size_bytes": 237
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\mean_rank.csv",
+    "size_bytes": 329
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\normalized_results.csv",
+    "size_bytes": 2255
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\equipment_classification\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\equipment_classification\\tables\\topk_summary.csv",
+    "size_bytes": 374
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\plots\\metric_by_model.png",
+    "size_bytes": 56541
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\summary.md",
+    "size_bytes": 1059
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\best_per_dataset.csv",
+    "size_bytes": 387
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\coverage.csv",
+    "size_bytes": 205
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\dataset_delta.csv",
+    "size_bytes": 459
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\dataset_difficulty.csv",
+    "size_bytes": 220
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\mean_rank.csv",
+    "size_bytes": 307
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\normalized_results.csv",
+    "size_bytes": 1947
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\ethereum_regression\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\ethereum_regression\\tables\\topk_summary.csv",
+    "size_bytes": 352
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\plots\\metric_by_model.png",
+    "size_bytes": 42240
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\source_metadata.json",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\source_metadata.json",
+    "size_bytes": 385
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\summary.md",
+    "size_bytes": 438
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\tables\\forecast_comparison.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\tables\\forecast_comparison.csv",
+    "size_bytes": 4666
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\tables\\forecast_metrics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\forecast_comparison\\tables\\forecast_metrics.csv",
+    "size_bytes": 479
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\plots\\metric_by_model.png",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\plots\\metric_by_model.png",
+    "size_bytes": 42362
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\summary.md",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\summary.md",
+    "size_bytes": 1055
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\best_per_dataset.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\best_per_dataset.csv",
+    "size_bytes": 317
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\coverage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\coverage.csv",
+    "size_bytes": 203
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\dataset_delta.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\dataset_delta.csv",
+    "size_bytes": 349
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\dataset_difficulty.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\dataset_difficulty.csv",
+    "size_bytes": 156
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\generator_usage.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\generator_usage.csv",
+    "size_bytes": 58
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\mean_rank.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\mean_rank.csv",
+    "size_bytes": 224
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\model_diagnostics.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\model_diagnostics.csv",
+    "size_bytes": 2
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\normalized_results.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\normalized_results.csv",
+    "size_bytes": 1355
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\parameter_metric_drift.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\parameter_metric_drift.csv",
+    "size_bytes": 50
+  },
+  {
+    "group_key": "industrial_domain_publication_packs",
+    "category": "viz_artifacts",
+    "storage_policy": "canonical_local",
+    "source_path": "examples\\artifacts\\cloud_bundle\\domain_showcase\\industrial_examples\\health_monitoring\\tables\\topk_summary.csv",
+    "bundle_path": "domain_showcase\\industrial_examples\\health_monitoring\\tables\\topk_summary.csv",
+    "size_bytes": 261
+  }
+]

@@ -1,0 +1,4 @@
+label,kind,path,exists_locally,metric_name,source_version,source_date
+sota_ucr_2024,table,D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\time_series_uni_clf_comparasion_2024.csv,True,accuracy,,2024
+industrial_kernel_learning_ucr_020626,incremental_metrics,D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\v2_kernel_learning\ucr_suite_020626,True,accuracy,,2026-06-02
+industrial_pdl_ucr_full_pending,incremental_metrics,D:\data_old\WORK\Repo\Industiral\IndustrialTS\benchmark\results\kernel_learning\pdl_ucr_full,False,accuracy,,pending

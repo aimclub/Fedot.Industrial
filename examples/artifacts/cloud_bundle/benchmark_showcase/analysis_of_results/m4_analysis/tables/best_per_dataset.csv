@@ -1,0 +1,2 @@
+dataset_name,metric_name,best_model,best_metric_value,source_label,task_type,metric_direction
+m4_monthly_kernel_learning,mae,NaiveLastValue,0.0,industrial_kernel_learning_m4_monthly_full_m100,forecasting,lower

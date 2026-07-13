@@ -1,0 +1,22 @@
+model_name,model_alias
+Arsenal,Arsenal
+CBOSS,CBOSS
+CIF,CIF
+DTW_A,DTW A
+DTW_D,DTW D
+DTW_I,DTW I
+DrCIF,DrCIF
+Fedot_Industrial,Fedot Industrial
+HC1,HC1
+HC2,HC2
+InceptionTime,InceptionTime
+MUSE,MUSE
+RISE,RISE
+ROCKET,ROCKET
+ResNet,ResNet
+STC,STC
+TDE,TDE
+TSF,TSF
+TapNet,TapNet
+gRSF,gRSF
+mrseql,mrseql

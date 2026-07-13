@@ -1,0 +1,22 @@
+{
+  "version": "benchmark_industrial_manifest@1",
+  "kind": "preset",
+  "preset_name": "m4",
+  "subset": "daily",
+  "sample_size": 2,
+  "persist_on_run": false,
+  "output_dir": "benchmark/results/examples/utils/current_api/manifests/m4_daily",
+  "models": [
+    {
+      "adapter_name": "naive_last_value",
+      "display_name": "NaiveLastValue"
+    },
+    {
+      "adapter_name": "moving_average",
+      "display_name": "MovingAverage",
+      "params": {
+        "window_size": 3
+      }
+    }
+  ]
+}

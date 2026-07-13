@@ -1,0 +1,4 @@
+generator_name,selection_count,dataset_count,model_count
+statistical_summary,95,31,4
+shapelet_extractor,18,18,1
+embedding_extractor,16,16,1

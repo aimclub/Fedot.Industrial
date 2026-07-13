@@ -1,0 +1,163 @@
+{
+  "version": "industrial_examples_artifact_catalog@1",
+  "title": "IndustrialTS examples artifact catalog",
+  "description": "Central catalog for local inputs, benchmark history, full-run results, notebooks, and rendered visual artifacts used by examples.",
+  "cloud_bundle_root": "examples/artifacts/cloud_bundle",
+  "showcase_root": "examples/artifacts/showcase",
+  "external_data_manifest": "examples/real_world_examples/external_data_manifest.json",
+  "groups": [
+    {
+      "key": "benchmark_analysis_publication_packs",
+      "title": "Benchmark analysis publication packs",
+      "category": "viz_artifacts",
+      "task_type": "mixed",
+      "experiment_family": "benchmark_analysis",
+      "local_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results",
+      "inventory_mode": "pack",
+      "storage_policy": "canonical_local",
+      "cloud_path": "benchmark_showcase/analysis_of_results",
+      "source_manifest": "examples/real_world_examples/benchmark_example/analysis_of_results/analysis_defaults.json",
+      "producer": "examples.real_world_examples.benchmark_example.analysis_of_results.current_api",
+      "include_policy": "store summaries, plots, tables, and source metadata here; raw benchmark inputs stay external",
+      "notes": "Leaderboard, rank, delta, diagnostics, M4 forecast comparison, and pipeline population report packs."
+    },
+    {
+      "key": "forecasting_benchmark_publication_packs",
+      "title": "Forecasting benchmark publication packs",
+      "category": "viz_artifacts",
+      "task_type": "forecasting",
+      "experiment_family": "benchmark_forecasting",
+      "local_path": "examples/artifacts/cloud_bundle/benchmark_showcase/forecasting",
+      "inventory_mode": "pack",
+      "storage_policy": "canonical_local",
+      "cloud_path": "benchmark_showcase/forecasting",
+      "source_manifest": "examples/real_world_examples/benchmark_example/forecasting/results_manifest.json",
+      "producer": "examples.real_world_examples.benchmark_example.forecasting",
+      "include_policy": "store summaries, plots, forecast comparisons, and tables here; raw forecasting data stays external",
+      "notes": "M4, Monash, Kaggle, and forecasting scenario report packs."
+    },
+    {
+      "key": "industrial_domain_publication_packs",
+      "title": "Industrial applied-domain publication packs",
+      "category": "viz_artifacts",
+      "task_type": "mixed",
+      "experiment_family": "industrial_domain_examples",
+      "local_path": "examples/artifacts/cloud_bundle/domain_showcase/industrial_examples",
+      "inventory_mode": "pack",
+      "storage_policy": "canonical_local",
+      "cloud_path": "domain_showcase/industrial_examples",
+      "source_manifest": "examples/real_world_examples/industrial_examples/scenario_defaults.json",
+      "producer": "examples.real_world_examples.industrial_examples.current_api",
+      "include_policy": "store summaries, plots, tables, and scenario-level forecast comparisons here; local raw data stays external",
+      "notes": "Applied EEG, economic, energy, equipment, health, environment, crypto forecasting, and regression report packs."
+    },
+    {
+      "key": "benchmark_history_archive",
+      "title": "Historical benchmark archive inputs",
+      "category": "archive_data",
+      "task_type": "mixed",
+      "experiment_family": "historical_benchmark_runs",
+      "local_path": "examples/utils/data/benchmark_history",
+      "inventory_mode": "shallow",
+      "storage_policy": "manifest_only",
+      "cloud_path": "raw_inputs/benchmark_history",
+      "source_manifest": "examples/utils/data/benchmark_history/real_world_archive/archive_manifest.json",
+      "external_data_key": "real_world_archive_composition_results",
+      "producer": "external_local_or_dvc",
+      "include_policy": "describe and upload through DVC or manual cloud folder; do not commit raw archive payloads",
+      "notes": "Composition history, M3/M4 local data, and historical result directories used by notebook reports."
+    },
+    {
+      "key": "examples_utils_local_data",
+      "title": "Examples utils local data",
+      "category": "raw_and_fixture_data",
+      "task_type": "mixed",
+      "experiment_family": "examples_utils_data",
+      "local_path": "examples/utils/data",
+      "inventory_mode": "shallow",
+      "storage_policy": "manifest_only",
+      "cloud_path": "raw_inputs/examples_utils_data",
+      "source_manifest": "examples/utils/data/README.md",
+      "producer": "examples.utils.current_api",
+      "include_policy": "manifest-only by default; upload large local zips, pickles, mats, and benchmark csv files through cloud/DVC",
+      "notes": "Task-based fixtures plus local benchmark/raw data organized under examples/utils/data."
+    },
+    {
+      "key": "current_kernel_learning_full_runs",
+      "title": "Current Kernel Learning full-run artifacts",
+      "category": "run_artifacts",
+      "task_type": "mixed",
+      "experiment_family": "kernel_learning",
+      "local_path": "benchmark/results/kernel_learning",
+      "inventory_mode": "manifest",
+      "storage_policy": "manifest_only",
+      "cloud_path": "benchmark_runs/kernel_learning",
+      "source_manifest": "examples/real_world_examples/benchmark_example/full_runs/README.md",
+      "producer": "benchmark.industrial full-run configs",
+      "include_policy": "upload resumable run artifacts to cloud/DVC; keep checkpoints and raw outputs out of git unless explicitly lightweight",
+      "notes": "Fresh UCR, TSER, M4, and related Kernel Learning run artifacts used by the benchmark showcase."
+    }
+  ],
+  "benchmark_showcase": [
+    {
+      "key": "analysis_uni_clf",
+      "title": "UCR univariate classification",
+      "task_type": "ts_classification",
+      "artifact_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/analysis_uni_clf",
+      "primary_metric": "accuracy",
+      "reference_sources": ["sota_ucr_2024"],
+      "industrial_sources": ["industrial_kernel_learning_ucr_020626"],
+      "notes": "Full UCR comparison with source-aware best-target delta and model diagnostics."
+    },
+    {
+      "key": "analysis_multi_clf",
+      "title": "Multivariate classification",
+      "task_type": "ts_classification",
+      "artifact_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/analysis_multi_clf",
+      "primary_metric": "accuracy",
+      "reference_sources": ["sota_multivariate_2023"],
+      "industrial_sources": ["historical_industrial_multivariate"],
+      "notes": "Historical multivariate benchmark comparison."
+    },
+    {
+      "key": "analysis_regr",
+      "title": "TSER regression",
+      "task_type": "ts_regression",
+      "artifact_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/analysis_regr",
+      "primary_metric": "rmse",
+      "reference_sources": ["sota_tser_2024"],
+      "industrial_sources": ["industrial_kernel_learning_tser_full"],
+      "notes": "Regression comparison against SoTA tables and current Kernel Learning TSER full-run artifacts."
+    },
+    {
+      "key": "m4_analysis",
+      "title": "M4 Monthly forecasting",
+      "task_type": "forecasting",
+      "artifact_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/m4_analysis",
+      "primary_metric": "mae",
+      "reference_sources": ["local_m4_monthly_baselines"],
+      "industrial_sources": ["industrial_kernel_learning_m4_monthly_full_m100"],
+      "notes": "Local M100 Monthly M4 comparison with 100/100 series coverage."
+    },
+    {
+      "key": "pdl_uni_benchmark",
+      "title": "PDL and UCR classification",
+      "task_type": "ts_classification",
+      "artifact_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/pdl_uni_benchmark",
+      "primary_metric": "accuracy",
+      "reference_sources": ["sota_ucr_2024"],
+      "industrial_sources": ["industrial_kernel_learning_ucr_020626", "industrial_pdl_ucr_full_pending"],
+      "notes": "PDL-focused comparison; full PDL source is represented as pending until local run artifacts are available."
+    },
+    {
+      "key": "pipeline_population",
+      "title": "Evolutionary pipeline population",
+      "task_type": "mixed",
+      "artifact_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/pipeline_population",
+      "primary_metric": "fitness",
+      "reference_sources": ["real_world_archive_composition_results"],
+      "industrial_sources": ["fedot_industrial_evolution_history"],
+      "notes": "Composition history dynamics, notable pipelines, and operation frequency from archive data."
+    }
+  ]
+}

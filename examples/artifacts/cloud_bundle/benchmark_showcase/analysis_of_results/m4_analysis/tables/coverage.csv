@@ -1,0 +1,2 @@
+source_label,coverage_unit,expected_dataset_count,observed_dataset_count,coverage_pct,missing_dataset_count,missing_datasets,status
+industrial_kernel_learning_m4_monthly_full_m100,series_id,100,100,100.0,0,,full

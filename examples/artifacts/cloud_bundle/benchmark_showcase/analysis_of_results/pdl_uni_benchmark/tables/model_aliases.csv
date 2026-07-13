@@ -1,0 +1,13 @@
+model_name,model_alias
+FreshPRINCE,FreshPRINCE
+HC2,HC2
+Hydra-MR,Hydra-MR
+InceptionT,InceptionT
+KernelEnsembleClassifier_adaptive_all_non_topological,KLC adaptive
+KernelEnsembleClassifier_embedding_nystrom,KLC nystrom
+KernelEnsembleClassifier_score_baseline_summary,KLC baseline
+KernelEnsembleClassifier_shapelet_motif_rbf,KLC shapelet
+PF,PF
+RDST,RDST
+RSTSF,RSTSF
+WEASEL_D,WEASEL D

@@ -1,0 +1,13 @@
+{
+  "title": "health_monitoring: multi-model forecast preview",
+  "series_id": "health_monitoring_forecast_preview",
+  "history_length": 36,
+  "forecast_horizon": 12,
+  "models": [
+    "NaiveLastValue",
+    "LaggedRidgeForecaster",
+    "KernelEnsembleForecaster_identity_shapelet",
+    "KernelEnsembleForecaster_embedding_nystrom_okhs",
+    "KernelEnsembleForecaster"
+  ]
+}

@@ -28,9 +28,12 @@ __pycache__/
 !benchmark/industrial/examples/kernel_learning_ucr_manifest.json
 !benchmark/experiments/kernel_learning/defaults.json
 !benchmark/industrial/experiments/preset_defaults.json
-!examples/current_api/example_defaults.json
-!examples/current_api/manifests/*.json
-!examples/automl_example/automl_defaults.json
+!examples/utils/current_api/example_defaults.json
+!examples/utils/current_api/manifests/*.json
+!examples/tools_example/tool_defaults.json
+!examples/artifacts/artifact_catalog.json
+!examples/artifacts/cloud_bundle/**/*.json
+!examples/artifacts/cloud_bundle/**/*.csv
 !examples/real_world_examples/real_world_defaults.json
 !examples/real_world_examples/external_data_manifest.json
 !examples/real_world_examples/benchmark_example/analysis_of_results/analysis_defaults.json

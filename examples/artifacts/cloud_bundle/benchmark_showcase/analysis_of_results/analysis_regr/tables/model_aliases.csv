@@ -1,0 +1,30 @@
+model_name,model_alias
+1NN-DTW,1NN-DTW
+1NN-ED,1NN-ED
+5NN-DTW,5NN-DTW
+5NN-ED,5NN-ED
+CNN,CNN
+DrCIF,DrCIF
+FCN,FCN
+FPCR,FPCR
+FPCR-Bs,FPCR-Bs
+Fedot_Industrial_legacy_baseline,FI legacy base
+Fedot_Industrial_legacy_baseline_features,FI legacy features
+FreshPRINCE,FreshPRINCE
+Grid-SVR,Grid-SVR
+InceptionT,InceptionT
+KernelEnsembleRegressor_adaptive_rbf_summary,KLR adaptive
+KernelEnsembleRegressor_embedding_nystrom,KLR nystrom
+KernelEnsembleRegressor_score_linear_summary,KLR linear
+KernelEnsembleRegressor_shapelet_rbf,KLR shapelet
+MultiROCKET,MultiROCKET
+RDST,RDST
+RIST,RIST
+ROCKET,ROCKET
+RandF,RandF
+ResNet,ResNet
+Ridge,Ridge
+RotF,RotF
+SingleInception,SingleInception
+TSF,TSF
+XGBoost,XGBoost
