@@ -22,7 +22,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--stage1-run-id",
         default=defaults.stage1_run_id,
-        help="Existing stage 1 run id to load when --run-stage-1 is not set.",
+        help="Existing stage 1 run id to load when --run-stage-1 is not set. Defaults to latest discovery.",
+    )
+    parser.add_argument(
+        "--stage1-run-policy",
+        default=defaults.stage1_run_policy,
+        choices=("latest",),
+        help="How to resolve stage 1 when --stage1-run-id is omitted.",
     )
     parser.add_argument(
         "--datasets",
@@ -66,6 +72,7 @@ def config_from_args(args: argparse.Namespace) -> KernelLearningTwoStageUCRExper
     return KernelLearningTwoStageUCRExperimentConfig(
         run_stage1=bool(args.run_stage_1),
         stage1_run_id=args.stage1_run_id,
+        stage1_run_policy=args.stage1_run_policy,
         datasets=tuple(args.datasets) if args.datasets is not None else (),
         stage1_output_dir=args.stage1_output_dir,
         stage2_output_dir=args.stage2_output_dir,

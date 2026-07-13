@@ -91,17 +91,18 @@ def test_stage1_artifacts_loader_restores_classification_result_from_artifacts(t
     assert result.aggregate_report.status_counts == {"success": 1}
 
 
-def test_stage1_runner_build_config_uses_local_discovery_when_datasets_empty(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        stage1_module,
-        "discover_local_ucr_datasets",
-        lambda data_root, allowed_names: ("Coffee", "Lightning7"),
-    )
+def test_stage1_runner_build_config_uses_local_discovery_when_datasets_empty(tmp_path):
+    for dataset_name in ("Coffee", "Lightning7"):
+        dataset_dir = tmp_path / "data" / dataset_name
+        dataset_dir.mkdir(parents=True)
+        (dataset_dir / f"{dataset_name}_TRAIN.tsv").write_text("a\t0.0\nb\t1.0\n", encoding="utf-8")
+        (dataset_dir / f"{dataset_name}_TEST.tsv").write_text("a\t0.2\nb\t1.2\n", encoding="utf-8")
 
     config = KernelLearningStage1Runner(
         data_root=tmp_path / "data",
         output_dir=tmp_path / "out",
         datasets=(),
+        allowed_dataset_names=("Coffee", "Lightning7"),
     ).build_config()
 
     assert tuple(spec.dataset_name for spec in config.datasets) == ("Coffee", "Lightning7")

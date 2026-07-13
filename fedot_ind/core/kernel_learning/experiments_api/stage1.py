@@ -6,6 +6,11 @@ from typing import Any, Sequence
 
 import pandas as pd
 
+from benchmark.experiments.kernel_learning.datasets import (
+    KernelLearningCustomDatasetPolicy,
+    build_ucr_dataset_spec,
+    resolve_ucr_dataset_plans,
+)
 from benchmark.industrial.classification import render_tsc_publication_pack, run_tsc_suite
 from benchmark.industrial.core import (
     ArtifactSpec,
@@ -21,7 +26,6 @@ from benchmark.industrial.core import (
     RunStatus,
     TaskType,
 )
-from benchmark.industrial.datasets.discovery import discover_local_ucr_datasets
 from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
 from .io import load_stage1_kernel_records, read_csv_records, read_json_if_exists, status_counts
 
@@ -40,6 +44,7 @@ class KernelLearningStage1Runner:
     output_dir: str | Path
     datasets: tuple[str, ...] = ()
     allowed_dataset_names: Sequence[str] = field(default_factory=lambda: tuple(UNI_CLF_BENCH))
+    custom_dataset_policy: KernelLearningCustomDatasetPolicy | str = KernelLearningCustomDatasetPolicy.UCR_ONLY
     generator_names: tuple[str, ...] = DEFAULT_STAGE1_GENERATORS
     metrics: tuple[str, ...] = DEFAULT_STAGE_METRICS
     run_name: str = "kernel_learning_ucr_stage1"
@@ -47,24 +52,23 @@ class KernelLearningStage1Runner:
     importance_threshold: float = 0.15
     show_progress: bool = True
 
+    def resolve_ucr_dataset_plans(self):
+        return resolve_ucr_dataset_plans(
+            data_root=self.data_root,
+            datasets=self.datasets,
+            allowed_dataset_names=self.allowed_dataset_names,
+            custom_dataset_policy=self.custom_dataset_policy,
+        )
+
     def resolve_ucr_datasets(self) -> tuple[str, ...]:
-        if self.datasets:
-            return tuple(self.datasets)
-        return discover_local_ucr_datasets(self.data_root, allowed_names=self.allowed_dataset_names)
+        return tuple(plan.name for plan in self.resolve_ucr_dataset_plans())
 
     def build_config(self) -> BenchmarkSuiteConfig:
         return BenchmarkSuiteConfig(
             task_type=TaskType.TS_CLASSIFICATION,
             datasets=tuple(
-                DatasetSpec(
-                    benchmark="ucr",
-                    dataset_name=dataset_name,
-                    adapter_options={
-                        "local_data_root": str(self.data_root),
-                        "download_if_missing": True,
-                    },
-                )
-                for dataset_name in self.resolve_ucr_datasets()
+                build_ucr_dataset_spec(plan, data_root=self.data_root)
+                for plan in self.resolve_ucr_dataset_plans()
             ),
             models=(
                 ModelSpec(

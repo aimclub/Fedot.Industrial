@@ -32,7 +32,8 @@
         "progress_log_errors": true,
         "progress_log_summaries": true,
         "resume_enabled": true
-      }
+      },
+      "custom_dataset_policy": "ucr_only"
     },
     "tser": {
       "data_root": "fedot_ind/data",
@@ -85,7 +86,7 @@
       "experiment_date": "140526",
       "stage1_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_{experiment_date}",
       "stage2_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_optim_{experiment_date}",
-      "stage1_run_id": "kernel_learning_ucr_stage1_ba419d49e4",
+      "stage1_run_id": null,
       "generator_set": "stage1_non_topological",
       "metrics": [
         "accuracy",
@@ -93,7 +94,9 @@
         "f1_macro"
       ],
       "timeout_minutes": 5,
-      "pop_size": 5
+      "pop_size": 5,
+      "stage1_run_policy": "latest",
+      "custom_dataset_policy": "ucr_only"
     }
   },
   "models": {
