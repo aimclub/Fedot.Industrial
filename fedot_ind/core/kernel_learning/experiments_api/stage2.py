@@ -10,7 +10,7 @@ import pandas as pd
 
 from benchmark.industrial.classification import build_classification_dataset_adapter, compute_classification_metric
 from benchmark.industrial.core import DatasetSpec, to_plain_data, write_json
-from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationBuilder
+from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationError, KernelInitialPopulationBuilder
 from fedot_ind.core.kernel_learning.selection import KernelImportanceItem, KernelImportanceReport
 from .io import load_stage1_kernel_records
 from .stage1 import DEFAULT_STAGE_METRICS
@@ -68,12 +68,14 @@ def build_stage2_initial_population(
         *,
         build_pipelines: bool = True,
         lazy: bool = True,
+        allow_empty_specs: bool = False,
 ):
     builder = KernelInitialPopulationBuilder(
         task_type="classification",
         head_model="rf",
         include_feature_union=True,
         max_union_size=3,
+        allow_empty_specs=allow_empty_specs,
     )
     importance = importance_report_from_selection(selection)
     specs = builder.build_specs(importance)
@@ -109,16 +111,26 @@ class KernelLearningStage2Runner:
     def iter_over_dataset(self, dataset_spec: DatasetSpec, kernel_record: dict[str, Any]) -> dict[str, Any]:
         output_dir = self._prepare_output_dir(dataset_spec)
         selection = kernel_record["kernel_selection"]
-        builder, specs = self._build_initial_population(selection, output_dir)
-        dataset = self._load_dataset(dataset_spec)
-        fedot_config = self._build_fedot_config(output_dir, builder, specs)
-        self._write_fedot_config(output_dir, fedot_config, specs)
+        builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf", allow_empty_specs=True)
+        specs = ()
         summary = self._base_summary(dataset_spec, selection, specs, builder)
         try:
+            builder, specs = self._build_initial_population(selection, output_dir)
+            if not specs:
+                reason = builder.diagnostics_.get("empty_specs_reason", "no_initial_population_specs")
+                raise KernelInitialPopulationError(f"Kernel initial population is empty: {reason}.")
+            dataset = self._load_dataset(dataset_spec)
+            fedot_config = self._build_fedot_config(output_dir, builder, specs)
+            self._write_fedot_config(output_dir, fedot_config, specs)
+            summary = self._base_summary(dataset_spec, selection, specs, builder)
             prediction = self._fit_predict(dataset, fedot_config, builder, specs)
             metrics = self._compute_metrics(dataset["test_y"], prediction)
             self._write_success_artifacts(output_dir, dataset["test_y"], prediction, metrics)
             summary.update({"status": "success", "metrics": metrics})
+        except KernelInitialPopulationError as exc:
+            self._write_failure_artifacts(output_dir)
+            summary = self._base_summary(dataset_spec, selection, specs, builder)
+            summary.update({"status": "failed", "message": str(exc)})
         except Exception as exc:
             self._write_failure_artifacts(output_dir)
             summary.update({"status": "failed", "message": str(exc)})
@@ -131,7 +143,11 @@ class KernelLearningStage2Runner:
         return output_dir
 
     def _build_initial_population(self, selection: dict[str, Any], output_dir: Path):
-        builder, specs, _ = build_stage2_initial_population(selection, build_pipelines=False)
+        builder, specs, _ = build_stage2_initial_population(
+            selection,
+            build_pipelines=False,
+            allow_empty_specs=True,
+        )
         write_json(output_dir / "initial_population_specs.json", [to_plain_data(spec) for spec in specs])
         return builder, specs
 

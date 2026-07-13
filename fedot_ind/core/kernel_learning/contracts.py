@@ -231,5 +231,11 @@ class FeatureGeneratorProtocol(Protocol):
 
 
 class KernelGeneratorProtocol(FeatureGeneratorProtocol, Protocol):
-    def kernel(self, X_left: FeatureInput, X_right: FeatureInput | None = None) -> KernelBundle:
+    def kernel(
+            self,
+            X_left: FeatureInput,
+            X_right: FeatureInput | None = None,
+            *,
+            task_type: KernelTaskType | str | None = None,
+    ) -> KernelBundle:
         ...

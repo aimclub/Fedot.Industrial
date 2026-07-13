@@ -130,9 +130,8 @@ class KernelMatrixBuilder:
 
     def _compute_train_kernel(self, features: np.ndarray) -> np.ndarray:
         if self._active_policy().approximation is KernelApproximation.NYSTROM:
-            n_components = self._policy_.nystrom_components or min(32, features.shape[0])
             self._approximator_ = NystromKernelApproximator(
-                NystromApproximationPolicy(n_components=n_components)
+                NystromApproximationPolicy(n_components=self._policy_.nystrom_components)
             ).fit(features, self._compute_kernel)
             return self._approximator_.transform_train()
         self._approximator_ = None

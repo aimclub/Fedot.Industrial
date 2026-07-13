@@ -8,6 +8,7 @@ import pytest
 from fedot_ind.core.kernel_learning import (
     BudgetedRepositoryFeatureGeneratorAdapter,
     GeneratorBudgetPolicy,
+    KernelFeatureGeneratorMixin,
     OperationSpec,
     RepositoryFeatureGeneratorAdapter,
     ShapeletFeatureGenerator,
@@ -16,6 +17,7 @@ from fedot_ind.core.kernel_learning import (
     create_feature_generator,
     resolve_torch_device,
 )
+from fedot_ind.core.kernel_learning.contracts import FeatureBundle
 from fedot_ind.core.kernel_learning.generators import adapters
 
 
@@ -147,6 +149,51 @@ def test_embedding_generator_is_deterministic_under_seed():
 
     assert left.shape == (3, 16)
     assert np.allclose(left, right)
+
+
+def test_feature_generators_implement_kernel_contract_with_optional_cross_kernel():
+    train = np.array([[0.0], [1.0], [2.0]])
+    test = np.array([[1.5], [3.0]])
+    generator = create_feature_generator("identity")
+
+    train_bundle = generator.kernel(train)
+    cross_bundle = generator.kernel(train, test)
+
+    assert train_bundle.name == "identity"
+    assert train_bundle.train_kernel.shape == (3, 3)
+    assert train_bundle.test_kernel is None
+    assert cross_bundle.train_kernel.shape == (3, 3)
+    assert cross_bundle.test_kernel.shape == (2, 3)
+    assert cross_bundle.train_features.shape == (3, 1)
+    assert cross_bundle.test_features.shape == (2, 1)
+
+
+class _RecordingKernelGenerator(KernelFeatureGeneratorMixin):
+    name = "recording"
+
+    def __init__(self):
+        self.received_task_type = None
+
+    def fit(self, X, y=None, *, task_type="classification"):
+        self.received_task_type = task_type
+        return self
+
+    def transform(self, X):
+        features = np.asarray(X, dtype=float).reshape(len(X), -1)
+        return FeatureBundle(name=self.name, features=features)
+
+    def fit_transform(self, X, y=None, *, task_type="classification"):
+        self.fit(X, y, task_type=task_type)
+        return self.transform(X)
+
+
+def test_kernel_contract_forwards_explicit_task_type_to_feature_builder():
+    generator = _RecordingKernelGenerator()
+
+    bundle = generator.kernel(np.array([[0.0], [1.0]]), task_type="regression")
+
+    assert generator.received_task_type == "regression"
+    assert bundle.train_kernel.shape == (2, 2)
 
 
 def test_budgeted_topology_adapter_falls_back_without_importing_heavy_operation():

@@ -21,6 +21,7 @@ from .generators import (
     DEFAULT_GENERATOR_NAMES,
     GeneratorBudgetPolicy,
     IdentityFeatureGenerator,
+    KernelFeatureGeneratorMixin,
     OperationSpec,
     PipelineFeatureGeneratorAdapter,
     RandomProjectionEmbeddingFeatureGenerator,
@@ -32,7 +33,14 @@ from .generators import (
     resolve_generator_operation_specs,
     resolve_torch_device,
 )
-from .integration import KernelInitialPipelineSpec, KernelInitialPopulationBuilder
+from .integration import (
+    KernelInitialPipelineSpec,
+    KernelInitialPopulationBuilder,
+    KernelInitialPopulationError,
+    KernelWarmStartTaskSpec,
+    resolve_warm_start_task,
+    task_head_candidates,
+)
 from .kernels import (
     KernelMatrixBuilder,
     NystromApproximationPolicy,
@@ -71,9 +79,12 @@ __all__ = [
     "KernelEnsembleClassifier",
     "KernelEnsembleForecaster",
     "KernelEnsembleRegressor",
+    "KernelFeatureGeneratorMixin",
     "KernelGeneratorProtocol",
     "KernelInitialPipelineSpec",
     "KernelInitialPopulationBuilder",
+    "KernelInitialPopulationError",
+    "KernelWarmStartTaskSpec",
     "KernelImportanceConfig",
     "KernelImportanceItem",
     "KernelImportanceReport",
@@ -105,6 +116,8 @@ __all__ = [
     "fingerprint_mapping",
     "kernel_complexity",
     "resolve_generator_operation_specs",
+    "resolve_warm_start_task",
     "resolve_torch_device",
     "select_significant_generators",
+    "task_head_candidates",
 ]

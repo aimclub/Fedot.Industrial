@@ -8,7 +8,7 @@ from typing import Any, Callable, Sequence
 
 import numpy as np
 
-from fedot_ind.core.kernel_learning.contracts import FeatureBundle
+from fedot_ind.core.kernel_learning.contracts import FeatureBundle, FeatureInput, KernelBundle, KernelTaskType, TargetInput
 
 DEFAULT_GENERATOR_NAMES = (
     "quantile_extractor",
@@ -195,8 +195,34 @@ def _call_transform(operation: Any, input_data: Any):
     return transform(input_data)
 
 
+class KernelFeatureGeneratorMixin:
+    """Default feature-generator kernel contract via features -> kernel builder."""
+
+    def kernel(
+            self,
+            X_left: FeatureInput,
+            X_right: FeatureInput | None = None,
+            *,
+            task_type: KernelTaskType | str | None = None,
+    ) -> KernelBundle:
+        from fedot_ind.core.kernel_learning.kernels import KernelMatrixBuilder
+
+        resolved_task_type = task_type or getattr(self, "task_type_", None) or "classification"
+        train_bundle = self.fit_transform(X_left, None, task_type=resolved_task_type)
+        builder = KernelMatrixBuilder()
+        kernel_bundle = builder.fit_transform(
+            train_bundle.features,
+            name=train_bundle.name,
+            train_features=train_bundle.features,
+        )
+        if X_right is None:
+            return kernel_bundle
+        test_bundle = self.transform(X_right)
+        return builder.build_test_bundle(test_bundle.features, kernel_bundle)
+
+
 @dataclass
-class RepositoryFeatureGeneratorAdapter:
+class RepositoryFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
     name: str
     operation_specs: Sequence[OperationSpec]
     torch_device: Any = "auto"
@@ -205,19 +231,25 @@ class RepositoryFeatureGeneratorAdapter:
     train_features_: np.ndarray | None = None
     resolved_torch_device_: str | None = None
 
-    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+    def fit(self, X: FeatureInput, y: TargetInput | None = None, *, task_type: str = "classification"):
         self.task_type_ = task_type
         self.operations_ = [self._build_operation(spec) for spec in self.operation_specs]
         self.train_features_ = self._run_operations(X, y)
         return self
 
-    def transform(self, X: Any) -> FeatureBundle:
+    def transform(self, X: FeatureInput) -> FeatureBundle:
         if not self.operations_:
             raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
         features = self._run_operations(X, None)
         return self._bundle(features)
 
-    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+    def fit_transform(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: str = "classification",
+    ) -> FeatureBundle:
         self.fit(X, y, task_type=task_type)
         return self._bundle(self.train_features_)
 
@@ -329,14 +361,14 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
 
 
 @dataclass
-class PipelineFeatureGeneratorAdapter:
+class PipelineFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
     name: str
     pipeline_factory: Any
     task_type_: str | None = None
     pipeline_: Any | None = None
     train_features_: np.ndarray | None = None
 
-    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+    def fit(self, X: FeatureInput, y: TargetInput | None = None, *, task_type: str = "classification"):
         self.task_type_ = task_type
         self.pipeline_ = deepcopy(self.pipeline_factory).build()
         input_data = to_fedot_input_data(X, y, task_type=task_type)
@@ -345,7 +377,7 @@ class PipelineFeatureGeneratorAdapter:
         self.train_features_ = normalize_feature_matrix(_unwrap_operation_output(prediction))
         return self
 
-    def transform(self, X: Any) -> FeatureBundle:
+    def transform(self, X: FeatureInput) -> FeatureBundle:
         if self.pipeline_ is None:
             raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
         input_data = to_fedot_input_data(X, task_type=self.task_type_ or "classification")
@@ -357,7 +389,13 @@ class PipelineFeatureGeneratorAdapter:
             diagnostics={"source": "fedot_pipeline", "n_features": int(features.shape[1])},
         )
 
-    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+    def fit_transform(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: str = "classification",
+    ) -> FeatureBundle:
         self.fit(X, y, task_type=task_type)
         features = normalize_feature_matrix(self.train_features_)
         return FeatureBundle(
@@ -368,16 +406,16 @@ class PipelineFeatureGeneratorAdapter:
 
 
 @dataclass
-class IdentityFeatureGenerator:
+class IdentityFeatureGenerator(KernelFeatureGeneratorMixin):
     name: str = "identity"
     train_features_: np.ndarray | None = None
 
-    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+    def fit(self, X: FeatureInput, y: TargetInput | None = None, *, task_type: str = "classification"):
         del y, task_type
         self.train_features_ = normalize_feature_matrix(X)
         return self
 
-    def transform(self, X: Any) -> FeatureBundle:
+    def transform(self, X: FeatureInput) -> FeatureBundle:
         features = normalize_feature_matrix(X)
         return FeatureBundle(
             name=self.name,
@@ -385,13 +423,19 @@ class IdentityFeatureGenerator:
             diagnostics={"source": "identity", "n_features": int(features.shape[1])},
         )
 
-    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+    def fit_transform(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: str = "classification",
+    ) -> FeatureBundle:
         self.fit(X, y, task_type=task_type)
         return self.transform(X)
 
 
 @dataclass
-class ShapeletFeatureGenerator:
+class ShapeletFeatureGenerator(KernelFeatureGeneratorMixin):
     name: str = "shapelet_extractor"
     n_shapelets: int = 8
     window_size: int | None = None
@@ -404,7 +448,7 @@ class ShapeletFeatureGenerator:
         if self.window_size is not None and self.window_size < 1:
             raise ValueError("window_size must be at least 1.")
 
-    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+    def fit(self, X: FeatureInput, y: TargetInput | None = None, *, task_type: str = "classification"):
         del y, task_type
         tensor = normalize_time_series_tensor(X)
         n_samples, _, n_timestamps = tensor.shape
@@ -419,7 +463,7 @@ class ShapeletFeatureGenerator:
         self.shapelets_ = tuple(shapelets)
         return self
 
-    def transform(self, X: Any) -> FeatureBundle:
+    def transform(self, X: FeatureInput) -> FeatureBundle:
         if not self.shapelets_:
             raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
         tensor = normalize_time_series_tensor(X)
@@ -438,7 +482,13 @@ class ShapeletFeatureGenerator:
             },
         )
 
-    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+    def fit_transform(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: str = "classification",
+    ) -> FeatureBundle:
         self.fit(X, y, task_type=task_type)
         return self.transform(X)
 
@@ -449,7 +499,7 @@ class ShapeletFeatureGenerator:
 
 
 @dataclass
-class RandomProjectionEmbeddingFeatureGenerator:
+class RandomProjectionEmbeddingFeatureGenerator(KernelFeatureGeneratorMixin):
     name: str = "embedding_extractor"
     n_components: int = 16
     random_state: int = 42
@@ -460,7 +510,7 @@ class RandomProjectionEmbeddingFeatureGenerator:
         if self.n_components < 1:
             raise ValueError("n_components must be at least 1.")
 
-    def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+    def fit(self, X: FeatureInput, y: TargetInput | None = None, *, task_type: str = "classification"):
         del y, task_type
         features = normalize_feature_matrix(X)
         rng = np.random.default_rng(self.random_state)
@@ -471,7 +521,7 @@ class RandomProjectionEmbeddingFeatureGenerator:
         )
         return self
 
-    def transform(self, X: Any) -> FeatureBundle:
+    def transform(self, X: FeatureInput) -> FeatureBundle:
         if self.components_ is None:
             raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
         features = normalize_feature_matrix(X)
@@ -489,7 +539,13 @@ class RandomProjectionEmbeddingFeatureGenerator:
             },
         )
 
-    def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+    def fit_transform(
+            self,
+            X: FeatureInput,
+            y: TargetInput | None = None,
+            *,
+            task_type: str = "classification",
+    ) -> FeatureBundle:
         self.fit(X, y, task_type=task_type)
         return self.transform(X)
 

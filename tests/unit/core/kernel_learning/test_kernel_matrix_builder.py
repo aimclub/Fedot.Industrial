@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.kernel_learning import KernelMatrixBuilder
+from fedot_ind.core.kernel_learning import KernelMatrixBuilder, NystromApproximationPolicy
 
 
 def test_kernel_matrix_builder_returns_psd_train_and_cross_kernel():
@@ -70,3 +70,13 @@ def test_kernel_matrix_builder_supports_nystrom_train_and_cross_shapes():
     assert cross.shape == (2, 4)
     assert bundle.diagnostics["approximation"] == "nystrom"
     assert bundle.diagnostics["n_components"] == 2
+
+
+def test_nystrom_policy_owns_default_component_heuristic():
+    policy = NystromApproximationPolicy(default_max_components=3)
+
+    assert policy.resolve_n_components(10) == 3
+    assert policy.resolve_n_components(2) == 2
+
+    with pytest.raises(ValueError, match="At least one sample"):
+        policy.resolve_n_components(0)

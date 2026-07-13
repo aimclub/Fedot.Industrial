@@ -158,6 +158,26 @@ def test_build_stage2_initial_population_returns_lazy_builders_by_default():
     assert callable(getattr(initial_population[0], "build"))
 
 
+def test_stage2_runner_reports_empty_initial_population_diagnostics(tmp_path):
+    runner = KernelLearningStage2Runner(output_dir=tmp_path / "stage2")
+    summary = runner.iter_over_dataset(
+        DatasetSpec(benchmark="in_memory_tsc", dataset_name="empty_specs"),
+        {
+            "kernel_selection": {
+                "selected_generators": ["identity"],
+                "selected_weights": [1.0],
+            }
+        },
+    )
+
+    assert summary["status"] == "failed"
+    assert summary["initial_population_size"] == 0
+    assert summary["builder_diagnostics"]["empty_specs_reason"] == "all_selected_generators_missing_fedot_operation_chain"
+    assert "all_selected_generators_missing_fedot_operation_chain" in summary["message"]
+    assert (tmp_path / "stage2" / "empty_specs" / "metrics.json").is_file()
+    assert (tmp_path / "stage2" / "empty_specs" / "predictions.csv").is_file()
+
+
 def test_stage2_runner_load_dataset_uses_benchmark_adapter_resolution(tmp_path):
     runner = KernelLearningStage2Runner(output_dir=tmp_path / "stage2")
     dataset = runner._load_dataset(
