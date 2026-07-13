@@ -1,6 +1,8 @@
+import importlib
 import sys
 import types
 from types import SimpleNamespace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -19,6 +21,7 @@ from fedot_ind.core.kernel_learning import (
 )
 from fedot_ind.core.kernel_learning.contracts import FeatureBundle
 from fedot_ind.core.kernel_learning.generators import adapters
+from fedot_ind.core.kernel_learning.generators import repository as repository_module
 
 
 def test_statistical_summary_is_repo_native_adapter_not_manual_summary():
@@ -44,6 +47,18 @@ def test_statistical_summary_handles_single_timestamp_batches():
     assert train_features.shape[1] == test_features.shape[1]
     assert np.all(np.isfinite(train_features))
     assert np.all(np.isfinite(test_features))
+
+
+def test_generator_adapters_facade_stays_thin():
+    source = Path(adapters.__file__).read_text(encoding="utf-8")
+
+    for module_name in ("base", "lightweight", "registry", "repository", "specs"):
+        assert importlib.import_module(f"fedot_ind.core.kernel_learning.generators.{module_name}")
+
+    assert adapters.RepositoryFeatureGeneratorAdapter is RepositoryFeatureGeneratorAdapter
+    assert adapters.SummaryFeatureGenerator is SummaryFeatureGenerator
+    assert "class RepositoryFeatureGeneratorAdapter" not in source
+    assert "def build_generator_registry" not in source
 
 
 def test_default_registry_exposes_repo_native_generators():
@@ -91,7 +106,7 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
     fake_module.FakeOperation = FakeOperation
     monkeypatch.setitem(sys.modules, "fake_kernel_learning_ops", fake_module)
     monkeypatch.setattr(
-        adapters,
+        repository_module,
         "to_fedot_input_data",
         lambda X, y=None, task_type="classification", use_torch=False, torch_device="auto": SimpleNamespace(
             features=np.asarray(X),
