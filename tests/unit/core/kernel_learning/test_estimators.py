@@ -35,6 +35,13 @@ def test_kernel_ensemble_classifier_predicts_and_returns_probabilities():
     assert model.selected_generators_ == ("identity",)
     assert model.important_generators_ == ("identity",)
     assert model.kernel_importance_.selected_generators == ("identity",)
+    assert model.fit_diagnostics_["weight_source"] == "selection_report"
+    assert model.fit_diagnostics_["kernel_cache"] == {
+        "enabled": True,
+        "namespace": "kernel_ensemble",
+        "size": 1,
+    }
+    assert model.kernel_bundles_[0].diagnostics["cache"]["enabled"] is True
 
 
 def test_kernel_ensemble_regressor_predicts_stable_shape():

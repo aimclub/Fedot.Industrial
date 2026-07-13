@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 from sklearn.base import BaseEstimator
 
+from fedot_ind.core.kernel_learning.cache import InMemoryKernelCache, KernelCachePolicy
 from fedot_ind.core.kernel_learning.contracts import (
     FeatureInput,
     KernelBundle,
@@ -49,6 +50,8 @@ BASE_KERNEL_PARAMETER_NAMES = (
     "importance_fallback_top_n",
     "importance_max_union_size",
     "torch_device",
+    "kernel_cache_enabled",
+    "kernel_cache_namespace",
 )
 
 
@@ -59,6 +62,7 @@ class KernelEnsembleRuntimeConfig:
     selector_config: MKLObjectiveConfig
     importance_config: KernelImportanceConfig
     torch_device: Any
+    cache_policy: KernelCachePolicy
 
 
 def collect_kernel_base_params(values: Mapping[str, Any]) -> dict[str, Any]:
@@ -91,6 +95,8 @@ class KernelEnsembleBase(BaseEstimator):
             importance_fallback_top_n: int = 1,
             importance_max_union_size: int = 3,
             torch_device: Any = "auto",
+            kernel_cache_enabled: bool = True,
+            kernel_cache_namespace: str = "kernel_ensemble",
     ):
         self.generator_names = generator_names
         self.kernel = kernel
@@ -113,6 +119,8 @@ class KernelEnsembleBase(BaseEstimator):
         self.importance_fallback_top_n = importance_fallback_top_n
         self.importance_max_union_size = importance_max_union_size
         self.torch_device = torch_device
+        self.kernel_cache_enabled = kernel_cache_enabled
+        self.kernel_cache_namespace = kernel_cache_namespace
 
     def _resolve_generator_names(self) -> tuple[str, ...]:
         if self.generator_names is None:
@@ -151,6 +159,10 @@ class KernelEnsembleBase(BaseEstimator):
                 max_union_size=self.importance_max_union_size,
             ),
             torch_device=self.torch_device,
+            cache_policy=KernelCachePolicy(
+                enabled=bool(self.kernel_cache_enabled),
+                namespace=str(self.kernel_cache_namespace),
+            ),
         )
 
     def _kernel_task_value(self) -> str:
@@ -165,6 +177,7 @@ class KernelEnsembleBase(BaseEstimator):
         self.generators_ = []
         self.kernel_builders_ = {}
         self.kernel_bundles_: list[KernelBundle] = []
+        self.kernel_cache_ = InMemoryKernelCache() if runtime_config.cache_policy.enabled else None
 
         for name in self.generator_names_:
             generator = create_feature_generator(name, torch_device=runtime_config.torch_device)
@@ -179,6 +192,8 @@ class KernelEnsembleBase(BaseEstimator):
                 psd_tol=kernel_policy.psd_tol,
                 approximation=kernel_policy.approximation,
                 nystrom_components=kernel_policy.nystrom_components,
+                cache_policy=runtime_config.cache_policy,
+                cache=self.kernel_cache_,
             )
             kernel_bundle = builder.fit_transform(
                 feature_bundle.features,
@@ -222,6 +237,12 @@ class KernelEnsembleBase(BaseEstimator):
             "selected_generators": self.selected_generators_,
             "important_generators": self.important_generators_,
             "selector": dict(self.selection_report_.diagnostics),
+            "weight_source": "selection_report",
+            "kernel_cache": {
+                "enabled": bool(runtime_config.cache_policy.enabled),
+                "namespace": runtime_config.cache_policy.namespace,
+                "size": 0 if self.kernel_cache_ is None else self.kernel_cache_.size,
+            },
             "kernel_bundles": tuple(bundle.to_dict() for bundle in self.kernel_bundles_),
         }
         return self._combine_train_kernels()

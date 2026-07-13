@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
+from fedot_ind.core.kernel_learning.cache import (
+    InMemoryKernelCache,
+    KernelCacheKey,
+    KernelCachePolicy,
+    fingerprint_array,
+    fingerprint_mapping,
+)
 from fedot_ind.core.kernel_learning.contracts import (
     KernelApproximation,
     KernelBundle,
@@ -42,6 +49,8 @@ class KernelMatrixBuilder:
     psd_tol: float = 1e-8
     approximation: KernelApproximation | str | None = None
     nystrom_components: int | None = None
+    cache_policy: KernelCachePolicy = KernelCachePolicy()
+    cache: InMemoryKernelCache | None = None
 
     @property
     def policy(self) -> KernelMatrixPolicy:
@@ -78,17 +87,36 @@ class KernelMatrixBuilder:
 
     def fit_transform(self, features: Any, *, name: str = "kernel",
                       train_features: np.ndarray | None = None) -> KernelBundle:
-        self.fit(features)
         source_features = normalize_feature_matrix(train_features if train_features is not None else features)
-        return KernelBundle(
+        cache_key = self._cache_key(name, source_features)
+        if cache_key is not None and self._cache_hit_supported():
+            cached_bundle = self.cache.get(cache_key) if self.cache is not None else None
+            if cached_bundle is not None:
+                self._restore_from_cached_bundle(cached_bundle)
+                return replace(
+                    cached_bundle,
+                    diagnostics={
+                        **cached_bundle.diagnostics,
+                        "cache": self._cache_diagnostics(cache_key, hit=True),
+                    },
+                )
+
+        self.fit(features)
+        bundle = KernelBundle(
             name=name,
             train_kernel=self.train_kernel_,
             train_features=source_features,
             is_psd=bool(self.train_diagnostics_["is_psd"]),
             psd_correction=self.train_diagnostics_["psd_correction"],
             complexity={"kernel_complexity": kernel_complexity(self.train_kernel_)},
-            diagnostics=self._diagnostics(),
+            diagnostics={
+                **self._diagnostics(),
+                "cache": self._cache_diagnostics(cache_key, hit=False),
+            },
         )
+        if cache_key is not None and self._cache_hit_supported() and self.cache is not None:
+            self.cache.put(cache_key, bundle)
+        return bundle
 
     def transform(self, features: Any) -> np.ndarray:
         if not hasattr(self, "train_features_"):
@@ -263,6 +291,42 @@ class KernelMatrixBuilder:
     def _active_policy(self) -> KernelMatrixPolicy:
         return getattr(self, "_policy_", self.policy)
 
+    def _cache_key(self, name: str, features: np.ndarray) -> KernelCacheKey | None:
+        if not self.cache_policy.enabled:
+            return None
+        return KernelCacheKey(
+            namespace=self.cache_policy.namespace,
+            generator_name=name,
+            kernel_policy_hash=fingerprint_mapping(self.policy.to_dict()),
+            data_fingerprint=fingerprint_array(features),
+        )
+
+    def _cache_hit_supported(self) -> bool:
+        policy = self.policy
+        return not bool(policy.center) and policy.approximation is None
+
+    def _cache_diagnostics(self, key: KernelCacheKey | None, *, hit: bool) -> dict[str, Any]:
+        return {
+            "enabled": bool(self.cache_policy.enabled),
+            "supported": bool(self._cache_hit_supported()),
+            "hit": bool(hit),
+            "key": None if key is None else key.as_tuple(),
+        }
+
+    def _restore_from_cached_bundle(self, bundle: KernelBundle) -> None:
+        diagnostics = dict(bundle.diagnostics)
+        self._policy_ = self.policy
+        self.train_features_ = normalize_feature_matrix(bundle.train_features)
+        self.train_kernel_ = np.asarray(bundle.train_kernel, dtype=float)
+        self.gamma_ = float(diagnostics["gamma"])
+        self.normalization_scale_ = float(diagnostics["normalization_scale"])
+        self.train_diagnostics_ = {
+            "min_eigenvalue": diagnostics.get("min_eigenvalue"),
+            "condition_number": diagnostics.get("condition_number"),
+            "is_psd": diagnostics.get("is_psd", bundle.is_psd),
+            "psd_correction": diagnostics.get("psd_correction", bundle.psd_correction),
+        }
+        self._approximator_ = None
 
 def _looks_like_distance_matrix(matrix: np.ndarray) -> bool:
     if matrix.shape[0] != matrix.shape[1] or matrix.shape[0] <= 1:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib import import_module
@@ -17,6 +18,8 @@ DEFAULT_GENERATOR_NAMES = (
     "eigen_extractor",
 )
 BASIS_ONLY_GENERATORS = frozenset(("wavelet_basis", "fourier_basis", "eigen_basis"))
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -179,6 +182,7 @@ def _operation_params(params: dict[str, Any]):
 
         return OperationParameters(params)
     except Exception:
+        logger.exception("Falling back to raw operation params for kernel feature generator operation.")
         return params
 
 
@@ -317,10 +321,13 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
         allowed, diagnostics = self.budget_policy.allows(X)
         self.budget_diagnostics_ = diagnostics
         if not allowed:
+            logger.info("Falling back from generator %s because budget policy blocked execution: %s",
+                        self.name, diagnostics.get("blocked_reasons"))
             return self._fit_fallback(X, y, task_type=task_type, reason="budget_exceeded")
         try:
             return super().fit(X, y, task_type=task_type)
         except Exception as ex:
+            logger.exception("Falling back from generator %s after operation failure.", self.name)
             return self._fit_fallback(X, y, task_type=task_type,
                                       reason=f"operation_unavailable:{ex.__class__.__name__}")
 
@@ -724,7 +731,7 @@ def _extend_with_legacy_pipeline_generators(registry: dict[str, Callable[[], Any
             )
     except Exception:
         # Keep registry construction importable without the optional FEDOT/dask stack.
-        pass
+        logger.exception("Skipping legacy pipeline generators because optional registry imports failed.")
 
 
 _DEFAULT_STATISTICAL_PARAMS = {

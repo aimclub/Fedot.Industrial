@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pytest
 from pathlib import Path
 
 from benchmark.industrial.core import (
@@ -171,9 +172,12 @@ def test_stage2_runner_reports_empty_initial_population_diagnostics(tmp_path):
     )
 
     assert summary["status"] == "failed"
+    assert summary["reason"] == "initial_population_error"
+    assert summary["exception_type"] == "KernelInitialPopulationError"
     assert summary["initial_population_size"] == 0
     assert summary["builder_diagnostics"]["empty_specs_reason"] == "all_selected_generators_missing_fedot_operation_chain"
     assert "all_selected_generators_missing_fedot_operation_chain" in summary["message"]
+    assert "Kernel initial population is empty" in summary["traceback"]
     assert (tmp_path / "stage2" / "empty_specs" / "metrics.json").is_file()
     assert (tmp_path / "stage2" / "empty_specs" / "predictions.csv").is_file()
 
@@ -242,7 +246,7 @@ def test_stage2_runner_run_uses_existing_stage1_artifacts_without_rerunning_stag
     runner = KernelLearningStage2Runner(output_dir=tmp_path / "stage2")
     calls = []
 
-    def fake_iter_over_dataset(dataset_spec, kernel_record):
+    def fake_iter_over_dataset(dataset_spec, kernel_record, *, strict=None):
         calls.append((dataset_spec.dataset_name, kernel_record["dataset_name"]))
         return {"dataset_name": dataset_spec.dataset_name, "status": "success"}
 
@@ -251,5 +255,76 @@ def test_stage2_runner_run_uses_existing_stage1_artifacts_without_rerunning_stag
     result = runner.run(stage1_result)
 
     assert calls == [("Coffee", "Coffee")]
-    assert result == ({"dataset_name": "Coffee", "status": "success"},)
+    assert result == (
+        {"dataset_name": "Coffee", "status": "success"},
+        {
+            "dataset_name": "Lightning7",
+            "selected_generators": [],
+            "initial_population_size": 0,
+            "status": "skipped",
+            "reason": "missing_stage1_kernel_record",
+            "builder_diagnostics": {},
+        },
+    )
+    assert (tmp_path / "stage2" / "Lightning7" / "optimizer_summary.json").exists()
+    assert (tmp_path / "stage2" / "Lightning7" / "metrics.json").exists()
     assert (tmp_path / "stage2" / "stage2_summary.json").exists()
+
+
+def test_stage2_runner_strict_raises_after_writing_skipped_summary(tmp_path):
+    stage1_root = tmp_path / "stage1"
+    run_id = "kernel_learning_ucr_stage1_missing"
+    (stage1_root / run_id / "records").mkdir(parents=True)
+    (stage1_root / run_id / "records" / "kernel_selection.jsonl").write_text("", encoding="utf-8")
+    stage1_result = ClassificationBenchmarkResult(
+        run_id=run_id,
+        config=BenchmarkSuiteConfig(
+            task_type=TaskType.TS_CLASSIFICATION,
+            datasets=(DatasetSpec(benchmark="ucr", dataset_name="Coffee"),),
+            models=(ModelSpec(adapter_name="kernel_ensemble_classifier", display_name="KernelEnsemble"),),
+            artifact_spec=ArtifactSpec(output_dir=str(stage1_root), persist_on_run=True),
+            run_spec=RunSpec(run_name="kernel_learning_ucr_stage1", primary_metric="f1_macro"),
+            metrics=("f1_macro",),
+        ),
+        dataset_records=(),
+        run_records=(),
+        prediction_records=(),
+        metric_records=(),
+        aggregate_report=BenchmarkAggregateReport(
+            run_id=run_id,
+            task_type=TaskType.TS_CLASSIFICATION,
+            primary_metric="f1_macro",
+            leaderboard_rows=(),
+            status_counts={},
+        ),
+    )
+    runner = KernelLearningStage2Runner(output_dir=tmp_path / "stage2")
+
+    with pytest.raises(RuntimeError, match="missing_stage1_kernel_record"):
+        runner.run(stage1_result, strict=True)
+
+    summary_path = tmp_path / "stage2" / "Coffee" / "optimizer_summary.json"
+    assert summary_path.exists()
+    assert json.loads(summary_path.read_text(encoding="utf-8"))["status"] == "skipped"
+
+
+def test_stage2_runner_strict_reraises_dataset_failure_after_artifacts(tmp_path):
+    runner = KernelLearningStage2Runner(output_dir=tmp_path / "stage2")
+
+    with pytest.raises(Exception, match="Kernel initial population is empty"):
+        runner.iter_over_dataset(
+            DatasetSpec(benchmark="in_memory_tsc", dataset_name="empty_specs"),
+            {
+                "kernel_selection": {
+                    "selected_generators": ["identity"],
+                    "selected_weights": [1.0],
+                }
+            },
+            strict=True,
+        )
+
+    summary_path = tmp_path / "stage2" / "empty_specs" / "optimizer_summary.json"
+    assert summary_path.exists()
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["status"] == "failed"
+    assert summary["traceback"]

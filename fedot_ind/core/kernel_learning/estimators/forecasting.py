@@ -65,6 +65,8 @@ class KernelEnsembleForecaster(KernelEnsembleBase):
             alpha: float = 1.0,
             head: Any | None = None,
             torch_device: Any = "auto",
+            kernel_cache_enabled: bool = True,
+            kernel_cache_namespace: str = "kernel_ensemble",
     ):
         super().__init__(**collect_kernel_base_params(locals()))
         self.forecast_horizon = forecast_horizon

@@ -47,6 +47,8 @@ class KernelEnsembleRegressor(KernelEnsembleBase):
             epsilon: float = 0.1,
             head: Any | None = None,
             torch_device: Any = "auto",
+            kernel_cache_enabled: bool = True,
+            kernel_cache_namespace: str = "kernel_ensemble",
     ):
         super().__init__(**collect_kernel_base_params(locals()))
         self.alpha = alpha

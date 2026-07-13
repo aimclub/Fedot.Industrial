@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import logging
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,8 @@ from .io import load_stage1_kernel_records
 from .stage1 import DEFAULT_STAGE_METRICS
 
 DEFAULT_STAGE2_OUTPUT_DIR = Path("benchmark") / "results" / "kernel_learning" / "ucr_two_stage_optim_140526"
+
+logger = logging.getLogger(__name__)
 
 
 def importance_report_from_selection(selection: dict[str, Any]) -> KernelImportanceReport:
@@ -92,23 +96,37 @@ class KernelLearningStage2Runner:
     metrics: tuple[str, ...] = DEFAULT_STAGE_METRICS
     timeout_minutes: int = 5
     pop_size: int = 5
+    strict: bool = False
 
     def __post_init__(self):
         self.output_dir = Path(self.output_dir)
 
-    def run(self, stage1_result) -> tuple[dict[str, Any], ...]:
+    def run(self, stage1_result, *, strict: bool | None = None) -> tuple[dict[str, Any], ...]:
+        strict_mode = self.strict if strict is None else bool(strict)
         kernel_records = load_stage1_kernel_records(stage1_result.config.artifact_spec.output_dir, stage1_result.run_id)
         summaries = []
         for dataset_spec in stage1_result.config.datasets:
             kernel_record = kernel_records.get(dataset_spec.dataset_name)
             if kernel_record is None:
+                summary = self._write_skipped_summary(dataset_spec, reason="missing_stage1_kernel_record")
+                summaries.append(summary)
+                if strict_mode:
+                    raise RuntimeError(
+                        f"Stage2 skipped dataset {dataset_spec.dataset_name!r}: missing_stage1_kernel_record."
+                    )
                 continue
-            summaries.append(self.iter_over_dataset(dataset_spec, kernel_record))
+            summaries.append(self.iter_over_dataset(dataset_spec, kernel_record, strict=strict_mode))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         write_json(self.output_dir / "stage2_summary.json", summaries)
         return tuple(summaries)
 
-    def iter_over_dataset(self, dataset_spec: DatasetSpec, kernel_record: dict[str, Any]) -> dict[str, Any]:
+    def iter_over_dataset(
+            self,
+            dataset_spec: DatasetSpec,
+            kernel_record: dict[str, Any],
+            *,
+            strict: bool | None = None,
+    ) -> dict[str, Any]:
         output_dir = self._prepare_output_dir(dataset_spec)
         selection = kernel_record["kernel_selection"]
         builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf", allow_empty_specs=True)
@@ -130,12 +148,48 @@ class KernelLearningStage2Runner:
         except KernelInitialPopulationError as exc:
             self._write_failure_artifacts(output_dir)
             summary = self._base_summary(dataset_spec, selection, specs, builder)
-            summary.update({"status": "failed", "message": str(exc)})
+            summary.update(self._error_payload(exc, reason="initial_population_error"))
+            logger.exception("Stage2 failed while building initial population for %s.", dataset_spec.dataset_name)
+            write_json(output_dir / "optimizer_summary.json", summary)
+            if self._strict_mode(strict):
+                raise
+            return summary
         except Exception as exc:
             self._write_failure_artifacts(output_dir)
-            summary.update({"status": "failed", "message": str(exc)})
+            summary.update(self._error_payload(exc, reason="runtime_error"))
+            logger.exception("Stage2 failed while running dataset %s.", dataset_spec.dataset_name)
+            write_json(output_dir / "optimizer_summary.json", summary)
+            if self._strict_mode(strict):
+                raise
+            return summary
         write_json(output_dir / "optimizer_summary.json", summary)
         return summary
+
+    def _strict_mode(self, strict: bool | None) -> bool:
+        return self.strict if strict is None else bool(strict)
+
+    def _write_skipped_summary(self, dataset_spec: DatasetSpec, *, reason: str) -> dict[str, Any]:
+        output_dir = self._prepare_output_dir(dataset_spec)
+        self._write_failure_artifacts(output_dir)
+        summary = {
+            "dataset_name": dataset_spec.dataset_name,
+            "selected_generators": [],
+            "initial_population_size": 0,
+            "status": "skipped",
+            "reason": reason,
+            "builder_diagnostics": {},
+        }
+        write_json(output_dir / "optimizer_summary.json", summary)
+        return summary
+
+    def _error_payload(self, exc: Exception, *, reason: str) -> dict[str, Any]:
+        return {
+            "status": "failed",
+            "reason": reason,
+            "message": str(exc),
+            "exception_type": exc.__class__.__name__,
+            "traceback": traceback.format_exc(),
+        }
 
     def _prepare_output_dir(self, dataset_spec: DatasetSpec) -> Path:
         output_dir = self.output_dir / dataset_spec.dataset_name
