@@ -16,17 +16,16 @@ The public estimator API remains:
 from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleRegressor
 ```
 
-Experiment orchestration helpers live in:
+Experiment orchestration helpers live in the benchmark layer, because they load datasets, render benchmark artifacts, and intentionally depend on `benchmark.industrial`:
 
 ```python
-from fedot_ind.core.kernel_learning.experiments_api import (
+from benchmark.industrial.experiments.kernel_learning import (
     KernelLearningStage1Runner,
     KernelLearningStage2Runner,
 )
 ```
 
-Do not import `experiments_api` from `fedot_ind.core.kernel_learning.__init__`: it intentionally depends
-on `benchmark.industrial` and should stay out of the lightweight estimator import path.
+The lightweight estimator API in `fedot_ind.core.kernel_learning` no longer imports benchmark orchestration helpers.
 
 ## Runner Configuration Contract
 

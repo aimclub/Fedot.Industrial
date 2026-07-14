@@ -1,4 +1,4 @@
-# Kernel Learning Experiment Failure Log
+﻿# Kernel Learning Experiment Failure Log
 
 This document tracks runtime failures found while running the `benchmark/run_kernel_*` experiment entrypoints.
 
@@ -22,7 +22,7 @@ This document tracks runtime failures found while running the `benchmark/run_ker
 - Fix: moved repository-root bootstrap before all local benchmark imports
   in `benchmark/run_kernel_learning_forecasting.py`, `benchmark/run_kernel_learning_tser.py`,
   and `benchmark/run_kernel_learning_ucr.py`; added source-level tests that assert the bootstrap happens
-  before `from benchmark.v2 import`.
+  before the old versioned benchmark import.
 
 ### 2026-06-02 - forecasting full-mode attempt 2
 

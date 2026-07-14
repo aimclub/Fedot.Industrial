@@ -72,7 +72,7 @@ class MKLOptimizationResult:
 
 
 @dataclass
-class SparseMKLSelector:
+class AdaptiveKernelWeightSelector:
     complexity_penalty: float = 0.01
     redundancy_penalty: float = 0.05
     min_weight: float = 0.05
@@ -85,7 +85,7 @@ class SparseMKLSelector:
 
     def fit(self, kernel_bundles: list[KernelBundle], y, *, task_type: str) -> KernelSelectionReport:
         if not kernel_bundles:
-            raise ValueError("SparseMKLSelector requires at least one KernelBundle.")
+            raise ValueError("AdaptiveKernelWeightSelector requires at least one KernelBundle.")
 
         target_kernel = TargetKernelBuilder(task_type=task_type, gamma=self.target_gamma).build(y)
         names = tuple(bundle.name for bundle in kernel_bundles)
@@ -142,6 +142,7 @@ class SparseMKLSelector:
                 "complexity_penalty": float(self.complexity_penalty),
                 "redundancy_penalty": float(self.redundancy_penalty),
                 "min_weight": float(self.min_weight),
+                "selector_family": "adaptive_kernel_weight_selector",
                 "optimizer": optimization.optimizer,
                 "iterations": int(optimization.iterations),
                 "converged": bool(optimization.converged),
@@ -278,6 +279,10 @@ class SparseMKLSelector:
             thresholded[winner] = 1.0
             return thresholded
         return thresholded / np.sum(thresholded)
+
+
+# Backward-compatible public alias kept for existing benchmark configs and imports.
+SparseMKLSelector = AdaptiveKernelWeightSelector
 
 
 def _project_to_simplex(values: np.ndarray) -> np.ndarray:

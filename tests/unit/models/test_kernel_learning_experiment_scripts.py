@@ -7,7 +7,7 @@ import pytest
 
 from benchmark.experiments.kernel_learning import configs as kl_configs
 from benchmark.experiments.kernel_learning.datasets import KernelLearningDatasetValidationError
-from fedot_ind.core.kernel_learning.experiments_api import resolve_existing_stage1_run_dir
+from benchmark.industrial.experiments.kernel_learning import resolve_existing_stage1_run_dir
 from benchmark.experiments.kernel_learning.configs import (
     KernelLearningM4ExperimentConfig,
     KernelLearningTSERExperimentConfig,

@@ -17,6 +17,9 @@ def test_default_showcase_manifest_declares_kernel_learning_and_legacy_sources()
     groups = {group.key: group for group in manifest.groups}
 
     assert {"ucr_classification", "tser_regression", "m4_forecasting"} <= set(groups)
+    assert manifest.last_refreshed == "2026-07-14"
+    assert manifest.refresh_command == "python -m benchmark.results.showcase"
+    assert groups["m4_forecasting"].comparison_scope == "industrial_internal_comparison"
     assert any(
         source.path.startswith("benchmark/results/v2_kernel_learning")
         for group in manifest.groups
@@ -58,6 +61,10 @@ def test_showcase_renderer_builds_canonical_tables_from_manifest(tmp_path: Path)
                 "version": "unit@1",
                 "title": "Unit Showcase",
                 "description": "Synthetic showcase",
+                "owner": "test-owner",
+                "last_refreshed": "2026-07-14",
+                "refresh_command": "python -m benchmark.results.showcase",
+                "post_merge_checklist": ["refresh synthetic showcase"],
                 "groups": [
                     {
                         "key": "classification",
@@ -112,6 +119,7 @@ def test_showcase_renderer_builds_canonical_tables_from_manifest(tmp_path: Path)
     assert set(normalized["source_label"]) == {"legacy", "current"}
     assert resolved_path.is_file()
     assert overview.loc[0, "dataset_count"] == 2
+    assert overview.loc[0, "last_refreshed"] == "2026-07-14"
     assert set(current_best["best_model"]) == {"IndustrialNew"}
     assert inventory["exists_locally"].all()
     assert (tmp_path / "showcase" / "classification" / "summary.md").is_file()

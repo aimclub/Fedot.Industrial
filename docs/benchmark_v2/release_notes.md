@@ -1,25 +1,21 @@
-﻿# Benchmark V2 Release Notes
+# Benchmark Industrial Release Notes
+
+These notes supersede the old Benchmark V2 release notes. The active runtime package is `benchmark.industrial`.
 
 ## Summary
 
-`benchmark/v2` is the new benchmark stack for forecasting, time series classification, and time series regression in
-this repository.
-
-This release replaces the old benchmark workflow with a typed, reproducible, artifact-oriented pipeline.
+The benchmark layer now uses one canonical package for forecasting, time series classification, and time series regression. The old versioned runtime name should not be used in new imports.
 
 ## What Is Included
 
-- Unified benchmark schema for `forecasting`, `ts_classification`, and `ts_regression`
-- Forecasting support for local `M4` and `Monash` subsets
-- Local dataset adapters for `UCR/UEA`-style classification datasets
-- Local dataset adapters for TSER datasets from `fedot_ind/data`
-- Publication-ready artifact generation for forecasting, classification, and regression
-- Preset-based execution for standard local benchmark runs
-- JSON/YAML manifest-driven execution
-- Registered runs with run bundle persistence and registry indexing
-- Run-to-run comparison on top of the registry layer
-- Package-level CLI via `python -m benchmark.v2`
-- Backward-compatible delegation from legacy benchmark entrypoints
+- Unified benchmark schema for `forecasting`, `ts_classification`, and `ts_regression`.
+- Local dataset adapters for M4, Monash, UCR/UEA-style classification, and TSER data.
+- JSON manifest-driven execution.
+- Preset-based execution for standard local runs.
+- Registered run bundles with result persistence.
+- Shared aggregation, diagnostics, and visualization modules.
+- Public result showcase under `benchmark/results/showcase`.
+- Compatibility wrappers under `benchmark.industrial.legacy` where older flows still need them.
 
 ## Main User-Facing Entry Points
 
@@ -34,34 +30,21 @@ This release replaces the old benchmark workflow with a typed, reproducible, art
 - `run_registered_manifest_path(...)`
 - `compare_registered_runs(...)`
 
-## Key Improvements Over Legacy Benchmarking
+## CLI
 
-- Typed configs and typed result objects instead of loosely-coupled benchmark scripts
-- Shared vocabulary across forecasting, classification, and regression
-- Reproducible manifests and resolved configs
-- Stable artifact layout for paper-oriented workflows
-- Registry-backed experiment tracking
-- Built-in run comparison instead of manual CSV merging
+```bash
+python -m benchmark.industrial <preset> [options]
+python -m benchmark.industrial --manifest <path> [options]
+```
 
 ## Current Limitations
 
-- External deep baselines are still optional/scaffolded and may be reported as `skipped` or `not_available`
-- Some legacy benchmark examples still exist as compatibility paths
-- The new benchmark layer is optimized for local reproducible runs and artifact generation, not dashboard-first UX
-
-## Validation Status
-
-The current `benchmark/v2` target test suite is green in the repository and covers:
-
-- forecasting adapters and publication pack generation
-- classification and regression task suites
-- presets
-- manifests
-- registered runs
-- run-to-run comparison
+- External deep baselines are optional and may be reported as `skipped` or `not_available`.
+- Historical result folders can be used as reference data, but they are not runtime modules.
+- The benchmark layer is optimized for local reproducible runs and artifact generation, not as a dashboard product.
 
 ## Related Documents
 
-- [Overview](/D:/data_old/WORK/Repo/Industiral/IndustrialTS/docs/benchmark_v2/benchmark_v2_overview.md)
-- [Quickstart](/D:/data_old/WORK/Repo/Industiral/IndustrialTS/docs/benchmark_v2/quickstart.md)
-- [Migration Guide](/D:/data_old/WORK/Repo/Industiral/IndustrialTS/docs/benchmark_v2/migration_guide.md)
+- [Benchmark infrastructure guide](../dev_guide/benchmark_infrastructure.md)
+- [Quickstart](quickstart.md)
+- [Migration Guide](migration_guide.md)

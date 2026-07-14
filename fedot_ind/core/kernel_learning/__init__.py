@@ -49,6 +49,7 @@ from .kernels import (
 )
 from .reports import KernelLearningReport, TEXT2IMAGE_PROMPTS, build_kernel_learning_report
 from .selection import (
+    AdaptiveKernelWeightSelector,
     ForecastTargetSpec,
     KernelImportanceConfig,
     KernelImportanceItem,
@@ -61,6 +62,7 @@ from .selection import (
 )
 
 __all__ = [
+    "AdaptiveKernelWeightSelector",
     "BASIS_ONLY_GENERATORS",
     "BudgetedRepositoryFeatureGeneratorAdapter",
     "DEFAULT_GENERATOR_NAMES",

@@ -2,6 +2,15 @@
   "version": "benchmark_results_showcase@1",
   "title": "IndustrialTS Benchmark Results Showcase",
   "description": "Canonical benchmark/results view for current Industrial, legacy Industrial, and SoTA reference tables.",
+  "owner": "IndustrialTS benchmark maintainers",
+  "last_refreshed": "2026-07-14",
+  "refresh_command": "python -m benchmark.results.showcase",
+  "post_merge_checklist": [
+    "run python -m benchmark.results.showcase after changing benchmark/result sources",
+    "run python -m examples.artifacts after changing example artifacts or cloud bundle contents",
+    "check benchmark/results/showcase/tables/source_inventory.csv for missing files",
+    "check benchmark/results/showcase/tables/benchmark_overview.csv for unexpected coverage drops"
+  ],
   "groups": [
     {
       "group_key": "ucr_classification",
@@ -15,6 +24,10 @@
       "model_count": 12,
       "metric_row_count": 1784,
       "diagnostic_row_count": 892,
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "public_reference_comparison",
       "notes": "Compares current and v2 Kernel Learning UCR runs against the SoTA reference table."
     },
     {
@@ -29,6 +42,10 @@
       "model_count": 21,
       "metric_row_count": 521,
       "diagnostic_row_count": 0,
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "public_reference_comparison",
       "notes": "Indexes the existing multivariate classification comparison table; no new Kernel Learning full-run source is present yet."
     },
     {
@@ -43,6 +60,10 @@
       "model_count": 29,
       "metric_row_count": 1679,
       "diagnostic_row_count": 258,
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "public_reference_comparison",
       "notes": "Compares current and v2 Kernel Learning TSER runs against the cleaned average rows from the SoTA/legacy Industrial table."
     },
     {
@@ -57,7 +78,11 @@
       "model_count": 4,
       "metric_row_count": 8,
       "diagnostic_row_count": 0,
-      "notes": "Indexes current and v2 Kernel Learning forecasting leaderboards; SoTA forecasting reference tables are not present in benchmark/results yet."
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "industrial_internal_comparison",
+      "notes": "Indexes current and v2 Kernel Learning forecasting leaderboards as an internal Industrial comparison; SoTA forecasting reference tables are not present in benchmark/results yet."
     }
   ],
   "source_count": 9,

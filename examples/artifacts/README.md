@@ -12,7 +12,7 @@ to the current benchmark and real-world report packs.
 | `artifact_catalog.json` | Declarative map of raw inputs, benchmark history, notebooks, and canonical report assets under `cloud_bundle/`. |
 | `current_api.py` | Python API for loading the catalog, building an inventory, writing cloud manifests, and rendering the showcase. |
 | `showcase/` | Generated local HTML showcase plus CSV/JSON inventory. |
-| `cloud_bundle/` | Canonical local folder for lightweight report assets plus generated manifest/README for Google Drive or DVC storage. |
+| `cloud_bundle/` | Canonical local folder for lightweight report assets plus generated manifest/README for Yandex Disk, DVC, or another external storage. |
 
 ## Render
 
@@ -49,3 +49,13 @@ or Markdown tables live under `cloud_bundle/` as the canonical local source.
 Large raw datasets, checkpoints, archives, and full benchmark run directories
 should be uploaded through DVC or a manual cloud folder and referenced through
 `examples/real_world_examples/external_data_manifest.json`.
+
+
+## Size Policy
+
+`cloud_bundle/` is for lightweight report artifacts only. Keep committed files to summaries, plots, tables, manifests, and reviewed notebooks.
+
+- Single committed generated artifact: up to 5 MB by default.
+- Whole committed `cloud_bundle/`: up to 100 MB by default.
+- Raw datasets, checkpoints, archives, and full benchmark run folders stay outside git and are referenced through `examples/real_world_examples/external_data_manifest.json`.
+- The current public archive for external users is `https://disk.yandex.ru/d/Ch_7K26rukpAWw`.

@@ -3,6 +3,15 @@
 This folder is the handoff point for publishing examples artifacts outside git.
 It contains a machine-readable manifest and keeps raw-data policy explicit.
 
+## Ownership And Size Policy
+
+Owner: IndustrialTS benchmark maintainers
+Last refreshed: 2026-07-14
+Refresh command: `python -m examples.artifacts`
+External archive: https://disk.yandex.ru/d/Ch_7K26rukpAWw
+Max committed file size: 5 MB
+Max committed bundle size: 100 MB
+
 ## Rules
 
 - Upload large raw datasets, checkpoints, archives, and full benchmark runs through DVC or a manual cloud folder.

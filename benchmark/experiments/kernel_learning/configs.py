@@ -317,7 +317,7 @@ class KernelLearningTwoStageUCRExperimentConfig:
         raise ValueError(f"Unsupported stage1_run_policy: {self.stage1_run_policy}")
 
     def load_or_run_stage1(self):
-        from fedot_ind.core.kernel_learning.experiments_api import (
+        from benchmark.industrial.experiments.kernel_learning import (
             KernelLearningStage1Runner,
             load_stage1_result_from_artifacts,
             resolve_existing_stage1_run_dir,
@@ -346,7 +346,7 @@ class KernelLearningTwoStageUCRExperimentConfig:
         )
 
     def run_stage2(self, stage1_result):
-        from fedot_ind.core.kernel_learning.experiments_api import KernelLearningStage2Runner
+        from benchmark.industrial.experiments.kernel_learning import KernelLearningStage2Runner
 
         return KernelLearningStage2Runner(
             output_dir=self.stage2_output_dir,

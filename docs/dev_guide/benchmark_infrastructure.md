@@ -169,6 +169,31 @@ Raw run folders, checkpoints, logs, and historical fitted pipelines must not be
 mixed into public comparison tables directly. If they are needed for a report,
 add them to the showcase manifest as sources or archive candidates.
 
+## Ownership And Freshness Contract
+
+Benchmark tables and example artifacts are maintained assets, not one-off local files. Every public manifest should state who owns it, when it was last refreshed, and which command rebuilds it.
+
+| Asset | Owner | Refresh cadence | Refresh command | Escalation path |
+| --- | --- | --- | --- | --- |
+| `benchmark/results/showcase/showcase_manifest.json` | IndustrialTS benchmark maintainers | before each merge that changes benchmark results; otherwise quarterly | `python -m benchmark.results.showcase` | update the manifest or mark the comparison scope explicitly |
+| `examples/artifacts/artifact_catalog.json` | IndustrialTS benchmark maintainers | before each merge that changes examples or report artifacts | `python -m examples.artifacts` | move oversized/raw payloads to the external archive and keep only manifests in git |
+| `examples/real_world_examples/external_data_manifest.json` | IndustrialTS benchmark maintainers | whenever the public archive layout changes | manual archive verification against `expected_path` entries | update the Yandex Disk archive link and per-source subfolders |
+| `benchmark/results/kernel_learning/*` | experiment owner for the current KL run | after full-run reruns or resumed benchmark batches | task-specific runner under `benchmark/experiments/kernel_learning` | keep failed/skipped records visible with status and reason |
+
+Post-merge refresh checklist:
+
+1. Run `python -m benchmark.results.showcase` after changing benchmark result sources.
+2. Run `python -m examples.artifacts` after changing example artifacts or cloud bundle contents.
+3. Check `benchmark/results/showcase/tables/source_inventory.csv` for missing files.
+4. Check `benchmark/results/showcase/tables/benchmark_overview.csv` for unexpected coverage drops.
+5. Confirm that external local data is described in `examples/real_world_examples/external_data_manifest.json`, not committed as raw payload.
+
+Artifact size policy:
+
+- Commit lightweight report files only: `.md`, `.csv`, `.json`, `.png`, `.jpg`, `.jpeg`, `.svg`, and reviewed `.ipynb` files.
+- Keep a single committed generated artifact under 5 MB unless there is an explicit review reason.
+- Keep the committed `examples/artifacts/cloud_bundle` under 100 MB; larger raw data, archives, checkpoints, and full run folders belong in the external archive.
+
 ## Expected Run Artifact Layout
 
 Registered suite runs should persist enough information to rebuild aggregate

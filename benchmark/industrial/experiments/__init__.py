@@ -22,7 +22,17 @@ _EXPORTS = {
     "persist_run_bundle": "benchmark.industrial.experiments.registry",
     "run_registered_preset": "benchmark.industrial.experiments.registry",
     "run_registered_suite": "benchmark.industrial.experiments.registry",
-}
+    "DEFAULT_STAGE1_GENERATORS": "benchmark.industrial.experiments.kernel_learning",
+    "DEFAULT_STAGE_METRICS": "benchmark.industrial.experiments.kernel_learning",
+    "KernelLearningStage1ArtifactsLoader": "benchmark.industrial.experiments.kernel_learning",
+    "KernelLearningStage1Runner": "benchmark.industrial.experiments.kernel_learning",
+    "KernelLearningStage2Runner": "benchmark.industrial.experiments.kernel_learning",
+    "build_stage2_initial_population": "benchmark.industrial.experiments.kernel_learning",
+    "importance_report_from_selection": "benchmark.industrial.experiments.kernel_learning",
+    "load_stage1_kernel_records": "benchmark.industrial.experiments.kernel_learning",
+    "load_stage1_result_from_artifacts": "benchmark.industrial.experiments.kernel_learning",
+    "resolve_existing_stage1_run_dir": "benchmark.industrial.experiments.kernel_learning",
+    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning",}
 
 __all__ = sorted(_EXPORTS)
 

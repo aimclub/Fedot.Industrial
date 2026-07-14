@@ -1,17 +1,18 @@
 {
   "version": "industrial_real_world_external_data@1",
   "delivery": {
-    "mode": "dvc_plus_public_links",
-    "dvc_remote_name": "industrialts-gdrive",
-    "dvc_remote_url_template": "gdrive://<google-drive-folder-id>/industrialts-data",
-    "credentials_policy": "store OAuth tokens, service-account files, and local paths only in .dvc/config.local or environment variables",
-    "manual_download_policy": "public Google Drive archive links are placeholders until the data owner publishes them"
+    "mode": "public_yandex_disk_archive_plus_optional_dvc",
+    "public_archive_provider": "Yandex Disk",
+    "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+    "dvc_remote_name": "industrialts-external-archive",
+    "dvc_remote_url_template": "configure a private/local DVC remote only when you need resumable sync; public users should use public_archive_url",
+    "credentials_policy": "do not commit OAuth tokens, service-account files, local DVC remotes, or private paths; keep them in .dvc/config.local or environment variables",
+    "manual_download_policy": "download the public Yandex Disk archive and unpack the required source subfolders into expected_path"
   },
   "commands": {
-    "install": "python -m pip install \"dvc[gdrive]\"",
-    "remote": "dvc remote add -d industrialts-gdrive gdrive://<folder-id>/industrialts-data",
-    "pull": "dvc pull",
-    "manual": "download the public archive link for a source and unpack it into expected_path"
+    "manual": "download https://disk.yandex.ru/d/Ch_7K26rukpAWw and unpack the required source subfolders into expected_path",
+    "optional_dvc_install": "python -m pip install dvc",
+    "optional_dvc_pull": "dvc pull  # only after a private/local DVC remote is configured outside git"
   },
   "sources": [
     {
@@ -20,9 +21,12 @@
       "kind": "benchmark_evolution_history",
       "expected_path": "examples/utils/data/benchmark_history/real_world_archive/composition_results",
       "dvc_path": "benchmark_history/real_world_archive/composition_results",
-      "public_google_drive_url": "https://drive.google.com/drive/folders/<composition-results-folder-id>",
       "tracked_in_git": false,
-      "notes": "FEDOT Industrial evolutionary optimization history used by the pipeline population notebook."
+      "notes": "FEDOT Industrial evolutionary optimization history used by the pipeline population notebook.",
+      "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+      "public_archive_subdir": "benchmark_history/real_world_archive/composition_results",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_verified": "2026-07-14"
     },
     {
       "key": "real_world_archive_m3_m4_data",
@@ -30,9 +34,12 @@
       "kind": "forecasting_raw_data",
       "expected_path": "examples/utils/data/benchmark_history/real_world_archive/data",
       "dvc_path": "benchmark_history/real_world_archive/m3_m4_data",
-      "public_google_drive_url": "https://drive.google.com/drive/folders/<m3-m4-data-folder-id>",
       "tracked_in_git": false,
-      "notes": "Local M3/M4 benchmark source files for forecasting examples."
+      "notes": "Local M3/M4 benchmark source files for forecasting examples.",
+      "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+      "public_archive_subdir": "benchmark_history/real_world_archive/m3_m4_data",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_verified": "2026-07-14"
     },
     {
       "key": "real_world_ucr_classification_results",
@@ -40,9 +47,12 @@
       "kind": "benchmark_result_tables",
       "expected_path": "examples/real_world_examples/benchmark_example/classification",
       "dvc_path": "real_world/results/ucr_classification",
-      "public_google_drive_url": "https://drive.google.com/drive/folders/<ucr-results-folder-id>",
       "tracked_in_git": false,
-      "notes": "Historical UCR result directories such as UCR_CLF_04_02_25 and UCR_UNI_23_01_25."
+      "notes": "Historical UCR result directories such as UCR_CLF_04_02_25 and UCR_UNI_23_01_25.",
+      "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+      "public_archive_subdir": "real_world/results/ucr_classification",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_verified": "2026-07-14"
     },
     {
       "key": "real_world_skab_detection_results",
@@ -50,9 +60,12 @@
       "kind": "benchmark_result_tables",
       "expected_path": "examples/real_world_examples/benchmark_example/detection",
       "dvc_path": "real_world/results/skab_detection",
-      "public_google_drive_url": "https://drive.google.com/drive/folders/<skab-results-folder-id>",
       "tracked_in_git": false,
-      "notes": "Historical SKAB benchmark outputs; current smoke examples read fixtures from examples/utils/data/anomaly_detection."
+      "notes": "Historical SKAB benchmark outputs; current smoke examples read fixtures from examples/utils/data/anomaly_detection.",
+      "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+      "public_archive_subdir": "real_world/results/skab_detection",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_verified": "2026-07-14"
     },
     {
       "key": "real_world_m4_forecasting_results",
@@ -60,9 +73,12 @@
       "kind": "benchmark_result_tables",
       "expected_path": "examples/real_world_examples/benchmark_example/forecasting",
       "dvc_path": "real_world/results/m4_forecasting",
-      "public_google_drive_url": "https://drive.google.com/drive/folders/<m4-results-folder-id>",
       "tracked_in_git": false,
-      "notes": "Historical M4 result directories such as M4_22_01_25, M4_23_01_25, and M4_24_01_25."
+      "notes": "Historical M4 result directories such as M4_22_01_25, M4_23_01_25, and M4_24_01_25.",
+      "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+      "public_archive_subdir": "real_world/results/m4_forecasting",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_verified": "2026-07-14"
     },
     {
       "key": "real_world_domain_local_inputs",
@@ -70,9 +86,14 @@
       "kind": "domain_datasets_and_outputs",
       "expected_path": "examples/real_world_examples/industrial_examples",
       "dvc_path": "real_world/domain_examples",
-      "public_google_drive_url": "https://drive.google.com/drive/folders/<domain-examples-folder-id>",
       "tracked_in_git": false,
-      "notes": "Applied EEG, equipment, economic, energy, environment, and forecasting local inputs or high-churn outputs."
+      "notes": "Applied EEG, equipment, economic, energy, environment, and forecasting local inputs or high-churn outputs.",
+      "public_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+      "public_archive_subdir": "real_world/domain_examples",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_verified": "2026-07-14"
     }
-  ]
+  ],
+  "owner": "IndustrialTS benchmark maintainers",
+  "last_verified": "2026-07-14"
 }

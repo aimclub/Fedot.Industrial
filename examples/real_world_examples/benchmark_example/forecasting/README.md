@@ -6,5 +6,4 @@ under `examples/utils/data/forecasting/kaggle_inventory` or another explicit
 `data_dir` passed to the entrypoint; they are not committed.
 
 Historical M4 result directories are external inputs described in
-`results_manifest.json`. Use the root `external_data_manifest.json` for DVC and
-public Google Drive placeholders.
+`results_manifest.json`. Use the root `external_data_manifest.json` for the public Yandex Disk archive and optional DVC metadata.

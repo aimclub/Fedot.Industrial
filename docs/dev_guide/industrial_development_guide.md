@@ -69,8 +69,8 @@
 1. [industrial_development_guide.md](industrial_development_guide.md)
 2. [radical_forecasting_refactor_plan.md](../pr_plans/radical_forecasting_refactor_plan.md)
 3. [forecasting_phase_2_roadmap.md](../pr_plans/forecasting_phase_2_roadmap.md)
-4. [forecasting_suite_workflow.md](../benchmark_v2/forecasting_suite_workflow.md)
-5. [benchmark_v2_overview.md](../benchmark_v2/benchmark_v2_overview.md)
+4. [benchmark_infrastructure.md](benchmark_infrastructure.md)
+5. [benchmark_infrastructure.md](benchmark_infrastructure.md)
 
 Если вы идёте именно в forecasting-разработку, затем лучше переходить к:
 
@@ -94,7 +94,7 @@
 | `tests/unit/core`           | unit tests для core/runtime/model logic                            |
 | `tests/unit/models`         | benchmark/runtime integration tests и model-level regression tests |
 | `docs/dev`                  | roadmap, refactor plans, engineering documentation                 |
-| `docs/benchmark_v2`         | benchmark-specific guides, quickstart и workflow docs              |
+| `docs/dev_guide/benchmark_infrastructure.md` | актуальный контракт benchmark.industrial, result showcase и refresh policy |
 
 ### Forecasting-пакеты после реорганизации
 
@@ -373,7 +373,7 @@ orchestration/framework layer со своими contracts.
 
 Хорошая входная точка:
 
-- [forecasting_suite_workflow.md](../benchmark_v2/forecasting_suite_workflow.md)
+- [benchmark_infrastructure.md](benchmark_infrastructure.md)
 
 В актуальном коде orchestration уже разнесён на coordinator-объекты
 внутри [forecasting.py](../../benchmark/v2/forecasting.py):
@@ -687,6 +687,6 @@ orchestration/framework layer со своими contracts.
 
 - [forecasting_runtime_api_reference.md](./forecasting_runtime_api_reference.md) — текущие runtime contracts, stage tuning, policies, persistence/resume и visualizer API.
 - [forecasting_models_reference.md](./forecasting_models_reference.md) — model families, stage decomposition, tuning/non-tuning параметры и diagnostics.
-- [benchmark_v2_forecasting_guide.md](./benchmark_v2_forecasting_guide.md) — `ForecastingSuiteRunner`, item-level persistence, resume mode, post-fit tuning comparison и публикационные artifacts.
+- [benchmark_infrastructure.md](benchmark_infrastructure.md) — `ForecastingSuiteRunner`, item-level persistence, resume mode, post-fit tuning comparison и публикационные artifacts.
 - [forecasting_branch_development_history.md](./forecasting_branch_development_history.md) — история решений ветки и сознательные ограничения перед merge.
 - [forecasting_merge_artifact_policy.md](./forecasting_merge_artifact_policy.md) — что нельзя тащить в PR: benchmark outputs, `progress/items`, datasets, checkpoints, archives и визуализации.

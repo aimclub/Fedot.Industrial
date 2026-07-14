@@ -2,11 +2,45 @@
   "version": "industrial_examples_cloud_bundle@1",
   "title": "IndustrialTS examples artifact catalog",
   "description": "Central catalog for local inputs, benchmark history, full-run results, notebooks, and rendered visual artifacts used by examples.",
+  "owner": "IndustrialTS benchmark maintainers",
+  "last_refreshed": "2026-07-14",
+  "refresh_command": "python -m examples.artifacts",
+  "external_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
+  "artifact_size_policy": {
+    "max_single_committed_file_mb": 5,
+    "max_committed_cloud_bundle_mb": 100,
+    "allowed_committed_extensions": [
+      ".md",
+      ".csv",
+      ".json",
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".svg",
+      ".ipynb"
+    ],
+    "raw_data_policy": "raw datasets, checkpoints, archives, and full benchmark run folders must stay external and be referenced through external_data_manifest.json"
+  },
   "external_data_manifest": "examples/real_world_examples/external_data_manifest.json",
   "bundle_policy": {
     "tracked_lightweight_artifacts": "summaries, plots, markdown tables, CSV tables, manifests, and notebooks",
     "large_raw_data": "DVC or manual cloud upload; do not commit raw datasets/checkpoints/zips",
-    "credentials": "never commit OAuth tokens, service account files, or local credentials"
+    "credentials": "never commit OAuth tokens, service account files, or local credentials",
+    "size_policy": {
+      "max_single_committed_file_mb": 5,
+      "max_committed_cloud_bundle_mb": 100,
+      "allowed_committed_extensions": [
+        ".md",
+        ".csv",
+        ".json",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".svg",
+        ".ipynb"
+      ],
+      "raw_data_policy": "raw datasets, checkpoints, archives, and full benchmark run folders must stay external and be referenced through external_data_manifest.json"
+    }
   },
   "local_files_manifest": "local_artifacts.json",
   "groups": [
@@ -162,7 +196,9 @@
       "industrial_sources": [
         "industrial_kernel_learning_ucr_020626"
       ],
-      "notes": "Full UCR comparison with source-aware best-target delta and model diagnostics."
+      "notes": "Full UCR comparison with source-aware best-target delta and model diagnostics.",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m examples.artifacts"
     },
     {
       "key": "analysis_multi_clf",
@@ -176,7 +212,9 @@
       "industrial_sources": [
         "historical_industrial_multivariate"
       ],
-      "notes": "Historical multivariate benchmark comparison."
+      "notes": "Historical multivariate benchmark comparison.",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m examples.artifacts"
     },
     {
       "key": "analysis_regr",
@@ -190,7 +228,9 @@
       "industrial_sources": [
         "industrial_kernel_learning_tser_full"
       ],
-      "notes": "Regression comparison against SoTA tables and current Kernel Learning TSER full-run artifacts."
+      "notes": "Regression comparison against SoTA tables and current Kernel Learning TSER full-run artifacts.",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m examples.artifacts"
     },
     {
       "key": "m4_analysis",
@@ -204,7 +244,10 @@
       "industrial_sources": [
         "industrial_kernel_learning_m4_monthly_full_m100"
       ],
-      "notes": "Local M100 Monthly M4 comparison with 100/100 series coverage."
+      "notes": "Local M100 Monthly M4 comparison with 100/100 series coverage; treated as an internal Industrial comparison until a public forecasting SoTA source is added.",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m examples.artifacts",
+      "comparison_scope": "industrial_internal_comparison"
     },
     {
       "key": "pdl_uni_benchmark",
@@ -219,7 +262,9 @@
         "industrial_kernel_learning_ucr_020626",
         "industrial_pdl_ucr_full_pending"
       ],
-      "notes": "PDL-focused comparison; full PDL source is represented as pending until local run artifacts are available."
+      "notes": "PDL-focused comparison; full PDL source is represented as pending until local run artifacts are available.",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m examples.artifacts"
     },
     {
       "key": "pipeline_population",
@@ -233,7 +278,9 @@
       "industrial_sources": [
         "fedot_industrial_evolution_history"
       ],
-      "notes": "Composition history dynamics, notable pipelines, and operation frequency from archive data."
+      "notes": "Composition history dynamics, notable pipelines, and operation frequency from archive data.",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m examples.artifacts"
     }
   ]
 }

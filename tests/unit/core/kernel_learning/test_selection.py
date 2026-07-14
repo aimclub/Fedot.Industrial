@@ -1,7 +1,12 @@
 import numpy as np
 
 from fedot_ind.core.kernel_learning.contracts import KernelBundle
-from fedot_ind.core.kernel_learning.selection import ForecastTargetSpec, SparseMKLSelector, TargetKernelBuilder
+from fedot_ind.core.kernel_learning.selection import (
+    AdaptiveKernelWeightSelector,
+    ForecastTargetSpec,
+    SparseMKLSelector,
+    TargetKernelBuilder,
+)
 
 
 def test_sparse_mkl_selector_prefers_informative_kernel():
@@ -101,3 +106,8 @@ def test_forecasting_target_kernel_uses_horizon_weights():
     assert target_kernel.shape == (3, 3)
     assert np.all(np.isfinite(target_kernel))
     assert np.allclose(np.diag(target_kernel), 1.0)
+
+
+
+def test_sparse_mkl_selector_is_backward_compatible_alias():
+    assert SparseMKLSelector is AdaptiveKernelWeightSelector

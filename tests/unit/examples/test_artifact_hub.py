@@ -18,6 +18,8 @@ def test_artifact_catalog_declares_cloud_handoff_groups() -> None:
     showcase_keys = {item["key"] for item in catalog["benchmark_showcase"]}
 
     assert catalog["version"] == "industrial_examples_artifact_catalog@1"
+    assert catalog["external_archive_url"] == "https://disk.yandex.ru/d/Ch_7K26rukpAWw"
+    assert catalog["artifact_size_policy"]["max_single_committed_file_mb"] == 5
     assert "benchmark_analysis_publication_packs" in group_keys
     assert "industrial_domain_publication_packs" in group_keys
     assert "examples_utils_local_data" in group_keys
@@ -71,6 +73,8 @@ def test_artifact_showcase_and_cloud_manifest_render_to_tmp_dir(tmp_path: Path) 
     assert any(row["key"] == "benchmark_analysis_publication_packs" for row in inventory)
     assert cloud_manifest["version"] == "industrial_examples_cloud_bundle@1"
     assert cloud_manifest["local_files_manifest"] == "local_artifacts.json"
+    assert cloud_manifest["external_archive_url"] == "https://disk.yandex.ru/d/Ch_7K26rukpAWw"
+    assert cloud_manifest["artifact_size_policy"]["max_committed_cloud_bundle_mb"] == 100
     assert any(group["category"] == "raw_and_fixture_data" for group in cloud_manifest["groups"])
     assert any(group["local_file_count"] > 0 for group in cloud_manifest["groups"])
     assert local_artifacts

@@ -72,6 +72,10 @@ class ResultShowcaseGroup:
     target_source_labels: tuple[str, ...] = ()
     reference_source_labels: tuple[str, ...] = ()
     expected_dataset_count: int | None = None
+    owner: str = ""
+    last_refreshed: str = ""
+    refresh_command: str = ""
+    comparison_scope: str = "public_reference_comparison"
     notes: str = ""
 
     @property
@@ -91,18 +95,31 @@ class ResultShowcaseManifest:
     description: str
     groups: tuple[ResultShowcaseGroup, ...]
     archive_candidates: tuple[Mapping[str, Any], ...]
+    owner: str = ""
+    last_refreshed: str = ""
+    refresh_command: str = ""
+    post_merge_checklist: tuple[str, ...] = ()
 
 
 def load_showcase_manifest(path: str | Path = DEFAULT_MANIFEST_PATH) -> ResultShowcaseManifest:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     _require(raw, "version", "title", "description", "groups")
-    groups = tuple(_parse_group(item) for item in raw["groups"])
+    group_defaults = {
+        "owner": raw.get("owner", ""),
+        "last_refreshed": raw.get("last_refreshed", ""),
+        "refresh_command": raw.get("refresh_command", ""),
+    }
+    groups = tuple(_parse_group({**group_defaults, **item}) for item in raw["groups"])
     return ResultShowcaseManifest(
         version=str(raw["version"]),
         title=str(raw["title"]),
         description=str(raw["description"]),
         groups=groups,
         archive_candidates=tuple(raw.get("archive_candidates", ())),
+        owner=str(raw.get("owner", "")),
+        last_refreshed=str(raw.get("last_refreshed", "")),
+        refresh_command=str(raw.get("refresh_command", "")),
+        post_merge_checklist=tuple(str(item) for item in raw.get("post_merge_checklist", ())),
     )
 
 
@@ -169,6 +186,10 @@ def render_results_showcase(
                 "version": manifest.version,
                 "title": manifest.title,
                 "description": manifest.description,
+                "owner": manifest.owner,
+                "last_refreshed": manifest.last_refreshed,
+                "refresh_command": manifest.refresh_command,
+                "post_merge_checklist": list(manifest.post_merge_checklist),
                 "groups": overview.to_dict(orient="records"),
                 "source_count": int(len(inventory)),
                 "archive_candidate_count": int(len(archive)),
@@ -205,6 +226,10 @@ def build_source_inventory(
                     "path": source.path,
                     "exists_locally": source_path.exists(),
                     "file_count": _count_files(source_path),
+                    "owner": group.owner,
+                    "last_refreshed": group.last_refreshed,
+                    "refresh_command": group.refresh_command,
+                    "comparison_scope": group.comparison_scope,
                     "notes": source.notes,
                 }
             )
@@ -225,6 +250,10 @@ def _parse_group(raw: Mapping[str, Any]) -> ResultShowcaseGroup:
         target_source_labels=tuple(str(item) for item in raw.get("target_source_labels", ())),
         reference_source_labels=tuple(str(item) for item in raw.get("reference_source_labels", ())),
         expected_dataset_count=_optional_int(raw.get("expected_dataset_count")),
+        owner=str(raw.get("owner", "")),
+        last_refreshed=str(raw.get("last_refreshed", "")),
+        refresh_command=str(raw.get("refresh_command", "")),
+        comparison_scope=str(raw.get("comparison_scope", "public_reference_comparison")),
         notes=str(raw.get("notes", "")),
     )
 
@@ -288,6 +317,10 @@ def _build_overview_row(
         "model_count": int(normalized["model_name"].nunique()) if "model_name" in normalized else 0,
         "metric_row_count": int(len(normalized)),
         "diagnostic_row_count": int(len(diagnostics)),
+        "owner": group.owner,
+        "last_refreshed": group.last_refreshed,
+        "refresh_command": group.refresh_command,
+        "comparison_scope": group.comparison_scope,
         "notes": group.notes,
     }
 
@@ -333,6 +366,16 @@ def _write_showcase_readme(
         "",
         "This directory is the canonical entrypoint for benchmark result comparisons.",
         "Raw historical folders are kept in place and indexed here instead of being duplicated.",
+        "",
+        "## Ownership And Freshness",
+        "",
+        f"Owner: {manifest.owner or 'not specified'}",
+        f"Last refreshed: {manifest.last_refreshed or 'not specified'}",
+        f"Refresh command: `{manifest.refresh_command or 'not specified'}`",
+        "",
+        "Post-merge checklist:",
+        "",
+        *(f"- {item}" for item in manifest.post_merge_checklist),
         "",
         "## Rebuild",
         "",

@@ -22,7 +22,7 @@ from fedot_ind.core.kernel_learning.kernels import KernelMatrixBuilder
 from fedot_ind.core.kernel_learning.selection import (
     KernelImportanceConfig,
     MKLObjectiveConfig,
-    SparseMKLSelector,
+    AdaptiveKernelWeightSelector,
     combine_kernels,
     select_significant_generators,
 )
@@ -212,7 +212,7 @@ class KernelEnsembleBase(BaseEstimator):
             self.kernel_bundles_.append(kernel_bundle)
 
         selector_config = runtime_config.selector_config
-        selector = SparseMKLSelector(
+        selector = AdaptiveKernelWeightSelector(
             complexity_penalty=selector_config.complexity_penalty,
             redundancy_penalty=selector_config.redundancy_penalty,
             min_weight=selector_config.min_weight,

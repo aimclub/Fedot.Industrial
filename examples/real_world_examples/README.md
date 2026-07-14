@@ -33,21 +33,20 @@ packages.
 
 Constants for external Kaggle/EEG inputs live in `real_world_defaults.json`.
 `external_data_manifest.json` describes local raw inputs, historical benchmark
-results, expected paths, DVC locations, and placeholder public Google Drive
-links. Keep datasets, checkpoints, and high-churn image outputs untracked.
+results, expected paths, optional DVC locations, and the public Yandex Disk archive link. Keep datasets, checkpoints, and high-churn image outputs untracked.
 Report-style benchmark/domain assets live under
 `examples/artifacts/cloud_bundle` when they are deterministic and lightweight.
 
 Data delivery contract:
 
 ```powershell
-python -m pip install "dvc[gdrive]"
-dvc remote add -d industrialts-gdrive gdrive://<folder-id>/industrialts-data
+python -m pip install dvc
+# Optional: configure a private/local DVC remote outside git, then run:
 dvc pull
 ```
 
-Users without DVC/OAuth can download the public Google Drive archives listed in
-`external_data_manifest.json` and unpack them into each source `expected_path`.
+Users without DVC can download the public Yandex Disk archive listed in
+`external_data_manifest.json`: https://disk.yandex.ru/d/Ch_7K26rukpAWw and unpack them into each source `expected_path`.
 Do not commit credentials, OAuth tokens, `.dvc/config.local`, raw datasets, or
 historical result dumps.
 

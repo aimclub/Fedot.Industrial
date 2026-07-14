@@ -95,10 +95,22 @@ missing locally, `benchmark.industrial` falls back to the existing repository
 UCR loader, which downloads the dataset from the UCR archive and saves it under
 the same local root.
 
-To change datasets or model grids, edit the constants at the top of the scripts:
+To change datasets, model grids, metrics, or output templates, update the package-local JSON defaults and let the typed config builders normalize them into `BenchmarkSuiteConfig`:
+
+```text
+benchmark/experiments/kernel_learning/defaults.json
+benchmark/industrial/experiments/preset_defaults.json
+examples/utils/current_api/manifests/*.json
+```
+
+Typical flow:
 
 ```python
-UCR_DATASETS = ("Lightning7", "ECG200", "Coffee")
-TSER_DATASETS = ("NaturalGasPricesSentiment", "AppliancesEnergy", "ElectricityPredictor")
-KERNEL_LEARNING_MODELS = (...)
+from benchmark.experiments.kernel_learning.configs import build_ucr_suite_config
+from benchmark.industrial.experiments.registry import run_registered_suite
+
+config = build_ucr_suite_config()
+bundle = run_registered_suite(config)
 ```
+
+Keep implementation files focused on parsing and execution; catalog-like constants belong in JSON defaults next to the thematic entrypoint.
