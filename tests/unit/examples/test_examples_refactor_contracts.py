@@ -282,7 +282,7 @@ def test_real_world_data_delivery_and_domain_scenarios_are_manifest_driven(tmp_p
         output_dir=tmp_path / "bitcoin_forecast",
     )
 
-    assert summary["delivery_mode"] == "dvc_plus_public_links"
+    assert summary["delivery_mode"] == "public_yandex_disk_archive_plus_optional_dvc"
     assert "real_world_archive_composition_results" in summary["source_keys"]
     assert (DATA_ROOT / "benchmark_history" / "real_world_archive" / "archive_manifest.json").is_file()
     assert "eeg_classification" in scenarios
