@@ -321,7 +321,8 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                     progress.item_started(record.dataset_name, model.name, record.dataset_name)
                     resume_key = (record.dataset_name, record.subset, model.name)
                     resumed_record = completed_run_records.get(resume_key)
-                    if resumed_record is not None and resumed_record.status in {RunStatus.SUCCESS, RunStatus.NOT_AVAILABLE}:
+                    if resumed_record is not None and resumed_record.status in {
+                            RunStatus.SUCCESS, RunStatus.NOT_AVAILABLE}:
                         run_records.append(resumed_record)
                         if resumed_record.status is RunStatus.SUCCESS:
                             metric_records.extend(_metric_records_from_run_summary(resumed_record))

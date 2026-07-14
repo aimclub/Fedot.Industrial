@@ -116,7 +116,9 @@ class PDLRegressorAdapter:
     def fit(self, features: np.ndarray, target: np.ndarray) -> None:
         from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceRegressor
 
-        input_data = _fedot_input_data(features=features, target=np.asarray(target, dtype=float), task_type='regression')
+        input_data = _fedot_input_data(
+            features=features, target=np.asarray(
+                target, dtype=float), task_type='regression')
         self.model_ = PairwiseDifferenceRegressor(params=_operation_parameters(self.params, default_model='treg'))
         self.model_.fit(input_data)
 

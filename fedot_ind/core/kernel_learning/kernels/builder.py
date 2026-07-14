@@ -328,6 +328,7 @@ class KernelMatrixBuilder:
         }
         self._approximator_ = None
 
+
 def _looks_like_distance_matrix(matrix: np.ndarray) -> bool:
     if matrix.shape[0] != matrix.shape[1] or matrix.shape[0] <= 1:
         return False

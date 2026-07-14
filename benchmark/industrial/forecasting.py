@@ -2339,8 +2339,8 @@ class ForecastingSuiteRunner:
         validate_forecasting_suite_config(config)
         self.config = config
         self.run_id = (
-                ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
-                or new_run_id(config.run_spec.run_name)
+            ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
+            or new_run_id(config.run_spec.run_name)
         )
         self.series_records: list[ForecastingSeriesRecord] = []
         self.run_records: list[BenchmarkRunRecord] = []
@@ -2517,10 +2517,10 @@ class ForecastingSuiteRunner:
                     (
                         record for record in self.run_records
                         if record.benchmark == series_record.benchmark
-                           and record.dataset_name == series_record.dataset_name
-                           and record.subset == series_record.subset
-                           and record.series_id == series_record.series_id
-                           and record.model_name == model.name
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
                     ),
                     None,
                 )
@@ -2575,10 +2575,10 @@ class ForecastingSuiteRunner:
                     (
                         record for record in self.run_records
                         if record.benchmark == series_record.benchmark
-                           and record.dataset_name == series_record.dataset_name
-                           and record.subset == series_record.subset
-                           and record.series_id == series_record.series_id
-                           and record.model_name == model.name
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
                     ),
                     None,
                 )

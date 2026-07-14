@@ -29,11 +29,9 @@ try:
 except Exception as exc:  # pragma: no cover - legacy-only fallback for lightweight envs
     LEGACY_IMPORT_ERROR = exc
 
-
     class AbstractBenchmark:
         def __init__(self, output_dir=None):
             self.output_dir = output_dir
-
 
     class DatasetFormatting:
         def format_univariate_forecasting_data(self, *args, **kwargs):
@@ -42,11 +40,9 @@ except Exception as exc:  # pragma: no cover - legacy-only fallback for lightwei
         def format_global_forecasting_data(self, *args, **kwargs):
             raise ImportError('Legacy forecasting dependencies are unavailable.') from LEGACY_IMPORT_ERROR
 
-
     class ResultsPicker:
         def __init__(self, path=None):
             self.path = path
-
 
     TsForecastingParams = None
     FedotIndustrial = None
@@ -195,10 +191,10 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
             composed_model_path = PROJECT_PATH + self.path_to_save + \
-                                  f'/{dataset_name}' + '/0_pipeline_saved'
+                f'/{dataset_name}' + '/0_pipeline_saved'
             if os.path.isdir(composed_model_path):
                 self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                         self.path_to_save
+                    self.path_to_save
                 experiment_setup = deepcopy(self.experiment_setup)
                 prediction, target = self.finetune_loop(
                     dataset_name, experiment_setup)
@@ -209,7 +205,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
                     'metrics_report.csv')
                 fedot_results = pd.read_csv(dataset_path, index_col=0)
                 fedot_results.loc[dataset_name,
-                'Fedot_Industrial_finetuned'] = metric
+                                  'Fedot_Industrial_finetuned'] = metric
 
                 fedot_results.to_csv(dataset_path)
             else:
@@ -224,7 +220,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         results = results.dropna(axis=1, how='all')
         results = results.dropna(axis=0, how='all')
         self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                 self.path_to_save
+            self.path_to_save
         return results
 
     def create_report(self):
@@ -233,14 +229,14 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.path_to_save + \
-                                f'/{dataset_name}' + '/metrics_report.csv'
+                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_results = np.stack(_, axis=1).T

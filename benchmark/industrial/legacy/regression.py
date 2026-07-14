@@ -28,11 +28,9 @@ try:
 except Exception as exc:  # pragma: no cover - legacy-only fallback
     LEGACY_IMPORT_ERROR = exc
 
-
     class AbstractBenchmark:
         def __init__(self, output_dir=None):
             self.output_dir = output_dir
-
 
     class ResultsPicker:
         def __init__(self, path=None):
@@ -40,7 +38,6 @@ except Exception as exc:  # pragma: no cover - legacy-only fallback
 
         def run(self, *args, **kwargs):
             return pd.DataFrame()
-
 
     matplotlib = None
     PipelineNode = None
@@ -145,7 +142,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
             results = results.dropna(axis=1, how='all')
             results = results.dropna(axis=0, how='all')
             self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                     '/benchmark/results/ts_regression'
+                '/benchmark/results/ts_regression'
             return results
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
@@ -155,7 +152,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         for dataset_name in self.custom_datasets:
             experiment_setup = deepcopy(self.experiment_setup)
             path_to_results = PROJECT_PATH + \
-                              '/benchmark/results/ts_regression' + f'/{dataset_name}'
+                '/benchmark/results/ts_regression' + f'/{dataset_name}'
             composed_model_path = [
                 path_to_results +
                 f'/{x}' for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')]
@@ -165,10 +162,10 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
                     dataset_name, experiment_setup, p)
                 metric = RMSE(model.predict_data.target, prediction).metric()
                 metric_path = PROJECT_PATH + '/benchmark/results/ts_regression' + \
-                              f'/{dataset_name}' + '/metrics_report.csv'
+                    f'/{dataset_name}' + '/metrics_report.csv'
                 fedot_results = pd.read_csv(metric_path, index_col=0)
                 fedot_results.loc[dataset_name,
-                'Fedot_Industrial_finetuned'] = metric
+                                  'Fedot_Industrial_finetuned'] = metric
                 fedot_results.to_csv(metric_path)
                 model.save_best_model()
         self.logger.info("Benchmark finetune finished")
@@ -192,7 +189,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         self._ensure_legacy_dependencies()
         for dataset_name in self.custom_datasets:
             composed_model_path = PROJECT_PATH + '/benchmark/results/ts_regression' + \
-                                  f'/{dataset_name}' + '/0_pipeline_saved'
+                f'/{dataset_name}' + '/0_pipeline_saved'
             experiment_setup = deepcopy(self.experiment_setup)
             experiment_setup['output_folder'] = composed_model_path
             del experiment_setup['industrial_preprocessing']

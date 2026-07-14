@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from examples.real_world_examples.current_api import result_summary, run_classification_benchmark
 

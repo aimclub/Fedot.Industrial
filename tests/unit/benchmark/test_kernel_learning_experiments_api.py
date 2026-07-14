@@ -329,4 +329,3 @@ def test_stage2_runner_strict_reraises_dataset_failure_after_artifacts(tmp_path)
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["status"] == "failed"
     assert summary["traceback"]
-

@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from fedot_ind.core.kernel_learning.contracts import FeatureBundle, FeatureInput, KernelBundle, KernelTaskType, TargetInput
+from fedot_ind.core.kernel_learning.contracts import FeatureInput, KernelBundle, KernelTaskType
 
 DEFAULT_GENERATOR_NAMES = (
     "quantile_extractor",

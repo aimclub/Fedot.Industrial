@@ -165,7 +165,11 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
             return super().fit(X, y, task_type=task_type)
         except Exception as ex:
             logger.exception("Falling back from generator %s after operation failure.", self.name)
-            return self._fit_fallback(X, y, task_type=task_type, reason=f"operation_unavailable:{ex.__class__.__name__}")
+            return self._fit_fallback(
+                X,
+                y,
+                task_type=task_type,
+                reason=f"operation_unavailable:{ex.__class__.__name__}")
 
     def transform(self, X: Any) -> FeatureBundle:
         if self.fallback_generator_ is not None:

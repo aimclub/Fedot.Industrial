@@ -919,7 +919,7 @@ class ForecastingProgressItemsVisualizer:
             (gain_frame['dataset_name'] == item.dataset_name)
             & (gain_frame['series_id'] == item.series_id)
             & (gain_frame['model_name'] == item.model_name)
-            ].copy()
+        ].copy()
         if series_frame.empty:
             return []
 
@@ -1054,7 +1054,7 @@ class ForecastingProgressItemsVisualizer:
             diagonal_min = float(np.nanmin(np.concatenate([baseline, tuned])))
             diagonal_max = float(np.nanmax(np.concatenate([baseline, tuned])))
             margin = max(1e-6, 0.05 * (diagonal_max - diagonal_min if diagonal_max >
-                                                                      diagonal_min else abs(diagonal_max) + 1.0))
+                                       diagonal_min else abs(diagonal_max) + 1.0))
             axis.plot(
                 [diagonal_min - margin, diagonal_max + margin],
                 [diagonal_min - margin, diagonal_max + margin],
@@ -1166,7 +1166,7 @@ class ForecastingProgressItemsVisualizer:
         history_plots = [
             artifact['path'] for artifact in summary_context['artifacts']
             if artifact['kind'] == 'plot' and artifact['path'].startswith('series_history_forecast/') and
-               artifact['path'].endswith('.png')]
+            artifact['path'].endswith('.png')]
         history_gallery = '\n'.join(
             f"""
             <div class="history-card">

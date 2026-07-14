@@ -105,7 +105,7 @@ def spectrogram_from_eeg(parquet_path, display=False):
                 y=x,
                 sr=200,
                 hop_length=len(x) //
-                           256,
+                256,
                 n_fft=1024,
                 n_mels=128,
                 fmin=0,
@@ -134,10 +134,10 @@ class ReadData:
 
         if self.is_train:
             PATH = PROJECT_PATH + \
-                   f"/data/hms-harmful-brain-activity-classification/train_{data_type}/{file_id}.parquet"
+                f"/data/hms-harmful-brain-activity-classification/train_{data_type}/{file_id}.parquet"
         else:
             PATH = PROJECT_PATH + \
-                   f"/data/hms-harmful-brain-activity-classification/test_{data_type}/{file_id}.parquet"
+                f"/data/hms-harmful-brain-activity-classification/test_{data_type}/{file_id}.parquet"
 
         return pd.read_parquet(PATH)
 
@@ -246,9 +246,9 @@ class FeatureEngineerData(ReadData):
                 .set_axis(['var_1', 'var_2', 'corr'], axis=1)
                 .query("var_1 != var_2")
                 .assign(
-            row_id=self.row_id,
-            label=lambda x: x.var_1 + "_" + x.var_2
-        )
+                    row_id=self.row_id,
+                    label=lambda x: x.var_1 + "_" + x.var_2
+                )
                 .pivot(columns='label', values='corr', index='row_id')
                 .add_prefix('cor_')
                 )

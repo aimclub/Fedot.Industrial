@@ -170,8 +170,7 @@ def main() -> int:
     preview = build_kernel_learning_ucr_config_preview()
     print(
         "kernel_learning_ucr_preview: "
-        f"datasets={len(preview.datasets)}, models={len(preview.models)}, persist={preview.artifact_spec.persist_on_run}"
-    )
+        f"datasets={len(preview.datasets)}, models={len(preview.models)}, persist={preview.artifact_spec.persist_on_run}")
     return 0
 
 

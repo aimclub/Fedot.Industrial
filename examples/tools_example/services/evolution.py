@@ -46,14 +46,15 @@ def run_evolution_optimization(request: ToolRequest) -> ToolResponse:
 def _build_two_stage_config(payload: dict[str, Any]) -> KernelLearningTwoStageUCRExperimentConfig:
     datasets = tuple(str(item) for item in payload.get("datasets", ()) if str(item))
     return KernelLearningTwoStageUCRExperimentConfig(
-        datasets=datasets,
-        stage1_output_dir=Path(payload["stage1_output_dir"]) if payload.get("stage1_output_dir") else KernelLearningTwoStageUCRExperimentConfig.stage1_output_dir,
-        stage2_output_dir=Path(payload["stage2_output_dir"]) if payload.get("stage2_output_dir") else KernelLearningTwoStageUCRExperimentConfig.stage2_output_dir,
+        datasets=datasets, stage1_output_dir=Path(payload["stage1_output_dir"])
+        if payload.get("stage1_output_dir") else KernelLearningTwoStageUCRExperimentConfig.stage1_output_dir,
+        stage2_output_dir=Path(payload["stage2_output_dir"])
+        if payload.get("stage2_output_dir") else KernelLearningTwoStageUCRExperimentConfig.stage2_output_dir,
         stage1_run_id=payload.get("stage1_run_id", KernelLearningTwoStageUCRExperimentConfig.stage1_run_id),
         run_stage1=bool(payload.get("run_stage1", False)),
-        timeout_minutes=int(payload.get("timeout_minutes", KernelLearningTwoStageUCRExperimentConfig.timeout_minutes)),
-        pop_size=int(payload.get("pop_size", KernelLearningTwoStageUCRExperimentConfig.pop_size)),
-    )
+        timeout_minutes=int(
+            payload.get("timeout_minutes", KernelLearningTwoStageUCRExperimentConfig.timeout_minutes)),
+        pop_size=int(payload.get("pop_size", KernelLearningTwoStageUCRExperimentConfig.pop_size)),)
 
 
 __all__ = ["run_evolution_optimization"]

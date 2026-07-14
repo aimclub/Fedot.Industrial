@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from functools import lru_cache
@@ -79,7 +79,8 @@ def skab_context(folder: str = "valve1") -> dict[str, Any]:
     }
 
 
-def kaggle_forecasting_context(data_dir: str | Path = "examples/utils/data/forecasting/kaggle_inventory") -> dict[str, Any]:
+def kaggle_forecasting_context(
+        data_dir: str | Path = "examples/utils/data/forecasting/kaggle_inventory") -> dict[str, Any]:
     defaults = load_real_world_defaults()["kaggle_forecasting"]
     data_root = Path(data_dir)
     return {

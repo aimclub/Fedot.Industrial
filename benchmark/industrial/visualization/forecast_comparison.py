@@ -24,7 +24,8 @@ def build_forecast_comparison_frame(
 
     history_length = len(history)
     for index, value in enumerate(_as_float_array(actual)):
-        rows.append({'split': 'actual', 'step': int(history_length + index), 'model_name': 'actual', 'value': float(value)})
+        rows.append({'split': 'actual', 'step': int(history_length + index),
+                     'model_name': 'actual', 'value': float(value)})
 
     for model_name, forecast_values in forecasts.items():
         forecast = _as_float_array(forecast_values)

@@ -1,4 +1,4 @@
-﻿_EXPORTS = {
+_EXPORTS = {
     "build_scenario_context": "examples.real_world_examples.industrial_examples.current_api",
     "build_kernel_learning_reference_model_specs": "examples.real_world_examples.industrial_examples.current_api",
     "build_scenario_forecast_preview": "examples.real_world_examples.industrial_examples.current_api",

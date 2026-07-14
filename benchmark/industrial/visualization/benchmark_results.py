@@ -43,7 +43,6 @@ def render_benchmark_result_analysis_pack(
     import matplotlib
 
     matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
 
     target_dir = ensure_directory(output_dir)
     tables_dir = ensure_directory(target_dir / 'tables')
@@ -119,7 +118,12 @@ def render_benchmark_result_analysis_pack(
     manifest.append(ArtifactRecord(kind='summary', path=str(summary_path), format='md'))
 
     if not normalized.empty:
-        manifest.extend(_write_table(_build_model_alias_frame(normalized['model_name'].unique()), tables_dir / 'model_aliases'))
+        manifest.extend(
+            _write_table(
+                _build_model_alias_frame(
+                    normalized['model_name'].unique()),
+                tables_dir /
+                'model_aliases'))
         manifest.extend(_render_metric_leaderboard(normalized, plots_dir, spec, plot_formats))
     if not mean_rank.empty:
         manifest.extend(_render_mean_rank(mean_rank, plots_dir, plot_formats))
@@ -154,49 +158,23 @@ def _build_summary_markdown(
         source_metadata: pd.DataFrame | None,
 ) -> str:
     lines = [
-        f'# Benchmark Result Analysis: {spec.source_label}',
-        '',
-        f'- Task type: `{spec.task_type or "unknown"}`',
-        f'- Metric: `{spec.metric_name}`',
-        f'- Metric direction: `{spec.metric_direction}`',
-        '',
-        '## Sources',
-        '',
+        f'# Benchmark Result Analysis: {spec.source_label}', '', f'- Task type: `{spec.task_type or "unknown"}`',
+        f'- Metric: `{spec.metric_name}`', f'- Metric direction: `{spec.metric_direction}`', '', '## Sources', '',
         dataframe_to_markdown(source_metadata, index=False)
-        if source_metadata is not None and not source_metadata.empty
-        else 'No source metadata rows.',
-        '',
-        '## Coverage',
-        '',
-        dataframe_to_markdown(coverage, index=False) if not coverage.empty else 'No coverage rows.',
-        '',
-        '## Model Diagnostics',
-        '',
+        if source_metadata is not None and not source_metadata.empty else 'No source metadata rows.', '', '## Coverage',
+        '', dataframe_to_markdown(coverage, index=False) if not coverage.empty else 'No coverage rows.', '',
+        '## Model Diagnostics', '',
         (
             f'- Diagnostic rows: `{len(diagnostics)}`\n'
             f'- Datasets with diagnostics: `{diagnostics["dataset_name"].nunique() if "dataset_name" in diagnostics else 0}`\n'
-            f'- Models with diagnostics: `{diagnostics["model_name"].nunique() if "model_name" in diagnostics else 0}`'
-        )
-        if not diagnostics.empty else 'No model diagnostics rows.',
-        '',
-        '## Mean Rank',
-        '',
-        dataframe_to_markdown(mean_rank, index=False) if not mean_rank.empty else 'No rank rows.',
-        '',
-        '## Top-K Summary',
-        '',
-        dataframe_to_markdown(topk, index=False) if not topk.empty else 'No top-k rows.',
-        '',
-        '## Target Delta',
-        '',
-        dataframe_to_markdown(delta, index=False) if not delta.empty else 'No target delta rows.',
-        '',
-        '## Best Target Source Delta',
-        '',
+            f'- Models with diagnostics: `{diagnostics["model_name"].nunique() if "model_name" in diagnostics else 0}`')
+        if not diagnostics.empty else 'No model diagnostics rows.', '', '## Mean Rank', '',
+        dataframe_to_markdown(mean_rank, index=False) if not mean_rank.empty else 'No rank rows.', '',
+        '## Top-K Summary', '', dataframe_to_markdown(topk, index=False) if not topk.empty else 'No top-k rows.', '',
+        '## Target Delta', '', dataframe_to_markdown(delta, index=False)
+        if not delta.empty else 'No target delta rows.', '', '## Best Target Source Delta', '',
         dataframe_to_markdown(best_target_delta, index=False)
-        if not best_target_delta.empty
-        else 'No best target source delta rows.',
-    ]
+        if not best_target_delta.empty else 'No best target source delta rows.',]
     return '\n'.join(lines)
 
 

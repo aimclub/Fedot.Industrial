@@ -148,6 +148,7 @@ benchmark/results/*
 !benchmark/results/README.md
 !benchmark/results/showcase/
 !benchmark/results/showcase/**
+benchmark/results/showcase/**/__pycache__/
 benchmark/results*.7z
 benchmark/benchmark/
 benchmark/industrial/examples/benchmark/results/

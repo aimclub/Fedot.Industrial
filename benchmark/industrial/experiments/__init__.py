@@ -32,7 +32,7 @@ _EXPORTS = {
     "load_stage1_kernel_records": "benchmark.industrial.experiments.kernel_learning",
     "load_stage1_result_from_artifacts": "benchmark.industrial.experiments.kernel_learning",
     "resolve_existing_stage1_run_dir": "benchmark.industrial.experiments.kernel_learning",
-    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning",}
+    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning", }
 
 __all__ = sorted(_EXPORTS)
 

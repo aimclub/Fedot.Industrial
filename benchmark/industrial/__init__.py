@@ -5,26 +5,16 @@ does not pull optional forecasting or deep-learning dependencies.
 """
 
 _EXPORTS = {
-    "ArtifactRecord": "benchmark.industrial.core",
-    "ArtifactSpec": "benchmark.industrial.core",
-    "BenchmarkAggregateReport": "benchmark.industrial.core",
-    "BenchmarkRunRecord": "benchmark.industrial.core",
-    "BenchmarkSuiteConfig": "benchmark.industrial.core",
-    "ClassificationBenchmarkResult": "benchmark.industrial.core",
-    "ClassificationDatasetRecord": "benchmark.industrial.core",
-    "DatasetSpec": "benchmark.industrial.core",
-    "ForecastingBenchmarkResult": "benchmark.industrial.core",
-    "ForecastingSeriesRecord": "benchmark.industrial.core",
-    "LabelPredictionRecord": "benchmark.industrial.core",
-    "MetricRecord": "benchmark.industrial.core",
-    "ModelSpec": "benchmark.industrial.core",
-    "PredictionRecord": "benchmark.industrial.core",
-    "RegressionBenchmarkResult": "benchmark.industrial.core",
-    "RegressionDatasetRecord": "benchmark.industrial.core",
-    "RunSpec": "benchmark.industrial.core",
-    "RunStatus": "benchmark.industrial.core",
-    "TaskType": "benchmark.industrial.core",
-    "ValuePredictionRecord": "benchmark.industrial.core",
+    "ArtifactRecord": "benchmark.industrial.core", "ArtifactSpec": "benchmark.industrial.core",
+    "BenchmarkAggregateReport": "benchmark.industrial.core", "BenchmarkRunRecord": "benchmark.industrial.core",
+    "BenchmarkSuiteConfig": "benchmark.industrial.core", "ClassificationBenchmarkResult": "benchmark.industrial.core",
+    "ClassificationDatasetRecord": "benchmark.industrial.core", "DatasetSpec": "benchmark.industrial.core",
+    "ForecastingBenchmarkResult": "benchmark.industrial.core", "ForecastingSeriesRecord": "benchmark.industrial.core",
+    "LabelPredictionRecord": "benchmark.industrial.core", "MetricRecord": "benchmark.industrial.core",
+    "ModelSpec": "benchmark.industrial.core", "PredictionRecord": "benchmark.industrial.core",
+    "RegressionBenchmarkResult": "benchmark.industrial.core", "RegressionDatasetRecord": "benchmark.industrial.core",
+    "RunSpec": "benchmark.industrial.core", "RunStatus": "benchmark.industrial.core",
+    "TaskType": "benchmark.industrial.core", "ValuePredictionRecord": "benchmark.industrial.core",
     "AggregationInputContract": "benchmark.industrial.evaluation.aggregation",
     "AggregationOutputContract": "benchmark.industrial.evaluation.aggregation",
     "BenchmarkAggregationTables": "benchmark.industrial.evaluation.aggregation",
@@ -36,8 +26,7 @@ _EXPORTS = {
     "render_benchmark_aggregate_artifacts": "benchmark.industrial.evaluation.aggregation",
     "resolve_task_aggregation_rule": "benchmark.industrial.evaluation.aggregation",
     "build_forecasting_publication_pack": "benchmark.industrial.api",
-    "build_tsc_publication_pack": "benchmark.industrial.api",
-    "build_tser_publication_pack": "benchmark.industrial.api",
+    "build_tsc_publication_pack": "benchmark.industrial.api", "build_tser_publication_pack": "benchmark.industrial.api",
     "compare_forecasting_models_on_series": "benchmark.industrial.api",
     "run_forecasting_benchmark_from_legacy_config": "benchmark.industrial.api",
     "run_forecasting_benchmark_suite": "benchmark.industrial.api",
@@ -105,7 +94,8 @@ _EXPORTS = {
     "load_stage1_kernel_records": "benchmark.industrial.experiments.kernel_learning",
     "load_stage1_result_from_artifacts": "benchmark.industrial.experiments.kernel_learning",
     "resolve_existing_stage1_run_dir": "benchmark.industrial.experiments.kernel_learning",
-    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning",    "run_manifest": "benchmark.industrial.experiments.manifests",
+    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning",
+    "run_manifest": "benchmark.industrial.experiments.manifests",
     "run_manifest_path": "benchmark.industrial.experiments.manifests",
     "write_example_manifest": "benchmark.industrial.experiments.manifests",
     "build_local_m4_suite_config": "benchmark.industrial.experiments.presets",
@@ -131,17 +121,27 @@ _EXPORTS = {
     "build_forecast_comparison_from_progress_items": "benchmark.industrial.visualization.forecast_comparison",
     "build_forecast_metric_frame": "benchmark.industrial.visualization.forecast_comparison",
     "file_md5": "benchmark.industrial.visualization.forecast_comparison",
-    "render_forecast_comparison_pack": "benchmark.industrial.visualization.forecast_comparison",
+    "render_forecast_comparison_pack": "benchmark.industrial.visualization.forecast_comparison", }
+
+_MODULE_EXPORTS = {
+    'progress': 'benchmark.industrial.experiments.progress',
 }
 
-__all__ = sorted(_EXPORTS)
+__all__ = sorted([*_EXPORTS, *_MODULE_EXPORTS])
 
 
 def __getattr__(name):
+    from importlib import import_module
+
+    module_name = _MODULE_EXPORTS.get(name)
+    if module_name is not None:
+        value = import_module(module_name)
+        globals()[name] = value
+        return value
+
     module_name = _EXPORTS.get(name)
     if module_name is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    from importlib import import_module
 
     value = getattr(import_module(module_name), name)
     globals()[name] = value

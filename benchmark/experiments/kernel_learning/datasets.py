@@ -25,7 +25,8 @@ class ResolvedUCRDataset:
     download_if_missing: bool
 
 
-def normalize_custom_dataset_policy(value: KernelLearningCustomDatasetPolicy | str) -> KernelLearningCustomDatasetPolicy:
+def normalize_custom_dataset_policy(value: KernelLearningCustomDatasetPolicy |
+                                    str) -> KernelLearningCustomDatasetPolicy:
     if isinstance(value, KernelLearningCustomDatasetPolicy):
         return value
     try:
