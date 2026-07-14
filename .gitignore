@@ -215,3 +215,9 @@ examples/data/**
 *.stl
 *.ply
 *.gif
+# Local Codex and wiki workspaces
+.codex/
+.wiki_tmp/
+.wiki_bare/
+.wiki_pages/
+.wiki_index*

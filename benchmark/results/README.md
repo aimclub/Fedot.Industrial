@@ -4,8 +4,9 @@
 comparison tables used by the Kernel Learning PR.
 
 Benchmark infrastructure rules, typed config conventions, artifact layout, and
-the checklist for adding a new benchmark direction are documented in
-`docs/dev_guide/benchmark_infrastructure.md`.
+the checklist for adding a new benchmark direction are documented in the
+project wiki:
+https://github.com/aimclub/Fedot.Industrial/wiki/Benchmark-Infrastructure
 
 Run:
 
