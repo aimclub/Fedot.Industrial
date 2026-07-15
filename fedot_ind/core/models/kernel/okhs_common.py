@@ -56,6 +56,8 @@ def normalize_okhs_method(method: str | OKHSMethod) -> OKHSMethod:
     normalized = str(method).strip().lower()
     aliases = {
         "dmd": OKHSMethod.DMD,
+        "fdmd": OKHSMethod.DMD,
+        "okhs_fdmd": OKHSMethod.DMD,
         "direct": OKHSMethod.DIRECT,
         "occupation": OKHSMethod.OCCUPATION,
     }
@@ -110,7 +112,8 @@ def normalize_trajectory_sampling_policy(
         "adaptive": TrajectorySamplingPolicy.ADAPTIVE_STRIDE,
     }
     if normalized not in aliases:
-        raise ValueError(f"Unsupported trajectory_sampling_policy: {trajectory_sampling_policy}")
+        raise ValueError(
+            f"Unsupported trajectory_sampling_policy: {trajectory_sampling_policy}")
     return aliases[normalized]
 
 
@@ -127,7 +130,8 @@ def normalize_trajectory_rank_policy(
         "explained_variance": TrajectoryRankPolicy.EXPLAINED_DISPERSION,
     }
     if normalized not in aliases:
-        raise ValueError(f"Unsupported trajectory_rank_policy: {trajectory_rank_policy}")
+        raise ValueError(
+            f"Unsupported trajectory_rank_policy: {trajectory_rank_policy}")
     return aliases[normalized]
 
 
@@ -205,7 +209,8 @@ def resolve_okhs_q(
 
         selector = DataDrivenQSelector()
 
-    normalized_trajectories = _normalize_trajectories_for_q_selection(trajectories)
+    normalized_trajectories = _normalize_trajectories_for_q_selection(
+        trajectories)
     return float(selector.analyze_and_suggest_q(normalized_trajectories, verbose=False))
 
 
@@ -270,13 +275,15 @@ def analyze_okhs_window_size(
     normalized_policy = normalize_window_policy(window_policy)
     series_length = len(time_series)
     if series_length <= 2:
-        raise ValueError("time_series must contain at least 3 points to resolve window size.")
+        raise ValueError(
+            "time_series must contain at least 3 points to resolve window size.")
 
     max_allowed = max(2, series_length - 1)
     explicit_window = int(window_size) if window_size is not None else None
     if normalized_policy is WindowPolicy.FIXED:
         if explicit_window is None:
-            raise ValueError("window_size must be provided when window_policy='fixed'.")
+            raise ValueError(
+                "window_size must be provided when window_policy='fixed'.")
         resolved_window = max(2, min(explicit_window, max_allowed))
         return {
             "window_policy": normalized_policy.value,
@@ -327,13 +334,15 @@ def analyze_okhs_window_size(
 def _dense_okhs_trajectory_matrix(time_series: Sequence[Any], window_size: int) -> np.ndarray:
     try:
         dense_matrix = np.asarray(
-            build_hankel(time_series=time_series, window_size=window_size).matrix,
+            build_hankel(time_series=time_series,
+                         window_size=window_size).matrix,
             dtype=float,
         )
     except Exception:  # pragma: no cover - fallback for lightweight envs without optional deps
         series = np.asarray(time_series, dtype=float).reshape(-1)
         dense_matrix = np.array(
-            [series[index:index + window_size] for index in range(len(series) - window_size + 1)],
+            [series[index:index + window_size]
+                for index in range(len(series) - window_size + 1)],
             dtype=float,
         )
 
@@ -363,7 +372,8 @@ def _resolve_adaptive_stride(
     elif expected_overlap_ratio >= 0.95:
         base_stride = max(base_stride, int(round(window_size * 0.06)))
 
-    max_stride_by_count = max(1, dense_trajectory_count // max(minimum_trajectory_count, 1))
+    max_stride_by_count = max(
+        1, dense_trajectory_count // max(minimum_trajectory_count, 1))
     return int(max(1, min(base_stride, max_stride_by_count)))
 
 
@@ -376,7 +386,8 @@ def _resolve_minimum_selected_rank(
     if min_dim <= 0:
         return 0
 
-    explicit_rank = int(trajectory_rank_value) if trajectory_rank_value is not None else None
+    explicit_rank = int(
+        trajectory_rank_value) if trajectory_rank_value is not None else None
     if explicit_rank is not None:
         return int(max(2, min(explicit_rank, min_dim)))
 
@@ -407,8 +418,10 @@ def _resolve_latent_trajectory_stride(
         latent_trajectory_stride_policy: str | LatentTrajectoryStridePolicy,
         latent_trajectory_stride: int | None = None,
 ) -> tuple[int, int]:
-    dense_latent_trajectory_count = max(latent_state_count - latent_window_size, 1)
-    normalized_policy = normalize_latent_trajectory_stride_policy(latent_trajectory_stride_policy)
+    dense_latent_trajectory_count = max(
+        latent_state_count - latent_window_size, 1)
+    normalized_policy = normalize_latent_trajectory_stride_policy(
+        latent_trajectory_stride_policy)
     if normalized_policy is LatentTrajectoryStridePolicy.DENSE:
         stride = int(max(1, latent_trajectory_stride or 1))
         return stride, dense_latent_trajectory_count
@@ -418,13 +431,15 @@ def _resolve_latent_trajectory_stride(
         return stride, dense_latent_trajectory_count
 
     target_overlap_ratio = 0.80
-    stride_from_overlap = max(1, int(round(latent_window_size * (1.0 - target_overlap_ratio))))
+    stride_from_overlap = max(
+        1, int(round(latent_window_size * (1.0 - target_overlap_ratio))))
     minimum_effective_trajectory_count = max(
         8,
         forecast_horizon + 4,
         selected_rank + forecast_horizon,
     )
-    max_stride_by_count = max(1, dense_latent_trajectory_count // max(minimum_effective_trajectory_count, 1))
+    max_stride_by_count = max(
+        1, dense_latent_trajectory_count // max(minimum_effective_trajectory_count, 1))
     stride = int(max(1, min(stride_from_overlap, max_stride_by_count)))
     return stride, dense_latent_trajectory_count
 
@@ -446,8 +461,10 @@ def analyze_okhs_trajectory_preprocessing(
         forecast_horizon=forecast_horizon,
     )
     normalized_window_policy = normalize_window_policy(window_policy)
-    normalized_sampling_policy = normalize_trajectory_sampling_policy(trajectory_sampling_policy)
-    normalized_rank_policy = normalize_trajectory_rank_policy(trajectory_rank_policy)
+    normalized_sampling_policy = normalize_trajectory_sampling_policy(
+        trajectory_sampling_policy)
+    normalized_rank_policy = normalize_trajectory_rank_policy(
+        trajectory_rank_policy)
     normalized_representation_policy = _resolve_default_representation_policy(
         window_policy=normalized_window_policy,
         representation_policy=trajectory_representation_policy,
@@ -473,7 +490,8 @@ def analyze_okhs_trajectory_preprocessing(
     dense_trajectory_count = max(window_diagnostics["trajectory_count"], 0)
     effective_trajectory_count = dense_trajectory_count
     if dense_trajectory_count > 0 and effective_stride > 1:
-        effective_trajectory_count = int(len(range(0, dense_trajectory_count, effective_stride)))
+        effective_trajectory_count = int(
+            len(range(0, dense_trajectory_count, effective_stride)))
 
     return {
         "enabled": adaptive_window_enabled,
@@ -492,7 +510,8 @@ def analyze_okhs_trajectory_preprocessing(
         "recommended_min_selected_rank": _resolve_minimum_selected_rank(
             window_size=window_diagnostics["resolved_window_size"],
             forecast_horizon=forecast_horizon,
-            min_dim=min(window_diagnostics["resolved_window_size"], max(effective_trajectory_count, 1)),
+            min_dim=min(window_diagnostics["resolved_window_size"], max(
+                effective_trajectory_count, 1)),
             trajectory_rank_value=trajectory_rank_value,
         ),
         "expected_overlap_ratio": window_diagnostics["expected_overlap_ratio"],
@@ -507,7 +526,8 @@ def apply_trajectory_rank_regularization(
         trajectory_rank_value: int | None = None,
         min_selected_rank: int | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    normalized_rank_policy = normalize_trajectory_rank_policy(trajectory_rank_policy)
+    normalized_rank_policy = normalize_trajectory_rank_policy(
+        trajectory_rank_policy)
     matrix = np.asarray(trajectory_matrix, dtype=float)
     min_dim = int(min(matrix.shape)) if matrix.size else 0
 
@@ -549,7 +569,8 @@ def apply_trajectory_rank_regularization(
             if explained_variance.size == 0 or float(np.sum(explained_variance)) <= 0.0:
                 selected_rank = min_dim
             else:
-                selected_rank = int(np.searchsorted(np.cumsum(explained_variance), 95.0, side="left") + 1)
+                selected_rank = int(np.searchsorted(
+                    np.cumsum(explained_variance), 95.0, side="left") + 1)
         except Exception:  # pragma: no cover - lightweight fallback for reduced test envs
             normalized_sv = np.abs(singular_values)
             total = float(np.sum(normalized_sv))
@@ -563,7 +584,8 @@ def apply_trajectory_rank_regularization(
     else:
         selected_rank = trajectory_rank_value or min_dim
 
-    applied_rank_floor = int(max(2, min(min_selected_rank, min_dim))) if min_selected_rank is not None else 2
+    applied_rank_floor = int(
+        max(2, min(min_selected_rank, min_dim))) if min_selected_rank is not None else 2
     raw_selected_rank = int(max(2, min(selected_rank, min_dim)))
     selected_rank = int(max(raw_selected_rank, applied_rank_floor))
     truncated = truncate_rank(
@@ -599,14 +621,17 @@ def _build_projected_trajectory_windows(
 ) -> tuple[np.ndarray, dict[str, Any]]:
     state_matrix = np.asarray(latent_states, dtype=float)
     if state_matrix.ndim != 2:
-        raise ValueError("latent_states must have shape (n_states, n_features).")
+        raise ValueError(
+            "latent_states must have shape (n_states, n_features).")
 
     n_states = state_matrix.shape[0]
     if n_states < 3:
-        raise ValueError("Projected trajectory construction requires at least 3 latent states.")
+        raise ValueError(
+            "Projected trajectory construction requires at least 3 latent states.")
 
     max_window_by_count = max(2, n_states - max(minimum_trajectory_count, 1))
-    resolved_window_size = min(preferred_window_size, max_window_by_count, n_states - 1)
+    resolved_window_size = min(
+        preferred_window_size, max_window_by_count, n_states - 1)
     resolved_window_size = max(forecast_horizon + 1, resolved_window_size)
     resolved_window_size = min(resolved_window_size, n_states - 1)
 
@@ -626,7 +651,8 @@ def _build_projected_trajectory_windows(
         dtype=float,
     )
     if trajectories.size == 0:
-        trajectories = state_matrix[-resolved_window_size:].reshape(1, resolved_window_size, state_matrix.shape[1])
+        trajectories = state_matrix[-resolved_window_size:].reshape(
+            1, resolved_window_size, state_matrix.shape[1])
     effective_latent_trajectory_count = int(trajectories.shape[0])
     latent_overlap_ratio = (
         max(0.0, (resolved_window_size - latent_stride) / resolved_window_size)
@@ -699,7 +725,8 @@ def build_okhs_trajectory_representation(
         trajectory_rank_value=preprocessing["trajectory_rank_value"],
         min_selected_rank=preprocessing["recommended_min_selected_rank"],
     )
-    selected_rank = int(rank_diagnostics["selected_rank"]) if sampled_matrix.size else 0
+    selected_rank = int(
+        rank_diagnostics["selected_rank"]) if sampled_matrix.size else 0
     normalized_representation_policy = normalize_trajectory_representation_policy(
         preprocessing["trajectory_representation_policy"]
     )
@@ -720,7 +747,8 @@ def build_okhs_trajectory_representation(
     }
     projection_runtime = None
     training_matrix = matrix_after
-    trajectory_matrix_shape_after = tuple(int(value) for value in matrix_after.shape)
+    trajectory_matrix_shape_after = tuple(
+        int(value) for value in matrix_after.shape)
 
     if normalized_representation_policy is TrajectoryRepresentationPolicy.PROJECTED and sampled_matrix.size:
         truncated = truncate_rank(
@@ -759,7 +787,8 @@ def build_okhs_trajectory_representation(
             "latent_window_size": int(latent_window_diagnostics["latent_window_size"]),
         }
         training_matrix = projected_trajectories
-        trajectory_matrix_shape_after = tuple(int(value) for value in projected_trajectories.shape)
+        trajectory_matrix_shape_after = tuple(
+            int(value) for value in projected_trajectories.shape)
     elif normalized_representation_policy is TrajectoryRepresentationPolicy.RECONSTRUCTED:
         projection_metadata = {
             "representation_policy": normalized_representation_policy.value,

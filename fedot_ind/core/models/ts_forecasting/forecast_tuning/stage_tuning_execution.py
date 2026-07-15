@@ -148,16 +148,22 @@ def _build_stage_candidate_grid(
 ) -> tuple[dict[str, Any], ...]:
     parameter_values: list[tuple[str, tuple[Any, ...]]] = []
     for parameter_name, spec in search_space.parameter_space.items():
-        values = _representative_values_from_spec(spec, max_values_per_parameter)
+        values = _representative_values_from_spec(
+            spec, max_values_per_parameter)
         if not values and parameter_name in current_parameters:
             values = (current_parameters[parameter_name],)
         elif parameter_name in current_parameters:
-            values = tuple(dict.fromkeys((current_parameters[parameter_name], *values)))
+            values = tuple(dict.fromkeys(
+                (current_parameters[parameter_name], *values)))
         if values:
             parameter_values.append((parameter_name, values))
 
     if not parameter_values:
-        return ({},)
+        fallback_candidates: list[dict[str, Any]] = []
+        if proposed_parameters:
+            fallback_candidates.append(dict(proposed_parameters))
+        fallback_candidates.append({})
+        return tuple(fallback_candidates[:max_stage_candidates])
 
     grid: list[dict[str, Any]] = []
     for combination in product(*(values for _, values in parameter_values)):
@@ -189,14 +195,17 @@ def _execute_stage_group(
 ) -> tuple[dict[str, Any], StageTuningExecutionStep]:
     allowed = tuple(group.parameters)
     allowed_set = set(allowed)
-    applied = {key: value for key, value in proposed_parameters.items() if key in allowed_set}
-    ignored = {key: value for key, value in proposed_parameters.items() if key not in allowed_set}
+    applied = {key: value for key,
+               value in proposed_parameters.items() if key in allowed_set}
+    ignored = {key: value for key,
+               value in proposed_parameters.items() if key not in allowed_set}
     updated_params = {**current_params, **applied}
     step = StageTuningExecutionStep(
         stage=group.stage,
         depends_on=tuple(group.depends_on),
         allowed_parameters=allowed,
-        search_space_parameters=tuple((search_space.parameter_space or {}).keys()) if search_space else (),
+        search_space_parameters=tuple(
+            (search_space.parameter_space or {}).keys()) if search_space else (),
         proposed_parameters=dict(proposed_parameters),
         applied_parameters=applied,
         ignored_parameters=ignored,
@@ -214,7 +223,8 @@ def build_forecasting_stage_tuning_execution(
 ) -> ForecastingStageTuningExecution:
     """Resolve stage updates into an executable tuning plan."""
     resolved_base_params = dict(base_params or {})
-    plan = build_forecasting_stage_tuning_plan(model_name, params=resolved_base_params)
+    plan = build_forecasting_stage_tuning_plan(
+        model_name, params=resolved_base_params)
     search_spaces = {
         space.stage: space
         for space in build_forecasting_stage_search_spaces(model_name, params=resolved_base_params)
@@ -258,7 +268,8 @@ class SequentialStageTuningRunner:
     max_values_per_parameter: int = 3
     max_stage_candidates: int = 16
     show_progress: bool | None = None
-    progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None
+    progress_policy: ForecastingProgressPolicy | dict[str,
+                                                      Any] | bool | None = None
 
     def __post_init__(self):
         """Resolve progress policy, execution plan and search spaces."""
@@ -300,7 +311,8 @@ class SequentialStageTuningRunner:
         )
 
     def _iter_over_candidates(self, step: StageTuningExecutionStep, current_best_params: dict[str, Any]):
-        stage_search_space = self.search_spaces.get(step.stage) or self._build_fallback_search_space(step)
+        stage_search_space = self.search_spaces.get(
+            step.stage) or self._build_fallback_search_space(step)
         candidate_grid = _build_stage_candidate_grid(
             stage_search_space,
             current_parameters=current_best_params,
@@ -355,7 +367,8 @@ class SequentialStageTuningRunner:
             current_best_score: float,
             stage_iterator,
     ) -> tuple[dict[str, Any], float, dict[str, Any]]:
-        stage_search_space, candidate_grid, candidate_iterator = self._iter_over_candidates(step, current_best_params)
+        stage_search_space, candidate_grid, candidate_iterator = self._iter_over_candidates(
+            step, current_best_params)
         evaluations: list[StageCandidateEvaluation] = []
         best_stage_params = dict(current_best_params)
         best_stage_score = float(current_best_score)
@@ -368,16 +381,18 @@ class SequentialStageTuningRunner:
                 candidate=candidate,
             )
             evaluations.append(evaluation)
-            if score < best_stage_score:
+            if score <= best_stage_score:
                 best_stage_score = score
                 best_stage_params = merged_params
             if self.resolved_progress_policy.show_postfix and hasattr(candidate_iterator, 'set_postfix'):
-                candidate_iterator.set_postfix(best=f'{float(best_stage_score):.5f}', current=f'{float(score):.5f}')
+                candidate_iterator.set_postfix(
+                    best=f'{float(best_stage_score):.5f}', current=f'{float(score):.5f}')
 
         current_best_params = dict(best_stage_params)
         current_best_score = float(best_stage_score)
         if self.resolved_progress_policy.show_postfix and hasattr(stage_iterator, 'set_postfix'):
-            stage_iterator.set_postfix(best=f'{float(current_best_score):.5f}', stage=step.stage)
+            stage_iterator.set_postfix(
+                best=f'{float(current_best_score):.5f}', stage=step.stage)
         history_entry = {
             'stage': step.stage,
             'depends_on': step.depends_on,
@@ -431,7 +446,8 @@ def run_sequential_stage_tuning(
         max_values_per_parameter: int = 3,
         max_stage_candidates: int = 16,
         show_progress: bool | None = None,
-        progress_policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
+        progress_policy: ForecastingProgressPolicy | dict[str,
+                                                          Any] | bool | None = None,
 ) -> ForecastingSequentialStageTuningResult:
     """Convenience entrypoint for sequential forecasting stage tuning."""
     return SequentialStageTuningRunner(

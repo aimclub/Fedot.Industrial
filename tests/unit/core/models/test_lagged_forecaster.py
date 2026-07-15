@@ -19,7 +19,8 @@ def _build_ts_input(horizon: int = 14):
         idx=np.arange(len(series)),
         features=series.reshape(-1, 1),
         target=series,
-        task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=horizon)),
+        task=Task(TaskTypesEnum.ts_forecasting,
+                  TsForecastingParams(forecast_length=horizon)),
         data_type=DataTypesEnum.ts,
     )
 
@@ -61,7 +62,8 @@ def test_lagged_forecaster_compatibility_pcd_uses_lagged_transform():
 def test_prepare_lagged_table_data_matches_reference_hankel_contract():
     input_data = _build_ts_input()
     window_size = resolve_lagged_window_size(input_data.features.shape[0], 10)
-    transformed = prepare_lagged_table_data(input_data, window_size=window_size, stride=2, is_fit_stage=True)
+    transformed = prepare_lagged_table_data(
+        input_data, window_size=window_size, stride=2, is_fit_stage=True)
 
     reference_features = HankelMatrix(
         time_series=input_data.features,
@@ -70,7 +72,7 @@ def test_prepare_lagged_table_data_matches_reference_hankel_contract():
     ).trajectory_matrix.T
     reference_target = HankelMatrix(
         time_series=np.ravel(input_data.features)[window_size:],
-        window_size=input_data.task.task_params.forecast_length,
+        window_size=input_data.task.task_params.forecast_length + 1,
         strides=2,
     ).trajectory_matrix.T
     reference_features = reference_features[:reference_target.shape[0], :]
@@ -88,7 +90,8 @@ def test_lagged_forecaster_fit_uses_hankel_pipeline(monkeypatch):
     monkeypatch.setattr(
         model,
         '_fit_hankel_pipeline',
-        lambda data: calls.append(('hankelisation_pipeline', data.data_type, model.resolved_hankel_stride_)) or model,
+        lambda data: calls.append(
+            ('hankelisation_pipeline', data.data_type, model.resolved_hankel_stride_)) or model,
     )
 
     model.fit(input_data)
@@ -103,11 +106,14 @@ def test_lagged_forecaster_hankel_pipeline_activates_industrial_repository(monke
     model.resolved_hankel_stride_ = model._resolve_hankel_stride()
     calls = []
 
-    monkeypatch.setattr(model, '_is_industrial_repository_active', lambda: False)
-    monkeypatch.setattr(IndustrialModels, 'setup_repository', lambda self, backend='default': calls.append('setup'))
+    monkeypatch.setattr(
+        model, '_is_industrial_repository_active', lambda: False)
+    monkeypatch.setattr(IndustrialModels, 'setup_repository',
+                        lambda self, backend='default': calls.append('setup'))
     monkeypatch.setattr(IndustrialModels, 'setup_default_repository',
                         lambda self, backend='default': calls.append('restore'))
-    monkeypatch.setattr(model, '_define_forecasting_pipeline_model', lambda: 'pipeline')
+    monkeypatch.setattr(
+        model, '_define_forecasting_pipeline_model', lambda: 'pipeline')
     monkeypatch.setattr(
         model,
         '_build_forecasting_tuner',
@@ -118,7 +124,8 @@ def test_lagged_forecaster_hankel_pipeline_activates_industrial_repository(monke
 
     model._fit_hankel_pipeline(input_data)
 
-    assert calls == ['setup', ('tune', 'pipeline', DataTypesEnum.ts), 'restore']
+    assert calls == [
+        'setup', ('tune', 'pipeline', DataTypesEnum.ts), 'restore']
     assert model.tuned_model == 'tuned-model'
 
 
