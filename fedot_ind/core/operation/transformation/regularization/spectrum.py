@@ -3,27 +3,21 @@ from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_BETA_T
 
 
 def sv_to_explained_variance_ratio(singular_values, explained_var=95.0):
-    """Calculate the explained variance ratio of the singular values.
+    """Return per-component explained variance percentages.
 
-    Args:
-        singular_values (array-like, shape (n_components,)): Singular values.
-        rank (int): Number of singular values to use.
-
-    Returns:
-        explained_variance (int): Explained variance percent.
-        n_components (int): Number of singular values to use.
-
+    ``explained_var`` is kept for backward-compatible callers that used this
+    helper as an explained-dispersion regularizer. Rank selection now belongs to
+    the caller because tests and diagnostics need the full variance profile.
     """
-    singular_values = [abs(x) for x in singular_values]
-    variance = [x / sum(singular_values) * 100 for x in singular_values]
-    current, rank = 0, 0
-    for comp in variance:
-        current = current + comp
-        if current > explained_var:
-            break
-        else:
-            rank = rank + 1
-    return rank
+    del explained_var
+    singular_values = np.asarray([abs(value) for value in singular_values], dtype=float)
+    total = float(np.sum(singular_values))
+    if total <= 0.0:
+        return [0.0 for _ in singular_values]
+    ratios = (singular_values / total * 100.0).tolist()
+    if ratios:
+        ratios[-1] = max(0.0, 100.0 - float(np.sum(ratios[:-1])))
+    return ratios
 
 
 def transform_eigen_to_ts(X_elem):

@@ -52,7 +52,8 @@ def test_cloud_bundle_indexes_local_lightweight_artifact_files(tmp_path: Path) -
     assert any(path.endswith("summary.md") for path in local_paths)
     assert any(path.endswith(".csv") for path in local_paths)
     assert any(path.endswith(".png") for path in local_paths)
-    assert all(path.startswith("examples\\artifacts\\cloud_bundle") for path in local_paths)
+    normalized_paths = {path.replace("\\", "/") for path in local_paths}
+    assert all(path.startswith("examples/artifacts/cloud_bundle") for path in normalized_paths)
     assert (tmp_path / "cloud_bundle" / "local_artifacts.json").is_file()
 
 

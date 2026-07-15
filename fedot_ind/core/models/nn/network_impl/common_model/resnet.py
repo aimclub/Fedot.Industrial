@@ -134,7 +134,7 @@ class ResNetModel(BaseNeuralModel):
         self.model_for_inference = ResNet(input_dim=ts.features.shape[1],
                                           output_dim=self.num_classes,
                                           model_name=self.model_name).model
-        self.model = self.model.model
+        self.model = self.model.model.to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
         return loss_fn, optimizer

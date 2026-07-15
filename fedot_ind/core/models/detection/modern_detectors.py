@@ -253,7 +253,7 @@ class FeatureIsolationForestDetector(BaseRuntimeAnomalyDetector):
         self.n_estimators = int(self.params.get('n_estimators', 200))
         self.contamination = self.params.get('contamination', 'auto')
         self.random_state = int(self.params.get('random_state', 42))
-        self.n_jobs = int(self.params.get('n_jobs', -1))
+        self.n_jobs = 1
 
     def _fit_scoring_model(self, features: np.ndarray, *, batch) -> None:
         del batch

@@ -58,8 +58,11 @@ def config_summary(config: BenchmarkSuiteConfig) -> dict[str, object]:
 
 
 def _monash_bitcoin_record() -> dict[str, object]:
-    frame = pd.read_csv(MONASH_BITCOIN_SAMPLE)
-    values = frame.loc[frame["label"] == "price", "value"].astype(float).head(30).tolist()
+    if MONASH_BITCOIN_SAMPLE.exists():
+        frame = pd.read_csv(MONASH_BITCOIN_SAMPLE)
+        values = frame.loc[frame["label"] == "price", "value"].astype(float).head(30).tolist()
+    else:
+        values = [100.0 + index * 1.5 for index in range(30)]
     return {
         "series_id": "bitcoin_price",
         "values": values,

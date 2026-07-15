@@ -542,7 +542,14 @@ def apply_trajectory_rank_regularization(
                 sv_to_explained_variance_ratio,
             )
 
-            selected_rank = sv_to_explained_variance_ratio(singular_values)
+            explained_variance = np.asarray(
+                sv_to_explained_variance_ratio(singular_values),
+                dtype=float,
+            )
+            if explained_variance.size == 0 or float(np.sum(explained_variance)) <= 0.0:
+                selected_rank = min_dim
+            else:
+                selected_rank = int(np.searchsorted(np.cumsum(explained_variance), 95.0, side="left") + 1)
         except Exception:  # pragma: no cover - lightweight fallback for reduced test envs
             normalized_sv = np.abs(singular_values)
             total = float(np.sum(normalized_sv))

@@ -58,6 +58,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
 
         super(BenchmarkTSER, self).__init__(
             output_dir='./tser/benchmark_results')
+        self.result_dir = getattr(self, 'result_dir', './tser/benchmark_results')
         self.output_dir = getattr(self, 'output_dir', self.result_dir)
 
         self.logger = logging.getLogger(self.__class__.__name__)

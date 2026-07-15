@@ -92,12 +92,14 @@ from benchmark.industrial.experiments.incremental_persistence import Forecasting
 
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
+EXAMPLES_DATA_DIR = PROJECT_ROOT / 'examples' / 'utils' / 'data'
+DEFAULT_LOCAL_M4_DIR = EXAMPLES_DATA_DIR / 'm4' / 'datasets'
 DEFAULT_LOCAL_M4_LONG_DIRS = (
     PROJECT_ROOT / 'fedot_ind' / 'data' / 'M100',
+    EXAMPLES_DATA_DIR / 'benchmark' / 'forecasting',
     PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting',
 )
-DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
+DEFAULT_LOCAL_MONASH_DIR = EXAMPLES_DATA_DIR / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
 
 class BenchmarkConfigurationError(ValueError):

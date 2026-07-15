@@ -7,6 +7,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
 
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.repository.industrial_implementations.data_transformation import prepare_lagged_table_data
 
 
@@ -79,7 +80,11 @@ class HankelisationImplementation(DataOperationImplementation):
         # a batch of overlapping horizon windows that FEDOT can not compare to a
         # single holdout horizon during tuning.
         if not is_fit_stage and input_data.task.task_type is TaskTypesEnum.ts_forecasting:
-            transformed_features = transformed_features[-1:, :]
+            transformed_features = HankelMatrix(
+                time_series=input_data.features,
+                window_size=resolved_window_size,
+                strides=resolved_stride,
+            ).trajectory_matrix.T[-1:, :]
             if transformed_target is not None and len(transformed_target.shape) > 1:
                 transformed_target = transformed_target[-1:, :]
 

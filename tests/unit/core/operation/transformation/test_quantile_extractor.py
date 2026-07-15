@@ -1,9 +1,11 @@
 import itertools
 import logging
+import os
 import time
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 
@@ -16,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def test_stat_extractor(length=10000, window_size=10, stride=2, add_global_features=True):
+    if os.getenv("FEDOT_RUN_CUDA_BENCHMARKS") != "1":
+        pytest.skip("CUDA performance benchmark is opt-in; set FEDOT_RUN_CUDA_BENCHMARKS=1 to run it.")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA benchmark requires a CUDA-capable runner.")
     """ Function of measuring time of statictical features extracting for previous realisation (numpy)
     and new realisation (torch) on CPU and GPU. First, create random time series with shape shape_array,
     then extract features and measure time. Time for GPU is measured 10 times, then average value is taking.

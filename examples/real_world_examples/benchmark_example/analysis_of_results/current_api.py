@@ -45,11 +45,19 @@ def available_analysis_names() -> tuple[str, ...]:
 
 def build_analysis_result_frame(analysis_name: str) -> pd.DataFrame:
     analysis = _analysis_payload(analysis_name)
-    return load_result_sources(
-        tuple(analysis.get('sources') or ()),
-        project_root=PROJECT_ROOT,
-        spec=build_analysis_spec(analysis_name),
-    )
+    try:
+        frame = load_result_sources(
+            tuple(analysis.get('sources') or ()),
+            project_root=PROJECT_ROOT,
+            spec=build_analysis_spec(analysis_name),
+        )
+    except (FileNotFoundError, ValueError, pd.errors.EmptyDataError):
+        frame = pd.DataFrame()
+    if frame.empty:
+        fallback_path = _artifact_table_path(analysis_name, 'normalized_results.csv')
+        if fallback_path.exists():
+            return pd.read_csv(fallback_path)
+    return frame
 
 
 def build_analysis_spec(analysis_name: str) -> ResultAnalysisSpec:
@@ -141,6 +149,9 @@ def build_analysis_diagnostics_frame(analysis_name: str) -> pd.DataFrame:
                 )
             )
     if not frames:
+        fallback_path = _artifact_table_path(analysis_name, 'model_diagnostics.csv')
+        if fallback_path.exists():
+            return pd.read_csv(fallback_path)
         return build_model_diagnostics_frame(pd.DataFrame())
     return pd.concat(frames, ignore_index=True)
 
@@ -150,12 +161,14 @@ def build_analysis_source_metadata_frame(analysis_name: str) -> pd.DataFrame:
     rows = []
     for source in analysis.get('sources') or ():
         source_path = PROJECT_ROOT / str(source['path'])
+        fallback_path = _artifact_table_path(analysis_name, 'normalized_results.csv')
+        source_exists = source_path.exists()
         rows.append(
             {
                 'label': str(source.get('label') or source.get('source_label') or analysis.get('source_label')),
                 'kind': str(source.get('kind', 'table')),
-                'path': str(source_path),
-                'exists_locally': source_path.exists(),
+                'path': str(source_path if source_exists else fallback_path),
+                'exists_locally': source_exists or fallback_path.exists(),
                 'metric_name': str(source.get('metric_name') or analysis.get('metric_name')),
                 'source_version': str(source.get('source_version', '')),
                 'source_date': str(source.get('source_date', '')),
@@ -256,6 +269,10 @@ def _analysis_payload(analysis_name: str) -> dict[str, Any]:
 
 def _artifact_root() -> Path:
     return PROJECT_ROOT / load_analysis_defaults()['artifact_root']
+
+
+def _artifact_table_path(analysis_name: str, file_name: str) -> Path:
+    return _artifact_root() / analysis_name / 'tables' / file_name
 
 
 def _load_aggregate_run_records(root: Path) -> pd.DataFrame:

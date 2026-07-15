@@ -104,7 +104,7 @@ def test_automl_and_kernel_learning_config_previews_are_typed(tmp_path: Path) ->
     assert kernel_config.artifact_spec.persist_on_run is False
     assert Path(anomaly_context["data_root"]) == DATA_ROOT / "anomaly_detection" / "liman" / "vibro"
     assert anomaly_preview["status"] == "dry_run"
-    assert anomaly_preview["data"]["target_path"].endswith("valve1\\0.csv")
+    assert Path(anomaly_preview["data"]["target_path"]).parts[-2:] == ("valve1", "0.csv")
     tool_names = {tool["name"] for tool in list_tool_specs()}
     assert {"industrial_train_model", "industrial_run_evolution", "industrial_detect_anomalies"}.issubset(tool_names)
     assert "industrial_tsc_smoke" in tool_names
