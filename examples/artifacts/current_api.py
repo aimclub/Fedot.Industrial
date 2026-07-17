@@ -331,8 +331,7 @@ def _write_cloud_bundle_readme(path: Path, payload: dict[str, Any]) -> None:
         "", "## Rules", "",
         "- Upload generated report packs, large raw datasets, checkpoints, archives, and full benchmark runs through DVC or a manual cloud folder.",
         "- Keep credentials in `.dvc/config.local` or environment variables only.",
-        "- Do not commit generated `cloud_bundle/` or `showcase/` outputs to git.", "",
-        "## Groups", "",
+        "- Do not commit generated `cloud_bundle/` or `showcase/` outputs to git.", "", "## Groups", "",
         "| Key | Category | Inventory | Storage | Local path | Cloud path | Files | Size bytes | Local files |",
         "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: |",]
     for group in payload["groups"]:
