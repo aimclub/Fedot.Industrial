@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import benchmark.industrial as industrial_benchmark
@@ -16,7 +17,8 @@ def test_industrial_package_is_canonical_benchmark_entrypoint():
 
 def test_legacy_benchmark_modules_are_removed():
     assert not (PROJECT_ROOT / "benchmark" / ("v" + "2")).exists()
-    assert not (PROJECT_ROOT / "benchmark" / ("benchmarking" + "_utils")).exists()
+    assert not (PROJECT_ROOT / "benchmark" /
+                ("benchmarking" + "_utils")).exists()
 
 
 def test_root_benchmark_package_does_not_contain_legacy_entrypoints():
@@ -66,11 +68,12 @@ def test_thematic_packages_own_helper_implementations():
     assert (industrial_root / "visualization" / "forecasting.py").exists()
 
 
-def test_legacy_wrappers_live_inside_industrial_namespace():
-    from benchmark.industrial.legacy.classification import BenchmarkTSC
-    from benchmark.industrial.legacy.forecasting import BenchmarkTSF
-    from benchmark.industrial.legacy.regression import BenchmarkTSER
-
-    assert BenchmarkTSC.__name__ == "BenchmarkTSC"
-    assert BenchmarkTSER.__name__ == "BenchmarkTSER"
-    assert BenchmarkTSF.__name__ == "BenchmarkTSF"
+def test_legacy_wrappers_are_not_part_of_industrial_namespace():
+    tracked = subprocess.run(
+        ["git", "ls-files", "benchmark/industrial/legacy"],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert tracked.stdout.strip() == ""

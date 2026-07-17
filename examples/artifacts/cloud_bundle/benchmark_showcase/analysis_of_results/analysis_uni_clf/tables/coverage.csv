@@ -1,3 +1,0 @@
-source_label,coverage_unit,expected_dataset_count,observed_dataset_count,coverage_pct,missing_dataset_count,missing_datasets,status
-industrial_kernel_learning_ucr_020626,dataset_name,225,111,49.3333,0,,partial
-sota_ucr_2024,dataset_name,225,112,49.7778,0,,partial

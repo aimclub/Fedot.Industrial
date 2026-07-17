@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from benchmark.industrial.core import BenchmarkSuiteConfig, to_plain_data
+from examples.utils.config_io import load_versioned_json
 
 EXAMPLE_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = EXAMPLE_ROOT.parents[1]
@@ -15,14 +15,11 @@ DEFAULTS_VERSION = "industrial_tools_examples@1"
 
 @lru_cache(maxsize=1)
 def load_tool_defaults(path: str | Path = DEFAULTS_PATH) -> dict[str, Any]:
-    defaults_path = Path(path)
-    payload = json.loads(defaults_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"Tools example defaults root must be a mapping: {defaults_path}")
-    version = str(payload.get("version", ""))
-    if version != DEFAULTS_VERSION:
-        raise ValueError(f"Unsupported tools example defaults version: {version}")
-    return payload
+    return load_versioned_json(
+        path,
+        expected_version=DEFAULTS_VERSION,
+        description="tools example defaults",
+    )
 
 
 def resolve_project_path(value: str | Path | None) -> Path | None:

@@ -18,8 +18,6 @@ from benchmark.industrial import (
     run_tser_benchmark_suite,
 )
 from benchmark.industrial.classification import build_classification_dataset_adapter
-from benchmark.industrial.legacy.classification import BenchmarkTSC
-from benchmark.industrial.legacy.regression import BenchmarkTSER
 from benchmark.industrial.regression import build_regression_dataset_adapter
 
 
@@ -72,18 +70,22 @@ def test_tsc_suite_runs_and_writes_artifacts(tmp_path: Path) -> None:
             ),
         ),
         models=(
-            ModelSpec(adapter_name='majority_class', display_name='MajorityClass'),
-            ModelSpec(adapter_name='nearest_centroid', display_name='NearestCentroid'),
+            ModelSpec(adapter_name='majority_class',
+                      display_name='MajorityClass'),
+            ModelSpec(adapter_name='nearest_centroid',
+                      display_name='NearestCentroid'),
         ),
         metrics=('accuracy', 'balanced_accuracy', 'f1_macro'),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='toy_tsc', primary_metric='accuracy'),
     )
 
     result = run_tsc_benchmark_suite(config)
 
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
-    assert any(record.model_name == 'NearestCentroid' for record in result.run_records)
+    assert any(record.model_name ==
+               'NearestCentroid' for record in result.run_records)
     assert result.artifact_manifest
     assert any(Path(item.path).exists() for item in result.artifact_manifest)
 
@@ -98,14 +100,18 @@ def test_tsc_publication_pack_builder_is_public(tmp_path: Path) -> None:
                 adapter_options={'record': _classification_record()},
             ),
         ),
-        models=(ModelSpec(adapter_name='nearest_centroid', display_name='NearestCentroid'),),
+        models=(ModelSpec(adapter_name='nearest_centroid',
+                display_name='NearestCentroid'),),
         metrics=('accuracy', 'balanced_accuracy', 'f1_macro'),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
-        run_spec=RunSpec(run_name='toy_tsc_public_pack', primary_metric='accuracy'),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='toy_tsc_public_pack',
+                         primary_metric='accuracy'),
     )
 
     result = run_tsc_benchmark_suite(config)
-    manifest = build_tsc_publication_pack(result, output_dir=tmp_path / 'tsc_public_pack')
+    manifest = build_tsc_publication_pack(
+        result, output_dir=tmp_path / 'tsc_public_pack')
 
     assert manifest
     assert any(Path(item.path).exists() for item in manifest)
@@ -156,18 +162,22 @@ def test_tser_suite_runs_and_writes_artifacts(tmp_path: Path) -> None:
             ),
         ),
         models=(
-            ModelSpec(adapter_name='mean_regressor', display_name='MeanRegressor'),
-            ModelSpec(adapter_name='linear_regressor', display_name='LinearRegressor'),
+            ModelSpec(adapter_name='mean_regressor',
+                      display_name='MeanRegressor'),
+            ModelSpec(adapter_name='linear_regressor',
+                      display_name='LinearRegressor'),
         ),
         metrics=('rmse', 'mae', 'r2'),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='toy_tser', primary_metric='rmse'),
     )
 
     result = run_tser_benchmark_suite(config)
 
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
-    assert any(record.model_name == 'LinearRegressor' for record in result.run_records)
+    assert any(record.model_name ==
+               'LinearRegressor' for record in result.run_records)
     assert result.artifact_manifest
     assert any(Path(item.path).exists() for item in result.artifact_manifest)
 
@@ -182,14 +192,18 @@ def test_tser_publication_pack_builder_is_public(tmp_path: Path) -> None:
                 adapter_options={'record': _regression_record()},
             ),
         ),
-        models=(ModelSpec(adapter_name='linear_regressor', display_name='LinearRegressor'),),
+        models=(ModelSpec(adapter_name='linear_regressor',
+                display_name='LinearRegressor'),),
         metrics=('rmse', 'mae', 'r2'),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
-        run_spec=RunSpec(run_name='toy_tser_public_pack', primary_metric='rmse'),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name='toy_tser_public_pack',
+                         primary_metric='rmse'),
     )
 
     result = run_tser_benchmark_suite(config)
-    manifest = build_tser_publication_pack(result, output_dir=tmp_path / 'tser_public_pack')
+    manifest = build_tser_publication_pack(
+        result, output_dir=tmp_path / 'tser_public_pack')
 
     assert manifest
     assert any(Path(item.path).exists() for item in manifest)
@@ -226,57 +240,6 @@ def test_local_tser_adapter_reads_real_ts_dataset_from_foreign_cwd(tmp_path: Pat
     assert records[0].metadata['split_provenance'] == 'local_ts'
 
 
-def test_legacy_tsc_can_delegate_to_industrial(tmp_path: Path) -> None:
-    benchmark = BenchmarkTSC(
-        experiment_setup={
-            'use_industrial_benchmark': True,
-            'output_dir': str(tmp_path),
-            'dataset_specs': [
-                {
-                    'benchmark': 'in_memory_tsc',
-                    'dataset_name': 'toy_tsc',
-                    'adapter_options': {'record': _classification_record()},
-                }
-            ],
-            'model_specs': [
-                {'adapter_name': 'nearest_centroid', 'display_name': 'NearestCentroid'},
-            ],
-        },
-        custom_datasets=[],
-    )
-
-    result = benchmark.run()
-
-    assert result.config.task_type is TaskType.TS_CLASSIFICATION
-    assert any(record.model_name == 'NearestCentroid' for record in result.run_records)
-
-
-def test_legacy_tser_can_delegate_to_industrial(tmp_path: Path) -> None:
-    benchmark = BenchmarkTSER(
-        experiment_setup={
-            'use_industrial_benchmark': True,
-            'initial_assumption': None,
-            'output_dir': str(tmp_path),
-            'dataset_specs': [
-                {
-                    'benchmark': 'in_memory_tser',
-                    'dataset_name': 'toy_tser',
-                    'adapter_options': {'record': _regression_record()},
-                }
-            ],
-            'model_specs': [
-                {'adapter_name': 'linear_regressor', 'display_name': 'LinearRegressor'},
-            ],
-        },
-        custom_datasets=[],
-    )
-
-    result = benchmark.run()
-
-    assert result.config.task_type is TaskType.TS_REGRESSION
-    assert any(record.model_name == 'LinearRegressor' for record in result.run_records)
-
-
 def test_tser_suite_runs_on_real_local_dataset(tmp_path: Path) -> None:
     config = BenchmarkSuiteConfig(
         task_type=TaskType.TS_REGRESSION,
@@ -287,15 +250,19 @@ def test_tser_suite_runs_on_real_local_dataset(tmp_path: Path) -> None:
             ),
         ),
         models=(
-            ModelSpec(adapter_name='mean_regressor', display_name='MeanRegressor'),
-            ModelSpec(adapter_name='linear_regressor', display_name='LinearRegressor'),
+            ModelSpec(adapter_name='mean_regressor',
+                      display_name='MeanRegressor'),
+            ModelSpec(adapter_name='linear_regressor',
+                      display_name='LinearRegressor'),
         ),
         metrics=('rmse', 'mae', 'r2'),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name='real_local_tser', primary_metric='rmse'),
     )
 
     result = run_tser_benchmark_suite(config)
 
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
-    assert any(record.model_name == 'LinearRegressor' for record in result.run_records)
+    assert any(record.model_name ==
+               'LinearRegressor' for record in result.run_records)

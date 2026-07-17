@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -16,23 +15,22 @@ from benchmark.industrial import (
     run_tsc_benchmark_suite,
     run_tser_benchmark_suite,
 )
+from examples.utils.config_io import load_versioned_json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULTS_PATH = Path(__file__).with_name("example_defaults.json")
 DEFAULTS_VERSION = "industrial_current_api_examples@1"
-DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "benchmark" / "results" / "examples" / "utils" / "current_api"
+DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "benchmark" / \
+    "results" / "examples" / "utils" / "current_api"
 
 
 @lru_cache(maxsize=1)
 def load_example_defaults(path: str | Path = DEFAULTS_PATH) -> dict[str, Any]:
-    defaults_path = Path(path)
-    payload = json.loads(defaults_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"Example defaults root must be a mapping: {defaults_path}")
-    version = str(payload.get("version", ""))
-    if version != DEFAULTS_VERSION:
-        raise ValueError(f"Unsupported current API example defaults version: {version}")
-    return payload
+    return load_versioned_json(
+        path,
+        expected_version=DEFAULTS_VERSION,
+        description="current API example defaults",
+    )
 
 
 def build_tsc_suite_config(
@@ -71,7 +69,8 @@ def run_forecasting_example(output_dir: str | Path | None = None, *, persist_on_
     from benchmark.industrial import run_forecasting_benchmark_suite
 
     return run_forecasting_benchmark_suite(
-        build_forecasting_suite_config(output_dir, persist_on_run=persist_on_run)
+        build_forecasting_suite_config(
+            output_dir, persist_on_run=persist_on_run)
     )
 
 
@@ -149,7 +148,8 @@ def _child_output_dir(output_root: Path | None, child: str) -> Path | None:
 
 
 def _format_result(name: str, result: Any) -> str:
-    successful = sum(1 for record in result.run_records if record.status.value == "success")
+    successful = sum(
+        1 for record in result.run_records if record.status.value == "success")
     primary_metric = result.aggregate_report.primary_metric
     return (
         f"{name}: run_id={result.run_id}, task={result.config.task_type.value}, "

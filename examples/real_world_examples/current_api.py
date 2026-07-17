@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,7 @@ from examples.utils.current_api import (
     run_tsc_example,
     run_tser_example,
 )
+from examples.utils.config_io import load_versioned_json
 
 EXAMPLE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = EXAMPLE_ROOT.parents[1]
@@ -24,26 +24,20 @@ EXTERNAL_DATA_MANIFEST_VERSION = "industrial_real_world_external_data@1"
 
 @lru_cache(maxsize=1)
 def load_real_world_defaults(path: str | Path = DEFAULTS_PATH) -> dict[str, Any]:
-    defaults_path = Path(path)
-    payload = json.loads(defaults_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"Real-world example defaults root must be a mapping: {defaults_path}")
-    version = str(payload.get("version", ""))
-    if version != DEFAULTS_VERSION:
-        raise ValueError(f"Unsupported real-world example defaults version: {version}")
-    return payload
+    return load_versioned_json(
+        path,
+        expected_version=DEFAULTS_VERSION,
+        description="real-world example defaults",
+    )
 
 
 @lru_cache(maxsize=1)
 def load_external_data_manifest(path: str | Path = EXTERNAL_DATA_MANIFEST_PATH) -> dict[str, Any]:
-    manifest_path = Path(path)
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"External data manifest root must be a mapping: {manifest_path}")
-    version = str(payload.get("version", ""))
-    if version != EXTERNAL_DATA_MANIFEST_VERSION:
-        raise ValueError(f"Unsupported external data manifest version: {version}")
-    return payload
+    return load_versioned_json(
+        path,
+        expected_version=EXTERNAL_DATA_MANIFEST_VERSION,
+        description="external data manifest",
+    )
 
 
 def build_classification_benchmark_config(output_dir: str | Path | None = None) -> BenchmarkSuiteConfig:
@@ -67,9 +61,11 @@ def build_forecasting_benchmark_config(output_dir: str | Path | None = None) -> 
 
 
 def skab_context(folder: str = "valve1") -> dict[str, Any]:
-    root = PROJECT_ROOT / "examples" / "utils" / "data" / "anomaly_detection" / "skab"
+    root = PROJECT_ROOT / "examples" / "utils" / \
+        "data" / "anomaly_detection" / "skab"
     folder_dir = root / folder
-    datasets = tuple(path.stem for path in sorted(folder_dir.glob("*.csv"))) if folder_dir.exists() else ()
+    datasets = tuple(path.stem for path in sorted(
+        folder_dir.glob("*.csv"))) if folder_dir.exists() else ()
     return {
         "task_type": "anomaly_detection",
         "data_root": str(root),

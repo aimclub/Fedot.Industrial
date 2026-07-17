@@ -4,8 +4,9 @@ Status: current thin notebooks and local-data manifests.
 
 Reusable aggregation, ranking, comparison, and visualization logic lives in
 `benchmark.industrial`. Notebooks in this package are presentation entrypoints:
-they import `current_api.py` and render publication packs into
-`examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/<notebook_stem>/`.
+they import `current_api.py` and render publication packs into the ignored local
+`examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results/<notebook_stem>/`
+handoff path for external publication.
 
 ## Entry Points
 

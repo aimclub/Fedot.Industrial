@@ -1,18 +1,19 @@
 from __future__ import annotations
-from benchmark.experiments.kernel_learning.configs import KernelLearningTwoStageUCRExperimentConfig
 
 import argparse
-import sys
+import logging
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+from benchmark.experiments.kernel_learning.configs import KernelLearningTwoStageUCRExperimentConfig
+from benchmark.industrial.core import write_json
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
     defaults = KernelLearningTwoStageUCRExperimentConfig()
-    parser = argparse.ArgumentParser(description="Run the two-stage UCR kernel-learning experiment.")
+    parser = argparse.ArgumentParser(
+        description="Run the two-stage UCR kernel-learning experiment.")
     parser.add_argument(
         "--run-stage-1",
         action="store_true",
@@ -81,18 +82,37 @@ def config_from_args(args: argparse.Namespace) -> KernelLearningTwoStageUCRExper
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     args = parse_args()
     config = config_from_args(args)
 
     stage1_result = config.load_or_run_stage1()
-    print(f"Stage 1 run ID: {stage1_result.run_id}")
-    print(f"Stage 1 output: {Path(stage1_result.config.artifact_spec.output_dir) / stage1_result.run_id}")
+    stage1_output = Path(
+        stage1_result.config.artifact_spec.output_dir) / stage1_result.run_id
+    summary = {
+        "stage1_run_id": stage1_result.run_id,
+        "stage1_output": str(stage1_output),
+        "stage2_output": str(config.stage2_output_dir),
+        "run_stage1": bool(args.run_stage_1),
+        "skip_stage2": bool(args.skip_stage_2),
+        "datasets": list(config.resolve_stage1_dataset_names()) if config.run_stage1 else list(config.datasets),
+        "timeout_minutes": config.timeout_minutes,
+        "pop_size": config.pop_size,
+    }
+    logger.info("Stage 1 run ID: %s", stage1_result.run_id)
+    logger.info("Stage 1 output: %s", stage1_output)
     if args.skip_stage_2:
+        write_json(Path(config.stage2_output_dir) /
+                   "two_stage_run_summary.json", summary)
         raise SystemExit(0)
 
     stage2_result = config.run_stage2(stage1_result)
-    print(f"Stage 2 output: {config.stage2_output_dir}")
-    print(f"Stage 2 datasets: {len(stage2_result)}")
+    summary["stage2_datasets"] = len(stage2_result)
+    write_json(Path(config.stage2_output_dir) /
+               "two_stage_run_summary.json", summary)
+    logger.info("Stage 2 output: %s", config.stage2_output_dir)
+    logger.info("Stage 2 datasets: %s", len(stage2_result))
 
 
 if __name__ == "__main__":

@@ -1,32 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 import numpy as np
-
-
-class Either:
-    def __init__(self, value: Any, is_right: bool):
-        self.value = value
-        self._is_right = is_right
-
-    def is_left(self) -> bool:
-        return not self._is_right
-
-    def is_right(self) -> bool:
-        return self._is_right
-
-    def either(self, left: Callable[[Any], Any], right: Callable[[Any], Any]) -> Any:
-        return right(self.value) if self._is_right else left(self.value)
-
-
-def Left(value: Any) -> Either:
-    return Either(value, is_right=False)
-
-
-def Right(value: Any) -> Either:
-    return Either(value, is_right=True)
+from pymonad.either import Either, Left, Right
 
 
 @dataclass(frozen=True)
@@ -134,9 +112,11 @@ def fit_okhs_fdmd_pipeline(
     )
 
     dt = float(time[1] - time[0])
-    okhs = OKHSTransformer(kernel=kernel, q=q_true, n_quad_points=n_quad_points, dt=dt, device=device)
+    okhs = OKHSTransformer(kernel=kernel, q=q_true,
+                           n_quad_points=n_quad_points, dt=dt, device=device)
     okhs.fit(list(train_trajectories))
-    liouville_operator = FractionalLiouvilleOperator(okhs_transformer=okhs, n_quad_points=n_quad_points)
+    liouville_operator = FractionalLiouvilleOperator(
+        okhs_transformer=okhs, n_quad_points=n_quad_points)
     liouville_operator.fit()
     fdmd = FractionalDMD(
         liouville_operator=liouville_operator,

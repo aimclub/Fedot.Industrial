@@ -1,2 +1,0 @@
-dataset_name,target_model,target_metric,best_reference_model,best_reference_metric,improvement,relative_improvement_pct
-m4_monthly_kernel_learning,KernelEnsembleForecaster_embedding_nystrom_okhs,1316.9203322082321,NaiveLastValue,541.0736916281575,-775.8466405800747,-143.39019852276618

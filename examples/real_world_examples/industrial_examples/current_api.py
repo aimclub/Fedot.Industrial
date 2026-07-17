@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ from benchmark.industrial import (
     render_benchmark_result_analysis_pack,
     render_forecast_comparison_pack,
 )
+from examples.utils.config_io import load_versioned_json
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parents[2]
@@ -23,14 +23,11 @@ DEFAULTS_VERSION = "industrial_domain_scenarios@1"
 
 @lru_cache(maxsize=1)
 def load_scenario_defaults(path: str | Path = DEFAULTS_PATH) -> dict[str, Any]:
-    defaults_path = Path(path)
-    payload = json.loads(defaults_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"Scenario defaults root must be a mapping: {defaults_path}")
-    version = str(payload.get("version", ""))
-    if version != DEFAULTS_VERSION:
-        raise ValueError(f"Unsupported scenario defaults version: {version}")
-    return payload
+    return load_versioned_json(
+        path,
+        expected_version=DEFAULTS_VERSION,
+        description="scenario defaults",
+    )
 
 
 def list_domain_scenarios(domain: str | None = None) -> tuple[str, ...]:
@@ -44,7 +41,8 @@ def list_domain_scenarios(domain: str | None = None) -> tuple[str, ...]:
 def build_scenario_model_specs(scenario_name: str) -> tuple[ModelSpec, ...]:
     scenario = _scenario_payload(scenario_name)
     local_specs = tuple(ModelSpec(**payload) for payload in scenario["models"])
-    reference_specs = build_kernel_learning_reference_model_specs(str(scenario["task_type"]))
+    reference_specs = build_kernel_learning_reference_model_specs(
+        str(scenario["task_type"]))
     return _dedupe_model_specs((*reference_specs, *local_specs))
 
 
@@ -67,7 +65,8 @@ def build_kernel_learning_reference_model_specs(task_type: str) -> tuple[ModelSp
 def build_scenario_context(scenario_name: str) -> dict[str, Any]:
     scenario = _scenario_payload(scenario_name)
     data_path = PROJECT_ROOT / scenario["data_path"]
-    artifact_root = PROJECT_ROOT / load_scenario_defaults()["artifact_root"] / scenario_name
+    artifact_root = PROJECT_ROOT / \
+        load_scenario_defaults()["artifact_root"] / scenario_name
     models = build_scenario_model_specs(scenario_name)
     return {
         "scenario": scenario_name,
@@ -92,12 +91,15 @@ def build_scenario_preview_frame(scenario_name: str) -> pd.DataFrame:
     lower_is_better = scenario["metric_direction"] == "lower"
     rows: list[dict[str, Any]] = []
     for dataset_index in range(1, 3):
-        row: dict[str, Any] = {"dataset_name": f"{scenario_name}_preview_{dataset_index}"}
+        row: dict[str, Any] = {
+            "dataset_name": f"{scenario_name}_preview_{dataset_index}"}
         for model_index, model in enumerate(models):
             if lower_is_better:
-                row[model.display_name] = round(0.35 + 0.04 * model_index + 0.03 * dataset_index, 4)
+                row[model.display_name] = round(
+                    0.35 + 0.04 * model_index + 0.03 * dataset_index, 4)
             else:
-                row[model.display_name] = round(0.92 - 0.04 * model_index - 0.02 * dataset_index, 4)
+                row[model.display_name] = round(
+                    0.92 - 0.04 * model_index - 0.02 * dataset_index, 4)
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -108,7 +110,8 @@ def render_scenario_preview_pack(
 ) -> tuple[ArtifactRecord, ...]:
     scenario = _scenario_payload(scenario_name)
     target_dir = Path(output_dir) if output_dir is not None else (
-        PROJECT_ROOT / load_scenario_defaults()["artifact_root"] / scenario_name
+        PROJECT_ROOT /
+        load_scenario_defaults()["artifact_root"] / scenario_name
     )
     models = build_scenario_model_specs(scenario_name)
     target_model = models[0].display_name if models else None
@@ -129,13 +132,15 @@ def render_scenario_preview_pack(
 def build_scenario_forecast_preview(scenario_name: str) -> dict[str, Any]:
     scenario = _scenario_payload(scenario_name)
     if scenario["task_type"] != "forecasting":
-        raise ValueError(f"Scenario {scenario_name!r} is not a forecasting scenario.")
+        raise ValueError(
+            f"Scenario {scenario_name!r} is not a forecasting scenario.")
 
     history_length = 36
     horizon = 12
     steps = list(range(history_length + horizon))
     signal = [
-        10.0 + 0.14 * step + 1.8 * _sin_like(step / 3.5) + 0.7 * _sin_like(step / 1.9)
+        10.0 + 0.14 * step + 1.8 *
+        _sin_like(step / 3.5) + 0.7 * _sin_like(step / 1.9)
         for step in steps
     ]
     history = tuple(round(value, 4) for value in signal[:history_length])
@@ -145,10 +150,12 @@ def build_scenario_forecast_preview(scenario_name: str) -> dict[str, Any]:
         strength = max(0.05, 0.24 - 0.035 * model_index)
         bias = 0.28 - 0.08 * model_index
         model_forecast = [
-            actual_value + bias + strength * _sin_like((step + model_index) / 2.2)
+            actual_value + bias + strength *
+            _sin_like((step + model_index) / 2.2)
             for step, actual_value in enumerate(actual)
         ]
-        forecasts[model.display_name] = tuple(round(value, 4) for value in model_forecast)
+        forecasts[model.display_name] = tuple(
+            round(value, 4) for value in model_forecast)
     return {
         "scenario": scenario_name,
         "series_id": f"{scenario_name}_forecast_preview",
@@ -164,7 +171,9 @@ def render_scenario_forecast_pack(
 ) -> tuple[ArtifactRecord, ...]:
     preview = build_scenario_forecast_preview(scenario_name)
     target_dir = Path(output_dir) if output_dir is not None else (
-        PROJECT_ROOT / load_scenario_defaults()["artifact_root"] / scenario_name / "forecast_comparison"
+        PROJECT_ROOT /
+        load_scenario_defaults()["artifact_root"] /
+        scenario_name / "forecast_comparison"
     )
     return render_forecast_comparison_pack(
         history=preview["history"],
@@ -189,7 +198,8 @@ def preflight_summary() -> dict[str, Any]:
 def _scenario_payload(scenario_name: str) -> dict[str, Any]:
     scenarios = load_scenario_defaults()["scenarios"]
     if scenario_name not in scenarios:
-        raise ValueError(f"Unknown industrial example scenario: {scenario_name}")
+        raise ValueError(
+            f"Unknown industrial example scenario: {scenario_name}")
     return dict(scenarios[scenario_name])
 
 

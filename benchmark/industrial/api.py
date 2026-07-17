@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 import json
-import warnings
 from pathlib import Path
-from typing import Any
 
 from .core import (
     ArtifactRecord,
-    ArtifactSpec,
     BenchmarkSuiteConfig,
     ClassificationBenchmarkResult,
-    DatasetSpec,
     ForecastingBenchmarkResult,
-    ModelSpec,
     RegressionBenchmarkResult,
-    RunSpec,
     TaskType,
     write_json,
 )
@@ -64,8 +58,10 @@ def _build_issue_artifacts(result, output_dir: str | Path) -> tuple[ArtifactReco
         },
     )
     return (
-        ArtifactRecord(kind='structured', path=str(jsonl_path), format='jsonl'),
-        ArtifactRecord(kind='structured', path=str(summary_path), format='json'),
+        ArtifactRecord(kind='structured', path=str(
+            jsonl_path), format='jsonl'),
+        ArtifactRecord(kind='structured', path=str(
+            summary_path), format='json'),
     )
 
 
@@ -82,7 +78,8 @@ def run_forecasting_benchmark_suite(config: BenchmarkSuiteConfig) -> Forecasting
                 output_dir=output_dir,
             )
         )
-        manifest.extend(render_okhs_smoothing_acceptance_pack(result, output_dir / 'aggregate'))
+        manifest.extend(render_okhs_smoothing_acceptance_pack(
+            result, output_dir / 'aggregate'))
         manifest.extend(_build_issue_artifacts(result, output_dir))
         result = ForecastingBenchmarkResult(
             run_id=result.run_id,
@@ -134,7 +131,8 @@ def run_tsc_benchmark_suite(config: BenchmarkSuiteConfig):
     from .classification import render_tsc_publication_pack, run_tsc_suite
 
     if config.task_type is not TaskType.TS_CLASSIFICATION:
-        raise ValueError('run_tsc_benchmark_suite expects task_type=ts_classification.')
+        raise ValueError(
+            'run_tsc_benchmark_suite expects task_type=ts_classification.')
     result = run_tsc_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
@@ -163,7 +161,8 @@ def run_tser_benchmark_suite(config: BenchmarkSuiteConfig):
     from .regression import render_tser_publication_pack, run_tser_suite
 
     if config.task_type is not TaskType.TS_REGRESSION:
-        raise ValueError('run_tser_benchmark_suite expects task_type=ts_regression.')
+        raise ValueError(
+            'run_tser_benchmark_suite expects task_type=ts_regression.')
     result = run_tser_suite(config)
     if config.artifact_spec.persist_on_run:
         output_dir = Path(config.artifact_spec.output_dir) / result.run_id
@@ -186,123 +185,3 @@ def run_tser_benchmark_suite(config: BenchmarkSuiteConfig):
             artifact_manifest=tuple(manifest),
         )
     return result
-
-
-def build_legacy_tsf_suite_config(experiment_setup: dict[str, Any]) -> BenchmarkSuiteConfig:
-    dataset_payloads = tuple(experiment_setup.get('dataset_specs', ()))
-    model_payloads = tuple(experiment_setup.get('model_specs', ()))
-    output_dir = experiment_setup.get('output_dir', './benchmark/results/industrial')
-    metrics = tuple(experiment_setup.get('metrics', ('mase', 'smape', 'owa', 'rmse', 'mae')))
-
-    if not dataset_payloads or not model_payloads:
-        raise ValueError(
-            'Industrial benchmark delegation expects experiment_setup["dataset_specs"] and ["model_specs"].')
-
-    datasets = tuple(DatasetSpec(**payload) for payload in dataset_payloads)
-    models = tuple(ModelSpec(**payload) for payload in model_payloads)
-    artifact_spec = experiment_setup.get('artifact_spec')
-    if artifact_spec is None:
-        artifact_spec = ArtifactSpec(output_dir=output_dir)
-    run_spec = experiment_setup.get('run_spec')
-    if run_spec is None:
-        run_spec = RunSpec(run_name='legacy_benchmark_tsf')
-
-    return BenchmarkSuiteConfig(
-        task_type=TaskType.FORECASTING,
-        datasets=datasets,
-        models=models,
-        metrics=metrics,
-        artifact_spec=artifact_spec,
-        run_spec=run_spec,
-    )
-
-
-def run_forecasting_benchmark_from_legacy_config(experiment_setup: dict[str, Any]) -> ForecastingBenchmarkResult:
-    warnings.warn(
-        'benchmark.BenchmarkTSF legacy path is delegating to benchmark.industrial forecasting suite.',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    config = build_legacy_tsf_suite_config(experiment_setup)
-    return run_forecasting_benchmark_suite(config)
-
-
-def build_legacy_tsc_suite_config(experiment_setup: dict[str, Any]) -> BenchmarkSuiteConfig:
-    dataset_payloads = tuple(experiment_setup.get('dataset_specs', ()))
-    model_payloads = tuple(experiment_setup.get('model_specs', ()))
-    output_dir = experiment_setup.get('output_dir', './benchmark/results/industrial_tsc')
-    metrics = tuple(experiment_setup.get('metrics', ('accuracy', 'balanced_accuracy', 'f1_macro')))
-    if not dataset_payloads:
-        custom_datasets = tuple(experiment_setup.get('custom_datasets') or ('Lightning7',))
-        dataset_payloads = tuple({'benchmark': 'ucr', 'dataset_name': dataset_name} for dataset_name in custom_datasets)
-    if not model_payloads:
-        model_payloads = (
-            {
-                'adapter_name': 'kernel_ensemble_classifier',
-                'display_name': 'KernelEnsembleClassifier',
-                'params': {'generator_names': ('statistical_summary',), 'kernel': 'linear'},
-            },
-        )
-    datasets = tuple(DatasetSpec(**payload) for payload in dataset_payloads)
-    models = tuple(ModelSpec(**payload) for payload in model_payloads)
-    artifact_spec = experiment_setup.get('artifact_spec') or ArtifactSpec(output_dir=output_dir)
-    run_spec = experiment_setup.get('run_spec') or RunSpec(run_name='legacy_benchmark_tsc', primary_metric=metrics[0])
-    return BenchmarkSuiteConfig(
-        task_type=TaskType.TS_CLASSIFICATION,
-        datasets=datasets,
-        models=models,
-        metrics=metrics,
-        artifact_spec=artifact_spec,
-        run_spec=run_spec,
-    )
-
-
-def build_legacy_tser_suite_config(experiment_setup: dict[str, Any]) -> BenchmarkSuiteConfig:
-    dataset_payloads = tuple(experiment_setup.get('dataset_specs', ()))
-    model_payloads = tuple(experiment_setup.get('model_specs', ()))
-    output_dir = experiment_setup.get('output_dir', './benchmark/results/industrial_tser')
-    metrics = tuple(experiment_setup.get('metrics', ('rmse', 'mae', 'r2')))
-    if not dataset_payloads:
-        custom_datasets = tuple(experiment_setup.get('custom_datasets') or ('NaturalGasPricesSentiment',))
-        dataset_payloads = tuple(
-            {'benchmark': 'local_tser', 'dataset_name': dataset_name} for dataset_name in custom_datasets)
-    if not model_payloads:
-        model_payloads = (
-            {
-                'adapter_name': 'kernel_ensemble_regressor',
-                'display_name': 'KernelEnsembleRegressor',
-                'params': {'generator_names': ('statistical_summary',), 'kernel': 'linear'},
-            },
-        )
-    datasets = tuple(DatasetSpec(**payload) for payload in dataset_payloads)
-    models = tuple(ModelSpec(**payload) for payload in model_payloads)
-    artifact_spec = experiment_setup.get('artifact_spec') or ArtifactSpec(output_dir=output_dir)
-    run_spec = experiment_setup.get('run_spec') or RunSpec(run_name='legacy_benchmark_tser', primary_metric=metrics[0])
-    return BenchmarkSuiteConfig(
-        task_type=TaskType.TS_REGRESSION,
-        datasets=datasets,
-        models=models,
-        metrics=metrics,
-        artifact_spec=artifact_spec,
-        run_spec=run_spec,
-    )
-
-
-def run_tsc_benchmark_from_legacy_config(experiment_setup: dict[str, Any]):
-    warnings.warn(
-        'benchmark.BenchmarkTSC legacy path is delegating to benchmark.industrial classification suite.',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    config = build_legacy_tsc_suite_config(experiment_setup)
-    return run_tsc_benchmark_suite(config)
-
-
-def run_tser_benchmark_from_legacy_config(experiment_setup: dict[str, Any]):
-    warnings.warn(
-        'benchmark.BenchmarkTSER legacy path is delegating to benchmark.industrial regression suite.',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    config = build_legacy_tser_suite_config(experiment_setup)
-    return run_tser_benchmark_suite(config)

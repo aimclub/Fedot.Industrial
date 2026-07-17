@@ -34,8 +34,9 @@ packages.
 Constants for external Kaggle/EEG inputs live in `real_world_defaults.json`.
 `external_data_manifest.json` describes local raw inputs, historical benchmark
 results, expected paths, optional DVC locations, and the public Yandex Disk archive link. Keep datasets, checkpoints, and high-churn image outputs untracked.
-Report-style benchmark/domain assets live under
-`examples/artifacts/cloud_bundle` when they are deterministic and lightweight.
+Report-style benchmark/domain assets are generated under the ignored local
+`examples/artifacts/cloud_bundle` handoff folder and published to the external
+archive, not committed to git.
 
 Data delivery contract:
 

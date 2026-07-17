@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -20,6 +19,7 @@ from benchmark.industrial import (
     build_forecast_comparison_from_progress_items,
     render_forecast_comparison_pack,
 )
+from examples.utils.config_io import load_versioned_json
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parents[3]
@@ -29,14 +29,11 @@ DEFAULTS_VERSION = 'industrial_real_world_analysis@1'
 
 @lru_cache(maxsize=1)
 def load_analysis_defaults(path: str | Path = DEFAULTS_PATH) -> dict[str, Any]:
-    defaults_path = Path(path)
-    payload = json.loads(defaults_path.read_text(encoding='utf-8'))
-    if not isinstance(payload, dict):
-        raise ValueError(f'Analysis defaults root must be a mapping: {defaults_path}')
-    version = str(payload.get('version', ''))
-    if version != DEFAULTS_VERSION:
-        raise ValueError(f'Unsupported analysis defaults version: {version}')
-    return payload
+    return load_versioned_json(
+        path,
+        expected_version=DEFAULTS_VERSION,
+        description="analysis defaults",
+    )
 
 
 def available_analysis_names() -> tuple[str, ...]:
@@ -54,7 +51,8 @@ def build_analysis_result_frame(analysis_name: str) -> pd.DataFrame:
     except (FileNotFoundError, ValueError, pd.errors.EmptyDataError):
         frame = pd.DataFrame()
     if frame.empty:
-        fallback_path = _artifact_table_path(analysis_name, 'normalized_results.csv')
+        fallback_path = _artifact_table_path(
+            analysis_name, 'normalized_results.csv')
         if fallback_path.exists():
             return pd.read_csv(fallback_path)
     return frame
@@ -113,7 +111,8 @@ def render_analysis_notebook_pack(
         output_dir: str | Path | None = None,
 ) -> tuple[ArtifactRecord, ...]:
     analysis = _analysis_payload(analysis_name)
-    target_dir = Path(output_dir) if output_dir is not None else _artifact_root() / analysis_name
+    target_dir = Path(
+        output_dir) if output_dir is not None else _artifact_root() / analysis_name
     return render_benchmark_result_analysis_pack(
         build_analysis_result_frame(analysis_name),
         output_dir=target_dir,
@@ -121,13 +120,17 @@ def render_analysis_notebook_pack(
         target_model=str(analysis.get('target_model') or ''),
         expected_datasets=tuple(analysis.get('expected_datasets') or ()),
         expected_dataset_count=analysis.get('expected_dataset_count'),
-        coverage_unit_column=str(analysis.get('coverage_unit_column') or 'dataset_name'),
+        coverage_unit_column=str(analysis.get(
+            'coverage_unit_column') or 'dataset_name'),
         diagnostics_frame=build_analysis_diagnostics_frame(analysis_name),
         source_metadata=build_analysis_source_metadata_frame(analysis_name),
-        source_expected_dataset_counts=dict(analysis.get('source_expected_dataset_counts') or {}),
-        reference_source_labels=tuple(analysis.get('reference_source_labels') or ()),
+        source_expected_dataset_counts=dict(
+            analysis.get('source_expected_dataset_counts') or {}),
+        reference_source_labels=tuple(
+            analysis.get('reference_source_labels') or ()),
         target_source_labels=tuple(analysis.get('target_source_labels') or ()),
-        best_target_source_labels=tuple(analysis.get('best_target_source_labels') or ()),
+        best_target_source_labels=tuple(
+            analysis.get('best_target_source_labels') or ()),
     )
 
 
@@ -145,11 +148,13 @@ def build_analysis_diagnostics_frame(analysis_name: str) -> pd.DataFrame:
             frames.append(
                 build_model_diagnostics_frame(
                     run_records,
-                    model_specs=build_current_model_specs(str(analysis['task_type'])),
+                    model_specs=build_current_model_specs(
+                        str(analysis['task_type'])),
                 )
             )
     if not frames:
-        fallback_path = _artifact_table_path(analysis_name, 'model_diagnostics.csv')
+        fallback_path = _artifact_table_path(
+            analysis_name, 'model_diagnostics.csv')
         if fallback_path.exists():
             return pd.read_csv(fallback_path)
         return build_model_diagnostics_frame(pd.DataFrame())
@@ -161,7 +166,8 @@ def build_analysis_source_metadata_frame(analysis_name: str) -> pd.DataFrame:
     rows = []
     for source in analysis.get('sources') or ():
         source_path = PROJECT_ROOT / str(source['path'])
-        fallback_path = _artifact_table_path(analysis_name, 'normalized_results.csv')
+        fallback_path = _artifact_table_path(
+            analysis_name, 'normalized_results.csv')
         source_exists = source_path.exists()
         rows.append(
             {
@@ -182,8 +188,10 @@ def render_forecasting_model_comparison_pack(
         *,
         artifact_name: str = 'forecasting_model_comparison',
 ) -> tuple[ArtifactRecord, ...]:
-    target_dir = Path(output_dir) if output_dir is not None else _artifact_root() / artifact_name
-    source = load_analysis_defaults()['external_sources']['forecasting_model_comparison']
+    target_dir = Path(
+        output_dir) if output_dir is not None else _artifact_root() / artifact_name
+    source = load_analysis_defaults(
+    )['external_sources']['forecasting_model_comparison']
     try:
         if str(source.get('kind')) == 'aggregate_predictions':
             history, actual, forecasts, metadata = build_forecast_comparison_from_aggregate_predictions(
@@ -216,7 +224,8 @@ def render_forecasting_model_comparison_pack(
         forecasts=forecasts,
         output_dir=target_dir,
         title='Forecasting benchmark: Industrial and baseline model forecasts',
-        series_id=str(metadata.get('series_id') or source.get('series_id') or 'm4_series'),
+        series_id=str(metadata.get('series_id')
+                      or source.get('series_id') or 'm4_series'),
         source_metadata=metadata,
     )
 
@@ -229,8 +238,10 @@ def render_pipeline_population_pack(
 ) -> tuple[ArtifactRecord, ...]:
     defaults = load_analysis_defaults()
     source = defaults['external_sources']['composition_results']
-    root = Path(composition_root) if composition_root is not None else PROJECT_ROOT / source['path']
-    target_dir = Path(output_dir) if output_dir is not None else _artifact_root() / 'pipeline_population'
+    root = Path(
+        composition_root) if composition_root is not None else PROJECT_ROOT / source['path']
+    target_dir = Path(output_dir) if output_dir is not None else _artifact_root(
+    ) / 'pipeline_population'
     return render_evolution_analysis_pack(root, target_dir, dataset_limit=dataset_limit)
 
 
@@ -253,7 +264,8 @@ def preflight_summary() -> dict[str, Any]:
         'available_analyses': available_analysis_names(),
         'feature_generators': tuple(defaults['feature_generators']),
         'analysis_sources': {
-            name: tuple(str(source.get('path')) for source in payload.get('sources') or ())
+            name: tuple(str(source.get('path'))
+                        for source in payload.get('sources') or ())
             for name, payload in defaults['analyses'].items()
         },
         'external_sources': external_source_manifest(),

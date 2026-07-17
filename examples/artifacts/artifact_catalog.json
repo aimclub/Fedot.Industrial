@@ -1,7 +1,7 @@
 {
   "version": "industrial_examples_artifact_catalog@1",
   "title": "IndustrialTS examples artifact catalog",
-  "description": "Central catalog for local inputs, benchmark history, full-run results, notebooks, and rendered visual artifacts used by examples.",
+  "description": "Central catalog for local inputs, benchmark history, full-run results, notebooks, and externally published visual artifacts used by examples.",
   "cloud_bundle_root": "examples/artifacts/cloud_bundle",
   "showcase_root": "examples/artifacts/showcase",
   "external_data_manifest": "examples/real_world_examples/external_data_manifest.json",
@@ -14,11 +14,11 @@
       "experiment_family": "benchmark_analysis",
       "local_path": "examples/artifacts/cloud_bundle/benchmark_showcase/analysis_of_results",
       "inventory_mode": "pack",
-      "storage_policy": "canonical_local",
+      "storage_policy": "external_archive",
       "cloud_path": "benchmark_showcase/analysis_of_results",
       "source_manifest": "examples/real_world_examples/benchmark_example/analysis_of_results/analysis_defaults.json",
       "producer": "examples.real_world_examples.benchmark_example.analysis_of_results.current_api",
-      "include_policy": "store summaries, plots, tables, and source metadata here; raw benchmark inputs stay external",
+      "include_policy": "publish generated summaries, plots, tables, and source metadata to the external archive; keep generated report packs out of git",
       "notes": "Leaderboard, rank, delta, diagnostics, M4 forecast comparison, and pipeline population report packs.",
       "owner": "IndustrialTS benchmark maintainers",
       "last_refreshed": "2026-07-14",
@@ -33,11 +33,11 @@
       "experiment_family": "benchmark_forecasting",
       "local_path": "examples/artifacts/cloud_bundle/benchmark_showcase/forecasting",
       "inventory_mode": "pack",
-      "storage_policy": "canonical_local",
+      "storage_policy": "external_archive",
       "cloud_path": "benchmark_showcase/forecasting",
       "source_manifest": "examples/real_world_examples/benchmark_example/forecasting/results_manifest.json",
       "producer": "examples.real_world_examples.benchmark_example.forecasting",
-      "include_policy": "store summaries, plots, forecast comparisons, and tables here; raw forecasting data stays external",
+      "include_policy": "publish generated summaries, plots, forecast comparisons, and tables to the external archive; keep generated report packs out of git",
       "notes": "M4, Monash, Kaggle, and forecasting scenario report packs.",
       "owner": "IndustrialTS benchmark maintainers",
       "last_refreshed": "2026-07-14",
@@ -52,11 +52,11 @@
       "experiment_family": "industrial_domain_examples",
       "local_path": "examples/artifacts/cloud_bundle/domain_showcase/industrial_examples",
       "inventory_mode": "pack",
-      "storage_policy": "canonical_local",
+      "storage_policy": "external_archive",
       "cloud_path": "domain_showcase/industrial_examples",
       "source_manifest": "examples/real_world_examples/industrial_examples/scenario_defaults.json",
       "producer": "examples.real_world_examples.industrial_examples.current_api",
-      "include_policy": "store summaries, plots, tables, and scenario-level forecast comparisons here; local raw data stays external",
+      "include_policy": "publish generated summaries, plots, tables, and scenario-level forecast comparisons to the external archive; local raw data stays external",
       "notes": "Applied EEG, economic, energy, equipment, health, environment, crypto forecasting, and regression report packs.",
       "owner": "IndustrialTS benchmark maintainers",
       "last_refreshed": "2026-07-14",
@@ -227,8 +227,8 @@
   "refresh_command": "python -m examples.artifacts",
   "external_archive_url": "https://disk.yandex.ru/d/Ch_7K26rukpAWw",
   "artifact_size_policy": {
-    "max_single_committed_file_mb": 5,
-    "max_committed_cloud_bundle_mb": 100,
+    "max_single_committed_file_mb": 0,
+    "max_committed_cloud_bundle_mb": 0,
     "allowed_committed_extensions": [
       ".md",
       ".csv",
@@ -239,6 +239,7 @@
       ".svg",
       ".ipynb"
     ],
-    "raw_data_policy": "raw datasets, checkpoints, archives, and full benchmark run folders must stay external and be referenced through external_data_manifest.json"
+    "raw_data_policy": "raw datasets, checkpoints, archives, full benchmark run folders, and generated cloud_bundle/showcase report packs must stay external and be referenced through external_data_manifest.json or this catalog",
+    "generated_artifact_policy": "examples/artifacts/cloud_bundle and examples/artifacts/showcase are local generated outputs ignored by git"
   }
 }

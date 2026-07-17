@@ -24,7 +24,6 @@ from benchmark.industrial.forecasting import (
     build_model_adapter,
     run_forecasting_suite,
 )
-from benchmark.industrial.legacy.forecasting import BenchmarkTSF
 
 
 def _toy_records() -> list[dict]:
@@ -69,7 +68,8 @@ def _switching_records() -> list[dict]:
 
 def test_build_model_adapter_supports_lagged_and_ssa_forecasters() -> None:
     lagged_model = build_model_adapter(
-        ModelSpec(adapter_name='lagged_forecaster', display_name='lagged_forecaster')
+        ModelSpec(adapter_name='lagged_forecaster',
+                  display_name='lagged_forecaster')
     )
     lagged_model_with_channel = build_model_adapter(
         ModelSpec(
@@ -160,13 +160,15 @@ def test_run_forecasting_suite_adds_post_fit_stage_tuning_comparison(monkeypatch
                 return target.copy(), {'source': 'tuned'}
             return np.zeros_like(target), {'source': 'baseline'}
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
 
     def _fake_build_model_adapter(spec):
         captured_specs.append(spec)
         return FakeForecastModel(scale=float(spec.params.get('scale', 1.0)))
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_model_adapter', _fake_build_model_adapter)
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_model_adapter', _fake_build_model_adapter)
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.run_forecasting_stage_tuning_on_series',
         lambda *args, **kwargs: captured_tuning_kwargs.update(kwargs) or type(
@@ -187,10 +189,14 @@ def test_run_forecasting_suite_adds_post_fit_stage_tuning_comparison(monkeypatch
     result = run_forecasting_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='debug_suite', subset='monthly'),),
-            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
-            artifact_spec=ArtifactSpec(output_dir='unused', persist_on_run=False),
-            run_spec=RunSpec(run_name='debug_suite_runner', show_progress=False),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='debug_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model',
+                    display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(
+                output_dir='unused', persist_on_run=False),
+            run_spec=RunSpec(run_name='debug_suite_runner',
+                             show_progress=False),
             metrics=('mae', 'rmse'),
         )
     )
@@ -201,7 +207,8 @@ def test_run_forecasting_suite_adds_post_fit_stage_tuning_comparison(monkeypatch
     assert comparison['baseline_metrics']['mae'] > comparison['tuned_metrics']['mae']
     assert comparison['improved_metrics']['mae'] is True
     assert comparison['best_parameters']['scale'] == 2.0
-    assert any(metric.metric_name == 'mae_tuned' for metric in result.metric_records)
+    assert any(metric.metric_name ==
+               'mae_tuned' for metric in result.metric_records)
     assert captured_specs
     assert captured_specs[0].params['progress_policy']['enabled'] is False
     assert captured_tuning_kwargs['progress_policy'].enabled is False
@@ -242,10 +249,12 @@ def test_run_forecasting_suite_compact_verbosity_trims_stage_tuning_payload(monk
                 return target.copy(), {'source': 'tuned', 'debug_blob': {'weights': [1, 2, 3]}}
             return np.zeros_like(target), {'source': 'baseline'}
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.build_model_adapter',
-        lambda spec: FakeForecastModel(scale=float(spec.params.get('scale', 1.0))),
+        lambda spec: FakeForecastModel(
+            scale=float(spec.params.get('scale', 1.0))),
     )
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.run_forecasting_stage_tuning_on_series',
@@ -279,14 +288,17 @@ def test_run_forecasting_suite_compact_verbosity_trims_stage_tuning_payload(monk
     result = run_forecasting_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='compact_suite', subset='monthly'),),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='compact_suite', subset='monthly'),),
             models=(ModelSpec(
                 adapter_name='fake_model',
                 display_name='FakeForecastModel',
                 params={'stage_tuning_runtime': {}},
             ),),
-            artifact_spec=ArtifactSpec(output_dir='unused', persist_on_run=False),
-            run_spec=RunSpec(run_name='compact_suite_runner', show_progress=False, verbosity='compact'),
+            artifact_spec=ArtifactSpec(
+                output_dir='unused', persist_on_run=False),
+            run_spec=RunSpec(run_name='compact_suite_runner',
+                             show_progress=False, verbosity='compact'),
             metrics=('mae', 'rmse'),
         )
     )
@@ -300,7 +312,8 @@ def test_run_forecasting_suite_compact_verbosity_trims_stage_tuning_payload(monk
         'split_metadata']
     assert 'split_metadata' not in report['best_evaluation'] or 'folds' not in report['best_evaluation'][
         'split_metadata']
-    assert 'progress_policy' not in report['sequential_result'].get('metadata', {})
+    assert 'progress_policy' not in report['sequential_result'].get(
+        'metadata', {})
     assert 'progress_policy' not in record.metadata['stage_tuning_runtime']
     assert 'tuned_forecast' not in comparison
     assert 'tuned_metadata' not in comparison
@@ -349,7 +362,8 @@ def test_run_forecasting_suite_persists_incremental_item_artifacts(tmp_path: Pat
             target = np.asarray(series_record.test_values, dtype=float)
             return target.copy(), {'source': 'success'}
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.build_model_adapter',
         lambda spec: FakeForecastModel(),
@@ -358,17 +372,22 @@ def test_run_forecasting_suite_persists_incremental_item_artifacts(tmp_path: Pat
     result = run_forecasting_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='incremental_suite', subset='monthly'),),
-            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
-            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
-            run_spec=RunSpec(run_name='incremental_suite_runner', show_progress=False),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='incremental_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model',
+                    display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(
+                output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(
+                run_name='incremental_suite_runner', show_progress=False),
             metrics=('mae', 'rmse'),
         )
     )
 
     progress_dir = tmp_path / result.run_id / 'progress'
     items_dir = progress_dir / 'items'
-    progress_index = json.loads((progress_dir / 'run_progress.json').read_text(encoding='utf-8'))
+    progress_index = json.loads(
+        (progress_dir / 'run_progress.json').read_text(encoding='utf-8'))
     item_paths = sorted(items_dir.glob('*.json'))
 
     assert (progress_dir / 'run_context.json').exists()
@@ -390,7 +409,8 @@ def test_run_forecasting_suite_persists_incremental_item_artifacts(tmp_path: Pat
     assert payloads['series_success']['prediction_records']
     assert payloads['series_failed']['metric_records'] == []
     assert payloads['series_failed']['prediction_records'] == []
-    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'run_context.json' in artifact_names
     assert 'series_records.json' in artifact_names
     assert 'run_progress.json' in artifact_names
@@ -427,11 +447,13 @@ def test_run_forecasting_suite_resume_mode_skips_previously_persisted_items(tmp_
         def forecast(self, series_record):
             del series_record
             if forecast_calls['fail_on_forecast']:
-                raise RuntimeError('resume mode should not recompute persisted items')
+                raise RuntimeError(
+                    'resume mode should not recompute persisted items')
             forecast_calls['count'] += 1
             return np.asarray([6.0, 7.0, 8.0], dtype=float), {'source': 'fresh'}
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.build_model_adapter',
         lambda spec: FakeForecastModel(),
@@ -440,10 +462,14 @@ def test_run_forecasting_suite_resume_mode_skips_previously_persisted_items(tmp_
     initial_result = run_forecasting_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='resume_suite', subset='monthly'),),
-            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
-            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
-            run_spec=RunSpec(run_name='resume_suite_runner', show_progress=False),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='resume_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model',
+                    display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(
+                output_dir=str(tmp_path), persist_on_run=True),
+            run_spec=RunSpec(run_name='resume_suite_runner',
+                             show_progress=False),
             metrics=('mae', 'rmse'),
         )
     )
@@ -454,9 +480,12 @@ def test_run_forecasting_suite_resume_mode_skips_previously_persisted_items(tmp_
     resumed_result = run_forecasting_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='resume_suite', subset='monthly'),),
-            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
-            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='resume_suite', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model',
+                    display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(
+                output_dir=str(tmp_path), persist_on_run=True),
             run_spec=RunSpec(
                 run_name='resume_suite_runner',
                 show_progress=False,
@@ -468,13 +497,16 @@ def test_run_forecasting_suite_resume_mode_skips_previously_persisted_items(tmp_
     )
 
     progress_dir = tmp_path / initial_result.run_id / 'progress'
-    progress_index = json.loads((progress_dir / 'run_progress.json').read_text(encoding='utf-8'))
+    progress_index = json.loads(
+        (progress_dir / 'run_progress.json').read_text(encoding='utf-8'))
 
     assert resumed_result.run_id == initial_result.run_id
     assert forecast_calls['count'] == 1
     assert len(resumed_result.run_records) == 1
-    assert len(resumed_result.metric_records) == len(initial_result.metric_records)
-    assert len(resumed_result.prediction_records) == len(initial_result.prediction_records)
+    assert len(resumed_result.metric_records) == len(
+        initial_result.metric_records)
+    assert len(resumed_result.prediction_records) == len(
+        initial_result.prediction_records)
     assert progress_index['completed_items'] == 1
 
 
@@ -487,7 +519,8 @@ def test_forecasting_resume_from_empty_progress_preserves_fresh_metric_records(
     progress_dir = tmp_path / run_id / 'progress'
     progress_dir.mkdir(parents=True)
     (progress_dir / 'run_progress.json').write_text(
-        json.dumps({'run_id': run_id, 'completed_items': 0, 'status_counts': {}, 'item_artifacts': {}}),
+        json.dumps({'run_id': run_id, 'completed_items': 0,
+                   'status_counts': {}, 'item_artifacts': {}}),
         encoding='utf-8',
     )
 
@@ -520,15 +553,20 @@ def test_forecasting_resume_from_empty_progress_preserves_fresh_metric_records(
             forecast_calls['count'] += 1
             return np.asarray(series_record.test_values, dtype=float), {'source': 'fresh_after_empty_resume'}
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_model_adapter', lambda spec: FakeForecastModel())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_model_adapter', lambda spec: FakeForecastModel())
 
     result = run_forecasting_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='empty_progress_resume', subset='monthly'),),
-            models=(ModelSpec(adapter_name='fake_model', display_name='FakeForecastModel'),),
-            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='empty_progress_resume', subset='monthly'),),
+            models=(ModelSpec(adapter_name='fake_model',
+                    display_name='FakeForecastModel'),),
+            artifact_spec=ArtifactSpec(
+                output_dir=str(tmp_path), persist_on_run=True),
             run_spec=RunSpec(
                 run_name='empty_progress_resume',
                 show_progress=False,
@@ -546,7 +584,8 @@ def test_forecasting_resume_from_empty_progress_preserves_fresh_metric_records(
     assert len(result.metric_records) > 0
     assert len(result.prediction_records) == 3
     assert len(item_payload['metric_records']) == len(result.metric_records)
-    assert len(item_payload['prediction_records']) == len(result.prediction_records)
+    assert len(item_payload['prediction_records']
+               ) == len(result.prediction_records)
 
 
 def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_path: Path, monkeypatch) -> None:
@@ -592,10 +631,12 @@ def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_pat
                 'progress_policy': {'enabled': False},
             }
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_dataset_adapter', lambda spec: FakeDatasetAdapter())
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.build_model_adapter',
-        lambda spec: FakeForecastModel(scale=float(spec.params.get('scale', 1.0))),
+        lambda spec: FakeForecastModel(
+            scale=float(spec.params.get('scale', 1.0))),
     )
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.run_forecasting_stage_tuning_on_series',
@@ -629,13 +670,15 @@ def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_pat
     result = run_forecasting_benchmark_suite(
         BenchmarkSuiteConfig(
             task_type=TaskType.FORECASTING,
-            datasets=(DatasetSpec(benchmark='in_memory', dataset_name='compact_publication_suite', subset='monthly'),),
+            datasets=(DatasetSpec(benchmark='in_memory',
+                      dataset_name='compact_publication_suite', subset='monthly'),),
             models=(ModelSpec(
                 adapter_name='fake_model',
                 display_name='FakeForecastModel',
                 params={'stage_tuning_runtime': {}},
             ),),
-            artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+            artifact_spec=ArtifactSpec(
+                output_dir=str(tmp_path), persist_on_run=True),
             run_spec=RunSpec(
                 run_name='compact_publication_suite',
                 show_progress=False,
@@ -656,7 +699,8 @@ def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_pat
     assert 'evaluations' not in report['sequential_result']['stage_history'][0]
     assert 'split_metadata' not in report['baseline_evaluation'] or 'folds' not in report['baseline_evaluation'][
         'split_metadata']
-    assert 'progress_policy' not in report['sequential_result'].get('metadata', {})
+    assert 'progress_policy' not in report['sequential_result'].get(
+        'metadata', {})
 
     metadata_path = next(
         Path(record.path) for record in result.artifact_manifest
@@ -668,16 +712,20 @@ def test_publication_pack_compact_verbosity_trims_stage_tuning_artifacts(tmp_pat
 
 def test_build_model_adapter_supports_new_composite_forecasters() -> None:
     lagged_ridge_model = build_model_adapter(
-        ModelSpec(adapter_name='lagged_ridge_forecaster', display_name='lagged_ridge_forecaster')
+        ModelSpec(adapter_name='lagged_ridge_forecaster',
+                  display_name='lagged_ridge_forecaster')
     )
     low_rank_model = build_model_adapter(
-        ModelSpec(adapter_name='low_rank_lagged_ridge_forecaster', display_name='low_rank_lagged_ridge_forecaster')
+        ModelSpec(adapter_name='low_rank_lagged_ridge_forecaster',
+                  display_name='low_rank_lagged_ridge_forecaster')
     )
     hybrid_model = build_model_adapter(
-        ModelSpec(adapter_name='hybrid_ensemble_forecaster', display_name='hybrid_ensemble_forecaster')
+        ModelSpec(adapter_name='hybrid_ensemble_forecaster',
+                  display_name='hybrid_ensemble_forecaster')
     )
     okhs_fdmd_model = build_model_adapter(
-        ModelSpec(adapter_name='okhs_fdmd_forecaster', display_name='okhs_fdmd_forecaster')
+        ModelSpec(adapter_name='okhs_fdmd_forecaster',
+                  display_name='okhs_fdmd_forecaster')
     )
 
     assert lagged_ridge_model.name == 'lagged_ridge_forecaster'
@@ -688,10 +736,12 @@ def test_build_model_adapter_supports_new_composite_forecasters() -> None:
 
 def test_build_model_adapter_supports_canonical_mssa_and_havok_names() -> None:
     mssa_model = build_model_adapter(
-        ModelSpec(adapter_name='mssa_forecaster', display_name='mssa_forecaster')
+        ModelSpec(adapter_name='mssa_forecaster',
+                  display_name='mssa_forecaster')
     )
     havok_model = build_model_adapter(
-        ModelSpec(adapter_name='havok_forecaster', display_name='havok_forecaster')
+        ModelSpec(adapter_name='havok_forecaster',
+                  display_name='havok_forecaster')
     )
 
     assert mssa_model.name == 'mssa_forecaster'
@@ -715,7 +765,8 @@ def test_build_model_adapter_supports_mssa_head_runtime_parameters() -> None:
         ModelSpec(
             adapter_name='mssa_forecaster',
             display_name='mssa_tuned',
-            params={'head_policy': 'mlp', 'head_hidden_dim': 96, 'head_epochs': 40},
+            params={'head_policy': 'mlp',
+                    'head_hidden_dim': 96, 'head_epochs': 40},
         )
     )
 
@@ -815,7 +866,8 @@ def test_m4_adapter_reads_local_repo_files() -> None:
 
     assert len(records) == 2
     assert all(record.forecast_horizon == 14 for record in records)
-    assert all(record.metadata['split_provenance'] == 'local_m4_train_test_csv' for record in records)
+    assert all(record.metadata['split_provenance'] ==
+               'local_m4_train_test_csv' for record in records)
 
 
 def test_monash_adapter_reads_local_repo_files() -> None:
@@ -833,8 +885,10 @@ def test_monash_adapter_reads_local_repo_files() -> None:
 
     assert len(records) == 2
     assert all(record.forecast_horizon == 30 for record in records)
-    assert all(record.metadata['split_provenance'] == 'local_monash_csv' for record in records)
-    assert all(record.metadata['source_file'] == 'MonashBitcoin_30.csv' for record in records)
+    assert all(record.metadata['split_provenance'] ==
+               'local_monash_csv' for record in records)
+    assert all(record.metadata['source_file'] ==
+               'MonashBitcoin_30.csv' for record in records)
 
 
 def test_m4_adapter_reads_local_repo_files_from_foreign_cwd(tmp_path: Path, monkeypatch) -> None:
@@ -871,9 +925,12 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
             ),
         ),
         models=(
-            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
-            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
-            ModelSpec(adapter_name='mssa', display_name='mSSA', params={'window_size': 6, 'rank': 2}),
+            ModelSpec(adapter_name='naive_last_value',
+                      display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average',
+                      display_name='MovingAverage', params={'window_size': 3}),
+            ModelSpec(adapter_name='mssa', display_name='mSSA',
+                      params={'window_size': 6, 'rank': 2}),
             ModelSpec(
                 adapter_name='okhs',
                 display_name='OKHS Direct',
@@ -884,9 +941,11 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
                     'q': 0.9,
                 },
             ),
-            ModelSpec(adapter_name='autogluon', display_name='AutoGluon', optional=True),
+            ModelSpec(adapter_name='autogluon',
+                      display_name='AutoGluon', optional=True),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='toy_suite', primary_metric='mae'),
     )
 
@@ -896,19 +955,25 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
     assert any(
         record.model_name == 'OKHS Direct' and record.status is RunStatus.SUCCESS for record in result.run_records)
-    assert any(record.model_name == 'mSSA' and record.status is RunStatus.SUCCESS for record in result.run_records)
-    okhs_record = next(record for record in result.run_records if record.model_name == 'OKHS Direct')
+    assert any(record.model_name ==
+               'mSSA' and record.status is RunStatus.SUCCESS for record in result.run_records)
+    okhs_record = next(
+        record for record in result.run_records if record.model_name == 'OKHS Direct')
     assert okhs_record.metadata['method'] == 'direct'
     assert 'regime_diagnostics' in okhs_record.metadata
     assert 'routing_recommendation' in okhs_record.metadata
     assert any(record.horizon_index is None for record in result.metric_records)
-    assert any(record.horizon_index is not None for record in result.metric_records)
+    assert any(
+        record.horizon_index is not None for record in result.metric_records)
     assert result.artifact_manifest
-    assert any(Path(record.path).exists() for record in result.artifact_manifest)
-    assert any(Path(record.path).name == 'errors.jsonl' for record in result.artifact_manifest)
+    assert any(Path(record.path).exists()
+               for record in result.artifact_manifest)
+    assert any(Path(record.path).name ==
+               'errors.jsonl' for record in result.artifact_manifest)
     errors_path = next(
         Path(record.path) for record in result.artifact_manifest if Path(record.path).name == 'errors.jsonl')
-    error_lines = [line for line in errors_path.read_text(encoding='utf-8').splitlines() if line.strip()]
+    error_lines = [line for line in errors_path.read_text(
+        encoding='utf-8').splitlines() if line.strip()]
     assert error_lines
     assert any('AutoGluon' in line for line in error_lines)
 
@@ -919,13 +984,15 @@ def test_forecasting_suite_runs_and_writes_publication_pack(tmp_path: Path) -> N
     )
     assert comparison.model_names
     assert comparison.artifact_manifest
-    artifact_names = {Path(record.path).name for record in comparison.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in comparison.artifact_manifest}
     assert 'toy_1_history_forecast_overlay.png' in artifact_names
     assert 'toy_1_boundary_zoom.png' in artifact_names
     assert 'toy_1_forecast_delta.png' in artifact_names
     assert 'toy_1_regime_diagnostics.json' in artifact_names
     assert 'toy_1_okhs_diagnostics.json' in artifact_names
-    publication_names = {Path(record.path).name for record in result.artifact_manifest}
+    publication_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'regime_diagnostics.csv' in publication_names
     assert 'routing_evaluation.csv' in publication_names
     assert 'routing_family_evaluation.csv' in publication_names
@@ -961,7 +1028,8 @@ def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> Non
             ),
         ),
         models=(
-            ModelSpec(adapter_name='lagged_ridge_forecaster', display_name='LaggedRidge'),
+            ModelSpec(adapter_name='lagged_ridge_forecaster',
+                      display_name='LaggedRidge'),
             ModelSpec(
                 adapter_name='low_rank_lagged_ridge_forecaster',
                 display_name='LowRankLaggedRidge',
@@ -970,10 +1038,12 @@ def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> Non
             ModelSpec(
                 adapter_name='hybrid_ensemble_forecaster',
                 display_name='HybridEnsemble',
-                params={'complex_branch': 'havok', 'complex_params': {'window_size': 8, 'rank': 2}},
+                params={'complex_branch': 'havok',
+                        'complex_params': {'window_size': 8, 'rank': 2}},
             ),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='composite_suite', primary_metric='mae'),
     )
 
@@ -983,7 +1053,8 @@ def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> Non
         record.model_name == 'LaggedRidge' and record.status is RunStatus.SUCCESS for record in result.run_records)
     assert any(record.model_name == 'LowRankLaggedRidge' and record.status is RunStatus.SUCCESS for record in
                result.run_records)
-    hybrid_record = next(record for record in result.run_records if record.model_name == 'HybridEnsemble')
+    hybrid_record = next(
+        record for record in result.run_records if record.model_name == 'HybridEnsemble')
     assert hybrid_record.status is RunStatus.SUCCESS
     assert hybrid_record.metadata['model_adapter_family'] == 'operator_model'
     assert hybrid_record.metadata['routing_recommendation_family'] in {
@@ -991,7 +1062,8 @@ def test_forecasting_suite_runs_with_new_composite_models(tmp_path: Path) -> Non
         'operator_model',
         'simple_baseline',
     }
-    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'toy_1_forecasting_stage_diagnostics.json' in artifact_names
     assert 'forecasting_stage_diagnostics.csv' in artifact_names
     assert 'toy_1_hybrid_ensemble_diagnostics.json' in artifact_names
@@ -1054,18 +1126,21 @@ def test_forecasting_suite_emits_stage_tuning_artifacts(tmp_path: Path) -> None:
                 },
             ),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='stage_tuning_suite', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
-    record = next(record for record in result.run_records if record.model_name == 'LaggedRidge')
+    record = next(
+        record for record in result.run_records if record.model_name == 'LaggedRidge')
     assert record.status is RunStatus.SUCCESS
     assert 'stage_tuning_report' in record.metadata
     assert record.metadata['stage_tuning_runtime']['enabled'] is True
 
-    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'toy_1_forecasting_stage_tuning.json' in artifact_names
     assert 'forecasting_stage_tuning.csv' in artifact_names
     assert 'forecasting_stage_tuning_family_summary.csv' in artifact_names
@@ -1149,8 +1224,10 @@ def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_pa
                 'sequential_result': {
                     'best_parameters': {'patch_len': 12, 'epochs': 4},
                     'stage_history': [
-                        {'stage': 'trajectory_transform', 'applied_parameters': {'patch_len': 12}},
-                        {'stage': 'forecast_head', 'applied_parameters': {'epochs': 4}},
+                        {'stage': 'trajectory_transform',
+                            'applied_parameters': {'patch_len': 12}},
+                        {'stage': 'forecast_head',
+                            'applied_parameters': {'epochs': 4}},
                     ],
                 },
                 'metadata': dict(self.metadata),
@@ -1214,13 +1291,15 @@ def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_pa
                 },
             ),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='neural_bridge_suite', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
-    record = next(record for record in result.run_records if record.model_name == 'PatchTST')
+    record = next(
+        record for record in result.run_records if record.model_name == 'PatchTST')
     assert record.status is RunStatus.SUCCESS
     assert record.metadata['model_adapter_family'] == 'neural_forecaster'
     assert record.metadata['routing_recommendation_family'] in {
@@ -1235,7 +1314,8 @@ def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_pa
     assert record.metadata['stage_tuning_runtime']['enabled'] is True
     assert record.metadata['stage_tuning_report']['sequential_result']['best_parameters']['patch_len'] == 12
 
-    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'toy_1_forecasting_stage_diagnostics.json' in artifact_names
     assert 'toy_1_forecasting_stage_tuning.json' in artifact_names
     assert 'forecasting_stage_diagnostics.csv' in artifact_names
@@ -1264,7 +1344,8 @@ def test_forecasting_suite_runs_native_neural_bridge_with_stage_artifacts(tmp_pa
         if Path(record.path).name == 'forecasting_stage_tuning_family_summary.csv'
     )
     family_summary = pd.read_csv(family_summary_path)
-    assert (family_summary['model_adapter_family'] == 'neural_forecaster').any()
+    assert (family_summary['model_adapter_family']
+            == 'neural_forecaster').any()
 
 
 def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
@@ -1286,26 +1367,32 @@ def test_forecasting_suite_emits_havok_event_artifacts(tmp_path: Path) -> None:
             ModelSpec(
                 adapter_name='havok',
                 display_name='HAVOK',
-                params={'window_size': 14, 'rank': 4, 'forcing_threshold_scale': 0.75},
+                params={'window_size': 14, 'rank': 4,
+                        'forcing_threshold_scale': 0.75},
             ),
-            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='naive_last_value',
+                      display_name='NaiveLastValue'),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
         run_spec=RunSpec(run_name='switch_suite', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
-    havok_record = next(record for record in result.run_records if record.model_name == 'HAVOK')
+    havok_record = next(
+        record for record in result.run_records if record.model_name == 'HAVOK')
     assert havok_record.status is RunStatus.SUCCESS
     assert 'forecast_forcing_mask' in havok_record.metadata
     assert 'regime_diagnostics' in havok_record.metadata
     assert havok_record.metadata['routing_recommendation']['primary_adapter'] == 'havok'
     assert any(
-        record.model_name == 'HAVOK' and record.metric_name in {'mae_active', 'mae_calm'}
+        record.model_name == 'HAVOK' and record.metric_name in {
+            'mae_active', 'mae_calm'}
         for record in result.metric_records
     )
-    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'switch_1_havok_diagnostics.json' in artifact_names
     assert 'switch_1_havok_havok_forcing_timeline.png' in artifact_names
     assert 'switch_1_havok_havok_event_overlay.png' in artifact_names
@@ -1347,7 +1434,8 @@ def test_forecasting_suite_propagates_okhs_anti_smoothing_diagnostics(tmp_path: 
                 }
             }
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.OKHSForecaster', FakeOKHSForecaster)
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.OKHSForecaster', FakeOKHSForecaster)
 
     config = BenchmarkSuiteConfig(
         task_type=TaskType.FORECASTING,
@@ -1367,16 +1455,19 @@ def test_forecasting_suite_propagates_okhs_anti_smoothing_diagnostics(tmp_path: 
             ModelSpec(
                 adapter_name='okhs',
                 display_name='OKHS DMD',
-                params={'method': 'dmd', 'window_size': 8, 'n_modes': 2, 'q': 0.9},
+                params={'method': 'dmd', 'window_size': 8,
+                        'n_modes': 2, 'q': 0.9},
             ),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name='okhs_diag_suite', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
-    okhs_record = next(record for record in result.run_records if record.model_name == 'OKHS DMD')
+    okhs_record = next(
+        record for record in result.run_records if record.model_name == 'OKHS DMD')
     anti_smoothing = okhs_record.metadata['fdmd_prediction_diagnostics']['anti_smoothing_diagnostics']
     assert anti_smoothing['collapse_detected'] is True
     assert anti_smoothing['correction_applied'] is True
@@ -1464,13 +1555,16 @@ def test_forecasting_suite_emits_okhs_fdmd_stage_artifacts(tmp_path: Path, monke
                 params={'window_size': 8, 'q': 0.85},
             ),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
-        run_spec=RunSpec(run_name='okhs_fdmd_stage_suite', primary_metric='mae'),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='okhs_fdmd_stage_suite',
+                         primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
-    artifact_names = {Path(record.path).name for record in result.artifact_manifest}
+    artifact_names = {
+        Path(record.path).name for record in result.artifact_manifest}
     assert 'toy_1_okhs_fdmd_stage_diagnostics.json' in artifact_names
     assert 'okhs_fdmd_stage_diagnostics.csv' in artifact_names
 
@@ -1490,7 +1584,8 @@ def test_okhs_fdmd_adapter_normalizes_runtime_spec_before_execution(tmp_path: Pa
 
     def _fake_build_spec(*, forecast_horizon, params=None, series_length=None):
         captured['requested_forecast_horizon'] = int(forecast_horizon)
-        captured['requested_window_size'] = int((params or {}).get('window_size', 0))
+        captured['requested_window_size'] = int(
+            (params or {}).get('window_size', 0))
         captured['series_length'] = int(series_length)
         return type(
             'FakeOKHSSpec',
@@ -1503,7 +1598,8 @@ def test_okhs_fdmd_adapter_normalizes_runtime_spec_before_execution(tmp_path: Pa
             },
         )()
 
-    monkeypatch.setattr('benchmark.industrial.forecasting.build_okhs_fdmd_spec', _fake_build_spec)
+    monkeypatch.setattr(
+        'benchmark.industrial.forecasting.build_okhs_fdmd_spec', _fake_build_spec)
     monkeypatch.setattr(
         'benchmark.industrial.forecasting.run_okhs_fdmd_forecaster_on_series',
         lambda time_series, forecast_horizon, params=None: type(
@@ -1548,13 +1644,15 @@ def test_okhs_fdmd_adapter_normalizes_runtime_spec_before_execution(tmp_path: Pa
                 params={'window_size': 100, 'q': 0.7, 'n_modes': 3},
             ),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name='okhs_clip_suite', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
-    record = next(record for record in result.run_records if record.model_name == 'OKHS FDMD Clipped')
+    record = next(
+        record for record in result.run_records if record.model_name == 'OKHS FDMD Clipped')
     assert captured['requested_forecast_horizon'] == 4
     assert captured['requested_window_size'] == 100
     assert captured['series_length'] == 12
@@ -1586,11 +1684,15 @@ def test_forecasting_publication_pack_falls_back_without_tabulate(tmp_path: Path
             ),
         ),
         models=(
-            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
-            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+            ModelSpec(adapter_name='naive_last_value',
+                      display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average',
+                      display_name='MovingAverage', params={'window_size': 3}),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
-        run_spec=RunSpec(run_name='toy_suite_no_tabulate', primary_metric='mae'),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name='toy_suite_no_tabulate',
+                         primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
@@ -1621,18 +1723,23 @@ def test_forecasting_suite_runs_on_local_m4_subset(tmp_path: Path) -> None:
             ),
         ),
         models=(
-            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
-            ModelSpec(adapter_name='moving_average', display_name='MovingAverage', params={'window_size': 3}),
+            ModelSpec(adapter_name='naive_last_value',
+                      display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='moving_average',
+                      display_name='MovingAverage', params={'window_size': 3}),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name='real_local_m4', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
-    assert any(record.metric_name == 'mae' and record.horizon_index is None for record in result.metric_records)
-    assert any(record.metric_name == 'mae' and record.horizon_index is not None for record in result.metric_records)
+    assert any(record.metric_name ==
+               'mae' and record.horizon_index is None for record in result.metric_records)
+    assert any(record.metric_name ==
+               'mae' and record.horizon_index is not None for record in result.metric_records)
 
 
 def test_forecasting_suite_loads_long_local_m4_layout(tmp_path: Path) -> None:
@@ -1671,11 +1778,14 @@ def test_forecasting_suite_loads_long_local_m4_layout(tmp_path: Path) -> None:
                 benchmark='m4',
                 dataset_name='m4_monthly_long',
                 subset='monthly',
-                adapter_options={'use_local_files': True, 'local_csv_dir': str(local_dir)},
+                adapter_options={'use_local_files': True,
+                                 'local_csv_dir': str(local_dir)},
             ),
         ),
-        models=(ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        models=(ModelSpec(adapter_name='naive_last_value',
+                display_name='NaiveLastValue'),),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name='long_local_m4', primary_metric='mae'),
     )
 
@@ -1699,45 +1809,18 @@ def test_forecasting_suite_runs_on_local_monash_subset(tmp_path: Path) -> None:
             ),
         ),
         models=(
-            ModelSpec(adapter_name='naive_last_value', display_name='NaiveLastValue'),
+            ModelSpec(adapter_name='naive_last_value',
+                      display_name='NaiveLastValue'),
             ModelSpec(adapter_name='naive_mean', display_name='NaiveMean'),
         ),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name='real_local_monash', primary_metric='mae'),
     )
 
     result = run_forecasting_benchmark_suite(config)
 
     assert any(record.status is RunStatus.SUCCESS for record in result.run_records)
-    assert any(record.metric_name == 'smape' for record in result.metric_records)
+    assert any(record.metric_name ==
+               'smape' for record in result.metric_records)
     assert any(record.metric_name == 'owa' for record in result.metric_records)
-
-
-def test_legacy_benchmark_tsf_can_delegate_to_industrial(tmp_path: Path) -> None:
-    benchmark = BenchmarkTSF(
-        experiment_setup={
-            'use_industrial_benchmark': True,
-            'output_dir': str(tmp_path),
-            'dataset_specs': [
-                {
-                    'benchmark': 'in_memory',
-                    'dataset_name': 'toy_dataset',
-                    'subset': 'monthly',
-                    'adapter_options': {
-                        'records': _toy_records(),
-                        'forecast_horizon': 4,
-                        'seasonal_period': 4,
-                    },
-                }
-            ],
-            'model_specs': [
-                {'adapter_name': 'naive_last_value', 'display_name': 'NaiveLastValue'},
-            ],
-        },
-        custom_datasets=[],
-    )
-
-    result = benchmark.run()
-
-    assert result.config.task_type is TaskType.FORECASTING
-    assert any(record.model_name == 'NaiveLastValue' for record in result.run_records)

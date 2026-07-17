@@ -18,8 +18,20 @@ from benchmark.industrial.core import (
     write_json,
 )
 from benchmark.industrial.evaluation.markdown import dataframe_to_markdown
+from benchmark.industrial.api import (
+    run_forecasting_benchmark_suite,
+    run_tsc_benchmark_suite,
+    run_tser_benchmark_suite,
+)
+from benchmark.industrial.experiments.manifests import (
+    load_manifest,
+    render_resolved_manifest,
+    run_manifest,
+)
+from benchmark.industrial.experiments.presets import run_local_benchmark_preset
 
-BenchmarkResult = any([ForecastingBenchmarkResult, ClassificationBenchmarkResult, RegressionBenchmarkResult])
+BenchmarkResult = any([ForecastingBenchmarkResult,
+                      ClassificationBenchmarkResult, RegressionBenchmarkResult])
 
 
 @dataclass(frozen=True)
@@ -38,10 +50,14 @@ def build_registry_entry(
         source_path: str | None = None,
         input_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    successful_runs = sum(1 for record in result.run_records if record.status.value == 'success')
-    failed_runs = sum(1 for record in result.run_records if record.status.value == 'failed')
-    skipped_runs = sum(1 for record in result.run_records if record.status.value == 'skipped')
-    not_available_runs = sum(1 for record in result.run_records if record.status.value == 'not_available')
+    successful_runs = sum(
+        1 for record in result.run_records if record.status.value == 'success')
+    failed_runs = sum(
+        1 for record in result.run_records if record.status.value == 'failed')
+    skipped_runs = sum(
+        1 for record in result.run_records if record.status.value == 'skipped')
+    not_available_runs = sum(
+        1 for record in result.run_records if record.status.value == 'not_available')
     return {
         'run_id': result.run_id,
         'task_type': result.config.task_type.value,
@@ -95,14 +111,16 @@ def persist_run_bundle(
         write_json(resolved_payload_path, resolved_payload)
 
     artifact_manifest_path = run_dir / 'artifact_manifest.json'
-    write_json(artifact_manifest_path, [to_plain_data(record) for record in result.artifact_manifest])
+    write_json(artifact_manifest_path, [to_plain_data(
+        record) for record in result.artifact_manifest])
 
     entry_path = registry_dir / f'{result.run_id}.json'
     write_json(entry_path, entry)
 
     index_path = registry_dir / 'run_registry.jsonl'
     with index_path.open('a', encoding='utf-8') as stream:
-        stream.write(json.dumps(to_plain_data(entry), ensure_ascii=False) + '\n')
+        stream.write(json.dumps(to_plain_data(
+            entry), ensure_ascii=False) + '\n')
 
     _write_registry_table(registry_dir)
 
@@ -116,8 +134,6 @@ def persist_run_bundle(
 
 
 def run_registered_manifest_path(path: str | Path) -> BenchmarkRunBundle:
-    from benchmark.industrial.experiments.manifests import load_manifest, render_resolved_manifest, run_manifest
-
     input_payload = load_manifest(path)
     resolved_payload = render_resolved_manifest(input_payload)
     result = run_manifest(input_payload)
@@ -131,8 +147,6 @@ def run_registered_manifest_path(path: str | Path) -> BenchmarkRunBundle:
 
 
 def run_registered_manifest(payload: dict[str, Any]) -> BenchmarkRunBundle:
-    from benchmark.industrial.experiments.manifests import render_resolved_manifest, run_manifest
-
     resolved_payload = render_resolved_manifest(payload)
     result = run_manifest(payload)
     return persist_run_bundle(
@@ -145,16 +159,10 @@ def run_registered_manifest(payload: dict[str, Any]) -> BenchmarkRunBundle:
 
 def run_registered_suite(config: BenchmarkSuiteConfig) -> BenchmarkRunBundle:
     if config.task_type is TaskType.FORECASTING:
-        from benchmark.industrial.api import run_forecasting_benchmark_suite
-
         result = run_forecasting_benchmark_suite(config)
     elif config.task_type is TaskType.TS_CLASSIFICATION:
-        from benchmark.industrial.api import run_tsc_benchmark_suite
-
         result = run_tsc_benchmark_suite(config)
     elif config.task_type is TaskType.TS_REGRESSION:
-        from benchmark.industrial.api import run_tser_benchmark_suite
-
         result = run_tser_benchmark_suite(config)
     else:  # pragma: no cover
         raise ValueError(f'Unsupported task type: {config.task_type}')
@@ -178,8 +186,6 @@ def run_registered_preset(
         include_optional_external: bool = False,
         models=None,
 ) -> BenchmarkRunBundle:
-    from benchmark.industrial.experiments.presets import run_local_benchmark_preset
-
     result = run_local_benchmark_preset(
         preset_name,
         dataset_name=dataset_name,
@@ -224,4 +230,5 @@ def _write_registry_table(registry_dir: Path) -> None:
     csv_path = registry_dir / 'run_registry.csv'
     frame.to_csv(csv_path, index=False)
     markdown_path = registry_dir / 'run_registry.md'
-    markdown_path.write_text(dataframe_to_markdown(frame, index=False), encoding='utf-8')
+    markdown_path.write_text(dataframe_to_markdown(
+        frame, index=False), encoding='utf-8')

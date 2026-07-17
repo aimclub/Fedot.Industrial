@@ -92,12 +92,16 @@ def build_artifact_inventory(
                 exists_locally=absolute_path.exists(),
                 file_count=len(files),
                 total_bytes=sum(path.stat().st_size for path in files),
-                summary_count=sum(1 for path in files if path.name == "summary.md"),
-                plot_count=sum(1 for path in files if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"}),
+                summary_count=sum(
+                    1 for path in files if path.name == "summary.md"),
+                plot_count=sum(1 for path in files if path.suffix.lower() in {
+                               ".png", ".jpg", ".jpeg", ".svg"}),
                 table_count=sum(
                     1 for path in files if path.suffix.lower() in {".csv", ".md"} and "tables" in path.parts),
-                notebook_count=sum(1 for path in files if path.suffix.lower() == ".ipynb"),
-                primary_summary=_find_primary_summary(absolute_path, root, mode=inventory_mode),
+                notebook_count=sum(
+                    1 for path in files if path.suffix.lower() == ".ipynb"),
+                primary_summary=_find_primary_summary(
+                    absolute_path, root, mode=inventory_mode),
                 cloud_path=str(group.get("cloud_path", "")),
                 include_policy=str(group.get("include_policy", "")),
                 notes=str(group.get("notes", "")),))
@@ -112,16 +116,19 @@ def write_cloud_bundle_manifest(
         include_local_index: bool = True,
 ) -> Path:
     catalog = load_artifact_catalog(catalog_path)
-    inventory = build_artifact_inventory(catalog_path, repository_root=repository_root)
+    inventory = build_artifact_inventory(
+        catalog_path, repository_root=repository_root)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     manifest_path = output_path / "cloud_bundle_manifest.json"
     local_artifact_records = (
-        index_local_artifacts(output_path, catalog_path=catalog_path, repository_root=repository_root)
+        index_local_artifacts(
+            output_path, catalog_path=catalog_path, repository_root=repository_root)
         if include_local_index
         else []
     )
-    local_artifacts_by_group = _summarize_local_artifact_records(local_artifact_records)
+    local_artifacts_by_group = _summarize_local_artifact_records(
+        local_artifact_records)
     payload = {
         "version": "industrial_examples_cloud_bundle@1",
         "title": catalog.get("title", "IndustrialTS examples artifact bundle"),
@@ -133,7 +140,8 @@ def write_cloud_bundle_manifest(
         "artifact_size_policy": catalog.get("artifact_size_policy", {}),
         "external_data_manifest": catalog.get("external_data_manifest"),
         "bundle_policy": {
-            "tracked_lightweight_artifacts": "summaries, plots, markdown tables, CSV tables, manifests, and notebooks",
+            "tracked_lightweight_artifacts": "catalogs, manifests, README files, source notebooks, and regeneration code only",
+            "generated_report_packs": "write locally under ignored cloud_bundle/showcase folders and publish through the external archive",
             "large_raw_data": "DVC or manual cloud upload; do not commit raw datasets/checkpoints/zips",
             "credentials": "never commit OAuth tokens, service account files, or local credentials",
             "size_policy": catalog.get("artifact_size_policy", {}),
@@ -149,7 +157,8 @@ def write_cloud_bundle_manifest(
         ],
         "benchmark_showcase": catalog.get("benchmark_showcase", []),
     }
-    manifest_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    manifest_path.write_text(json.dumps(
+        payload, indent=2, ensure_ascii=False), encoding="utf-8")
     _write_cloud_bundle_readme(output_path / "README.md", payload)
     return manifest_path
 
@@ -168,10 +177,11 @@ def index_local_artifacts(
     records: list[dict[str, Any]] = []
     for group in catalog.get("groups", []):
         storage_policy = str(group.get("storage_policy", "manifest_only"))
-        if storage_policy == "manifest_only":
+        if storage_policy != "canonical_local":
             continue
         local_root = root / str(group["local_path"])
-        files = _collect_files(local_root, mode=str(group.get("inventory_mode", "deep")))
+        files = _collect_files(local_root, mode=str(
+            group.get("inventory_mode", "deep")))
         for source_path in files:
             target_path = source_path
             records.append(
@@ -185,7 +195,8 @@ def index_local_artifacts(
                 }
             )
     manifest_path = output_path / "local_artifacts.json"
-    manifest_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+    manifest_path.write_text(json.dumps(
+        records, indent=2, ensure_ascii=False), encoding="utf-8")
     return records
 
 
@@ -196,13 +207,15 @@ def render_artifact_showcase(
         repository_root: str | Path = REPOSITORY_ROOT,
 ) -> Path:
     catalog = load_artifact_catalog(catalog_path)
-    inventory = build_artifact_inventory(catalog_path, repository_root=repository_root)
+    inventory = build_artifact_inventory(
+        catalog_path, repository_root=repository_root)
     root = Path(repository_root)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     _write_inventory_tables(output_path, inventory)
     index_path = output_path / "index.html"
-    index_path.write_text(_build_showcase_html(catalog, inventory, root, output_path), encoding="utf-8")
+    index_path.write_text(_build_showcase_html(
+        catalog, inventory, root, output_path), encoding="utf-8")
     return index_path
 
 
@@ -219,7 +232,8 @@ def _collect_files(path: Path, *, mode: str = "deep") -> list[Path]:
         for child in path.iterdir():
             if child.is_dir():
                 for pattern in patterns:
-                    files.extend(item for item in child.glob(pattern) if item.is_file())
+                    files.extend(item for item in child.glob(
+                        pattern) if item.is_file())
         for pattern in ("*/summary.md", "*/*/summary.md", "*/*/aggregate/summary.md"):
             files.extend(item for item in path.glob(pattern) if item.is_file())
         return sorted(set(files))
@@ -240,7 +254,8 @@ def _collect_report_pack_files(path: Path) -> list[Path]:
     pack_roots = [path]
     pack_roots.extend(child for child in path.iterdir() if child.is_dir())
     for pack_root in pack_roots:
-        files.extend(_existing_files(pack_root / "summary.md", pack_root / "source_metadata.json"))
+        files.extend(_existing_files(pack_root / "summary.md",
+                     pack_root / "source_metadata.json"))
         plots_dir = pack_root / "plots"
         tables_dir = pack_root / "tables"
         if plots_dir.is_dir():
@@ -252,7 +267,8 @@ def _collect_report_pack_files(path: Path) -> list[Path]:
         for nested_name in ("forecast_comparison",):
             nested = pack_root / nested_name
             if nested.is_dir():
-                files.extend(_existing_files(nested / "summary.md", nested / "source_metadata.json"))
+                files.extend(_existing_files(nested / "summary.md",
+                             nested / "source_metadata.json"))
                 nested_plots = nested / "plots"
                 nested_tables = nested / "tables"
                 if nested_plots.is_dir():
@@ -290,7 +306,8 @@ def _write_inventory_tables(output_path: Path, inventory: Iterable[ArtifactInven
     rows = [row.as_dict() for row in inventory]
     json_path = output_path / "artifact_inventory.json"
     csv_path = output_path / "artifact_inventory.csv"
-    json_path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
+    json_path.write_text(json.dumps(
+        rows, indent=2, ensure_ascii=False), encoding="utf-8")
     if not rows:
         csv_path.write_text("", encoding="utf-8")
         return
@@ -303,8 +320,8 @@ def _write_inventory_tables(output_path: Path, inventory: Iterable[ArtifactInven
 def _write_cloud_bundle_readme(path: Path, payload: dict[str, Any]) -> None:
     lines = [
         "# IndustrialTS Artifact Cloud Bundle", "",
-        "This folder is the handoff point for publishing examples artifacts outside git.",
-        "It contains a machine-readable manifest and keeps raw-data policy explicit.", "",
+        "This ignored local folder is the handoff point for publishing examples artifacts outside git.",
+        "It contains a machine-readable manifest and keeps generated-artifact/raw-data policy explicit.", "",
         "## Ownership And Size Policy", "", f"Owner: {payload.get('owner') or 'not specified'}",
         f"Last refreshed: {payload.get('last_refreshed') or 'not specified'}",
         f"Refresh command: `{payload.get('refresh_command') or 'not specified'}`",
@@ -312,9 +329,9 @@ def _write_cloud_bundle_readme(path: Path, payload: dict[str, Any]) -> None:
         f"Max committed file size: {payload.get('artifact_size_policy', {}).get('max_single_committed_file_mb', 'not specified')} MB",
         f"Max committed bundle size: {payload.get('artifact_size_policy', {}).get('max_committed_cloud_bundle_mb', 'not specified')} MB",
         "", "## Rules", "",
-        "- Upload large raw datasets, checkpoints, archives, and full benchmark runs through DVC or a manual cloud folder.",
+        "- Upload generated report packs, large raw datasets, checkpoints, archives, and full benchmark runs through DVC or a manual cloud folder.",
         "- Keep credentials in `.dvc/config.local` or environment variables only.",
-        "- Lightweight summaries, plots, notebooks, manifests, and CSV/Markdown tables can be mirrored for review.", "",
+        "- Do not commit generated `cloud_bundle/` or `showcase/` outputs to git.", "",
         "## Groups", "",
         "| Key | Category | Inventory | Storage | Local path | Cloud path | Files | Size bytes | Local files |",
         "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: |",]
@@ -340,7 +357,8 @@ def _build_showcase_html(
         _benchmark_card(item, repository_root, output_path)
         for item in catalog.get("benchmark_showcase", [])
     )
-    inventory_rows = "\n".join(_inventory_row(row, repository_root, output_path) for row in inventory)
+    inventory_rows = "\n".join(_inventory_row(
+        row, repository_root, output_path) for row in inventory)
     total_files = sum(row.file_count for row in inventory)
     total_bytes = sum(row.total_bytes for row in inventory)
     total_plots = sum(row.plot_count for row in inventory)
@@ -459,7 +477,8 @@ def _build_showcase_html(
 def _benchmark_card(item: dict[str, Any], repository_root: Path, output_path: Path) -> str:
     artifact_path = repository_root / str(item.get("artifact_path", ""))
     summary_path = artifact_path / "summary.md"
-    plots = sorted((artifact_path / "plots").glob("*.png")) if (artifact_path / "plots").is_dir() else []
+    plots = sorted((artifact_path / "plots").glob("*.png")
+                   ) if (artifact_path / "plots").is_dir() else []
     tables = artifact_path / "tables"
     summary_link = _link_to(summary_path, output_path, "summary") if summary_path.is_file(
     ) else "<span class=\"missing\">missing summary</span>"
@@ -501,7 +520,8 @@ def _inventory_row(row: ArtifactInventoryRow, repository_root: Path, output_path
 
 def _link_to(path: Path, output_path: Path, label: str) -> str:
     try:
-        href = Path(os.path.relpath(path.resolve(), output_path.resolve())).as_posix()
+        href = Path(os.path.relpath(path.resolve(),
+                    output_path.resolve())).as_posix()
     except ValueError:
         href = path.resolve().as_uri()
     return f"<a href=\"{escape(href)}\">{escape(label)}</a>"
@@ -518,7 +538,8 @@ def _summarize_local_artifact_records(records: Iterable[dict[str, Any]]) -> dict
     summary: dict[str, dict[str, int]] = {}
     for record in records:
         group_key = str(record["group_key"])
-        group_summary = summary.setdefault(group_key, {"file_count": 0, "total_bytes": 0})
+        group_summary = summary.setdefault(
+            group_key, {"file_count": 0, "total_bytes": 0})
         group_summary["file_count"] += 1
         group_summary["total_bytes"] += int(record.get("size_bytes", 0))
     return summary

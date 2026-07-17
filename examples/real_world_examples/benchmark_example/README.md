@@ -3,8 +3,8 @@
 This package keeps real-world benchmark wrappers and historical result analysis
 separate from raw local data. Python entrypoints build current
 `benchmark.industrial` configs; notebooks in `analysis_of_results` render
-publication-style artifacts from reusable analytics functions into the central
-`examples/artifacts/cloud_bundle` hub.
+publication-style artifacts from reusable analytics functions into the ignored
+local `examples/artifacts/cloud_bundle` handoff folder for external upload.
 
 ## Layout
 

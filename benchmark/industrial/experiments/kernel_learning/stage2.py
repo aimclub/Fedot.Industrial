@@ -17,7 +17,8 @@ from fedot_ind.core.kernel_learning.selection import KernelImportanceItem, Kerne
 from .io import load_stage1_kernel_records
 from .stage1 import DEFAULT_STAGE_METRICS
 
-DEFAULT_STAGE2_OUTPUT_DIR = Path("benchmark") / "results" / "kernel_learning" / "ucr_two_stage_optim_140526"
+DEFAULT_STAGE2_OUTPUT_DIR = Path(
+    "benchmark") / "results" / "kernel_learning" / "ucr_two_stage_optimization"
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +44,11 @@ def importance_report_from_selection(selection: dict[str, Any]) -> KernelImporta
             diagnostics=dict(importance.get("diagnostics", {})),
         )
 
-    names = tuple(selection.get("important_generators") or selection.get("selected_generators") or ())
+    names = tuple(selection.get("important_generators")
+                  or selection.get("selected_generators") or ())
     weights = tuple(float(weight) for weight in (
-        selection.get("important_weights") or selection.get("selected_weights") or ()
+        selection.get("important_weights") or selection.get(
+            "selected_weights") or ()
     ))
     if not weights:
         weights = tuple(1.0 / len(names) for _ in names) if names else ()
@@ -103,19 +106,22 @@ class KernelLearningStage2Runner:
 
     def run(self, stage1_result, *, strict: bool | None = None) -> tuple[dict[str, Any], ...]:
         strict_mode = self.strict if strict is None else bool(strict)
-        kernel_records = load_stage1_kernel_records(stage1_result.config.artifact_spec.output_dir, stage1_result.run_id)
+        kernel_records = load_stage1_kernel_records(
+            stage1_result.config.artifact_spec.output_dir, stage1_result.run_id)
         summaries = []
         for dataset_spec in stage1_result.config.datasets:
             kernel_record = kernel_records.get(dataset_spec.dataset_name)
             if kernel_record is None:
-                summary = self._write_skipped_summary(dataset_spec, reason="missing_stage1_kernel_record")
+                summary = self._write_skipped_summary(
+                    dataset_spec, reason="missing_stage1_kernel_record")
                 summaries.append(summary)
                 if strict_mode:
                     raise RuntimeError(
                         f"Stage2 skipped dataset {dataset_spec.dataset_name!r}: missing_stage1_kernel_record."
                     )
                 continue
-            summaries.append(self.iter_over_dataset(dataset_spec, kernel_record, strict=strict_mode))
+            summaries.append(self.iter_over_dataset(
+                dataset_spec, kernel_record, strict=strict_mode))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         write_json(self.output_dir / "stage2_summary.json", summaries)
         return tuple(summaries)
@@ -129,27 +135,37 @@ class KernelLearningStage2Runner:
     ) -> dict[str, Any]:
         output_dir = self._prepare_output_dir(dataset_spec)
         selection = kernel_record["kernel_selection"]
-        builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf", allow_empty_specs=True)
+        builder = KernelInitialPopulationBuilder(
+            task_type="classification", head_model="rf", allow_empty_specs=True)
         specs = ()
         summary = self._base_summary(dataset_spec, selection, specs, builder)
         try:
-            builder, specs = self._build_initial_population(selection, output_dir)
+            builder, specs = self._build_initial_population(
+                selection, output_dir)
             if not specs:
-                reason = builder.diagnostics_.get("empty_specs_reason", "no_initial_population_specs")
-                raise KernelInitialPopulationError(f"Kernel initial population is empty: {reason}.")
+                reason = builder.diagnostics_.get(
+                    "empty_specs_reason", "no_initial_population_specs")
+                raise KernelInitialPopulationError(
+                    f"Kernel initial population is empty: {reason}.")
             dataset = self._load_dataset(dataset_spec)
             fedot_config = self._build_fedot_config(output_dir, builder, specs)
             self._write_fedot_config(output_dir, fedot_config, specs)
-            summary = self._base_summary(dataset_spec, selection, specs, builder)
-            prediction = self._fit_predict(dataset, fedot_config, builder, specs)
+            summary = self._base_summary(
+                dataset_spec, selection, specs, builder)
+            prediction = self._fit_predict(
+                dataset, fedot_config, builder, specs)
             metrics = self._compute_metrics(dataset["test_y"], prediction)
-            self._write_success_artifacts(output_dir, dataset["test_y"], prediction, metrics)
+            self._write_success_artifacts(
+                output_dir, dataset["test_y"], prediction, metrics)
             summary.update({"status": "success", "metrics": metrics})
         except KernelInitialPopulationError as exc:
             self._write_failure_artifacts(output_dir)
-            summary = self._base_summary(dataset_spec, selection, specs, builder)
-            summary.update(self._error_payload(exc, reason="initial_population_error"))
-            logger.exception("Stage2 failed while building initial population for %s.", dataset_spec.dataset_name)
+            summary = self._base_summary(
+                dataset_spec, selection, specs, builder)
+            summary.update(self._error_payload(
+                exc, reason="initial_population_error"))
+            logger.exception(
+                "Stage2 failed while building initial population for %s.", dataset_spec.dataset_name)
             write_json(output_dir / "optimizer_summary.json", summary)
             if self._strict_mode(strict):
                 raise
@@ -157,7 +173,8 @@ class KernelLearningStage2Runner:
         except Exception as exc:
             self._write_failure_artifacts(output_dir)
             summary.update(self._error_payload(exc, reason="runtime_error"))
-            logger.exception("Stage2 failed while running dataset %s.", dataset_spec.dataset_name)
+            logger.exception(
+                "Stage2 failed while running dataset %s.", dataset_spec.dataset_name)
             write_json(output_dir / "optimizer_summary.json", summary)
             if self._strict_mode(strict):
                 raise
@@ -202,11 +219,13 @@ class KernelLearningStage2Runner:
             build_pipelines=False,
             allow_empty_specs=True,
         )
-        write_json(output_dir / "initial_population_specs.json", [to_plain_data(spec) for spec in specs])
+        write_json(output_dir / "initial_population_specs.json",
+                   [to_plain_data(spec) for spec in specs])
         return builder, specs
 
     def _load_dataset(self, dataset_spec: DatasetSpec) -> dict[str, np.ndarray]:
-        record = build_classification_dataset_adapter(dataset_spec).load_dataset(dataset_spec)[0]
+        record = build_classification_dataset_adapter(
+            dataset_spec).load_dataset(dataset_spec)[0]
         return {
             "train_x": np.asarray(record.train_features, dtype=float),
             "train_y": np.asarray(record.train_target, dtype=object),
@@ -229,7 +248,8 @@ class KernelLearningStage2Runner:
                 "mutation_strategy": "growth_mutation_strategy",
             },
         }
-        narrowed_operations = builder.restrict_available_operations(automl_config.get("available_operations"), specs)
+        narrowed_operations = builder.restrict_available_operations(
+            automl_config.get("available_operations"), specs)
         if narrowed_operations is not None:
             automl_config["available_operations"] = narrowed_operations
 
@@ -260,7 +280,8 @@ class KernelLearningStage2Runner:
 
     def _write_fedot_config(self, output_dir: Path, fedot_config: dict[str, Any], specs) -> None:
         serializable_config = deepcopy(fedot_config)
-        serializable_config["automl_config"]["initial_assumption"] = [to_plain_data(spec) for spec in specs]
+        serializable_config["automl_config"]["initial_assumption"] = [
+            to_plain_data(spec) for spec in specs]
         write_json(output_dir / "fedot_config.json", serializable_config)
 
     def _fit_predict(self, dataset: dict[str, np.ndarray], fedot_config: dict[str, Any], builder, specs) -> np.ndarray:
@@ -279,7 +300,8 @@ class KernelLearningStage2Runner:
 
     def _compute_metrics(self, test_y: np.ndarray, prediction: np.ndarray) -> dict[str, float]:
         return {
-            metric_name: compute_classification_metric(metric_name, test_y, prediction)
+            metric_name: compute_classification_metric(
+                metric_name, test_y, prediction)
             for metric_name in self.metrics
         }
 

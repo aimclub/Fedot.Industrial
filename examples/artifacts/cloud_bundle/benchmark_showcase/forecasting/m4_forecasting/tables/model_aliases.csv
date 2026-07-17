@@ -1,5 +1,0 @@
-model_name,model_alias
-KernelEnsembleForecaster_embedding_nystrom_okhs,KLF okhs
-KernelEnsembleForecaster_identity_shapelet,KLF shapelet
-LaggedRidgeForecaster,Lagged Ridge
-NaiveLastValue,Naive

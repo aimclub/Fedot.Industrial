@@ -85,7 +85,7 @@
       "data_root": "data",
       "experiment_date": "140526",
       "stage1_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_{experiment_date}",
-      "stage2_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_optim_{experiment_date}",
+      "stage2_output_dir_template": "benchmark/results/kernel_learning/ucr_two_stage_optimization",
       "stage1_run_id": null,
       "generator_set": "stage1_non_topological",
       "metrics": [
