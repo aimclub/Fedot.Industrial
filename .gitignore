@@ -8,6 +8,7 @@ __pycache__/
 
 # Cache
 /cache
+/temp_cache
 /results
 /some_files
 /time
@@ -23,8 +24,25 @@ __pycache__/
 *.feather
 *.hdf5
 *.json
-!benchmark/v2/examples/kernel_learning_tser_manifest.json
-!benchmark/v2/examples/kernel_learning_ucr_manifest.json
+poetry.lock
+!benchmark/industrial/examples/kernel_learning_tser_manifest.json
+!benchmark/industrial/examples/kernel_learning_ucr_manifest.json
+!benchmark/experiments/kernel_learning/defaults.json
+!benchmark/industrial/experiments/preset_defaults.json
+!examples/utils/current_api/example_defaults.json
+!examples/utils/current_api/manifests/*.json
+!examples/tools_example/tool_defaults.json
+!examples/artifacts/artifact_catalog.json
+!examples/real_world_examples/real_world_defaults.json
+!examples/real_world_examples/external_data_manifest.json
+!examples/real_world_examples/benchmark_example/analysis_of_results/analysis_defaults.json
+!examples/real_world_examples/benchmark_example/**/results_manifest.json
+!examples/real_world_examples/benchmark_example/archive/archive_manifest.json
+!examples/real_world_examples/industrial_examples/scenario_defaults.json
+!examples/real_world_examples/industrial_examples/**/scenario_defaults.json
+!examples/real_world_examples/benchmark_example/analysis_of_results/vis_artifacts/**/*.csv
+!examples/real_world_examples/benchmark_example/forecasting/vis_artifacts/**/*.csv
+!examples/real_world_examples/industrial_examples/vis_artifacts/**/*.csv
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -124,10 +142,20 @@ venv.bak/
 
 # Benchmark and experiment outputs
 benchmark/results/
+!benchmark/results/
+benchmark/results/*
+!benchmark/results/README.md
+!benchmark/results/showcase/
+!benchmark/results/showcase/**
+benchmark/results/showcase/**/__pycache__/
+!benchmark/results/kernel_learning/
+benchmark/results/kernel_learning/**
+!benchmark/results/kernel_learning/README.md
 benchmark/results*.7z
-benchmark/v2/examples/benchmark/results/
-benchmark/v2/examples/**/results/
-benchmark/v2/examples/**/visualizations/
+benchmark/benchmark/
+benchmark/industrial/examples/benchmark/results/
+benchmark/industrial/examples/**/results/
+benchmark/industrial/examples/**/visualizations/
 results_of_experiments/
 
 # Local datasets and generated demo assets
@@ -143,7 +171,73 @@ examples/**/plots_archive/
 examples/**/predict_on_train/
 examples/**/predict_on_val/
 examples/**/predict_on_test/
+examples/real_world_examples/benchmark_example/classification/UCR_*/
+examples/real_world_examples/benchmark_example/classification/benchmark_results/
+examples/real_world_examples/benchmark_example/detection/SKAB_*/
+examples/real_world_examples/benchmark_example/forecasting/M4_*/
+examples/real_world_examples/benchmark_example/archive/data/
+examples/real_world_examples/benchmark_example/archive/composition_results/
+examples/real_world_examples/industrial_examples/eeg/sig_data.npy
+examples/real_world_examples/industrial_examples/eeg/sig_target.npy
+examples/real_world_examples/industrial_examples/eeg/predictions.csv
+examples/real_world_examples/industrial_examples/eeg/neiry_industrial_results.csv
+examples/real_world_examples/industrial_examples/**/fitness_by_generation.png
+examples/real_world_examples/industrial_examples/equipment_monitoring/*_plots/
+examples/real_world_examples/industrial_examples/equipment_monitoring/*_stat_gen/
+examples/real_world_examples/industrial_examples/equipment_monitoring/*_without_tuning/
+examples/artifacts/cloud_bundle/
+examples/artifacts/showcase/
 
+# Tracked lightweight examples/utils/data fixtures.
+!examples/utils/data/
+examples/utils/data/**
+!examples/utils/data/README.md
+!examples/utils/data/__init__.py
+!examples/utils/data/AppliancesEnergy/
+!examples/utils/data/AppliancesEnergy/**
+!examples/utils/data/anomaly_detection/
+!examples/utils/data/anomaly_detection/README.md
+!examples/utils/data/anomaly_detection/box_anomaly_detection/
+!examples/utils/data/anomaly_detection/box_anomaly_detection/**
+!examples/utils/data/anomaly_detection/skab/
+!examples/utils/data/anomaly_detection/skab/README.md
+!examples/utils/data/anomaly_detection/skab/anomaly-free/
+!examples/utils/data/anomaly_detection/skab/anomaly-free/anomaly-free.csv
+!examples/utils/data/anomaly_detection/skab/valve1/
+!examples/utils/data/anomaly_detection/skab/valve1/0.csv
+!examples/utils/data/benchmark/
+!examples/utils/data/benchmark/forecasting/
+!examples/utils/data/benchmark/forecasting/monash_benchmark/
+!examples/utils/data/benchmark/forecasting/monash_benchmark/MonashBitcoin_30.csv
+!examples/utils/data/benchmark_history/
+!examples/utils/data/benchmark_history/README.md
+!examples/utils/data/benchmark_history/real_world_archive/
+!examples/utils/data/benchmark_history/real_world_archive/README.md
+!examples/utils/data/benchmark_history/real_world_archive/archive_manifest.json
+!examples/utils/data/forecasting/
+!examples/utils/data/forecasting/README.md
+!examples/utils/data/forecasting/ice_forecasting/
+!examples/utils/data/forecasting/ice_forecasting/**
+!examples/utils/data/forecasting/nbeats/
+!examples/utils/data/forecasting/nbeats/**
+!examples/utils/data/m4/
+!examples/utils/data/m4/datasets/
+!examples/utils/data/m4/datasets/Daily-train.csv
+!examples/utils/data/m4/datasets/Daily-test.csv
+!examples/utils/data/ts_classification/
+!examples/utils/data/ts_classification/README.md
+!examples/utils/data/ts_classification/BasicMotions/
+!examples/utils/data/ts_classification/BasicMotions/**
+!examples/utils/data/ts_classification/ItalyPowerDemand_fake/
+!examples/utils/data/ts_classification/ItalyPowerDemand_fake/**
+!examples/utils/data/ts_classification/Lightning7/
+!examples/utils/data/ts_classification/Lightning7/**
+!examples/utils/data/ts_regression/
+!examples/utils/data/ts_regression/README.md
+!examples/utils/data/ts_regression/MadridPM10Quality-no-missing/
+!examples/utils/data/ts_regression/MadridPM10Quality-no-missing/README.md
+!examples/utils/data/ts_regression/NaturalGasPricesSentiment/
+!examples/utils/data/ts_regression/NaturalGasPricesSentiment/**
 # Heavy generated artifacts
 *.7z
 *.zip
@@ -151,3 +245,9 @@ examples/**/predict_on_test/
 *.stl
 *.ply
 *.gif
+# Local Codex and wiki workspaces
+.codex/
+.wiki_tmp/
+.wiki_bare/
+.wiki_pages/
+.wiki_index*

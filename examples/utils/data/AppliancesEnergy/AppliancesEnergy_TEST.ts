@@ -1,0 +1,10 @@
+@problemName AppliancesEnergy
+@timestamps false
+@missing false
+@univariate true
+@equalLength true
+@seriesLength 12
+@targetlabel true
+@data
+0,0.377195,0.71837,0.991471,1.171938,1.245408,1.209297,1.073086,0.857273,0.59112,0.309432,0.048723:10
+0.3,0.677195,1.01837,1.291471,1.471938,1.545408,1.509297,1.373086,1.157273,0.89112,0.609432,0.348723:10.75

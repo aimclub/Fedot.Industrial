@@ -1,0 +1,32 @@
+{
+  "version": "industrial_real_world_results@1",
+  "task_type": "forecasting",
+  "metric_name": "owa",
+  "metric_direction": "lower",
+  "sources": [
+    {
+      "label": "m4_2025_01_22",
+      "path": "M4_22_01_25",
+      "source_version": "2025-01-22",
+      "external_data_key": "real_world_m4_forecasting_results"
+    },
+    {
+      "label": "m4_2025_01_23",
+      "path": "M4_23_01_25",
+      "source_version": "2025-01-23",
+      "external_data_key": "real_world_m4_forecasting_results"
+    },
+    {
+      "label": "m4_2025_01_24",
+      "path": "M4_24_01_25",
+      "source_version": "2025-01-24",
+      "external_data_key": "real_world_m4_forecasting_results"
+    },
+    {
+      "label": "kaggle_inventory",
+      "path": "../../../data/forecasting/kaggle_inventory",
+      "source_version": "local",
+      "external_data_key": "real_world_domain_local_inputs"
+    }
+  ]
+}

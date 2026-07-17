@@ -3,12 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
+from fedot_ind.core.kernel_learning.contracts import KernelConfigValidationError
 from fedot_ind.core.kernel_learning.generators import OperationSpec, resolve_generator_operation_specs
+from fedot_ind.core.kernel_learning.integration.registry import (
+    SAFE_PREPROCESSORS,
+    resolve_warm_start_task,
+    task_head_candidates,
+)
 from fedot_ind.core.kernel_learning.selection import KernelImportanceReport
 
-CLASSIFICATION_HEADS = ("rf", "logit", "xgboost", "catboost", "dt", "mlp", "lgbm")
-REGRESSION_HEADS = ("treg", "ridge", "xgbreg", "dtreg", "lgbmreg", "catboostreg", "lasso")
-SAFE_PREPROCESSORS = ("scaling", "normalization", "simple_imputation", "kernel_pca")
+
+class KernelInitialPopulationError(KernelConfigValidationError):
+    """Expected failure when Kernel Learning cannot build warm-start specs."""
 
 
 @dataclass(frozen=True)
@@ -36,24 +42,25 @@ class KernelInitialPopulationBuilder:
     include_feature_union: bool = True
     max_union_size: int = 3
     materialize_basis: bool = True
+    allow_empty_specs: bool = False
     diagnostics_: dict = field(default_factory=dict, init=False)
     last_specs_: tuple[KernelInitialPipelineSpec, ...] = field(default_factory=tuple, init=False)
 
     def __post_init__(self):
-        if self.task_type not in ("classification", "regression"):
-            raise ValueError(f"Unsupported kernel warm-start task_type: {self.task_type}")
+        task_spec = resolve_warm_start_task(self.task_type)
+        self.task_type = task_spec.task_type
         if self.max_union_size < 1:
-            raise ValueError("max_union_size must be at least 1.")
+            raise KernelConfigValidationError("max_union_size must be at least 1.")
 
     @property
     def resolved_head_model(self) -> str:
         if self.head_model is not None:
             return self.head_model
-        return "rf" if self.task_type == "classification" else "treg"
+        return resolve_warm_start_task(self.task_type).default_head_model
 
     @property
     def task_head_candidates(self) -> tuple[str, ...]:
-        return CLASSIFICATION_HEADS if self.task_type == "classification" else REGRESSION_HEADS
+        return task_head_candidates(self.task_type)
 
     def build_specs(self, importance: KernelImportanceReport) -> tuple[KernelInitialPipelineSpec, ...]:
         specs = []
@@ -101,6 +108,16 @@ class KernelInitialPopulationBuilder:
             "max_union_size": int(self.max_union_size),
             "head_model": self.resolved_head_model,
         }
+        if not self.last_specs_:
+            self.diagnostics_["empty_specs_reason"] = (
+                "all_selected_generators_missing_fedot_operation_chain"
+                if skipped
+                else "no_selected_generators"
+            )
+            if not self.allow_empty_specs:
+                raise KernelInitialPopulationError(
+                    "Kernel initial population is empty; no selected generator can be mapped to FEDOT operations."
+                )
         return self.last_specs_
 
     def build_pipelines(self, importance: KernelImportanceReport):
@@ -163,7 +180,7 @@ def narrow_kernel_learning_search_space(
 
     source_operations = _deduplicate(available_operations)
     source_set = set(source_operations)
-    task_heads = CLASSIFICATION_HEADS if task_type == "classification" else REGRESSION_HEADS
+    task_heads = task_head_candidates(task_type)
     valid_heads = [head_model] if head_model in task_heads else []
     valid_heads.extend(
         operation

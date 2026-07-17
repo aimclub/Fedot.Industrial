@@ -1,0 +1,37 @@
+{
+  "version": "benchmark_industrial_manifest@1",
+  "kind": "suite",
+  "task_type": "ts_regression",
+  "datasets": [
+    {
+      "benchmark": "local_tser",
+      "dataset_name": "NaturalGasPricesSentiment"
+    }
+  ],
+  "models": [
+    {
+      "adapter_name": "kernel_ensemble_regressor",
+      "display_name": "KernelEnsembleRegressor",
+      "params": {
+        "generator_names": [
+          "statistical_summary"
+        ],
+        "kernel": "linear",
+        "alpha": 0.000001
+      }
+    }
+  ],
+  "artifact_spec": {
+    "output_dir": "benchmark/results/kernel_learning/tser",
+    "persist_on_run": true
+  },
+  "run_spec": {
+    "run_name": "kernel_learning_tser_natural_gas",
+    "primary_metric": "rmse"
+  },
+  "metrics": [
+    "rmse",
+    "mae",
+    "r2"
+  ]
+}

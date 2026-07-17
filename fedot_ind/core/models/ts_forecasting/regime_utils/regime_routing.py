@@ -51,6 +51,8 @@ def adapter_name_to_family(adapter_name: str) -> str:
         return 'operator_model'
     if normalized in {'deepar_model', 'nbeats_model', 'patch_tst_model', 'tst_model', 'tcn_model', 'tft'}:
         return 'neural_forecaster'
+    if normalized == 'kernel_ensemble_forecaster':
+        return 'kernel_learning'
     return 'simple_baseline'
 
 

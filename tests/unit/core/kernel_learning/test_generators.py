@@ -1,19 +1,27 @@
+import importlib
 import sys
 import types
 from types import SimpleNamespace
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from fedot_ind.core.kernel_learning import (
+    BudgetedRepositoryFeatureGeneratorAdapter,
+    GeneratorBudgetPolicy,
+    KernelFeatureGeneratorMixin,
     OperationSpec,
     RepositoryFeatureGeneratorAdapter,
+    ShapeletFeatureGenerator,
     SummaryFeatureGenerator,
     build_generator_registry,
     create_feature_generator,
     resolve_torch_device,
 )
+from fedot_ind.core.kernel_learning.contracts import FeatureBundle
 from fedot_ind.core.kernel_learning.generators import adapters
+from fedot_ind.core.kernel_learning.generators import repository as repository_module
 
 
 def test_statistical_summary_is_repo_native_adapter_not_manual_summary():
@@ -41,6 +49,18 @@ def test_statistical_summary_handles_single_timestamp_batches():
     assert np.all(np.isfinite(test_features))
 
 
+def test_generator_adapters_facade_stays_thin():
+    source = Path(adapters.__file__).read_text(encoding="utf-8")
+
+    for module_name in ("base", "lightweight", "registry", "repository", "specs"):
+        assert importlib.import_module(f"fedot_ind.core.kernel_learning.generators.{module_name}")
+
+    assert adapters.RepositoryFeatureGeneratorAdapter is RepositoryFeatureGeneratorAdapter
+    assert adapters.SummaryFeatureGenerator is SummaryFeatureGenerator
+    assert "class RepositoryFeatureGeneratorAdapter" not in source
+    assert "def build_generator_registry" not in source
+
+
 def test_default_registry_exposes_repo_native_generators():
     registry = build_generator_registry()
 
@@ -52,6 +72,9 @@ def test_default_registry_exposes_repo_native_generators():
             "recurrence_extractor",
             "topological_extractor",
             "tabular_extractor",
+            "shapelet_extractor",
+            "embedding_extractor",
+            "foundation_embedding",
     ):
         assert name in registry
 
@@ -83,7 +106,7 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
     fake_module.FakeOperation = FakeOperation
     monkeypatch.setitem(sys.modules, "fake_kernel_learning_ops", fake_module)
     monkeypatch.setattr(
-        adapters,
+        repository_module,
         "to_fedot_input_data",
         lambda X, y=None, task_type="classification", use_torch=False, torch_device="auto": SimpleNamespace(
             features=np.asarray(X),
@@ -114,6 +137,134 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
     assert left.shape == (2, 4)
     assert np.allclose(left, right)
     assert np.all(np.isfinite(left))
+
+
+def test_shapelet_generator_is_deterministic_and_target_free():
+    X = np.array(
+        [
+            [0.0, 0.0, 1.0, 0.0, 0.0],
+            [2.0, 2.0, 3.0, 2.0, 2.0],
+            [0.0, 1.0, 0.0, 1.0, 0.0],
+        ]
+    )
+
+    left = ShapeletFeatureGenerator(n_shapelets=3, window_size=2).fit_transform(X, np.array([0, 1, 0])).features
+    right = ShapeletFeatureGenerator(n_shapelets=3, window_size=2).fit_transform(X, np.array([1, 0, 1])).features
+
+    assert left.shape == (3, 3)
+    assert np.allclose(left, right)
+    assert np.all(np.isfinite(left))
+
+
+def test_embedding_generator_is_deterministic_under_seed():
+    X = np.arange(12, dtype=float).reshape(3, 4)
+
+    left = create_feature_generator("embedding_extractor").fit_transform(X).features
+    right = create_feature_generator("embedding_extractor").fit_transform(X).features
+
+    assert left.shape == (3, 16)
+    assert np.allclose(left, right)
+
+
+def test_feature_generators_implement_kernel_contract_with_optional_cross_kernel():
+    train = np.array([[0.0], [1.0], [2.0]])
+    test = np.array([[1.5], [3.0]])
+    generator = create_feature_generator("identity")
+
+    train_bundle = generator.kernel(train)
+    cross_bundle = generator.kernel(train, test)
+
+    assert train_bundle.name == "identity"
+    assert train_bundle.train_kernel.shape == (3, 3)
+    assert train_bundle.test_kernel is None
+    assert cross_bundle.train_kernel.shape == (3, 3)
+    assert cross_bundle.test_kernel.shape == (2, 3)
+    assert cross_bundle.train_features.shape == (3, 1)
+    assert cross_bundle.test_features.shape == (2, 1)
+
+
+class _RecordingKernelGenerator(KernelFeatureGeneratorMixin):
+    name = "recording"
+
+    def __init__(self):
+        self.received_task_type = None
+
+    def fit(self, X, y=None, *, task_type="classification"):
+        self.received_task_type = task_type
+        return self
+
+    def transform(self, X):
+        features = np.asarray(X, dtype=float).reshape(len(X), -1)
+        return FeatureBundle(name=self.name, features=features)
+
+    def fit_transform(self, X, y=None, *, task_type="classification"):
+        self.fit(X, y, task_type=task_type)
+        return self.transform(X)
+
+
+def test_kernel_contract_forwards_explicit_task_type_to_feature_builder():
+    generator = _RecordingKernelGenerator()
+
+    bundle = generator.kernel(np.array([[0.0], [1.0]]), task_type="regression")
+
+    assert generator.received_task_type == "regression"
+    assert bundle.train_kernel.shape == (2, 2)
+
+
+def test_budgeted_topology_adapter_falls_back_without_importing_heavy_operation():
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="topological_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="topological_extractor",
+                module_path="missing_topology_module",
+                class_name="MissingTopology",
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="identity"),
+    )
+    X = np.zeros((2, 3))
+
+    bundle = generator.fit_transform(X)
+
+    assert bundle.name == "topological_extractor"
+    assert bundle.features.shape == (2, 3)
+    assert bundle.diagnostics["source"] == "budgeted_fallback"
+    assert bundle.diagnostics["budget"]["skip_reason"] == "budget_exceeded"
+
+
+def test_tabular_generator_is_budget_controlled_by_default():
+    generator = create_feature_generator("tabular_extractor")
+
+    assert isinstance(generator, BudgetedRepositoryFeatureGeneratorAdapter)
+    assert generator.budget_policy.max_samples == 25
+    assert generator.budget_policy.max_cells == 10_000
+    assert generator.budget_policy.fallback_generator == "statistical_summary"
+
+
+def test_budgeted_adapter_can_use_statistical_summary_fallback():
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="tabular_extractor",
+        operation_specs=(
+            OperationSpec(
+                name="tabular_extractor",
+                module_path="missing_tabular_module",
+                class_name="MissingTabular",
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+    )
+    X = np.arange(12, dtype=float).reshape(3, 4)
+
+    bundle = generator.fit_transform(X)
+
+    assert bundle.name == "tabular_extractor"
+    assert bundle.features.shape[0] == 3
+    assert bundle.diagnostics["source"] == "budgeted_fallback"
+    assert bundle.diagnostics["requested_generator"] == "tabular_extractor"
+    assert bundle.diagnostics["budget"]["fallback_generator"] == "statistical_summary"
 
 
 def test_resolve_torch_device_auto_uses_cpu_when_cuda_is_unavailable(monkeypatch):

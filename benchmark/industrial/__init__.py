@@ -1,0 +1,145 @@
+"""Public Industrial benchmark API.
+
+The package index stays lazy so importing a light symbol such as ``ModelSpec``
+does not pull optional forecasting or deep-learning dependencies.
+"""
+
+_EXPORTS = {
+    "ArtifactRecord": "benchmark.industrial.core", "ArtifactSpec": "benchmark.industrial.core",
+    "BenchmarkAggregateReport": "benchmark.industrial.core", "BenchmarkRunRecord": "benchmark.industrial.core",
+    "BenchmarkSuiteConfig": "benchmark.industrial.core", "ClassificationBenchmarkResult": "benchmark.industrial.core",
+    "ClassificationDatasetRecord": "benchmark.industrial.core", "DatasetSpec": "benchmark.industrial.core",
+    "ForecastingBenchmarkResult": "benchmark.industrial.core", "ForecastingSeriesRecord": "benchmark.industrial.core",
+    "LabelPredictionRecord": "benchmark.industrial.core", "MetricRecord": "benchmark.industrial.core",
+    "ModelSpec": "benchmark.industrial.core", "PredictionRecord": "benchmark.industrial.core",
+    "RegressionBenchmarkResult": "benchmark.industrial.core", "RegressionDatasetRecord": "benchmark.industrial.core",
+    "RunSpec": "benchmark.industrial.core", "RunStatus": "benchmark.industrial.core",
+    "TaskType": "benchmark.industrial.core", "ValuePredictionRecord": "benchmark.industrial.core",
+    "AggregationInputContract": "benchmark.industrial.evaluation.aggregation",
+    "AggregationOutputContract": "benchmark.industrial.evaluation.aggregation",
+    "BenchmarkAggregationTables": "benchmark.industrial.evaluation.aggregation",
+    "BenchmarkArtifactFrames": "benchmark.industrial.evaluation.aggregation",
+    "TaskAggregationRule": "benchmark.industrial.evaluation.aggregation",
+    "build_benchmark_aggregate_tables": "benchmark.industrial.evaluation.aggregation",
+    "build_leaderboard_frame": "benchmark.industrial.evaluation.aggregation",
+    "load_benchmark_artifact_frames": "benchmark.industrial.evaluation.aggregation",
+    "render_benchmark_aggregate_artifacts": "benchmark.industrial.evaluation.aggregation",
+    "resolve_task_aggregation_rule": "benchmark.industrial.evaluation.aggregation",
+    "build_forecasting_publication_pack": "benchmark.industrial.api",
+    "build_tsc_publication_pack": "benchmark.industrial.api", "build_tser_publication_pack": "benchmark.industrial.api",
+    "compare_forecasting_models_on_series": "benchmark.industrial.api",
+    "run_forecasting_benchmark_suite": "benchmark.industrial.api",
+    "run_tsc_benchmark_suite": "benchmark.industrial.api",
+    "run_tser_benchmark_suite": "benchmark.industrial.api",
+    "discover_local_supervised_datasets": "benchmark.industrial.datasets.discovery",
+    "discover_local_ucr_datasets": "benchmark.industrial.datasets.discovery",
+    "KernelStage1Analysis": "benchmark.industrial.evaluation.kernel_learning",
+    "KernelStage1AnalysisError": "benchmark.industrial.evaluation.kernel_learning",
+    "analyze_kernel_stage1_run": "benchmark.industrial.evaluation.kernel_learning",
+    "load_kernel_stage1_records": "benchmark.industrial.evaluation.kernel_learning",
+    "render_kernel_stage1_summary_report": "benchmark.industrial.evaluation.kernel_learning",
+    "render_kernel_stage1_visualizations": "benchmark.industrial.evaluation.kernel_learning",
+    "DEFAULT_OKHS_SMOOTHING_SERIES_IDS": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingAcceptanceCriteria": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingAcceptanceReport": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingSeriesSummary": "benchmark.industrial.evaluation.okhs_quality",
+    "OKHSSmoothingSummary": "benchmark.industrial.evaluation.okhs_quality",
+    "evaluate_okhs_smoothing_acceptance": "benchmark.industrial.evaluation.okhs_quality",
+    "ResultAnalysisSpec": "benchmark.industrial.evaluation.result_analysis",
+    "build_best_per_dataset_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_coverage_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_dataset_delta_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_dataset_difficulty_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_generator_usage_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_mean_rank_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_model_diagnostics_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_parameter_metric_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_source_delta_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_status_summary_frame": "benchmark.industrial.evaluation.result_analysis",
+    "build_topk_summary_frame": "benchmark.industrial.evaluation.result_analysis",
+    "infer_metric_direction": "benchmark.industrial.evaluation.result_analysis",
+    "load_aggregate_metric_records": "benchmark.industrial.evaluation.result_analysis",
+    "load_incremental_kernel_diagnostics": "benchmark.industrial.evaluation.result_analysis",
+    "load_incremental_metric_records": "benchmark.industrial.evaluation.result_analysis",
+    "load_incremental_run_records": "benchmark.industrial.evaluation.result_analysis",
+    "load_jsonl_table": "benchmark.industrial.evaluation.result_analysis",
+    "load_result_table": "benchmark.industrial.evaluation.result_analysis",
+    "load_result_sources": "benchmark.industrial.evaluation.result_analysis",
+    "normalize_result_table": "benchmark.industrial.evaluation.result_analysis",
+    "build_evolution_dynamics_frame": "benchmark.industrial.evaluation.evolution",
+    "build_evolution_coverage_frame": "benchmark.industrial.evaluation.evolution",
+    "build_operation_frequency_frame": "benchmark.industrial.evaluation.evolution",
+    "build_pipeline_complexity_frame": "benchmark.industrial.evaluation.evolution",
+    "load_composition_history": "benchmark.industrial.evaluation.evolution",
+    "render_evolution_analysis_pack": "benchmark.industrial.evaluation.evolution",
+    "select_notable_pipelines": "benchmark.industrial.evaluation.evolution",
+    "has_okhs_smoothing_diagnostics": "benchmark.industrial.evaluation.okhs_quality",
+    "render_okhs_smoothing_acceptance_pack": "benchmark.industrial.evaluation.okhs_quality",
+    "summarize_okhs_smoothing_result": "benchmark.industrial.evaluation.okhs_quality",
+    "render_benchmark_result_analysis_pack": "benchmark.industrial.visualization.benchmark_results",
+    "BenchmarkManifestError": "benchmark.industrial.experiments.manifests",
+    "build_suite_config_from_manifest": "benchmark.industrial.experiments.manifests",
+    "load_manifest": "benchmark.industrial.experiments.manifests",
+    "render_resolved_manifest": "benchmark.industrial.experiments.manifests",
+    "DEFAULT_STAGE1_GENERATORS": "benchmark.industrial.experiments.kernel_learning",
+    "DEFAULT_STAGE_METRICS": "benchmark.industrial.experiments.kernel_learning",
+    "KernelLearningStage1ArtifactsLoader": "benchmark.industrial.experiments.kernel_learning",
+    "KernelLearningStage1Runner": "benchmark.industrial.experiments.kernel_learning",
+    "KernelLearningStage2Runner": "benchmark.industrial.experiments.kernel_learning",
+    "build_stage2_initial_population": "benchmark.industrial.experiments.kernel_learning",
+    "importance_report_from_selection": "benchmark.industrial.experiments.kernel_learning",
+    "load_stage1_kernel_records": "benchmark.industrial.experiments.kernel_learning",
+    "load_stage1_result_from_artifacts": "benchmark.industrial.experiments.kernel_learning",
+    "resolve_existing_stage1_run_dir": "benchmark.industrial.experiments.kernel_learning",
+    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning",
+    "run_manifest": "benchmark.industrial.experiments.manifests",
+    "run_manifest_path": "benchmark.industrial.experiments.manifests",
+    "write_example_manifest": "benchmark.industrial.experiments.manifests",
+    "build_local_m4_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_monash_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_okhs_smoothing_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_tser_suite_config": "benchmark.industrial.experiments.presets",
+    "build_local_ucr_suite_config": "benchmark.industrial.experiments.presets",
+    "run_local_benchmark_preset": "benchmark.industrial.experiments.presets",
+    "BenchmarkRunBundle": "benchmark.industrial.experiments.registry",
+    "build_registry_entry": "benchmark.industrial.experiments.registry",
+    "persist_run_bundle": "benchmark.industrial.experiments.registry",
+    "run_registered_manifest": "benchmark.industrial.experiments.registry",
+    "run_registered_manifest_path": "benchmark.industrial.experiments.registry",
+    "run_registered_preset": "benchmark.industrial.experiments.registry",
+    "run_registered_suite": "benchmark.industrial.experiments.registry",
+    "RegisteredRunComparison": "benchmark.industrial.experiments.run_compare",
+    "RegisteredRunComparisonError": "benchmark.industrial.experiments.run_compare",
+    "compare_registered_runs": "benchmark.industrial.experiments.run_compare",
+    "load_registry_entries": "benchmark.industrial.experiments.run_compare",
+    "render_registered_run_comparison_pack": "benchmark.industrial.experiments.run_compare",
+    "build_forecast_comparison_frame": "benchmark.industrial.visualization.forecast_comparison",
+    "build_forecast_comparison_from_aggregate_predictions": "benchmark.industrial.visualization.forecast_comparison",
+    "build_forecast_comparison_from_progress_items": "benchmark.industrial.visualization.forecast_comparison",
+    "build_forecast_metric_frame": "benchmark.industrial.visualization.forecast_comparison",
+    "file_md5": "benchmark.industrial.visualization.forecast_comparison",
+    "render_forecast_comparison_pack": "benchmark.industrial.visualization.forecast_comparison", }
+
+_MODULE_EXPORTS = {
+    'progress': 'benchmark.industrial.experiments.progress',
+}
+
+__all__ = sorted([*_EXPORTS, *_MODULE_EXPORTS])
+
+
+def __getattr__(name):
+    from importlib import import_module
+
+    module_name = _MODULE_EXPORTS.get(name)
+    if module_name is not None:
+        value = import_module(module_name)
+        globals()[name] = value
+        return value
+
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    value = getattr(import_module(module_name), name)
+    globals()[name] = value
+    return value

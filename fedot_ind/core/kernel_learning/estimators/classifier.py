@@ -5,11 +5,13 @@ from typing import Any
 import numpy as np
 from sklearn.svm import SVC
 
-from .base import KernelEnsembleBase
+from fedot_ind.core.kernel_learning.contracts import FeatureInput, KernelTaskType, TargetInput
+
+from .base import KernelEnsembleBase, collect_kernel_base_params
 
 
 class KernelEnsembleClassifier(KernelEnsembleBase):
-    task_type = "classification"
+    task_type = KernelTaskType.CLASSIFICATION
 
     def __init__(
             self,
@@ -20,10 +22,16 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
             center: bool = False,
             psd_correction: str | None = "clip",
             psd_tol: float = 1e-8,
+            kernel_approximation: str | None = None,
+            nystrom_components: int | None = None,
             complexity_penalty: float = 0.01,
             redundancy_penalty: float = 0.05,
             min_weight: float = 0.05,
             target_gamma: str | float = "scale",
+            selector_optimizer: str = "projected_gradient",
+            selector_max_iter: int = 100,
+            selector_tol: float = 1e-6,
+            selector_step_size: float = 0.2,
             importance_threshold: float = 0.05,
             importance_fallback_top_n: int = 1,
             importance_max_union_size: int = 3,
@@ -32,31 +40,16 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
             random_state: int = 42,
             head: Any | None = None,
             torch_device: Any = "auto",
+            kernel_cache_enabled: bool = True,
+            kernel_cache_namespace: str = "kernel_ensemble",
     ):
-        super().__init__(
-            generator_names=generator_names,
-            kernel=kernel,
-            gamma=gamma,
-            normalize=normalize,
-            center=center,
-            psd_correction=psd_correction,
-            psd_tol=psd_tol,
-            complexity_penalty=complexity_penalty,
-            redundancy_penalty=redundancy_penalty,
-            min_weight=min_weight,
-            target_gamma=target_gamma,
-            importance_threshold=importance_threshold,
-            importance_fallback_top_n=importance_fallback_top_n,
-            importance_max_union_size=importance_max_union_size,
-            torch_device=torch_device,
-        )
+        super().__init__(**collect_kernel_base_params(locals()))
         self.C = C
         self.probability = probability
         self.random_state = random_state
         self.head = head
-        self.torch_device = torch_device
 
-    def fit(self, X: Any, y: Any):
+    def fit(self, X: FeatureInput, y: TargetInput):
         y_array = np.asarray(y).reshape(-1)
         self.classes_ = np.unique(y_array)
         train_kernel = self._fit_kernel_layer(X, y_array)
@@ -69,10 +62,10 @@ class KernelEnsembleClassifier(KernelEnsembleBase):
         self.head_.fit(train_kernel, y_array)
         return self
 
-    def predict(self, X: Any) -> np.ndarray:
+    def predict(self, X: FeatureInput) -> np.ndarray:
         return self.head_.predict(self._combine_test_kernels(X))
 
-    def predict_proba(self, X: Any) -> np.ndarray:
+    def predict_proba(self, X: FeatureInput) -> np.ndarray:
         test_kernel = self._combine_test_kernels(X)
         if hasattr(self.head_, "predict_proba"):
             return self.head_.predict_proba(test_kernel)

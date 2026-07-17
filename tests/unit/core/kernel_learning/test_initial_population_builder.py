@@ -1,9 +1,12 @@
 import pytest
 
-from fedot_ind.core.kernel_learning.contracts import KernelSelectionReport
+from fedot_ind.core.kernel_learning.contracts import KernelConfigValidationError, KernelSelectionReport
 from fedot_ind.core.kernel_learning.integration import (
+    KernelInitialPopulationError,
     KernelInitialPopulationBuilder,
     narrow_kernel_learning_search_space,
+    resolve_warm_start_task,
+    task_head_candidates,
 )
 from fedot_ind.core.kernel_learning.selection import KernelImportanceConfig, select_significant_generators
 
@@ -74,6 +77,27 @@ def test_initial_population_builder_materializes_basis_only_generators_to_tabula
     assert specs[0].operation_names == ("wavelet_basis", "quantile_extractor_torch", "rf")
 
 
+def test_initial_population_builder_supports_forecasting_task_heads():
+    builder = KernelInitialPopulationBuilder(task_type="ts_forecasting")
+
+    specs = builder.build_specs(_importance(("wavelet_basis",), (1.0,)))
+
+    assert builder.task_type == "forecasting"
+    assert builder.resolved_head_model == "ridge"
+    assert specs[0].operation_names == ("wavelet_basis", "quantile_extractor_torch", "ridge")
+
+
+def test_warm_start_task_registry_resolves_aliases_and_heads():
+    spec = resolve_warm_start_task("ts_forecasting")
+
+    assert spec.task_type == "forecasting"
+    assert spec.default_head_model == "ridge"
+    assert task_head_candidates("classification")[0] == "rf"
+
+    with pytest.raises(KernelConfigValidationError, match="Unsupported kernel warm-start task_type"):
+        resolve_warm_start_task("vision")
+
+
 def test_initial_population_builder_skips_identity_without_explicit_fedot_mapping():
     builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf")
 
@@ -82,6 +106,25 @@ def test_initial_population_builder_skips_identity_without_explicit_fedot_mappin
     assert len(specs) == 1
     assert specs[0].generator_names == ("wavelet_basis",)
     assert builder.diagnostics_["skipped_generators"] == {"identity": "no_fedot_operation_chain"}
+
+
+def test_initial_population_builder_empty_specs_policy_is_explicit():
+    builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf")
+
+    with pytest.raises(KernelInitialPopulationError, match="initial population is empty"):
+        builder.build_specs(_importance(("identity",), (1.0,)))
+
+    assert builder.last_specs_ == ()
+    assert builder.diagnostics_["empty_specs_reason"] == "all_selected_generators_missing_fedot_operation_chain"
+
+    permissive = KernelInitialPopulationBuilder(
+        task_type="classification",
+        head_model="rf",
+        allow_empty_specs=True,
+    )
+
+    assert permissive.build_specs(_importance(("identity",), (1.0,))) == ()
+    assert permissive.diagnostics_["empty_specs_reason"] == "all_selected_generators_missing_fedot_operation_chain"
 
 
 def test_initial_population_builder_limits_union_size():

@@ -13,6 +13,14 @@ from fedot_ind.core.operation.transformation.regularization.spectrum import sing
     sv_to_explained_variance_ratio
 
 
+def _detect_spectrum_knee_point(spectrum: np.array):
+    """Adapt channel-level knee detection to the one-argument spectrum regularizer contract."""
+    if len(spectrum) == 0:
+        return []
+    selected_indices = _detect_knee_point(spectrum, np.arange(len(spectrum)))[0]
+    return [int(index) for index in selected_indices]
+
+
 class MatrixDecomposer:
     """
     """
@@ -23,7 +31,7 @@ class MatrixDecomposer:
         self.min_components = params.get('min_components_number', None)
         self.spectrum_reg = {'explained_dispersion': sv_to_explained_variance_ratio,
                              'hard_thresholding': singular_value_hard_threshold,
-                             'knee_point': _detect_knee_point}
+                             'knee_point': _detect_spectrum_knee_point}
         self.decompose_method = {'svd': SVDDecomposition,
                                  'random_svd': RSVDDecomposition,
                                  'cur': CURDecomposition,

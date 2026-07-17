@@ -1,14 +1,18 @@
 name: autopep8
 on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
 jobs:
   autopep8:
     # Check if the PR is not from a fork
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PEP8_TOKEN }}
+          token: ${{ github.token }}
           ref: ${{ github.head_ref }}
       - name: Install autoflake
         run: pip install autoflake

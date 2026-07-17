@@ -72,9 +72,9 @@ class PairwiseDifferenceEstimator:
         return pd.DataFrame(
             payload,
             columns=(
-                    [f"{column}_x" for column in column_names]
-                    + [f"{column}_y" for column in column_names]
-                    + [f"{column}_diff" for column in column_names]
+                [f"{column}_x" for column in column_names]
+                + [f"{column}_y" for column in column_names]
+                + [f"{column}_diff" for column in column_names]
             ),
         )
 

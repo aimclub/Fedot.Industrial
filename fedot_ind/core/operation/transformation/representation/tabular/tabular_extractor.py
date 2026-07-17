@@ -37,12 +37,47 @@ class TabularExtractor(BaseExtractor):
         self.pca_is_fitted = False
         self.scaler = StandardScaler()
         self.pca = PCA(self.explained_dispersion)
+        self.raw_feature_width_ = None
+        self.feature_alignment_ = {}
+
+    def _align_feature_width(self, features):
+        if self.raw_feature_width_ is None:
+            return features
+        actual_width = int(features.shape[1])
+        expected_width = int(self.raw_feature_width_)
+        if actual_width == expected_width:
+            self.feature_alignment_ = {
+                'expected_width': expected_width,
+                'actual_width': actual_width,
+                'action': 'unchanged',
+            }
+            return features
+        if actual_width > expected_width:
+            aligned = features[:, :expected_width]
+            action = 'truncated'
+        else:
+            padding = np.zeros((features.shape[0], expected_width - actual_width))
+            aligned = np.concatenate([features, padding], axis=1)
+            action = 'padded'
+        self.feature_alignment_ = {
+            'expected_width': expected_width,
+            'actual_width': actual_width,
+            'action': action,
+        }
+        return aligned
 
     def _reduce_dim(self, features, target):
         if self.pca_is_fitted:
+            features = self._align_feature_width(features)
             return self.pca.transform(self.scaler.transform(features))
         else:
             self.pca_is_fitted = True
+            self.raw_feature_width_ = int(features.shape[1])
+            self.feature_alignment_ = {
+                'expected_width': self.raw_feature_width_,
+                'actual_width': self.raw_feature_width_,
+                'action': 'fitted',
+            }
             return self.pca.fit_transform(self.scaler.fit_transform(features, target))
 
     def _create_from_custom_fg(self, input_data):

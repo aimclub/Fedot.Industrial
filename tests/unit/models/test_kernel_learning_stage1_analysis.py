@@ -1,22 +1,11 @@
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-
-def _load_analysis_module():
-    module_path = PROJECT_ROOT / "benchmark" / "v2" / "kernel_learning_analysis.py"
-    spec = importlib.util.spec_from_file_location("kernel_learning_analysis_under_test", module_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+from benchmark.industrial.evaluation import kernel_learning as analysis_module
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -92,7 +81,6 @@ def _record(dataset_name: str, weights: tuple[float, float], important: tuple[st
 
 
 def test_stage1_analysis_builds_stable_tables_and_report(tmp_path: Path):
-    module = _load_analysis_module()
     run_dir = tmp_path / "stage1_run"
     _write_jsonl(
         run_dir / "records" / "kernel_diagnostics.jsonl",
@@ -124,7 +112,7 @@ def test_stage1_analysis_builds_stable_tables_and_report(tmp_path: Path):
         ]
     ).to_csv(aggregate_dir / "runs.csv", index=False)
 
-    analysis = module.render_kernel_stage1_summary_report(run_dir)
+    analysis = analysis_module.render_kernel_stage1_summary_report(run_dir)
 
     assert analysis.summary["dataset_count"] == 2
     assert analysis.summary["psd_failure_count"] == 2
@@ -136,13 +124,12 @@ def test_stage1_analysis_builds_stable_tables_and_report(tmp_path: Path):
 
 
 def test_stage1_analysis_falls_back_to_kernel_selection_jsonl(tmp_path: Path):
-    module = _load_analysis_module()
     run_dir = tmp_path / "stage1_run"
     record = _record("DatasetA", (0.6, 0.4), ("wavelet_extractor",))
     record.pop("kernel_diagnostics")
     _write_jsonl(run_dir / "records" / "kernel_selection.jsonl", [record])
 
-    analysis = module.analyze_kernel_stage1_run(run_dir)
+    analysis = analysis_module.analyze_kernel_stage1_run(run_dir)
 
     assert analysis.summary["dataset_count"] == 1
     assert set(analysis.kernel_diagnostics["generator_name"]) == {"wavelet_extractor", "recurrence_extractor"}

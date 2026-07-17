@@ -1,0 +1,121 @@
+{
+  "version": "benchmark_industrial_preset_defaults@1",
+  "output_dir_root": "benchmark/results/industrial_presets",
+  "metrics": {
+    "forecasting": [
+      "mase",
+      "smape",
+      "owa",
+      "rmse",
+      "mae"
+    ],
+    "classification": [
+      "accuracy",
+      "balanced_accuracy",
+      "f1_macro"
+    ],
+    "regression": [
+      "rmse",
+      "mae",
+      "r2"
+    ]
+  },
+  "okhs_smoothing_series_ids": [
+    "D364",
+    "D377",
+    "D378"
+  ],
+  "models": {
+    "forecasting": [
+      {
+        "adapter_name": "naive_last_value",
+        "display_name": "NaiveLastValue"
+      },
+      {
+        "adapter_name": "moving_average",
+        "display_name": "MovingAverage",
+        "params": {
+          "window_size": 3
+        }
+      },
+      {
+        "adapter_name": "linear_trend",
+        "display_name": "LinearTrend"
+      },
+      {
+        "adapter_name": "okhs",
+        "display_name": "OKHS DMD",
+        "params": {
+          "method": "dmd",
+          "window_size": 8,
+          "n_modes": 2,
+          "q": 0.9
+        }
+      }
+    ],
+    "forecasting_optional_external": [
+      {
+        "adapter_name": "autogluon",
+        "display_name": "AutoGluon",
+        "optional": true
+      },
+      {
+        "adapter_name": "nbeats",
+        "display_name": "N-BEATS",
+        "optional": true
+      },
+      {
+        "adapter_name": "tft",
+        "display_name": "TFT",
+        "optional": true
+      }
+    ],
+    "classification": [
+      {
+        "adapter_name": "majority_class",
+        "display_name": "MajorityClass"
+      },
+      {
+        "adapter_name": "nearest_centroid",
+        "display_name": "NearestCentroid"
+      }
+    ],
+    "regression": [
+      {
+        "adapter_name": "mean_regressor",
+        "display_name": "MeanRegressor"
+      },
+      {
+        "adapter_name": "linear_regressor",
+        "display_name": "LinearRegressor"
+      }
+    ],
+    "okhs_smoothing": [
+      {
+        "adapter_name": "naive_last_value",
+        "display_name": "NaiveLastValue"
+      },
+      {
+        "adapter_name": "moving_average",
+        "display_name": "MovingAverage",
+        "params": {
+          "window_size": 3
+        }
+      },
+      {
+        "adapter_name": "linear_trend",
+        "display_name": "LinearTrend"
+      },
+      {
+        "adapter_name": "okhs",
+        "display_name": "OKHS DMD",
+        "params": {
+          "method": "dmd",
+          "window_size": 8,
+          "n_modes": 2,
+          "q": 0.9
+        }
+      }
+    ]
+  }
+}
