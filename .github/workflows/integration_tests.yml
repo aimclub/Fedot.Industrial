@@ -52,7 +52,7 @@ jobs:
         run: poetry install
 
       - name: Install runtime compatibility dependencies
-        run: poetry run python -m pip install "setuptools>=70"
+        run: poetry run python -m pip install "setuptools>=70,<81"
 
 #      - name: Create and activate pip venv
 #        run: |
