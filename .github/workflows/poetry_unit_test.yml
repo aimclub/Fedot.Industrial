@@ -46,6 +46,9 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Install runtime compatibility dependencies
+        run: poetry run python -m pip install "setuptools>=70"
+
       - name: Run tests with pytest
         run: poetry run pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit -vvv
 
