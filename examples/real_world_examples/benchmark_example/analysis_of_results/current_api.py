@@ -25,6 +25,15 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parents[3]
 DEFAULTS_PATH = PACKAGE_ROOT / 'analysis_defaults.json'
 DEFAULTS_VERSION = 'industrial_real_world_analysis@1'
+RESULT_FRAME_COLUMNS = (
+    'dataset_name',
+    'model_name',
+    'metric_name',
+    'metric_value',
+    'source_label',
+    'task_type',
+    'metric_direction',
+)
 
 
 @lru_cache(maxsize=1)
@@ -54,8 +63,8 @@ def build_analysis_result_frame(analysis_name: str) -> pd.DataFrame:
         fallback_path = _artifact_table_path(
             analysis_name, 'normalized_results.csv')
         if fallback_path.exists():
-            return pd.read_csv(fallback_path)
-    return frame
+            return _ensure_result_frame_schema(pd.read_csv(fallback_path))
+    return _ensure_result_frame_schema(frame)
 
 
 def build_analysis_spec(analysis_name: str) -> ResultAnalysisSpec:
@@ -285,6 +294,15 @@ def _artifact_root() -> Path:
 
 def _artifact_table_path(analysis_name: str, file_name: str) -> Path:
     return _artifact_root() / analysis_name / 'tables' / file_name
+
+
+def _ensure_result_frame_schema(frame: pd.DataFrame) -> pd.DataFrame:
+    data = frame.copy()
+    for column in RESULT_FRAME_COLUMNS:
+        if column not in data.columns:
+            data[column] = pd.Series(
+                dtype='float64' if column == 'metric_value' else 'object')
+    return data
 
 
 def _load_aggregate_run_records(root: Path) -> pd.DataFrame:

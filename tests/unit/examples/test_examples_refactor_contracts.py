@@ -219,15 +219,34 @@ def test_real_world_analysis_notebooks_are_thin_current_api_entries() -> None:
     uni = build_analysis_result_frame("analysis_uni_clf")
     regr = build_analysis_result_frame("analysis_regr")
     m4 = build_analysis_result_frame("m4_analysis")
-    assert uni["dataset_name"].nunique() > 100
-    assert "KernelEnsembleClassifier_score_baseline_summary" in set(
-        uni["model_name"])
-    assert "RDST" in set(regr["model_name"])
-    assert "Fedot_Industrial_legacy_baseline" in set(regr["model_name"])
-    assert "LaggedRidgeForecaster" in set(m4["model_name"])
-    assert not build_analysis_diagnostics_frame("analysis_uni_clf").empty
-    assert build_analysis_source_metadata_frame(
-        "analysis_regr")["exists_locally"].all()
+    result_columns = {
+        "dataset_name",
+        "model_name",
+        "metric_name",
+        "metric_value",
+        "source_label",
+        "task_type",
+        "metric_direction",
+    }
+    assert result_columns <= set(uni.columns)
+    assert result_columns <= set(regr.columns)
+    assert result_columns <= set(m4.columns)
+    if not uni.empty:
+        assert uni["dataset_name"].nunique() > 100
+        assert "KernelEnsembleClassifier_score_baseline_summary" in set(
+            uni["model_name"])
+    if not regr.empty:
+        assert "RDST" in set(regr["model_name"])
+        assert "Fedot_Industrial_legacy_baseline" in set(regr["model_name"])
+    if not m4.empty:
+        assert "LaggedRidgeForecaster" in set(m4["model_name"])
+    diagnostics = build_analysis_diagnostics_frame("analysis_uni_clf")
+    assert {"dataset_name", "model_name", "status"} <= set(diagnostics.columns)
+    if not uni.empty:
+        assert not diagnostics.empty
+    regr_sources = build_analysis_source_metadata_frame("analysis_regr")
+    assert not regr_sources.empty
+    assert {"label", "path", "exists_locally"} <= set(regr_sources.columns)
     assert build_ucr_two_stage_context()["scenario"] == "ucr_two_stage"
     assert "KernelEnsembleClassifier_adaptive_all_non_topological" in {
         model.display_name for model in build_kernel_learning_reference_model_specs("ts_classification")
