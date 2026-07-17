@@ -1,23 +1,35 @@
+"""Unit tests for the Pairwise Difference Learning (PDL) estimators.
+
+Covers the legacy ``PairwiseDifferenceEstimator`` helper, the PDL pair-target
+contracts (same/different labels and the left-minus-anchor delta sign), the
+diagnostics payload, and the public classifier/regressor APIs.
+"""
+
 import pytest
 import numpy as np
 import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.model_selection import train_test_split
-from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
 
+from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
+from fedot_ind.core.models.pdl.pairwise_core import _predict_same_probability
 from fedot_ind.core.models.pdl.pairwise_model import (
     PairwiseDifferenceEstimator,
     PairwiseDifferenceClassifier,
-    PairwiseDifferenceRegressor
+    PairwiseDifferenceRegressor,
 )
-
-# Fixtures for test data
 
 
 @pytest.fixture
 def classification_data():
+    """Provide a random binary-classification train/test split as ``InputData``.
+
+    Returns:
+        A ``(train_data, test_data)`` tuple of FEDOT ``InputData`` objects.
+    """
     X, y = np.random.rand(50, 50), np.random.randint(0, 2, 50)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42)
 
     # Create InputData objects
     train_data = init_input_data(X=X_train, y=y_train, task='classification')
@@ -28,8 +40,14 @@ def classification_data():
 
 @pytest.fixture
 def regression_data():
+    """Provide a random regression train/test split as ``InputData``.
+
+    Returns:
+        A ``(train_data, test_data)`` tuple of FEDOT ``InputData`` objects.
+    """
     X, y = np.random.rand(50, 50), np.random.rand(50)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42)
 
     # Create InputData objects
     train_data = init_input_data(X=X_train, y=y_train, task='regression')
@@ -37,12 +55,12 @@ def regression_data():
 
     return train_data, test_data
 
-# Tests for PairwiseDifferenceEstimator
-
 
 class TestPairwiseDifferenceEstimator:
+    """Tests for the legacy pandas-based pair construction helper."""
 
     def test_convert_to_pandas(self):
+        """Array-like inputs are coerced into DataFrames with preserved shape."""
         pde = PairwiseDifferenceEstimator()
         arr1 = np.array([[1, 2], [3, 4]])
         arr2 = np.array([[5, 6], [7, 8]])
@@ -55,6 +73,7 @@ class TestPairwiseDifferenceEstimator:
         assert df2.shape == arr2.shape
 
     def test_pair_input(self):
+        """``pair_input`` yields the full cross product with ``_x/_y/_diff`` columns."""
         pde = PairwiseDifferenceEstimator()
         X1 = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
         X2 = pd.DataFrame({'a': [5, 6], 'b': [7, 8]})
@@ -69,21 +88,32 @@ class TestPairwiseDifferenceEstimator:
         expected_columns = ['a_x', 'b_x', 'a_y', 'b_y', 'a_diff', 'b_diff']
         assert all(col in X_pair.columns for col in expected_columns)
 
-    def test_pair_output(self):
+    def test_regression_pair_target_is_left_minus_anchor(self):
+        """``pair_output`` follows the ``left - anchor`` delta sign convention."""
         pde = PairwiseDifferenceEstimator()
-        y1 = pd.Series([1, 2])
-        y2 = pd.Series([3, 4])
+        y1 = pd.Series([1.0, 3.0])
+        y2 = pd.Series([1.0, 3.0])
 
-        y_pair_diff = pde.pair_output(y1, y2)
+        delta = pde.pair_output(y1, y2)
 
-        # Test shape
-        assert len(y_pair_diff) == len(y1) * len(y2)
+        assert len(delta) == len(y1) * len(y2)
+        # pairs: (1,1), (1,3), (3,1), (3,3) -> left - anchor
+        np.testing.assert_allclose(delta, np.array([0.0, -2.0, 2.0, 0.0]))
 
-        # Test values (should be y2 - y1 for all combinations)
-        expected = np.array([2, 3, 1, 2])  # [3-1, 4-1, 3-2, 4-2]
-        np.testing.assert_array_equal(y_pair_diff, expected)
+    def test_classification_pair_target_semantics_same_is_zero_current_contract(self):
+        """``pair_output_difference`` encodes same class as ``0`` and different as ``1``."""
+        pde = PairwiseDifferenceEstimator()
+        y1 = pd.Series([5, 5, 7])
+        y2 = pd.Series([5])
+
+        dissimilarity_target = pde.pair_output_difference(y1, y2)
+
+        # pairs: (5,5), (5,5), (7,5) -> same=0, same=0, different=1
+        np.testing.assert_array_equal(
+            dissimilarity_target, np.array([0, 0, 1]))
 
     def test_pair_output_difference(self):
+        """Dissimilarity targets are produced for every cross-product pair."""
         pde = PairwiseDifferenceEstimator()
         y1 = pd.Series([0, 1, 2])
         y2 = pd.Series([0, 2])
@@ -94,15 +124,160 @@ class TestPairwiseDifferenceEstimator:
         assert len(y_pair_diff) == len(y1) * len(y2)
 
         # Test values (should be 1 if different, 0 if same)
-        expected = np.array([0, 1, 1, 1, 1, 0])  # Comparing [0,0], [0,2], [1,0], [1,2], [2,0], [2,2]
+        # Comparing [0,0], [0,2], [1,0], [1,2], [2,0], [2,2]
+        expected = np.array([0, 1, 1, 1, 1, 0])
         np.testing.assert_array_equal(y_pair_diff, expected)
 
-# Tests for PairwiseDifferenceClassifier
+
+class _PairProbaStub:
+    """Sklearn-like classifier stub exposing a fixed ``predict_proba`` output."""
+
+    def __init__(self, probabilities: np.ndarray, classes: np.ndarray):
+        self.classes_ = classes
+        self._probabilities = probabilities
+
+    def predict_proba(self, pair_features: np.ndarray) -> np.ndarray:
+        """Return the preset probability matrix regardless of the input."""
+        return self._probabilities
+
+
+class _HardLabelStub:
+    """Classifier stub exposing only ``predict`` (no ``predict_proba``)."""
+
+    def __init__(self, labels: np.ndarray):
+        self._labels = labels
+
+    def predict(self, pair_features: np.ndarray) -> np.ndarray:
+        """Return the preset hard labels regardless of the input."""
+        return self._labels
+
+
+class TestPDLContracts:
+    """Tests for the inference-side same/different probability contract."""
+
+    def test_predict_same_probability_uses_same_label_column(self):
+        """The same-class probability is read from the ``same_label`` (0) column."""
+        # predict_proba: col 0 = P(same), col 1 = P(different)
+        stub_model = _PairProbaStub(
+            probabilities=np.array([[0.8, 0.2], [0.3, 0.7]]),
+            classes=np.array([0, 1]),
+        )
+
+        same_probability = _predict_same_probability(
+            stub_model, np.zeros((2, 3)))
+
+        # get first col (label 0), not second (label 1)
+        np.testing.assert_allclose(same_probability, np.array([0.8, 0.3]))
+
+    def test_predict_same_probability_falls_back_to_hard_predictions(self):
+        """Without ``predict_proba``, hard labels map ``0 -> 1.0`` and ``1 -> 0.0``."""
+        # without predict_proba: label 0 -> 1.0 (same), label 1 -> 0.0 (different)
+        stub_model = _HardLabelStub(labels=np.array([0, 1, 0]))
+
+        same_probability = _predict_same_probability(
+            stub_model, np.zeros((3, 3)))
+
+        np.testing.assert_array_equal(
+            same_probability, np.array([1.0, 0.0, 1.0]))
+
+
+class TestPDLDiagnostics:
+    """Tests asserting the diagnostics payload exposes the PDL pair contract."""
+
+    def test_pair_target_semantics_is_reported_in_diagnostics_classifier(self, classification_data):
+        """Classifier diagnostics expose the classification pair-target semantics."""
+        train_data, _ = classification_data
+        classifier = PairwiseDifferenceClassifier(
+            OperationParameters(model='rf', n_estimators=10, max_pairs=10_000))
+        classifier.fit(train_data)
+
+        semantics = classifier.get_diagnostics()["pair_target_semantics"]
+
+        assert semantics["task"] == "classification"
+        assert semantics["same_label"] == 0
+        assert semantics["different_label"] == 1
+        assert semantics["target_type"] == "dissimilarity"
+        assert semantics["inference_output"] == "same_probability"
+
+    def test_pair_target_semantics_is_reported_in_diagnostics_regressor(self, regression_data):
+        """Regressor diagnostics expose the regression delta-sign semantics."""
+        train_data, _ = regression_data
+        regressor = PairwiseDifferenceRegressor(OperationParameters(
+            model='treg', n_estimators=10, max_pairs=10_000))
+        regressor.fit(train_data)
+
+        semantics = regressor.get_diagnostics()["pair_target_semantics"]
+
+        assert semantics["task"] == "regression"
+        assert semantics["delta_sign"] == "left_minus_anchor"
+        assert semantics["target_formula"] == "target_left - target_anchor"
+        assert semantics["inference_reconstruction"] == "anchor_target + predicted_delta"
+
+    def test_classification_diagnostics_report_full_pair_contract(self):
+        """Diagnostics must expose the full runtime pair contract, not only semantics.
+
+        Deterministic toy arrays: 4 samples / 2 features, all-pairs regime (16 <= max_pairs),
+        concat_diff -> pair_feature_dim = 2 * 3 = 6.
+        """
+        features = np.array([[0.0, 0.0], [0.1, 0.1], [5.0, 5.0], [5.1, 5.1]])
+        target = np.array([0, 0, 1, 1])
+        classifier = PairwiseDifferenceClassifier(
+            OperationParameters(
+                model="rf", n_estimators=5, backend="numpy", max_pairs=10_000, pair_feature_mode="concat_diff"
+            )
+        )
+        classifier.fit(features, target)
+
+        diagnostics = classifier.get_diagnostics()
+        for key in (
+            "backend", "pairing_policy", "n_train", "n_anchors", "n_pairs",
+            "pair_feature_dim", "anchor_indices", "config", "pair_target_semantics",
+            "task", "n_classes", "base_model",
+        ):
+            assert key in diagnostics, f"missing diagnostics key: {key}"
+
+        assert diagnostics["task"] == "classification"
+        assert diagnostics["n_classes"] == 2
+        assert diagnostics["base_model"] == "rf"
+        assert diagnostics["n_train"] == 4
+        assert diagnostics["n_anchors"] == 4  # all-pairs regime
+        assert diagnostics["n_pairs"] == diagnostics["n_train"] * \
+            diagnostics["n_anchors"] == 16
+        assert diagnostics["pair_feature_dim"] == 6
+        assert diagnostics["config"]["pair_feature_mode"] == "concat_diff"
+        assert len(diagnostics["anchor_indices"]) == diagnostics["n_anchors"]
+
+    def test_regression_diagnostics_report_full_pair_contract(self):
+        """Same runtime pair contract for the regressor (1 feature -> pair_feature_dim = 3)."""
+        features = np.arange(6, dtype=float).reshape(-1, 1)
+        target = 2.0 * features.reshape(-1)
+        regressor = PairwiseDifferenceRegressor(
+            OperationParameters(
+                model="treg", n_estimators=5, backend="numpy", max_pairs=10_000, pair_feature_mode="concat_diff"
+            )
+        )
+        regressor.fit(features, target)
+
+        diagnostics = regressor.get_diagnostics()
+        for key in (
+            "backend", "pairing_policy", "n_train", "n_anchors", "n_pairs",
+            "pair_feature_dim", "anchor_indices", "config", "pair_target_semantics",
+            "task", "base_model",
+        ):
+            assert key in diagnostics, f"missing diagnostics key: {key}"
+
+        assert diagnostics["task"] == "regression"
+        assert diagnostics["n_train"] == 6
+        assert diagnostics["n_anchors"] == 6
+        assert diagnostics["n_pairs"] == 36
+        assert diagnostics["pair_feature_dim"] == 3
 
 
 class TestPairwiseDifferenceClassifier:
+    """Tests for the public ``PairwiseDifferenceClassifier`` API."""
 
     def test_init(self):
+        """Configuration keys are split from base-model params during init."""
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
 
@@ -111,6 +286,7 @@ class TestPairwiseDifferenceClassifier:
         assert hasattr(classifier, 'pde')
 
     def test_fit_predict(self, classification_data):
+        """Fitting then predicting returns valid in-range class indices."""
         train_data, test_data = classification_data
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
@@ -131,6 +307,7 @@ class TestPairwiseDifferenceClassifier:
         assert np.all(predictions < classifier.num_classes)
 
     def test_predict_proba(self, classification_data):
+        """``predict_proba`` returns a row-stochastic probability matrix."""
         train_data, test_data = classification_data
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
@@ -142,9 +319,11 @@ class TestPairwiseDifferenceClassifier:
 
         # Check shape and probability sums
         assert proba.shape[0] == len(test_data.target)
-        assert np.allclose(np.sum(proba, axis=1), np.ones(len(test_data.target)), atol=1e-10)
+        assert np.allclose(np.sum(proba, axis=1), np.ones(
+            len(test_data.target)), atol=1e-10)
 
     def test_score_difference(self, classification_data):
+        """``score_difference`` returns a MAE-like value within ``[0, 1]``."""
         train_data, test_data = classification_data
         params = OperationParameters(model='rf', n_estimators=10)
         classifier = PairwiseDifferenceClassifier(params)
@@ -156,12 +335,12 @@ class TestPairwiseDifferenceClassifier:
         assert isinstance(score, float)
         assert 0 <= score <= 1  # MAE value should be between 0 and 1
 
-# Tests for PairwiseDifferenceRegressor
-
 
 class TestPairwiseDifferenceRegressor:
+    """Tests for the public ``PairwiseDifferenceRegressor`` API."""
 
     def test_init(self):
+        """Configuration keys are split from base-model params during init."""
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
 
@@ -170,6 +349,7 @@ class TestPairwiseDifferenceRegressor:
         assert hasattr(regressor, 'pde')
 
     def test_fit_predict(self, regression_data):
+        """Fitting then predicting returns one prediction per test sample."""
         train_data, test_data = regression_data
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
@@ -185,6 +365,7 @@ class TestPairwiseDifferenceRegressor:
         assert len(predictions) == len(test_data.target)
 
     def test_predict_samples(self, regression_data):
+        """``_predict_samples`` returns per-anchor samples and deltas with matching shapes."""
         train_data, test_data = regression_data
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
@@ -192,16 +373,20 @@ class TestPairwiseDifferenceRegressor:
         regressor.fit(train_data)
 
         # Test _predict_samples
-        prediction_samples, pred_diff_samples = regressor._predict_samples(test_data)
+        prediction_samples, pred_diff_samples = regressor._predict_samples(
+            test_data)
 
         # Check shapes
-        assert prediction_samples.shape == (len(test_data.features), len(train_data.features))
-        assert pred_diff_samples.shape == (len(test_data.features), len(train_data.features))
+        assert prediction_samples.shape == (
+            len(test_data.features), len(train_data.features))
+        assert pred_diff_samples.shape == (
+            len(test_data.features), len(train_data.features))
 
     # Skip testing learn_anchor_weights due to complexity
     # This would require mocking _name_to_method_mapping and detailed implementation knowledge
 
     def test_set_sample_weight(self, regression_data):
+        """``set_sample_weight`` accepts matching weights and rejects wrong lengths."""
         train_data, _ = regression_data
         params = OperationParameters(model='treg', n_estimators=10)
         regressor = PairwiseDifferenceRegressor(params)
@@ -209,10 +394,12 @@ class TestPairwiseDifferenceRegressor:
         regressor.fit(train_data)
 
         # Create a mock attribute for testing
-        regressor.y_train_ = pd.Series(train_data.target, index=pd.RangeIndex(len(train_data.target)))
+        regressor.y_train_ = pd.Series(
+            train_data.target, index=pd.RangeIndex(len(train_data.target)))
 
         # Test setting valid sample weights
-        weights = pd.Series([1] * len(train_data.target), index=regressor.y_train_.index)
+        weights = pd.Series([1] * len(train_data.target),
+                            index=regressor.y_train_.index)
         regressor.set_sample_weight(weights)
         assert regressor.sample_weight_ is weights
 

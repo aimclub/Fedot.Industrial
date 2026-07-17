@@ -54,7 +54,8 @@ def test_pdl_classifier_predicts_probabilities_and_decodes_original_labels():
     model.fit(_classification_input(features, target))
     proba = model.predict_proba(features)
     labels = model.predict(features)
-    fit_prediction = model.predict_for_fit(_classification_input(features, target))
+    fit_prediction = model.predict_for_fit(
+        _classification_input(features, target))
 
     assert proba.shape == (6, 3)
     np.testing.assert_allclose(proba.sum(axis=1), np.ones(6))
