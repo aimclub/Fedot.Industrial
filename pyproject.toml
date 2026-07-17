@@ -17,6 +17,7 @@ scikit-tda = "^1.1.1"
 chardet = "^5.2.0"
 tensorly = "^0.9.0"
 pymonad = "^2.4.0"
+setuptools = ">=70"
 pywavelets = "^1.5.0"
 mklpy = "^0.6"
 librosa = "^0.10.2.post1"
@@ -45,6 +46,7 @@ dependencies = [
     "chardet>=5.2.0",
     "tensorly>=0.9.0",
     "pymonad>=2.4.0",
+    "setuptools>=70",
     "pywavelets>=1.5.0",
     "mklpy>=0.6",
     "librosa>=0.10.2.post1",
