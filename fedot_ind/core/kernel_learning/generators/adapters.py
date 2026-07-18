@@ -768,7 +768,17 @@ def _topological_spec() -> OperationSpec:
         name="topological_extractor",
         module_path="fedot_ind.core.operation.transformation.representation.topological.topological_extractor",
         class_name="TopologicalExtractor",
-        params={"window_size": 10, "stride": 1, "use_cache": False},
+        params={
+            "window_size_as_share": 0.1,
+            "stride": 1, 
+            "delay": 1,
+            "max_homology_dimension": 2,
+            "filtration_type": "vietoris-rips",
+            "backend": "gtda",
+            "multivariate_strategy": "independent",
+            "use_cache": False
+        },
+        use_torch=True,
     )
 
 
@@ -790,7 +800,7 @@ def _riemann_spec() -> OperationSpec:
                 "SPD_metric": "riemann",
                 "tangent_metric": "riemann",
                 "extraction_strategy": "ensemble",
-                "centroid_strategy": "riemann",
+                "centroid_strategy": "class-wise",
                 "centroid_type": "mean",
                 "use_cache": False
                 },

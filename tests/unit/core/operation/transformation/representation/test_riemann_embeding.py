@@ -10,6 +10,7 @@ from typing import Optional, Any
 
 import numpy as np
 import pytest
+import re
 from fedot_ind.core.kernel_learning import (
     BudgetedRepositoryFeatureGeneratorAdapter,
     GeneratorBudgetPolicy,
@@ -261,6 +262,7 @@ def test_riemann_extractor_transform_before_fit_raises_warning(spd_data):
 
 @patch('fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding.distance')
 def test_riemann_extractor_distance_uses_spd_metric(mock_distance, spd_data):
+
     mock_distance.return_value = np.ones(10)
     
     extractor = RiemannExtractor({
@@ -276,3 +278,34 @@ def test_riemann_extractor_distance_uses_spd_metric(mock_distance, spd_data):
     mock_distance.assert_called()
     call_kwargs = mock_distance.call_args[1]
     assert call_kwargs.get('metric') == 'logeuclid'
+
+def test_riemann_extractor_returns_warning_for_one_dimensional_input():
+
+    extractor = RiemannExtractor({'extraction_strategy': 'mdm'})
+    X = np.array([
+        [1.0, 2.0, 3.0, 4.0, 5.0],
+        [2.0, 3.0, 4.0, 5.0, 6.0]
+    ])
+    
+    with pytest.warns(UserWarning):
+        extractor._prepare_tensor(X)
+
+def test_riemann_extractor_uses_default_registry_path_for_small_input():
+
+    pytest.importorskip("fedot")
+    pytest.importorskip("torch")
+    
+    generator = create_feature_generator("riemann_extractor")
+
+    X = np.random.randn(2, 3, 4)
+    y = np.array([0, 1])
+
+    bundle = generator.fit_transform(X, y)
+
+    assert bundle.diagnostics.get("skipped") is not True, \
+        f"Extractor failed and used fallback. Reason: {bundle.diagnostics.get('budget', {}).get('skip_reason')}"
+    
+    assert bundle.diagnostics.get("source") == "fedot_industrial_operation", \
+        f"Expected 'fedot_industrial_operation', got '{bundle.diagnostics.get('source')}'"
+
+    assert np.all(np.isfinite(bundle.features))

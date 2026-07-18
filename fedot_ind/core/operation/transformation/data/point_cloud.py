@@ -44,6 +44,12 @@ class PointCloudBuilder:
         self.config = config
 
     def build(self, ts_data: Union[torch.Tensor, np.ndarray, list]) -> torch.Tensor:
+        """Building a point cloud from the given time series data using Takens' embedding theorem.
+        Args:
+            ts_data: Time series data as a tensor, numpy array, or list.
+        Returns:
+            A tensor representing the constructed point cloud.
+        """
         ts_tensor = self._prepare_input(ts_data)
         
         b, c, n = ts_tensor.shape
@@ -89,6 +95,24 @@ class PointCloudBuilder:
 
         return ts_data
 
+    def build_trajectory_matrix(self, ts_data: Union[torch.Tensor, np.ndarray, list]) -> torch.Tensor:
+        """
+        Constructs the trajectory matrix from the time series data based on the embedding configuration.
+        The trajectory matrix is a 3D tensor of shape (B, C, num_windows, W) for 'independent' strategy 
+        or (B, num_windows, C * W) for 'joint' strategy.
+        """
+        # (B, num_windows, C * W)
+        point_cloud = self.build(ts_data)
+        
+        if self.config.multivariate_strategy == 'joint':
+            # (B, num_windows, C * W) -> (B, C * W, num_windows)
+            trajectory_matrix = point_cloud.transpose(1, 2)
+        else:
+            # (B, num_windows, C * W) -> (B, C, W, num_windows)
+            trajectory_matrix = point_cloud.transpose(2, 3)
+            
+        return trajectory_matrix
+
 @dataclass
 class PersistenceConfig:
     homology_dimensions: Tuple[int, ...] = (0, 1, 2)
@@ -129,7 +153,16 @@ class PersistenceDiagramsExtractor:
     def _compute_distance_matrix(self, point_clouds: torch.Tensor) -> np.ndarray:
         pc_tensor = point_clouds.to(self._device)
         with torch.no_grad():
-            dist_matrix = torch.cdist(pc_tensor, pc_tensor, p=self.config.distance_metric)
+            if self.config.distance_metric == 'euclidean':
+                dist_matrix = torch.cdist(pc_tensor, pc_tensor, p=2.0)
+            elif self.config.distance_metric == 'manhattan':
+                dist_matrix = torch.cdist(pc_tensor, pc_tensor, p=1.0)
+            elif self.config.distance_metric == 'cosine':
+                pc_norm = torch.nn.functional.normalize(pc_tensor, p=2, dim=-1)
+                dist_matrix = 1.0 - torch.bmm(pc_norm, pc_norm.transpose(1, 2))
+                dist_matrix = torch.clamp(dist_matrix, min=0.0)
+            else:
+                raise ValueError(f"Unsupported metric: {self.config.distance_metric}")
         return dist_matrix.cpu().numpy()
 
     def _compute_alpha(self, point_clouds: torch.Tensor) -> np.ndarray:
@@ -197,205 +230,16 @@ class PersistenceDiagramsExtractor:
     def _normalize(self, diagrams: np.ndarray) -> np.ndarray:
         if not self.config.normalize or diagrams.size == 0:
             return diagrams
-            
-        if self.config.backend == 'gtda' or self.config.filtration_type == 'alpha':
-            scaler = Scaler(function=lambda x: float(np.max(x)), n_jobs=-1)
-            return scaler.fit_transform(diagrams)
-        else:
-            for i in range(diagrams.shape[0]):
-                max_val = np.max(diagrams[i, :, :2])
-                if max_val > 0:
-                    diagrams[i, :, :2] /= max_val
+
+        coords = diagrams[:, :, :2]
+        finite_mask = np.isfinite(coords)
+        if not np.any(finite_mask):
             return diagrams
+        
+        max_val = float(np.max(coords[finite_mask]))
 
-
-
-class TopologicalTransformation:
-    """Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-    recorded at equal intervals.
-
-    Args:
-        time_series: Time series to be decomposed.
-        max_simplex_dim: Maximum dimension of the simplices to be used in the Rips filtration.
-        epsilon: Maximum distance between two points to be considered connected by an edge in the Rips filtration.
-        persistence_params: ...
-        window_length: Length of the window to be used in the rolling window function.
-
-    Attributes:
-        epsilon_range (np.ndarray): Range of epsilon values to be used in the Rips filtration.
-
-    """
-
-    def __init__(self,
-                 time_series: np.ndarray = None,
-                 max_simplex_dim: int = None,
-                 epsilon: int = 10,
-                 persistence_params: dict = None,
-                 window_length: int = None,
-                 stride: int = 1):
-        self.time_series = time_series
-        self.stride = stride
-        self.max_simplex_dim = max_simplex_dim
-        self.epsilon_range = self.__create_epsilon_range(epsilon)
-        self.persistence_params = persistence_params
-
-        if self.persistence_params is None:
-            self.persistence_params = {
-                'coeff': 2,
-                'do_cocycles': False,
-                'verbose': False}
-
-        self.__window_length = window_length
-
-    @staticmethod
-    def __create_epsilon_range(epsilon):
-        return np.array([y * float(1 / epsilon) for y in range(epsilon)])
-
-    @staticmethod
-    def __compute_persistence_landscapes(ts):
-
-        N = len(ts)
-        I = np.arange(N - 1)
-        J = np.arange(1, N)
-        V = np.maximum(ts[0:-1], ts[1::])
-
-        # Add vertex birth times along the diagonal of the distance matrix
-        I = np.concatenate((I, np.arange(N)))
-        J = np.concatenate((J, np.arange(N)))
-        V = np.concatenate((V, ts))
-
-        # Create the sparse distance matrix
-        D = sparse.coo_matrix((V, (I, J)), shape=(N, N)).tocsr()
-        dgm0 = ripser(D, maxdim=0, distance_matrix=True)['dgms'][0]
-        dgm0 = dgm0[dgm0[:, 1] - dgm0[:, 0] > 1e-3, :]
-
-        allgrid = np.unique(dgm0.flatten())
-        allgrid = allgrid[allgrid < np.inf]
-
-        xs = np.unique(dgm0[:, 0])
-        ys = np.unique(dgm0[:, 1])
-        ys = ys[ys < np.inf]
-
-    def time_series_to_point_cloud(self,
-                                   input_data: np.array = None,
-                                   dimension_embed=3,
-                                   use_gtda=False) -> np.array:
-        """Convert a time series into a point cloud in the dimension specified by dimension_embed.
-
-        Args:
-            input_data: Time series to be converted.
-            dimension_embed: dimension of Euclidean space in which to embed the time series into by taking
-            windows of dimension_embed length, e.g. if the time series is ``[t_1,...,t_n]`` and dimension_embed
-            is ``2``, then the point cloud would be ``[(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]``
-
-        Returns:
-            Collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
-            in the manner explained above.
-
-        """
-
-        if self.__window_length is None:
-            self.__window_length = dimension_embed
-        if use_gtda:
-            pcd = self.gtda_time_series_to_pcd(input_data, dimension_embed)
-        else:
-            trajectory_transformer = HankelMatrix(time_series=input_data,
-                                                  window_size=self.__window_length,
-                                                  strides=self.stride)
-            pcd = trajectory_transformer.trajectory_matrix
-        return pcd
-
-    def gtda_time_series_to_pcd(self,
-                                input_data: np.array = None,
-                                dimension_embed=3) -> np.array:
-        embedder_periodic = SingleTakensEmbedding(
-            parameters_type="fixed",
-            n_jobs=2,
-            time_delay=self.__window_length,
-            dimension=dimension_embed,
-            stride=self.stride,
-        )
-        embedding = embedder_periodic.fit_transform(input_data)
-        return embedding
-
-    def point_cloud_to_persistent_cohomology_ripser(
-            self, point_cloud: np.array = None, max_simplex_dim: int = 1):
-
-        # ensure epsilon_range is a numpy array
-        epsilon_range = self.epsilon_range
-
-        # build filtration
-        self.persistence_params['maxdim'] = max_simplex_dim
-        filtration = Rips(**self.persistence_params)
-
-        if point_cloud is None:
-            point_cloud = self.time_series_to_point_cloud()
-
-        # initialize persistence diagrams
-        diagrams = filtration.fit_transform(point_cloud)
-        # Instantiate persistence landscape transformer
-        # plot_diagrams(diagrams)
-
-        # normalize epsilon distance in diagrams so max is 1
-        diagrams = [np.array([dg for dg in diag if np.isfinite(dg).all()])
-                    for diag in diagrams]
-        # diagrams = diagrams / max([np.array([dg for dg in diag if np.isfinite(
-        # dg).all()]).max() for diag in diagrams if diag.shape[0] > 0])
-
-        diagrams = [d / max([np.array([dg for dg in diag if np.isfinite(
-            dg).all()]).max() for diag in diagrams if diag.shape[0] > 0]) for d in diagrams]
-
-        ep_ran_len = len(epsilon_range)
-
-        homology = {dimension: np.zeros(ep_ran_len).tolist(
-        ) for dimension in range(max_simplex_dim + 1)}
-
-        for dimension, diagram in enumerate(diagrams):
-            if dimension <= max_simplex_dim and len(diagram) > 0:
-                homology[dimension] = np.array(
-                    [np.array(((epsilon_range >= point[0]) & (epsilon_range <= point[1])).astype(int))
-                     for point in diagram
-                     ]).sum(axis=0).tolist()
-
-        return homology
-
-    def time_series_to_persistent_cohomology_ripser(
-            self, time_series: np.array, max_simplex_dim: int) -> dict:
-        """Wrapper function that takes in a time series and outputs the persistent homology object, along with other
-        auxiliary objects.
-
-        Args:
-            time_series: Time series to be converted.
-            max_simplex_dim: Maximum dimension of the simplicial complex to be constructed.
-
-        Returns:
-            Persistent homology object. Dictionary with keys in ``range(max_simplex_dim)`` and, the value ``hom[i]``
-            is an array of length equal to ``len(epsilon_range)`` containing the betti numbers of the ``i-th`` homology
-            groups for the Rips filtration.
-
-        """
-
-        homology = self.point_cloud_to_persistent_cohomology_ripser(
-            point_cloud=time_series, max_simplex_dim=max_simplex_dim)
-        return homology
-
-    def time_series_rolling_betti_ripser(self, ts):
-
-        point_cloud = self.rolling_window(
-            array=ts, window=self.__window_length)
-        homology = self.time_series_to_persistent_cohomology_ripser(
-            point_cloud, max_simplex_dim=self.max_simplex_dim)
-        df_features = pd.DataFrame(data=homology)
-        cols = ["Betti_{}".format(i) for i in range(df_features.shape[1])]
-        df_features.columns = cols
-        df_features['Betti_sum'] = df_features.sum(axis=1)
-        return df_features
-
-    def rolling_window(self, array, window):
-        if window <= 0:
-            raise ValueError("Window size must be a positive integer.")
-        if window > len(array):
-            raise ValueError(
-                "Window size cannot exceed the length of the array.")
-        return np.array([array[i:i + window]
-                         for i in range(len(array) - window + 1)])
+        if max_val > 0:
+            coords[finite_mask] /= max_val
+            diagrams[:, :, :2] = coords
+            
+        return diagrams

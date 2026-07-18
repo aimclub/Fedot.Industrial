@@ -148,9 +148,23 @@ class RiemannExtractor(BaseExtractor):
     def _prepare_tensor(self, x: np.ndarray) -> np.ndarray:
         if not np.isfinite(x).all():
             x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
-
+        if x.ndim == 1:
+            x = x[np.newaxis, np.newaxis, :]
+        
         if x.ndim == 2:
             x = x[:, np.newaxis, :]
+        if x.shape[1] == 1:
+            warnings.warn(
+                "Input data is univariate (single channel). RiemannExtractor evaluates "
+                "cross-channel spatial covariance. For univariate series, the covariance "
+                "matrix degenerates to a scalar variance, making Riemannian manifold "
+                "projections mathematically trivial. You can use "
+                "PointCloudBuilder.build_trajectory_matrix() from"
+                "fedot_ind/core/operation/transformation/data/point_cloud.py "
+                "before extraction.",
+                UserWarning
+            )
+
         return x
 
     def _calculate_centroid(self, covmats: np.ndarray) -> np.ndarray:
