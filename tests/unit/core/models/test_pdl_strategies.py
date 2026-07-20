@@ -41,8 +41,32 @@ class TestAggregators:
         with pytest.raises(NotImplementedError, match="reserved for PR3"):
             resolve_pdl_strategies(config, task="classification")
 
+    def test_mean_similarity_aggregator_uses_uniform_probability_for_empty_rows(self):
+        proba = MeanSimilarityAggregator().aggregate(
+            np.array([[0.0, 0.0]]),
+            np.array([0, 1]),
+            n_classes=2,
+        )
+
+        np.testing.assert_allclose(proba, np.array([[0.5, 0.5]]))
+
 
 class TestErrorsInConfig:
+    @pytest.mark.parametrize(
+        "field_name, value, message",
+        [
+            ("max_pairs", 0, "max_pairs must be positive"),
+            ("anchors_per_class", 0, "anchors_per_class must be positive"),
+            ("chunk_size", 0, "chunk_size must be positive"),
+            ("class_prior_mode", "bad", "Unsupported class_prior_mode"),
+        ],
+    )
+    def test_invalid_numeric_and_prior_config_values(self, field_name, value, message):
+        config = PairwiseLearningConfig(**{field_name: value})
+
+        with pytest.raises(ValueError, match=message):
+            config.normalized()
+
     def test_error_pair_feature_mode(self):
         config = PairwiseLearningConfig(pair_feature_mode='aaaa')
         with pytest.raises(ValueError, match='Unsupported pair_feature_mode='):
@@ -101,6 +125,37 @@ class TestSamplers:
             sampler_left, [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
         np.testing.assert_array_equal(
             sampler_anchor, [1, 3, 5, 1, 3, 5, 1, 3, 5, 1, 3, 5])
+
+
+class TestAnchorSelectors:
+    def test_classification_selector_returns_all_indices_when_exact_policy_fits_budget(self):
+        selector = ClassificationAdaptiveAnchorSelector(
+            PairwiseLearningConfig(pairing_policy="exact", max_pairs=9))
+
+        anchors = selector.select(np.empty((3, 0)), np.array([0, 1, 1]))
+
+        np.testing.assert_array_equal(anchors, np.array([0, 1, 2]))
+
+    def test_classification_selector_rejects_empty_target(self):
+        selector = ClassificationAdaptiveAnchorSelector(
+            PairwiseLearningConfig())
+
+        with pytest.raises(ValueError, match="empty target"):
+            selector.select(np.empty((0, 0)), np.array([]))
+
+    def test_regression_selector_returns_all_indices_when_exact_policy_fits_budget(self):
+        selector = RegressionEvenAnchorSelector(
+            PairwiseLearningConfig(pairing_policy="exact", max_pairs=9))
+
+        anchors = selector.select(np.empty((3, 0)), np.array([0.0, 1.0, 2.0]))
+
+        np.testing.assert_array_equal(anchors, np.array([0, 1, 2]))
+
+    def test_regression_selector_rejects_empty_target(self):
+        selector = RegressionEvenAnchorSelector(PairwiseLearningConfig())
+
+        with pytest.raises(ValueError, match="empty target"):
+            selector.select(np.empty((0, 0)), np.array([]))
 
 
 class TestStrategies:

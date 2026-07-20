@@ -17,6 +17,7 @@ from fedot_ind.core.models.pdl.pairwise_model import (
     PairwiseDifferenceEstimator,
     PairwiseDifferenceClassifier,
     PairwiseDifferenceRegressor,
+    _operation_params_to_dict,
 )
 
 
@@ -306,6 +307,15 @@ class TestPairwiseDifferenceClassifier:
         assert np.all(predictions >= 0)
         assert np.all(predictions < classifier.num_classes)
 
+    def test_fit_rejects_missing_target_and_single_class(self):
+        classifier = PairwiseDifferenceClassifier(
+            OperationParameters(model='rf', n_estimators=2))
+
+        with pytest.raises(ValueError, match="expects target labels"):
+            classifier.fit(np.ones((3, 2)))
+        with pytest.raises(ValueError, match="at least two classes"):
+            classifier.fit(np.ones((3, 2)), np.zeros(3, dtype=int))
+
     def test_predict_proba(self, classification_data):
         """``predict_proba`` returns a row-stochastic probability matrix."""
         train_data, test_data = classification_data
@@ -322,6 +332,21 @@ class TestPairwiseDifferenceClassifier:
         assert np.allclose(np.sum(proba, axis=1), np.ones(
             len(test_data.target)), atol=1e-10)
 
+    def test_predict_probability_modes_delegate_consistently(self, classification_data):
+        train_data, test_data = classification_data
+        classifier = PairwiseDifferenceClassifier(
+            OperationParameters(model='rf', n_estimators=5))
+        classifier.fit(train_data)
+
+        proba_from_predict = classifier.predict(test_data, output_mode='proba')
+        labels_from_proba = classifier.predict_proba(
+            test_data, output_mode='labels')
+        labels_from_fit = classifier.predict_for_fit(
+            test_data, output_mode='labels')
+
+        assert proba_from_predict.shape[0] == len(test_data.target)
+        assert labels_from_proba.shape == labels_from_fit.shape
+
     def test_score_difference(self, classification_data):
         """``score_difference`` returns a MAE-like value within ``[0, 1]``."""
         train_data, test_data = classification_data
@@ -334,6 +359,14 @@ class TestPairwiseDifferenceClassifier:
         score = classifier.score_difference(test_data)
         assert isinstance(score, float)
         assert 0 <= score <= 1  # MAE value should be between 0 and 1
+
+    def test_score_difference_rejects_missing_raw_target(self):
+        classifier = PairwiseDifferenceClassifier(
+            OperationParameters(model='rf', n_estimators=2))
+        classifier.fit(np.array([[0.0], [1.0]]), np.array([0, 1]))
+
+        with pytest.raises(ValueError, match="expects target labels"):
+            classifier.score_difference(np.array([[0.0], [1.0]]))
 
 
 class TestPairwiseDifferenceRegressor:
@@ -364,6 +397,15 @@ class TestPairwiseDifferenceRegressor:
         predictions = regressor.predict(test_data)
         assert len(predictions) == len(test_data.target)
 
+    def test_fit_rejects_missing_target_and_predict_rejects_unfitted_model(self):
+        regressor = PairwiseDifferenceRegressor(
+            OperationParameters(model='treg', n_estimators=2))
+
+        with pytest.raises(ValueError, match="expects target values"):
+            regressor.fit(np.ones((3, 2)))
+        with pytest.raises(ValueError, match="is not fitted yet"):
+            regressor.predict(np.ones((3, 2)))
+
     def test_predict_samples(self, regression_data):
         """``_predict_samples`` returns per-anchor samples and deltas with matching shapes."""
         train_data, test_data = regression_data
@@ -381,6 +423,17 @@ class TestPairwiseDifferenceRegressor:
             len(test_data.features), len(train_data.features))
         assert pred_diff_samples.shape == (
             len(test_data.features), len(train_data.features))
+
+    def test_predict_proba_and_predict_for_fit_return_point_predictions(self, regression_data):
+        train_data, test_data = regression_data
+        regressor = PairwiseDifferenceRegressor(
+            OperationParameters(model='treg', n_estimators=5))
+        regressor.fit(train_data)
+
+        np.testing.assert_allclose(regressor.predict_proba(
+            test_data), regressor.predict(test_data))
+        np.testing.assert_allclose(regressor.predict_for_fit(
+            test_data), regressor.predict(test_data))
 
     # Skip testing learn_anchor_weights due to complexity
     # This would require mocking _name_to_method_mapping and detailed implementation knowledge
@@ -407,3 +460,43 @@ class TestPairwiseDifferenceRegressor:
         with pytest.raises(ValueError):
             invalid_weights = pd.Series([1, 2])  # Wrong length
             regressor.set_sample_weight(invalid_weights)
+
+    def test_set_sample_weight_array_paths(self, regression_data):
+        train_data, _ = regression_data
+        regressor = PairwiseDifferenceRegressor(
+            OperationParameters(model='treg', n_estimators=5, max_pairs=10_000))
+        regressor.fit(train_data)
+
+        regressor.set_sample_weight(np.ones(len(regressor.anchor_indices_)))
+        assert np.isclose(np.sum(regressor.sample_weight_), 1.0)
+
+        regressor.set_sample_weight(np.zeros(len(regressor.anchor_indices_)))
+        np.testing.assert_allclose(
+            regressor.sample_weight_,
+            np.repeat(1.0 / len(regressor.anchor_indices_),
+                      len(regressor.anchor_indices_)),
+        )
+        with pytest.raises(ValueError, match="anchor size"):
+            regressor.set_sample_weight(
+                np.ones(len(regressor.anchor_indices_) + 1))
+        with pytest.raises(ValueError, match="non-finite"):
+            regressor.set_sample_weight(
+                np.full(len(regressor.anchor_indices_), np.nan))
+
+
+def test_operation_params_to_dict_accepts_none_dict_and_iterable_pairs():
+    assert _operation_params_to_dict(None) == {}
+    assert _operation_params_to_dict({"a": 1}) == {"a": 1}
+    assert _operation_params_to_dict([("a", 1), ("b", 2)]) == {"a": 1, "b": 2}
+
+
+def test_pairwise_estimator_predict_can_shift_label_origin():
+    probabilities = np.array([[0.1, 0.9], [0.8, 0.2]])
+
+    shifted = PairwiseDifferenceEstimator.predict(
+        probabilities,
+        output_mode='labels',
+        min_label_zero=False,
+    )
+
+    np.testing.assert_array_equal(shifted, np.array([[2], [1]]))

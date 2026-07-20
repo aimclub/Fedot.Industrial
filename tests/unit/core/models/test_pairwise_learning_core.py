@@ -14,7 +14,14 @@ from fedot_ind.core.models.pdl.pairwise_core import (
     _predict_same_probability,
     torch,
 )
+from fedot_ind.core.models.pdl import pair_features as pair_features_module
 from fedot_ind.core.models.pdl.anchors import ClassificationAdaptiveAnchorSelector
+from fedot_ind.core.models.pdl.diagnostics import pair_target_semantics
+from fedot_ind.core.models.pdl.pair_features import (
+    _build_pair_features_torch,
+    normalize_feature_matrix,
+    resolve_pairwise_backend,
+)
 
 
 def test_numpy_and_torch_pair_builders_match_on_small_arrays():
@@ -171,3 +178,145 @@ def test_backward_compatible_anchor_and_aggregation_helpers():
     assert set(clf_anchors.tolist()) == {0, 2}
     np.testing.assert_array_equal(reg_anchors, np.array([0]))
     np.testing.assert_allclose(proba.sum(axis=1), np.ones(2))
+
+
+def test_normalize_feature_matrix_handles_scalar_vector_tensor_and_non_finite():
+    np.testing.assert_allclose(
+        normalize_feature_matrix(3.0), np.array([[3.0]]))
+    np.testing.assert_allclose(normalize_feature_matrix(
+        [1.0, 2.0]), np.array([[1.0], [2.0]]))
+
+    tensor_like = np.array([[[1.0, np.nan], [np.inf, -np.inf]]])
+    normalized = normalize_feature_matrix(tensor_like)
+
+    assert normalized.shape == (1, 4)
+    np.testing.assert_allclose(normalized, np.array([[1.0, 0.0, 0.0, 0.0]]))
+
+
+@pytest.mark.parametrize(
+    "mode, expected",
+    [
+        ("concat_absdiff", [[1.0, 3.0, 4.0, 1.0, 3.0, 2.0]]),
+        ("diff_only", [[-3.0, 2.0]]),
+    ],
+)
+def test_build_pair_features_covers_non_default_modes(mode, expected):
+    pairs = build_pair_features(
+        np.array([[1.0, 3.0]]),
+        np.array([[4.0, 1.0]]),
+        PairwiseLearningConfig(backend="numpy", pair_feature_mode=mode),
+    )
+
+    np.testing.assert_allclose(pairs, np.asarray(expected, dtype=np.float32))
+
+
+def test_pair_feature_helpers_report_invalid_inputs():
+    with pytest.raises(ValueError, match="Unsupported pair feature mode"):
+        pair_feature_dim(3, "unknown")
+
+    with pytest.raises(ValueError, match="equal feature counts"):
+        build_pair_features(
+            np.ones((2, 2)),
+            np.ones((1, 3)),
+            PairwiseLearningConfig(backend="numpy"),
+        )
+
+
+def test_resolve_pairwise_backend_reports_unavailable_torch(monkeypatch):
+    monkeypatch.setattr(pair_features_module, "torch", None)
+
+    assert resolve_pairwise_backend("auto") == ("numpy", None)
+    with pytest.raises(RuntimeError, match="torch is unavailable"):
+        resolve_pairwise_backend("cuda")
+    with pytest.raises(ValueError, match="Unsupported PDL backend"):
+        resolve_pairwise_backend("unknown")
+
+
+def test_resolve_pairwise_backend_reports_unavailable_cuda(monkeypatch):
+    class _FakeCuda:
+        @staticmethod
+        def is_available():
+            return False
+
+    class _FakeTorch:
+        cuda = _FakeCuda()
+
+        @staticmethod
+        def device(name):
+            return f"device:{name}"
+
+    monkeypatch.setattr(pair_features_module, "torch", _FakeTorch)
+
+    assert resolve_pairwise_backend("cpu") == ("torch_cpu", "device:cpu")
+    with pytest.raises(RuntimeError, match="CUDA is unavailable"):
+        resolve_pairwise_backend("cuda")
+
+
+def test_torch_pair_feature_builder_modes_with_fake_torch(monkeypatch):
+    class _FakeTensor:
+        def __init__(self, values):
+            self.values = np.asarray(values, dtype=np.float32)
+
+        @property
+        def shape(self):
+            return self.values.shape
+
+        def repeat_interleave(self, repeats, dim=0):
+            return _FakeTensor(np.repeat(self.values, repeats, axis=dim))
+
+        def repeat(self, repeats, axis_repeats):
+            return _FakeTensor(np.tile(self.values, (repeats, axis_repeats)))
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return self.values
+
+        def __sub__(self, other):
+            return _FakeTensor(self.values - other.values)
+
+    class _FakeTorch:
+        float32 = np.float32
+
+        @staticmethod
+        def as_tensor(values, dtype=None, device=None):
+            del dtype, device
+            return _FakeTensor(values)
+
+        @staticmethod
+        def cat(tensors, dim=1):
+            return _FakeTensor(np.concatenate([tensor.values for tensor in tensors], axis=dim))
+
+        @staticmethod
+        def abs(tensor):
+            return _FakeTensor(np.abs(tensor.values))
+
+    monkeypatch.setattr(pair_features_module, "torch", _FakeTorch)
+
+    diff = _build_pair_features_torch(
+        np.array([[1.0, 3.0]]),
+        np.array([[4.0, 1.0]]),
+        "diff_only",
+        device=None,
+    )
+    absdiff = _build_pair_features_torch(
+        np.array([[1.0, 3.0]]),
+        np.array([[4.0, 1.0]]),
+        "concat_absdiff",
+        device=None,
+    )
+
+    np.testing.assert_allclose(diff, np.array([[-3.0, 2.0]], dtype=np.float32))
+    np.testing.assert_allclose(
+        absdiff,
+        np.array([[1.0, 3.0, 4.0, 1.0, 3.0, 2.0]], dtype=np.float32),
+    )
+
+
+def test_pair_target_semantics_rejects_unknown_task():
+    with pytest.raises(ValueError, match="Unsupported PDL task"):
+        pair_target_semantics(task="forecasting")

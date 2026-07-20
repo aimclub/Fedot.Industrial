@@ -231,7 +231,7 @@ class TestSampleWeights:
 
     # @patch('fedot_ind.core.models.pdl.pairwise_transform.minimize')
     @patch('fedot_ind.core.models.pdl.legacy_pairwise_transform.minimize')
-    def _test_sample_weight_optimize(
+    def test_sample_weight_optimize(
             self,
             mock_minimize,
             sample_weights_instance,
@@ -246,7 +246,8 @@ class TestSampleWeights:
         with patch.object(
             SampleWeights,
             '_predict_samples',
-            return_value=(pd.DataFrame(np.random.rand(3, 5)), None)
+            return_value=(pd.DataFrame(np.random.rand(3, 5)), None),
+            create=True,
         ):
             # Configure minimize mock
             mock_result = MagicMock()
@@ -263,14 +264,14 @@ class TestSampleWeights:
             assert len(result) == len(mock_training_data)
             assert np.isclose(result.sum(), 1.0)
 
-    def _test_sample_weight_ordered_votes_from_weights(self, sample_weights_instance):
+    def test_sample_weight_ordered_votes_from_weights(self, sample_weights_instance):
         """Test _sample_weight_ordered_votes_from_weights static method."""
         received_weights = np.array([0.1, 0.3, 0.2, 0.4])
         result = SampleWeights._sample_weight_ordered_votes_from_weights(
             received_weights)
 
-        # Should assign weights based on rank (higher values of received_weights get lower ranks)
-        expected = np.array([4, 2, 3, 1]) / 10  # Ranks converted to weights
+        # Highest received weight gets the largest rank-derived vote.
+        expected = np.array([0.1, 0.3, 0.2, 0.4])
         assert np.allclose(result, expected)
 
     @patch.object(SampleWeights, '_sample_weight_negative_error')
@@ -296,3 +297,98 @@ class TestSampleWeights:
                 X_val, y_val, force_symmetry=True)
             mock_ordered.assert_called_once_with(mock_neg_error.return_value)
             assert np.array_equal(result, np.array([0.2, 0.2, 0.2, 0.2, 0.2]))
+
+    def test_error_inverse_and_negative_error_weighting(self, sample_weights_instance):
+        """Legacy weighting helpers normalize per-anchor validation errors."""
+        sample_weights_instance.X_train_ = pd.DataFrame(index=[0, 1, 2])
+        prediction_samples = pd.DataFrame(
+            {
+                0: [1.0, 2.0, 3.0],
+                1: [1.0, 2.0, 4.0],
+                2: [3.0, 3.0, 3.0],
+            },
+            index=[0, 1, 2],
+        )
+        y_val = pd.Series([1.0, 2.0, 3.0], index=[0, 1, 2])
+
+        with patch.object(
+            sample_weights_instance,
+            '_predict_samples',
+            return_value=(prediction_samples, None),
+            create=True,
+        ):
+            val_mae = sample_weights_instance._error(
+                pd.DataFrame({"x": [0, 1, 2]}), y_val)
+            inverse_weights = sample_weights_instance._sample_weight_inverse_error(
+                pd.DataFrame({"x": [0, 1, 2]}), y_val)
+            negative_weights = sample_weights_instance._sample_weight_negative_error(
+                pd.DataFrame({"x": [0, 1, 2]}), y_val)
+
+        np.testing.assert_allclose(
+            val_mae.to_numpy(), np.array([0.0, 1.0 / 3.0, 1.0]))
+        assert np.isclose(inverse_weights.sum(), 1.0)
+        assert np.isclose(negative_weights.sum(), 1.0)
+        assert inverse_weights.iloc[0] > inverse_weights.iloc[-1]
+
+    def test_negative_error_returns_uniform_weights_for_zero_or_degenerate_errors(
+            self,
+            sample_weights_instance):
+        sample_weights_instance.X_train_ = pd.DataFrame(index=[0, 1, 2])
+
+        with patch.object(sample_weights_instance, '_error', return_value=pd.Series([0.0, 0.0, 0.0])):
+            zero_weights = sample_weights_instance._sample_weight_negative_error(
+                pd.DataFrame({"x": [0]}), pd.Series([0.0]))
+        with patch.object(sample_weights_instance, '_error', return_value=pd.Series([1.0, 1.0, 1.0])):
+            flat_weights = sample_weights_instance._sample_weight_negative_error(
+                pd.DataFrame({"x": [0]}), pd.Series([0.0]))
+
+        np.testing.assert_allclose(
+            zero_weights.to_numpy(), np.repeat(1 / 3, 3))
+        np.testing.assert_allclose(
+            flat_weights.to_numpy(), np.repeat(1 / 3, 3))
+
+    def test_sample_weight_extreme_pruning_retries_until_weights_are_not_sparse(
+            self,
+            sample_weights_instance):
+        sparse = pd.Series([0.0] * 10 + [1.0])
+        dense = pd.Series(np.repeat(1 / 11, 11))
+        with patch.object(
+            sample_weights_instance,
+            '_sample_weight_optimize',
+            side_effect=[sparse, dense],
+        ) as mock_optimize:
+            result = sample_weights_instance._sample_weight_extreme_pruning(
+                pd.DataFrame({"x": [0]}), pd.Series([0.0]))
+
+        assert mock_optimize.call_count == 2
+        assert result.equals(dense)
+
+    @patch('fedot_ind.core.models.pdl.legacy_pairwise_transform.cdist')
+    @patch('fedot_ind.core.models.pdl.legacy_pairwise_transform.KMeans')
+    def test_sample_weight_by_kmeans_prototypes_marks_closest_rows(
+            self,
+            mock_kmeans_cls,
+            mock_cdist,
+            sample_weights_instance):
+        sample_weights_instance.X_train_ = pd.DataFrame(
+            {"x": [0.0, 1.0, 2.0], "y": [0.0, 1.0, 2.0]},
+            index=["a", "b", "c"],
+        )
+        mock_kmeans = MagicMock()
+        mock_kmeans.cluster_centers_ = np.array([[0.0, 0.0], [2.0, 2.0]])
+        mock_kmeans_cls.return_value = mock_kmeans
+        mock_cdist.return_value = np.array(
+            [
+                [0.0, 3.0],
+                [1.0, 1.0],
+                [3.0, 0.0],
+            ]
+        )
+
+        weights = sample_weights_instance._sample_weight_by_kmeans_prototypes(
+            k=2)
+
+        mock_kmeans.fit.assert_called_once_with(
+            sample_weights_instance.X_train_)
+        np.testing.assert_allclose(
+            weights.to_numpy(), np.array([0.5, 0.0, 0.5]))
