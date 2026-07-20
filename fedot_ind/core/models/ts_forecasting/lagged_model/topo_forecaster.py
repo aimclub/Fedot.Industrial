@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
+import torch
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
     from fedot.core.data.data import InputData, OutputData
@@ -21,7 +22,8 @@ except Exception:  # pragma: no cover
             return type(
                 'OutputData',
                 (),
-                {'predict': predict, 'data_type': data_type, 'idx': getattr(input_data, 'idx', None)},
+                {'predict': predict, 'data_type': data_type,
+                    'idx': getattr(input_data, 'idx', None)},
             )
 
     class OperationParameters(dict):  # type: ignore[override]
@@ -39,6 +41,7 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     build_hankel_trajectory_transform,
     resolve_window_size,
 )
+
 from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning import (
     build_forecasting_stage_search_spaces,
     build_forecasting_stage_tuning_plan,
@@ -51,26 +54,22 @@ from fedot_ind.core.models.ts_forecasting.forecast_tuning.stage_tuning_runtime i
     run_forecasting_stage_tuning_on_series,
 )
 
+from fedot_ind.core.operation.transformation.data.point_cloud import (
+    TopologicalEmbeddingConfig, PointCloudBuilder,
+    PersistenceConfig, PersistenceDiagramsExtractor
+)
+from fedot_ind.core.operation.transformation.representation.topological.topofeatures import (
+    BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, PersistenceEntropyFeature, TopologicalFeaturesExtractor
+)
 
-def _resolve_topological_patch_len(window_size: int, patch_len: int | None) -> int:
-    requested = int(patch_len or max(2, window_size // 2))
-    return int(max(2, min(requested, max(2, window_size - 1))))
 
-
-def _extract_topological_window_features(window: np.ndarray, *, patch_len: int, stride: int) -> np.ndarray:
-    from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
-
-    series = np.asarray(window, dtype=float).reshape(-1)
-    resolved_patch_len = _resolve_topological_patch_len(len(series), patch_len)
-    transformer = TopologicalTransformation(
-        time_series=series,
-        max_simplex_dim=1,
-        epsilon=3,
-        window_length=resolved_patch_len,
-        stride=int(max(1, stride)),
-    )
-    betti = transformer.time_series_rolling_betti_ripser(series)
-    return np.asarray(betti, dtype=float).reshape(-1)
+def _default_topological_features() -> dict[str, object]:
+    return {
+        'holes_num': HolesNumberFeature(max_homology_dim=1),
+        'max_lifetime': MaxHoleLifeTimeFeature(max_homology_dim=1),
+        'entropy': PersistenceEntropyFeature(max_homology_dim=1),
+        'betti_sum': BettiNumbersSumFeature(max_homology_dim=1),
+    }
 
 
 @dataclass
@@ -86,13 +85,72 @@ class TopologicalRidgeForecaster:
     channel_model: str = 'ridge'
     device: str = 'auto'
     dtype: str = 'float32'
+    filtration_type: str = 'vietoris-rips'
+    homology_dimensions: tuple[int, ...] = (0, 1)
+    features_dict: dict[str, object] = field(
+        default_factory=_default_topological_features)
+    multivariate_strategy: str = 'independent'
 
     def __post_init__(self):
         resolved_channel_model = str(self.channel_model).lower()
         if resolved_channel_model != 'ridge':
-            raise ValueError("TopologicalRidgeForecaster currently supports only channel_model='ridge'.")
-        self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
+            raise ValueError(
+                "TopologicalRidgeForecaster currently supports only channel_model='ridge'.")
+        self.device_policy_ = TensorDevicePolicy(
+            device=self.device, dtype=self.dtype)
         self.runtime_ = ForecastingRuntimeAdapter(self.device_policy_)
+
+        embed_config = TopologicalEmbeddingConfig(
+            window_size=self.patch_len,
+            stride=self.stride,
+            delay=1,
+            multivariate_strategy=self.multivariate_strategy
+        )
+        self.point_cloud_builder_ = PointCloudBuilder(embed_config)
+
+        dist_device = 'cuda' if 'cuda' in str(
+            self.device_policy_.device) else 'cpu'
+        pers_config = PersistenceConfig(
+            homology_dimensions=self.homology_dimensions,
+            filtration_type=self.filtration_type,
+            normalize=True,
+            distance_device=dist_device
+        )
+        self.persistence_extractor_ = PersistenceDiagramsExtractor(pers_config)
+
+        self.feature_extractor_ = TopologicalFeaturesExtractor(
+            self.features_dict)
+
+    @torch.no_grad()
+    def _transform_windows(self, windows: np.ndarray) -> np.ndarray:
+        windows_tensor = torch.tensor(
+            windows,
+            dtype=getattr(torch, self.dtype, torch.float32),
+            device=self.device_policy_.device
+        )
+
+        point_clouds = self.point_cloud_builder_.build(windows_tensor)
+
+        if self.multivariate_strategy == 'independent':
+            B, C, M, W = point_clouds.shape
+            point_clouds = point_clouds.reshape(B * C, M, W)
+
+        diagrams = self.persistence_extractor_.transform(point_clouds)
+
+        if isinstance(diagrams, np.ndarray):
+            diagrams = torch.tensor(
+                diagrams,
+                dtype=getattr(torch, self.dtype, torch.float32),
+                device=self.device_policy_.device
+            )
+
+        feature_tensors, _ = self.feature_extractor_.transform(diagrams)
+        features_tensor = torch.cat(feature_tensors, dim=1)
+
+        if self.multivariate_strategy == 'independent':
+            features_tensor = features_tensor.view(B, -1)
+
+        return features_tensor.detach().cpu().numpy()
 
     def _resolve_window_size(self, batch: ForecastTensorBatch) -> int:
         return resolve_window_size(
@@ -102,42 +160,42 @@ class TopologicalRidgeForecaster:
             window_size_percent=self.window_size_percent,
         )
 
-    def _transform_windows(self, windows: np.ndarray) -> np.ndarray:
-        feature_rows = [
-            _extract_topological_window_features(
-                row,
-                patch_len=self.patch_len,
-                stride=self.stride,
-            )
-            for row in np.asarray(windows, dtype=float)
-        ]
-        return np.asarray(feature_rows, dtype=float)
-
     def fit(self, time_series: np.ndarray) -> 'TopologicalRidgeForecaster':
         """Fit topological Hankel features and a ridge forecast head."""
-        batch = self.runtime_.make_batch(time_series, forecast_horizon=self.forecast_horizon)
+        batch = self.runtime_.make_batch(
+            time_series, forecast_horizon=self.forecast_horizon)
         self.resolved_window_size_ = self._resolve_window_size(batch)
+        self.channel_count_ = int(batch.channel_count)
         self.transform_result_ = build_hankel_trajectory_transform(
             batch,
             window_size=self.resolved_window_size_,
             stride=self.stride,
         )
-        training_windows = self.transform_result_.features.detach().cpu().numpy()
-        self.topological_features_ = self._transform_windows(training_windows)
-        self.resolved_patch_len_ = _resolve_topological_patch_len(self.resolved_window_size_, self.patch_len)
-        self.head_ = RidgeForecastingHead(alpha=self.alpha, device_policy=self.device_policy_)
-        self.head_.fit(self.topological_features_, self.transform_result_.target)
-        self.channel_count_ = int(self.transform_result_.channel_count)
+
+        training_windows = self.transform_result_.features.detach().clone()
+        if training_windows.ndim == 2:
+            training_windows = training_windows.view(
+                -1, self.channel_count_, self.resolved_window_size_)
+
+        self.topological_features_ = self._transform_windows(
+            training_windows.cpu().numpy())
+
+        self.head_ = RidgeForecastingHead(
+            alpha=self.alpha, device_policy=self.device_policy_)
+        self.head_.fit(self.topological_features_,
+                       self.transform_result_.target)
+
         self.training_history_ = batch.history.detach().clone()
         self.diagnostics_ = {
-            'model_family': 'lagged_linear',
+            'model_family': 'lagged_linear_topological',
             'trajectory_transform': {
                 **self.transform_result_.to_dict(),
-                'patch_len': int(self.resolved_patch_len_),
-                'representation': 'topological_hankel',
+                'patch_len': self.patch_len,
+                'representation': 'topological_hankel_multivariate',
             },
             'forecast_head': self.head_.get_diagnostics(),
             'runtime': batch.to_dict(),
+            'extracted_features': getattr(self, 'last_feature_names_', [])
         }
         return self
 
@@ -150,7 +208,8 @@ class TopologicalRidgeForecaster:
                 f'got requested horizon={horizon}.'
             )
         batch = self.runtime_.make_batch(
-            self.training_history_.detach().cpu().numpy() if time_series is None else time_series,
+            self.training_history_.detach().cpu().numpy(
+            ) if time_series is None else time_series,
             forecast_horizon=self.forecast_horizon,
         )
         latest_transform = build_hankel_trajectory_transform(
@@ -158,15 +217,29 @@ class TopologicalRidgeForecaster:
             window_size=self.resolved_window_size_,
             stride=self.transform_result_.stride,
         )
-        latest_features = self._transform_windows(latest_transform.latest_features.detach().cpu().numpy())
-        forecast_vector = self.head_.predict(latest_features).reshape(self.forecast_horizon, self.channel_count_)
-        forecast = forecast_vector[:horizon, 0]
+        latest_windows = latest_transform.latest_features.detach().clone()
+        if latest_windows.ndim == 2:
+            latest_windows = latest_windows.view(
+                -1, self.channel_count_, self.resolved_window_size_)
+
+        latest_features = self._transform_windows(latest_windows.cpu().numpy())
+
+        raw_forecast = self.head_.predict(latest_features)
+
+        forecast_matrix = raw_forecast.reshape(
+            self.forecast_horizon, self.channel_count_)
+        forecast = forecast_matrix[:horizon, :]
+
+        if self.channel_count_ == 1:
+            forecast = forecast.squeeze(1)
+
         self.last_prediction_diagnostics_ = {
-            'latest_feature_shape': tuple(int(value) for value in latest_transform.latest_features.shape),
+            'latest_window_shape': tuple(int(value) for value in latest_windows.shape),
             'topological_feature_shape': tuple(int(value) for value in latest_features.shape),
-            'forecast_shape': tuple(int(value) for value in forecast_vector.shape),
+            'forecast_shape': tuple(int(value) for value in forecast.shape),
         }
-        return forecast.detach().cpu().numpy()
+
+        return forecast.detach().cpu().numpy() if isinstance(forecast, torch.Tensor) else np.asarray(forecast)
 
     def get_diagnostics(self) -> dict[str, object]:
         """Return topological transform, head and last-prediction diagnostics."""
@@ -193,6 +266,13 @@ class TopologicalAR(ModelImplementation):
         self.device = str(self.params.get('device', 'auto'))
         self.model_: TopologicalRidgeForecaster | None = None
 
+        self.filtration_type = str(self.params.get(
+            'filtration_type', 'vietoris-rips'))
+        self.multivariate_strategy = str(self.params.get(
+            'multivariate_strategy', 'independent'))
+        self.homology_dimensions = self.params.get(
+            'homology_dimensions', (0, 1))
+
     def fit(self, input_data: InputData):
         """Fit the wrapped topological ridge forecaster from FEDOT InputData."""
         self.model_ = TopologicalRidgeForecaster(
@@ -204,13 +284,17 @@ class TopologicalAR(ModelImplementation):
             alpha=self.alpha,
             channel_model=self.channel_model,
             device=self.device,
+            filtration_type=self.filtration_type,
+            homology_dimensions=self.homology_dimensions,
+            multivariate_strategy=self.multivariate_strategy
         )
         self.model_.fit(np.asarray(input_data.features, dtype=float))
         return self
 
     def predict(self, input_data: InputData) -> OutputData:
         """Return FEDOT OutputData with the topological forecast."""
-        prediction = self.model_.predict(np.asarray(input_data.features, dtype=float))
+        prediction = self.model_.predict(
+            np.asarray(input_data.features, dtype=float))
         return self._convert_to_output(
             input_data,
             predict=np.asarray(prediction, dtype=float),
@@ -239,6 +323,9 @@ class TopologicalAR(ModelImplementation):
             'stride': self.stride,
             'alpha': self.alpha,
             'device': self.device,
+            'filtration_type': self.filtration_type,
+            'homology_dimensions': self.homology_dimensions,
+            'multivariate_strategy': self.multivariate_strategy
         }
         return build_forecasting_stage_tuning_plan('topo_forecaster', base_params).to_dict()
 
@@ -252,6 +339,9 @@ class TopologicalAR(ModelImplementation):
             'stride': self.stride,
             'alpha': self.alpha,
             'device': self.device,
+            'filtration_type': self.filtration_type,
+            'homology_dimensions': self.homology_dimensions,
+            'multivariate_strategy': self.multivariate_strategy
         }
         return tuple(
             stage.to_dict()
@@ -268,6 +358,9 @@ class TopologicalAR(ModelImplementation):
             'stride': self.stride,
             'alpha': self.alpha,
             'device': self.device,
+            'filtration_type': self.filtration_type,
+            'homology_dimensions': self.homology_dimensions,
+            'multivariate_strategy': self.multivariate_strategy
         }
         return build_forecasting_stage_tuning_execution(
             'topo_forecaster',
@@ -285,6 +378,9 @@ class TopologicalAR(ModelImplementation):
             'stride': self.stride,
             'alpha': self.alpha,
             'device': self.device,
+            'filtration_type': self.filtration_type,
+            'homology_dimensions': self.homology_dimensions,
+            'multivariate_strategy': self.multivariate_strategy
         }
         return run_sequential_stage_tuning(
             'topo_forecaster',
@@ -318,6 +414,9 @@ class TopologicalAR(ModelImplementation):
                 'stride': self.stride,
                 'alpha': self.alpha,
                 'device': self.device,
+                'filtration_type': self.filtration_type,
+                'homology_dimensions': self.homology_dimensions,
+                'multivariate_strategy': self.multivariate_strategy
             },
             stage_updates=stage_updates,
             metric_name=metric_name,

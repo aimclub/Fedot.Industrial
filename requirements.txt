@@ -19,3 +19,4 @@ pytest-cov==6.0.0
 
 pycaputo >= 0.10.1
 pymittagleffler>=0.1.3
+ripserplusplus>=1.1.2

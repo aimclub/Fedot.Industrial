@@ -22,6 +22,7 @@ from fedot_ind.core.kernel_learning.generators.specs import (
     eigen_spec,
     fourier_spec,
     recurrence_spec,
+    riemann_spec,
     tabular_spec,
     topological_spec,
     torch_quantile_spec,
@@ -50,11 +51,13 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
         ),
         "quantile_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="quantile_extractor",
-            operation_specs=(torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS),),
+            operation_specs=(torch_quantile_spec(
+                _DEFAULT_STATISTICAL_PARAMS),),
         ),
         "quantile_extractor_torch": lambda: RepositoryFeatureGeneratorAdapter(
             name="quantile_extractor_torch",
-            operation_specs=(torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS),),
+            operation_specs=(torch_quantile_spec(
+                _DEFAULT_STATISTICAL_PARAMS),),
         ),
         "wavelet_basis": lambda: RepositoryFeatureGeneratorAdapter(
             name="wavelet_basis",
@@ -62,7 +65,8 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
         ),
         "wavelet_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="wavelet_extractor",
-            operation_specs=(wavelet_spec(), torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS)),
+            operation_specs=(wavelet_spec(), torch_quantile_spec(
+                _DEFAULT_STATISTICAL_PARAMS)),
         ),
         "fourier_basis": lambda: RepositoryFeatureGeneratorAdapter(
             name="fourier_basis",
@@ -70,7 +74,8 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
         ),
         "fourier_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="fourier_extractor",
-            operation_specs=(fourier_spec(), torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS)),
+            operation_specs=(fourier_spec(), torch_quantile_spec(
+                _DEFAULT_STATISTICAL_PARAMS)),
         ),
         "eigen_basis": lambda: RepositoryFeatureGeneratorAdapter(
             name="eigen_basis",
@@ -78,7 +83,8 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
         ),
         "eigen_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="eigen_extractor",
-            operation_specs=(eigen_spec(), torch_quantile_spec(_DEFAULT_STATISTICAL_PARAMS)),
+            operation_specs=(eigen_spec(), torch_quantile_spec(
+                _DEFAULT_STATISTICAL_PARAMS)),
         ),
         "recurrence_extractor": lambda: RepositoryFeatureGeneratorAdapter(
             name="recurrence_extractor",
@@ -89,6 +95,13 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
             operation_specs=(topological_spec(),),
             budget_policy=GeneratorBudgetPolicy(
                 max_cells=250_000,
+                fallback_generator="identity",
+            ),
+        ),
+        "riemann_extractor": lambda: BudgetedRepositoryFeatureGeneratorAdapter(
+            name="riemann_extractor",
+            operation_specs=(riemann_spec(),),
+            budget_policy=GeneratorBudgetPolicy(
                 fallback_generator="identity",
             ),
         ),
@@ -156,7 +169,8 @@ def extend_with_legacy_pipeline_generators(registry: dict[str, Callable[[], Any]
             )
     except Exception:
         # Keep registry construction importable without the optional FEDOT/dask stack.
-        logger.exception("Skipping legacy pipeline generators because optional registry imports failed.")
+        logger.exception(
+            "Skipping legacy pipeline generators because optional registry imports failed.")
 
 
 _extend_with_legacy_pipeline_generators = extend_with_legacy_pipeline_generators
