@@ -215,15 +215,15 @@ class TestBuildPairBatch:
             task="classification",
             strategies=resolve_pdl_strategies(config, task="classification"),
         )
-        np.testing.assert_array_equal(batch.features, [[0., 0.,  0.],
+        np.testing.assert_array_equal(batch.features, [[0., 0., 0.],
                                                        [0., 1., -1.],
                                                        [0., 2., -2.],
-                                                       [1., 0.,  1.],
-                                                       [1., 1.,  0.],
+                                                       [1., 0., 1.],
+                                                       [1., 1., 0.],
                                                        [1., 2., -1.],
-                                                       [2., 0.,  2.],
-                                                       [2., 1.,  1.],
-                                                       [2., 2.,  0.]])
+                                                       [2., 0., 2.],
+                                                       [2., 1., 1.],
+                                                       [2., 2., 0.]])
         np.testing.assert_array_equal(
             batch.target, [0, 0, 1, 0, 0, 1, 1, 1, 0])
 
@@ -240,10 +240,10 @@ class TestBuildPairBatch:
             task="regression",
             strategies=resolve_pdl_strategies(config, task="regression"),
         )
-        np.testing.assert_array_equal(batch.features, [[0., 0.,  0.],
+        np.testing.assert_array_equal(batch.features, [[0., 0., 0.],
                                                        [0., 1., -1.],
-                                                       [1., 0.,  1.],
-                                                       [1., 1.,  0.]])
+                                                       [1., 0., 1.],
+                                                       [1., 1., 0.]])
         np.testing.assert_array_equal(batch.target, [0., -2., 2., 0.])
 
     def test_pair_target_semantics_preserved_after_strategy_refactor(self):
