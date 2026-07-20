@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
-import pandas as pd
 import time
+from typing import Dict, List, Optional
+
+import pandas as pd
 
 from fedot_ind.core.adapters.common_adapter.contracts import AutoMLBudget, AutoMLResult
 
@@ -12,6 +13,7 @@ class AutoMLForecastingAdapter(ABC):
         self.model = None
         self._fitted_model_count = 0
         self._failure_count = 0
+        self._result: Optional[AutoMLResult] = None
 
     def fit(self, data: pd.DataFrame, metadata: Dict,
             budget: AutoMLBudget, **kwargs) -> 'AutoMLForecastingAdapter':
@@ -27,7 +29,7 @@ class AutoMLForecastingAdapter(ABC):
                 self._fit_multivariate(data, budget, **kwargs)
             else:
                 raise ValueError(f"{mode} is not supported")
-        except Exception as e:
+        except Exception:
             self._failure_count += 1
             raise
 
@@ -62,6 +64,10 @@ class AutoMLForecastingAdapter(ABC):
         pass
 
     @abstractmethod
+    def _supports_quantiles(self) -> bool:
+        pass
+
+    @abstractmethod
     def availability(self) -> Dict[str, bool]:
         pass
 
@@ -72,3 +78,11 @@ class AutoMLForecastingAdapter(ABC):
     @property
     def result(self) -> Optional[AutoMLResult]:
         return self._result
+
+    @property
+    def fitted_model_count(self) -> int:
+        return self._fitted_model_count
+
+    @property
+    def failure_count(self) -> int:
+        return self._failure_count

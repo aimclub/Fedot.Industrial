@@ -8,6 +8,8 @@ from fedot_ind.core.adapters.common_adapter.fake_automl import FakeAutoMLBackend
 def test_fake_backend_univariate():
     adapter = FakeAutoMLBackend(supports_quantiles=True)
 
+    assert adapter.result is None
+
     data = pd.DataFrame({
         'value': [1, 2, 3, 4, 5]
     })
@@ -31,7 +33,8 @@ def test_fake_backend_univariate():
     assert len(predictions) == 3
     assert (predictions['prediction'] == 5).all()
 
-    quantiles = adapter.predict_quantiles(data, horizon=2, quantiles=[0.1, 0.5, 0.9])
+    quantiles = adapter.predict_quantiles(
+        data, horizon=2, quantiles=[0.1, 0.5, 0.9])
     assert len(quantiles) == 6
 
     avail = adapter.availability()
@@ -51,7 +54,8 @@ def test_fake_backend_panel_mode():
         'value': [1, 2, 3, 4, 5, 6]
     })
     metadata = {'mode': 'panel'}
-    budget = AutoMLBudget(time_limit=10.0, trial_limit=5, memory_hint=1024, random_seed=42)
+    budget = AutoMLBudget(time_limit=10.0, trial_limit=5,
+                          memory_hint=1024, random_seed=42)
 
     adapter.fit(data, metadata, budget)
 
@@ -61,6 +65,11 @@ def test_fake_backend_panel_mode():
 
     predictions = adapter.predict(data, horizon=2)
     assert len(predictions) == 4
+
+    quantiles = adapter.predict_quantiles(
+        data, horizon=2, quantiles=[0.1, 0.9])
+    assert len(quantiles) == 8
+    assert set(quantiles['series_id']) == {'A', 'B'}
 
 
 def test_fake_backend_multivariate_mode():
@@ -72,7 +81,8 @@ def test_fake_backend_multivariate_mode():
         'feature2': [3, 4, 5, 6, 7]
     })
     metadata = {'mode': 'multivariate'}
-    budget = AutoMLBudget(time_limit=10.0, trial_limit=5, memory_hint=1024, random_seed=42)
+    budget = AutoMLBudget(time_limit=10.0, trial_limit=5,
+                          memory_hint=1024, random_seed=42)
 
     adapter.fit(data, metadata, budget, target_column='target')
 
@@ -87,16 +97,18 @@ def test_quantile_support_flag():
 
     data = pd.DataFrame({'value': [1, 2, 3, 4, 5]})
     metadata = {'mode': 'univariate'}
-    budget = AutoMLBudget(time_limit=10.0, trial_limit=5, memory_hint=1024, random_seed=42)
+    budget = AutoMLBudget(time_limit=10.0, trial_limit=5,
+                          memory_hint=1024, random_seed=42)
     adapter.fit(data, metadata, budget)
-    assert adapter.result.quantile_support == False
+    assert adapter.result.quantile_support is False
     with pytest.raises(NotImplementedError):
         adapter.predict_quantiles(data, horizon=2, quantiles=[0.1, 0.5, 0.9])
 
     adapter2 = FakeAutoMLBackend(supports_quantiles=True)
     adapter2.fit(data, metadata, budget)
     assert adapter2.result.quantile_support
-    result = adapter2.predict_quantiles(data, horizon=2, quantiles=[0.1, 0.5, 0.9])
+    result = adapter2.predict_quantiles(
+        data, horizon=2, quantiles=[0.1, 0.5, 0.9])
     assert len(result) == 6
 
 
@@ -105,9 +117,52 @@ def test_fake_backend_failure_count():
 
     data = pd.DataFrame({'value': [1, 2, 3, 4, 5]})
     metadata = {'mode': 'univariate'}
-    budget = AutoMLBudget(time_limit=10.0, trial_limit=5, memory_hint=1024, random_seed=42)
+    budget = AutoMLBudget(time_limit=10.0, trial_limit=5,
+                          memory_hint=1024, random_seed=42)
 
     with pytest.raises(RuntimeError):
         adapter.fit(data, metadata, budget)
 
-    assert adapter._failure_count == 1
+    assert adapter.failure_count == 1
+
+
+def test_fake_backend_panel_failure_count_is_not_duplicated():
+    adapter = FakeAutoMLBackend(fail_on_fit=True)
+
+    data = pd.DataFrame({
+        'series_id': ['A', 'A', 'B', 'B'],
+        'value': [1, 2, 3, 4]
+    })
+    budget = AutoMLBudget(time_limit=10.0, trial_limit=5,
+                          memory_hint=1024, random_seed=42)
+
+    with pytest.raises(RuntimeError):
+        adapter.fit(data, {'mode': 'panel'}, budget)
+
+    assert adapter.failure_count == 1
+
+
+def test_fake_backend_rejects_unknown_mode():
+    adapter = FakeAutoMLBackend()
+    data = pd.DataFrame({'value': [1, 2, 3]})
+    budget = AutoMLBudget(time_limit=10.0, trial_limit=5,
+                          memory_hint=1024, random_seed=42)
+
+    with pytest.raises(ValueError, match='unsupported is not supported'):
+        adapter.fit(data, {'mode': 'unsupported'}, budget)
+
+    assert adapter.failure_count == 1
+
+
+@pytest.mark.parametrize(
+    'budget_kwargs',
+    [
+        {'time_limit': 0.0, 'trial_limit': 1, 'memory_hint': 128, 'random_seed': 1},
+        {'time_limit': 1.0, 'trial_limit': -1,
+            'memory_hint': 128, 'random_seed': 1},
+        {'time_limit': 1.0, 'trial_limit': 1, 'memory_hint': 0, 'random_seed': 1},
+    ]
+)
+def test_budget_validates_resource_bounds(budget_kwargs):
+    with pytest.raises(ValueError):
+        AutoMLBudget(**budget_kwargs)

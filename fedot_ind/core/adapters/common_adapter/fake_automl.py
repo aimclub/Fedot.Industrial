@@ -1,5 +1,6 @@
 import time
 from typing import Dict, List
+
 import pandas as pd
 
 from fedot_ind.core.adapters.common_adapter.automl_ts_common import AutoMLForecastingAdapter
@@ -36,14 +37,14 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
 
     def _fit_panel(self, data: pd.DataFrame, budget: AutoMLBudget, **kwargs):
         if self.fail_on_fit:
-            self._failure_count += 1
             raise RuntimeError("Forced fit failure for testing")
 
         time.sleep(0.01)
 
         # For panel data, store last observation for each series
         if 'value' in data.columns:
-            self.last_observation = data.groupby('series_id')['value'].last().to_dict()
+            self.last_observation = data.groupby(
+                'series_id')['value'].last().to_dict()
         else:
             self.last_observation = data.iloc[-1, 0]
 
@@ -52,7 +53,6 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
 
     def _fit_multivariate(self, data: pd.DataFrame, budget: AutoMLBudget, **kwargs):
         if self.fail_on_fit:
-            self._failure_count += 1
             raise RuntimeError("Forced fit failure for testing")
 
         time.sleep(0.01)
@@ -90,13 +90,27 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
     def predict_quantiles(self, data: pd.DataFrame, horizon: int,
                           quantiles: List[float], **kwargs) -> pd.DataFrame:
         if not self._supports_quantiles():
-            raise NotImplementedError("This backend does not support quantile forecasting")
+            raise NotImplementedError(
+                "This backend does not support quantile forecasting")
 
         if self.fail_on_predict:
             raise RuntimeError("Forced predict failure for testing")
 
         if self.last_observation is None:
             raise ValueError("Model not fitted yet")
+
+        if isinstance(self.last_observation, dict):
+            results = []
+            for series_id, last_val in self.last_observation.items():
+                for h in range(1, horizon + 1):
+                    for q in quantiles:
+                        results.append({
+                            'series_id': series_id,
+                            'horizon': h,
+                            'quantile': q,
+                            'prediction': last_val
+                        })
+            return pd.DataFrame(results)
 
         results = []
         for h in range(1, horizon + 1):
@@ -118,11 +132,18 @@ class FakeAutoMLBackend(AutoMLForecastingAdapter):
         }
 
     def resource_report(self) -> Dict:
-        import psutil
         import os
 
-        process = psutil.Process(os.getpid())
+        try:
+            import psutil
+            memory_mb = psutil.Process(
+                os.getpid()).memory_info().rss // (1024 * 1024)
+            cpu_cores = psutil.cpu_count()
+        except ImportError:
+            memory_mb = None
+            cpu_cores = os.cpu_count()
+
         return {
-            "memory_mb": process.memory_info().rss // (1024 * 1024),
-            "cpu_cores": psutil.cpu_count()
+            "memory_mb": memory_mb,
+            "cpu_cores": cpu_cores
         }
