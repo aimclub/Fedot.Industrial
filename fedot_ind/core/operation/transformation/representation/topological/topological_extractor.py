@@ -17,6 +17,7 @@ from fedot.core.data.data import InputData
 
 sys.setrecursionlimit(1000000000)
 
+
 class TopologicalExtractor(BaseExtractor):
     """Class for extracting topological features from time series data.
 
@@ -49,12 +50,14 @@ class TopologicalExtractor(BaseExtractor):
         self.persistence_extractor = None
         self.feature_extractor = None
         self._current_ts_length = None
-        self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.multivariate_strategy = self.params.get('multivariate_strategy', 'independent')
+        self._device = torch.device(
+            'cuda' if torch.cuda.is_available() else 'cpu')
+        self.multivariate_strategy = self.params.get(
+            'multivariate_strategy', 'independent')
 
     def _validate_params(self):
         """Validates the hyperparameters of the topological extractor."""
-        
+
         window_share = self.params.get('window_size_as_share', 0.1)
         if not (0 < window_share <= 1):
             warnings.warn(
@@ -73,7 +76,8 @@ class TopologicalExtractor(BaseExtractor):
             raise ValueError(f"Delay must be an integer >= 1, got {delay}.")
 
         valid_strategies = {'independent', 'joint'}
-        multivariate_strategy = self.params.get('multivariate_strategy', 'independent')
+        multivariate_strategy = self.params.get(
+            'multivariate_strategy', 'independent')
         if multivariate_strategy not in valid_strategies:
             raise ValueError(
                 f"Unsupported multivariate_strategy: '{multivariate_strategy}'. "
@@ -82,7 +86,8 @@ class TopologicalExtractor(BaseExtractor):
 
         max_dim = self.params.get('max_homology_dimension', 2)
         if not isinstance(max_dim, int) or max_dim < 0:
-            raise ValueError(f"max_homology_dimension must be a non-negative integer, got {max_dim}.")
+            raise ValueError(
+                f"max_homology_dimension must be a non-negative integer, got {max_dim}.")
 
         valid_filtrations = {'vietoris-rips', 'alpha'}
         filtration = self.params.get('filtration_type', 'vietoris-rips')
@@ -113,10 +118,10 @@ class TopologicalExtractor(BaseExtractor):
         delay = self.params.get('delay', 1)
         filtration = self.params.get('filtration_type', 'vietoris-rips')
         backend = self.params.get('backend', 'gtda')
-        
+
         max_dim = self.params.get('max_homology_dimension', 2)
         homology_dims = tuple(range(max_dim + 1))
-        
+
         absolute_window = max(2, int(ts_length * window_share))
 
         embed_config = TopologicalEmbeddingConfig(
@@ -139,7 +144,7 @@ class TopologicalExtractor(BaseExtractor):
     def _init_pipeline(self, ts_length: int):
         """Initialize the topological feature extraction pipeline if the time series length has changed."""
         if self._current_ts_length == ts_length and self.point_cloud_builder is not None:
-            return  
+            return
 
         embed_config, pers_config = self._resolve_params(ts_length)
 
@@ -147,27 +152,28 @@ class TopologicalExtractor(BaseExtractor):
         self.persistence_extractor = PersistenceDiagramsExtractor(pers_config)
 
         max_dim = max(pers_config.homology_dimensions)
-        
+
         initialized_features = {}
         for name, feature_class in PERSISTENCE_DIAGRAM_FEATURES.items():
             feat_instance = feature_class.__class__(max_homology_dim=max_dim)
             initialized_features[name] = feat_instance
-        
-        self.feature_extractor = TopologicalFeaturesExtractor(initialized_features)
+
+        self.feature_extractor = TopologicalFeaturesExtractor(
+            initialized_features)
         self._current_ts_length = ts_length
-    
+
     @torch.no_grad()
     def generate_features_from_ts(self, ts_data: Union[pd.DataFrame, np.ndarray, torch.Tensor]) -> pd.DataFrame:
         """
         Extracts topological features from time series data.
-        
+
         Args:
             ts_data: Input time series data. 
                 The expected shape is (B, C, N), where:
                 B - batch size (number of time series),
                 C - number of channels (variables),
                 N - length of the time series.
-                
+
         Returns:
             pd.DataFrame: Extracted topological features.
         """
@@ -177,7 +183,8 @@ class TopologicalExtractor(BaseExtractor):
         if isinstance(ts_data, pd.DataFrame):
             ts_data = ts_data.values
         if not isinstance(ts_data, torch.Tensor):
-            ts_tensor = torch.tensor(ts_data, dtype=torch.float32, device=self._device)
+            ts_tensor = torch.tensor(
+                ts_data, dtype=torch.float32, device=self._device)
         else:
             ts_tensor = ts_data.to(self._device)
 
@@ -194,9 +201,10 @@ class TopologicalExtractor(BaseExtractor):
             elif ts_tensor.ndim == 2:
                 ts_tensor = ts_tensor.unsqueeze(1)
             else:
-                raise ValueError(f"Expected <= 3 dimensions (B, C, N), got {ts_tensor.ndim}")
+                raise ValueError(
+                    f"Expected <= 3 dimensions (B, C, N), got {ts_tensor.ndim}")
 
-        N = ts_tensor.shape[-1] 
+        N = ts_tensor.shape[-1]
 
         self._init_pipeline(N)
 
@@ -207,29 +215,32 @@ class TopologicalExtractor(BaseExtractor):
         diagrams = self.persistence_extractor.transform(point_cloud)
 
         if isinstance(diagrams, np.ndarray):
-            diagrams = torch.tensor(diagrams, dtype=torch.float32, device=self._device)
+            diagrams = torch.tensor(
+                diagrams, dtype=torch.float32, device=self._device)
 
-        features_tensor, column_names = self.feature_extractor.transform(diagrams)
-        
+        features_tensor, column_names = self.feature_extractor.transform(
+            diagrams)
+
         if self.multivariate_strategy == 'independent':
             features_tensor = features_tensor.view(B, -1)
-            column_names = [f"{name}_ch{ch}" for ch in range(C) for name in column_names]
+            column_names = [f"{name}_ch{ch}" for ch in range(
+                C) for name in column_names]
         return pd.DataFrame(features_tensor.cpu().numpy(), columns=column_names)
-    
 
     def fit(self, input_data: InputData):
         self.is_fitted = True
         return self
-    
+
     def _transform(self, input_data: InputData) -> np.ndarray:
         if input_data.features is None or len(input_data.features) == 0:
             raise ValueError("Input data features are empty.")
-        
+
         features_df = self.generate_features_from_ts(input_data.features)
 
         feature_matrix = features_df.values
-        feature_matrix = np.nan_to_num(feature_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+        feature_matrix = np.nan_to_num(
+            feature_matrix, nan=0.0, posinf=0.0, neginf=0.0)
 
         self.predict = feature_matrix
-        
+
         return self.predict

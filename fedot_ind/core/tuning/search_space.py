@@ -31,7 +31,7 @@ industrial_search_space = {
          'delay': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]},
          'filtration_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['vietoris-rips', 'alpha']]},
          'multivariate_strategy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['independent', 'joint']]},
-        },
+         },
     'quantile_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
@@ -133,14 +133,17 @@ industrial_search_space = {
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},
     'svd_decomposition': {},
     'randomized_svd_decomposition':
-        {'n_oversamples': {'hyperopt-dist': hp.choice, 'sampling-scope': [[3, 5, 8, 10]]}},
+        {'n_oversamples': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [[3, 5, 8, 10]]}},
     'tensor_decomposition':
-        {'unfolding_strategy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['channels_last', 'flat_table']]}},
+        {'unfolding_strategy': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [['channels_last', 'flat_table']]}},
     'explained_variance_truncation':
         {'explained_variance': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.85, 0.9, 0.95, 0.98]]},
          'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
     'statistical_rank_truncation':
-        {'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
+        {'min_rank': {'hyperopt-dist': hp.choice,
+                      'sampling-scope': [[1, 2, 3]]}},
     'expert_rank_truncation':
         {'rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[2, 4, 6, 8, 12]]},
          'min_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3]]}},
@@ -675,7 +678,7 @@ default_fedot_operation_params = {
     'topological_extractor': {
         'window_size_as_share': {
             'hyperopt-dist': hp.uniform,
-            'sampling-scope': [0.05, 0.5], 
+            'sampling-scope': [0.05, 0.5],
             'type': 'continuous'
         },
         'max_homology_dimension': {
@@ -697,7 +700,7 @@ default_fedot_operation_params = {
             'hyperopt-dist': hp.choice,
             'sampling-scope': [['vietoris-rips', 'alpha']],
             'type': 'categorical'
-        }, 
+        },
         'multivariate_strategy': {
             'hyperopt-dist': hp.choice,
             'sampling-scope': [['independent', 'joint']],

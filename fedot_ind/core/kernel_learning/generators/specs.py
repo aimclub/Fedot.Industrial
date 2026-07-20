@@ -4,7 +4,8 @@ from typing import Any
 
 from fedot_ind.core.kernel_learning.generators.base import OperationSpec
 
-BASIS_ONLY_GENERATORS = frozenset(("wavelet_basis", "fourier_basis", "eigen_basis"))
+BASIS_ONLY_GENERATORS = frozenset(
+    ("wavelet_basis", "fourier_basis", "eigen_basis"))
 
 _DEFAULT_STATISTICAL_PARAMS = {
     "window_size": 10,
@@ -114,7 +115,8 @@ def tabular_spec() -> OperationSpec:
         name="tabular_extractor",
         module_path="fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor",
         class_name="TabularExtractor",
-        params={"feature_domain": "all", "reduce_dimension": True, "use_cache": False},
+        params={"feature_domain": "all",
+                "reduce_dimension": True, "use_cache": False},
     )
 
 

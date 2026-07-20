@@ -71,6 +71,7 @@ def to_fedot_input_data(
     task_map = {
         "classification": Task(TaskTypesEnum.classification),
         "regression": Task(TaskTypesEnum.regression),
+        "ts_forecasting": Task(TaskTypesEnum.ts_forecasting),
     }
     if task_type not in task_map:
         raise ValueError(f"Unsupported supervised task_type: {task_type}")
@@ -88,8 +89,10 @@ def features_to_fedot_input_data(features: Any, template: Any, *, use_torch: boo
     from fedot.core.data.data import InputData
     from fedot.core.repository.dataset_types import DataTypesEnum
 
-    prepared = _to_torch(features, device=torch_device) if use_torch else _to_numpy(features)
-    data_type = DataTypesEnum.image if len(prepared.shape) >= 3 else DataTypesEnum.table
+    prepared = _to_torch(
+        features, device=torch_device) if use_torch else _to_numpy(features)
+    data_type = DataTypesEnum.image if len(
+        prepared.shape) >= 3 else DataTypesEnum.table
     return InputData(
         idx=getattr(template, "idx", np.arange(prepared.shape[0])),
         features=prepared,
@@ -128,7 +131,8 @@ def resolve_torch_device(device: Any = "auto"):
             requested = "cuda" if torch.cuda.is_available() else "cpu"
         resolved = torch.device(requested)
     if resolved.type == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("torch_device='cuda' was requested, but CUDA is not available.")
+        raise RuntimeError(
+            "torch_device='cuda' was requested, but CUDA is not available.")
     return resolved
 
 
@@ -145,9 +149,10 @@ def operation_params(params: dict[str, Any]):
     try:
         from fedot.core.operations.operation_parameters import OperationParameters
 
-        return OperationParameters(params)
+        return OperationParameters(**params)
     except Exception:
-        logger.exception("Falling back to raw operation params for kernel feature generator operation.")
+        logger.exception(
+            "Falling back to raw operation params for kernel feature generator operation.")
         return params
 
 
@@ -176,8 +181,10 @@ class KernelFeatureGeneratorMixin:
     ) -> KernelBundle:
         from fedot_ind.core.kernel_learning.kernels import KernelMatrixBuilder
 
-        resolved_task_type = task_type or getattr(self, "task_type_", None) or "classification"
-        train_bundle = self.fit_transform(X_left, None, task_type=resolved_task_type)
+        resolved_task_type = task_type or getattr(
+            self, "task_type_", None) or "classification"
+        train_bundle = self.fit_transform(
+            X_left, None, task_type=resolved_task_type)
         builder = KernelMatrixBuilder()
         kernel_bundle = builder.fit_transform(
             train_bundle.features,

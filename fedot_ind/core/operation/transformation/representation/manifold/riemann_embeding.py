@@ -13,6 +13,7 @@ import warnings
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
+
 class RiemannExtractor(BaseExtractor):
     """Class responsible for riemann tangent space features generator.
 
@@ -56,7 +57,8 @@ class RiemannExtractor(BaseExtractor):
         )
 
         default_centroid_strategy = 'global' if self.extraction_strategy == 'tangent' else 'class-wise'
-        self.centroid_strategy = params.get('centroid_strategy', default_centroid_strategy)
+        self.centroid_strategy = params.get(
+            'centroid_strategy', default_centroid_strategy)
         self.centroid_type = params.get('centroid_type', 'mean')
 
         self.spd_space = Covariances(estimator=self.estimator)
@@ -88,14 +90,14 @@ class RiemannExtractor(BaseExtractor):
                 f"Unsupported extraction strategy: '{self.extraction_strategy}'. "
                 f"Valid options are: {valid_strategies}"
             )
-        
+
         valid_centroid_strategies = {'class-wise', 'global'}
         if self.centroid_strategy not in valid_centroid_strategies:
             raise ValueError(
                 f"Unsupported centroid_strategy: '{self.centroid_strategy}'. "
                 f"Valid options are: {valid_centroid_strategies}"
             )
-        
+
         valid_centroid_types = {'mean', 'median'}
         if self.centroid_type not in valid_centroid_types:
             raise ValueError(
@@ -110,7 +112,8 @@ class RiemannExtractor(BaseExtractor):
                 f"Valid options are: {valid_estimators}"
             )
 
-        valid_metrics = {'riemann', 'logeuclid', 'euclid', 'logdet', 'kullback', 'wasserstein'}
+        valid_metrics = {'riemann', 'logeuclid',
+                         'euclid', 'logdet', 'kullback', 'wasserstein'}
         if self.spd_metric not in valid_metrics:
             raise ValueError(
                 f"Unsupported SPD_metric: '{self.spd_metric}'. "
@@ -121,14 +124,14 @@ class RiemannExtractor(BaseExtractor):
                 f"Unsupported tangent_metric: '{self.tangent_metric}'. "
                 f"Valid options are: {valid_metrics}"
             )
-        
+
         if self.centroid_type == 'median' and self.spd_metric not in {'riemann', 'euclid'}:
             raise ValueError(
                 f"Robust strategy (centroid_type='median') is only natively supported "
                 f"for 'riemann' and 'euclid' metrics in pyriemann. "
                 f"Received SPD_metric: '{self.spd_metric}'."
-            )    
-    
+            )
+
         if self.extraction_strategy == 'tangent':
             if self.centroid_strategy == 'class-wise':
                 warnings.warn(
@@ -150,7 +153,7 @@ class RiemannExtractor(BaseExtractor):
             x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
         if x.ndim == 1:
             x = x[np.newaxis, np.newaxis, :]
-        
+
         if x.ndim == 2:
             x = x[:, np.newaxis, :]
         if x.shape[1] == 1:
@@ -168,24 +171,25 @@ class RiemannExtractor(BaseExtractor):
         return x
 
     def _calculate_centroid(self, covmats: np.ndarray) -> np.ndarray:
-            if self.centroid_type == 'mean':
-                return mean_covariance(covmats, metric=self.spd_metric)
-            elif self.centroid_type == 'median':
-                if self.spd_metric == 'riemann':
-                    return median_riemann(covmats)
-                elif self.spd_metric == 'euclid':
-                    return median_euclid(covmats)
-                else:
-                    raise ValueError(
-                        f"Median calculation is not natively supported for metric '{self.spd_metric}'. "
-                        "Use 'riemann' or 'euclid', or change centroid_type to 'mean'."
-                    )
+        if self.centroid_type == 'mean':
+            return mean_covariance(covmats, metric=self.spd_metric)
+        elif self.centroid_type == 'median':
+            if self.spd_metric == 'riemann':
+                return median_riemann(covmats)
+            elif self.spd_metric == 'euclid':
+                return median_euclid(covmats)
+            else:
+                raise ValueError(
+                    f"Median calculation is not natively supported for metric '{self.spd_metric}'. "
+                    "Use 'riemann' or 'euclid', or change centroid_type to 'mean'."
+                )
 
     def fit(self, input_data: InputData):
         """Called ONCE at start. Trains everything."""
 
         X = self._prepare_tensor(input_data.features)
-        y = np.asarray(input_data.target).flatten() if input_data.target is not None else None
+        y = np.asarray(input_data.target).flatten(
+        ) if input_data.target is not None else None
 
         SPD = self.spd_space.fit_transform(X)
         SPD = self.shrinkage.fit_transform(SPD)
@@ -196,26 +200,28 @@ class RiemannExtractor(BaseExtractor):
         if self.extraction_strategy in ['mdm', 'ensemble']:
             if self.centroid_strategy == 'class-wise':
                 if y is None or len(y) == 0:
-                    raise ValueError("Target data is required to fit MDM centroids.")
+                    raise ValueError(
+                        "Target data is required to fit MDM centroids.")
                 self.classes_ = np.unique(y)
-                self.covmeans_ = [self._calculate_centroid(SPD[y == ll]) for ll in self.classes_]
+                self.covmeans_ = [self._calculate_centroid(
+                    SPD[y == ll]) for ll in self.classes_]
 
             elif self.centroid_strategy == 'global':
                 self.covmeans_ = [self._calculate_centroid(SPD)]
         self.is_fitted = True
         return self
-    
+
     @convert_to_3d_torch_array
     def _transform(self, input_data: InputData) -> OutputData:
-        
-        if not self.is_fitted:  
+
+        if not self.is_fitted:
             warnings.warn(
                 "RiemannExtractor is not fitted. Calling 'fit' inside 'transform' with provided input data. "
                 "Warning: If this is test data, it may cause data leakage.",
                 UserWarning
             )
             self.fit(input_data)
-        
+
         X = self._prepare_tensor(input_data.features)
 
         SPD = self.spd_space.transform(X)
@@ -230,7 +236,7 @@ class RiemannExtractor(BaseExtractor):
         if self.extraction_strategy in {'mdm', 'ensemble'}:
             n_centroids = len(self.covmeans_)
             distances = [
-                distance(SPD, self.covmeans_[m], metric=self.spd_metric) 
+                distance(SPD, self.covmeans_[m], metric=self.spd_metric)
                 for m in range(n_centroids)
             ]
             mdm_features = np.column_stack(distances)
@@ -244,12 +250,12 @@ class RiemannExtractor(BaseExtractor):
         if feature_matrix.ndim == 1:
             feature_matrix = feature_matrix.reshape(1, -1)
         elif feature_matrix.ndim > 2:
-            feature_matrix = feature_matrix.reshape(feature_matrix.shape[0], -1)
+            feature_matrix = feature_matrix.reshape(
+                feature_matrix.shape[0], -1)
 
         if not np.isfinite(feature_matrix).all():
-            feature_matrix = np.nan_to_num(feature_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+            feature_matrix = np.nan_to_num(
+                feature_matrix, nan=0.0, posinf=0.0, neginf=0.0)
 
         self.predict = self._clean_predict(feature_matrix)
         return self.predict
-
-    

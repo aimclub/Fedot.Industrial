@@ -40,6 +40,7 @@ def generate_spd_matrices(n_samples: int, channels: int) -> np.ndarray:
     A = np.random.randn(n_samples, channels, channels)
     return A @ A.transpose(0, 2, 1) + np.eye(channels) * 1e-4
 
+
 @pytest.fixture
 def spd_data():
     X = generate_spd_matrices(10, 3)
@@ -141,19 +142,19 @@ def test_riemann_extractor_same_for_classification_and_regression_and_ts_forecas
 
 @pytest.mark.parametrize("invalid_params, expected_error_match", [
     (
-        {"extraction_strategy": "magic_method"}, 
+        {"extraction_strategy": "magic_method"},
         "Unsupported extraction strategy: 'magic_method'"
     ),
     (
-        {"estimator": "pearson"}, 
+        {"estimator": "pearson"},
         "Unsupported estimator: 'pearson'"
     ),
     (
-        {"SPD_metric": "manhattan"}, 
+        {"SPD_metric": "manhattan"},
         "Unsupported SPD_metric: 'manhattan'"
     ),
     (
-        {"tangent_metric": "cosine"}, 
+        {"tangent_metric": "cosine"},
         "Unsupported tangent_metric: 'cosine'"
     ),
 ])
@@ -168,9 +169,10 @@ def test_riemann_extractor_standalone_mdm_strategy_fit_without_target_raises_err
         'extraction_strategy': 'mdm',
         'centroid_strategy': 'class-wise'
     })
-    
-    data_without_target = MockInputData(features=spd_data.features, target=None)
-    
+
+    data_without_target = MockInputData(
+        features=spd_data.features, target=None)
+
     with pytest.raises(ValueError, match="Target data is required to fit MDM centroids"):
         extractor.fit(data_without_target)
 
@@ -180,7 +182,7 @@ def test_riemann_extractor_centroid_strategy_behavioral_difference(spd_data):
         'extraction_strategy': 'mdm',
         'centroid_strategy': 'class-wise'
     }).fit(spd_data)
-    
+
     ext_global = RiemannExtractor({
         'extraction_strategy': 'mdm',
         'centroid_strategy': 'global'
@@ -198,26 +200,25 @@ def test_riemann_extractor_centroid_strategy_behavioral_difference(spd_data):
 
 
 @pytest.mark.parametrize("strategy, expected_dim", [
-    ('mdm', 2),          
-    ('tangent', 6),      
-    ('ensemble', 8)      
+    ('mdm', 2),
+    ('tangent', 6),
+    ('ensemble', 8)
 ])
 def test_riemann_extractor_output_shape_matches_strategy(strategy, expected_dim, spd_data):
     extractor = RiemannExtractor({
         'extraction_strategy': strategy,
         'centroid_strategy': 'class-wise' if strategy != 'tangent' else 'global'
     })
-    
 
     features = extractor.fit(spd_data)._transform(spd_data)
-        
+
     assert features.shape == (10, expected_dim)
 
 
 @patch('fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding.median_riemann')
 def test_riemann_extractor_robust_centroid_dispatching(mock_median_riemann, spd_data):
     mock_median_riemann.return_value = np.eye(3)
-    
+
     extractor = RiemannExtractor({
         'extraction_strategy': 'mdm',
         'centroid_strategy': 'global',
@@ -225,7 +226,7 @@ def test_riemann_extractor_robust_centroid_dispatching(mock_median_riemann, spd_
         'SPD_metric': 'riemann'
     })
     extractor.fit(spd_data)
-    
+
     mock_median_riemann.assert_called_once()
 
 
@@ -255,7 +256,7 @@ def test_riemann_extractor_tangent_with_median_raises_warning():
 
 def test_riemann_extractor_transform_before_fit_raises_warning(spd_data):
     extractor = RiemannExtractor({'extraction_strategy': 'mdm'})
-    
+
     with pytest.warns(UserWarning, match="RiemannExtractor is not fitted"):
         extractor._transform(spd_data)
 
@@ -264,20 +265,21 @@ def test_riemann_extractor_transform_before_fit_raises_warning(spd_data):
 def test_riemann_extractor_distance_uses_spd_metric(mock_distance, spd_data):
 
     mock_distance.return_value = np.ones(10)
-    
+
     extractor = RiemannExtractor({
         'extraction_strategy': 'mdm',
         'centroid_strategy': 'global',
         'SPD_metric': 'logeuclid',
         'tangent_metric': 'riemann'
     })
-    
+
     extractor.fit(spd_data)
     extractor._transform(spd_data)
-    
+
     mock_distance.assert_called()
     call_kwargs = mock_distance.call_args[1]
     assert call_kwargs.get('metric') == 'logeuclid'
+
 
 def test_riemann_extractor_returns_warning_for_one_dimensional_input():
 
@@ -286,15 +288,16 @@ def test_riemann_extractor_returns_warning_for_one_dimensional_input():
         [1.0, 2.0, 3.0, 4.0, 5.0],
         [2.0, 3.0, 4.0, 5.0, 6.0]
     ])
-    
+
     with pytest.warns(UserWarning):
         extractor._prepare_tensor(X)
+
 
 def test_riemann_extractor_uses_default_registry_path_for_small_input():
 
     pytest.importorskip("fedot")
     pytest.importorskip("torch")
-    
+
     generator = create_feature_generator("riemann_extractor")
 
     X = np.random.randn(2, 3, 4)
@@ -304,7 +307,7 @@ def test_riemann_extractor_uses_default_registry_path_for_small_input():
 
     assert bundle.diagnostics.get("skipped") is not True, \
         f"Extractor failed and used fallback. Reason: {bundle.diagnostics.get('budget', {}).get('skip_reason')}"
-    
+
     assert bundle.diagnostics.get("source") == "fedot_industrial_operation", \
         f"Expected 'fedot_industrial_operation', got '{bundle.diagnostics.get('source')}'"
 

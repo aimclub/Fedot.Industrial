@@ -71,13 +71,15 @@ class RepositoryFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
 
     def fit(self, X: FeatureInput, y: TargetInput | None = None, *, task_type: str = "classification"):
         self.task_type_ = task_type
-        self.operations_ = [self._build_operation(spec) for spec in self.operation_specs]
+        self.operations_ = [self._build_operation(
+            spec) for spec in self.operation_specs]
         self.train_features_ = self._run_operations(X, y)
         return self
 
     def transform(self, X: FeatureInput) -> FeatureBundle:
         if not self.operations_:
-            raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
+            raise ValueError(
+                f"Feature generator {self.name!r} must be fitted before transform.")
         features = self._run_operations(X, None)
         return self._bundle(features)
 
@@ -97,7 +99,8 @@ class RepositoryFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
 
     def _run_operations(self, X: Any, y: Any | None) -> np.ndarray:
         if not self.operation_specs:
-            raise ValueError(f"Feature generator {self.name!r} has no operation specs.")
+            raise ValueError(
+                f"Feature generator {self.name!r} has no operation specs.")
 
         torch_device = self._resolve_torch_device_for_run()
         current = to_fedot_input_data(
@@ -136,6 +139,19 @@ class RepositoryFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
             "operations": tuple(spec.name for spec in self.operation_specs),
             "n_features": int(matrix.shape[1]),
         }
+        operation_params = {
+            spec.name: dict(spec.params)
+            for spec in self.operation_specs
+            if spec.params
+        }
+        if operation_params:
+            diagnostics["operation_params"] = operation_params
+        for operation in self.operations_:
+            logging_params = getattr(operation, "logging_params", None)
+            if isinstance(logging_params, dict):
+                diagnostics.update(logging_params)
+        if len(self.operation_specs) == 1:
+            diagnostics.update(dict(self.operation_specs[0].params))
         if self.resolved_torch_device_ is not None:
             diagnostics["torch_device"] = self.resolved_torch_device_
         return FeatureBundle(
@@ -147,7 +163,8 @@ class RepositoryFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
 
 @dataclass
 class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapter):
-    budget_policy: GeneratorBudgetPolicy = field(default_factory=GeneratorBudgetPolicy)
+    budget_policy: GeneratorBudgetPolicy = field(
+        default_factory=GeneratorBudgetPolicy)
     fallback_generator_: Any | None = None
     budget_diagnostics_: dict[str, Any] = field(default_factory=dict)
 
@@ -164,7 +181,8 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
         try:
             return super().fit(X, y, task_type=task_type)
         except Exception as ex:
-            logger.exception("Falling back from generator %s after operation failure.", self.name)
+            logger.exception(
+                "Falling back from generator %s after operation failure.", self.name)
             return self._fit_fallback(
                 X,
                 y,
@@ -188,7 +206,8 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
         return FeatureBundle(
             name=bundle.name,
             features=bundle.features,
-            diagnostics={**bundle.diagnostics, "budget": self.budget_diagnostics_},
+            diagnostics={**bundle.diagnostics,
+                         "budget": self.budget_diagnostics_},
         )
 
     def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
@@ -196,7 +215,8 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
         return self.transform(X)
 
     def _fit_fallback(self, X: Any, y: Any | None, *, task_type: str, reason: str):
-        self.fallback_generator_ = build_lightweight_fallback(self.budget_policy.fallback_generator)
+        self.fallback_generator_ = build_lightweight_fallback(
+            self.budget_policy.fallback_generator)
         self.fallback_generator_.fit(X, y, task_type=task_type)
         self.budget_diagnostics_ = {
             **self.budget_diagnostics_,
@@ -221,19 +241,24 @@ class PipelineFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
         input_data = to_fedot_input_data(X, y, task_type=task_type)
         self.pipeline_.fit(input_data)
         prediction = self.pipeline_.predict(input_data)
-        self.train_features_ = normalize_feature_matrix(unwrap_operation_output(prediction))
+        self.train_features_ = normalize_feature_matrix(
+            unwrap_operation_output(prediction))
         return self
 
     def transform(self, X: FeatureInput) -> FeatureBundle:
         if self.pipeline_ is None:
-            raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
-        input_data = to_fedot_input_data(X, task_type=self.task_type_ or "classification")
+            raise ValueError(
+                f"Feature generator {self.name!r} must be fitted before transform.")
+        input_data = to_fedot_input_data(
+            X, task_type=self.task_type_ or "classification")
         prediction = self.pipeline_.predict(input_data)
-        features = normalize_feature_matrix(unwrap_operation_output(prediction))
+        features = normalize_feature_matrix(
+            unwrap_operation_output(prediction))
         return FeatureBundle(
             name=self.name,
             features=features,
-            diagnostics={"source": "fedot_pipeline", "n_features": int(features.shape[1])},
+            diagnostics={"source": "fedot_pipeline",
+                         "n_features": int(features.shape[1])},
         )
 
     def fit_transform(
@@ -248,7 +273,8 @@ class PipelineFeatureGeneratorAdapter(KernelFeatureGeneratorMixin):
         return FeatureBundle(
             name=self.name,
             features=features,
-            diagnostics={"source": "fedot_pipeline", "n_features": int(features.shape[1])},
+            diagnostics={"source": "fedot_pipeline",
+                         "n_features": int(features.shape[1])},
         )
 
 
