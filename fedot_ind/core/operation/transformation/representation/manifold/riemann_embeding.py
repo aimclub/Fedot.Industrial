@@ -7,7 +7,6 @@ from pyriemann.estimation import Covariances, Shrinkage
 from pyriemann.tangentspace import TangentSpace
 from pyriemann.utils import mean_covariance, median_riemann, median_euclid
 from pyriemann.utils.distance import distance
-from sklearn.utils.extmath import softmax
 import warnings
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
@@ -102,8 +101,7 @@ class RiemannExtractor(BaseExtractor):
         if self.centroid_type not in valid_centroid_types:
             raise ValueError(
                 f"Unsupported centroid_type: '{self.centroid_type}'. "
-                f"Valid options are: {valid_centroid_types}. Mean is used for L2 metrics, median is used for L1 metrics."
-            )
+                f"Valid options are: {valid_centroid_types}. Mean is used for L2 metrics, median is used for L1 metrics.")
 
         valid_estimators = {'corr', 'cov', 'scm', 'lwf', 'oas', 'mcd', 'hub'}
         if self.estimator not in valid_estimators:

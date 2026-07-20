@@ -1,9 +1,6 @@
 import numpy as np
 import pytest
 from unittest.mock import patch
-from fedot.core.data.data import InputData
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 from fedot_ind.core.kernel_learning import create_feature_generator
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import TopologicalExtractor

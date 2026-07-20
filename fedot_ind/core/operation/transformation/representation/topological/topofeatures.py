@@ -1,11 +1,6 @@
 from abc import ABC, abstractmethod
-from multiprocessing.dummy import Pool as ThreadPool
 
-import pandas as pd
-import numpy as np
 import torch
-from gtda.diagrams import BettiCurve, Filtering, PersistenceEntropy, PersistenceLandscape, Scaler
-from gtda.homology import VietorisRipsPersistence
 
 
 class TopologicalFeaturesExtractor:
@@ -73,7 +68,7 @@ class PersistenceDiagramFeatureExtractor(ABC):
 
     def _get_gtda_grid(self, b: torch.Tensor, d: torch.Tensor, mask: torch.Tensor, dims: torch.Tensor, n_bins: int):
         """Build a grid for each homology dimension based on the birth and death times of the persistence diagram."""
-        B = b.shape[0]
+        b.shape[0]
         grids = []
         for dim in range(self.max_homology_dim + 1):
             dim_mask = mask & (dims == dim)

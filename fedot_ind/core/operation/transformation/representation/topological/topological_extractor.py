@@ -1,12 +1,9 @@
 import sys
-from functools import partial
-from itertools import product
 from typing import Optional, Union
 import pandas as pd
 import numpy as np
 import torch
 import warnings
-import copy
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.base_extractor import BaseExtractor
@@ -168,7 +165,7 @@ class TopologicalExtractor(BaseExtractor):
         Extracts topological features from time series data.
 
         Args:
-            ts_data: Input time series data. 
+            ts_data: Input time series data.
                 The expected shape is (B, C, N), where:
                 B - batch size (number of time series),
                 C - number of channels (variables),

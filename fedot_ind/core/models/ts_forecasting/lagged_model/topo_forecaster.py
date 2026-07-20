@@ -59,8 +59,11 @@ from fedot_ind.core.operation.transformation.data.point_cloud import (
     PersistenceConfig, PersistenceDiagramsExtractor
 )
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import (
-    BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, PersistenceEntropyFeature, TopologicalFeaturesExtractor
-)
+    BettiNumbersSumFeature,
+    HolesNumberFeature,
+    MaxHoleLifeTimeFeature,
+    PersistenceEntropyFeature,
+    TopologicalFeaturesExtractor)
 
 
 def _default_topological_features() -> dict[str, object]:

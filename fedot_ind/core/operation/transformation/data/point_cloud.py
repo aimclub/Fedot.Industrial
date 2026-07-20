@@ -1,10 +1,5 @@
 from attr import dataclass
-import pandas as pd
-from gtda.time_series import SingleTakensEmbedding
 from gtda.homology import VietorisRipsPersistence, WeakAlphaPersistence
-from gtda.diagrams import Scaler
-from ripser import Rips, ripser
-from scipy import sparse
 import torch
 from typing import Literal, List, Tuple, Union, Union
 import warnings
@@ -113,7 +108,7 @@ class PointCloudBuilder:
     def build_trajectory_matrix(self, ts_data: Union[torch.Tensor, np.ndarray, list]) -> torch.Tensor:
         """
         Constructs the trajectory matrix from the time series data based on the embedding configuration.
-        The trajectory matrix is a 3D tensor of shape (B, C, num_windows, W) for 'independent' strategy 
+        The trajectory matrix is a 3D tensor of shape (B, C, num_windows, W) for 'independent' strategy
         or (B, num_windows, C * W) for 'joint' strategy.
         """
         # (B, num_windows, C * W)
