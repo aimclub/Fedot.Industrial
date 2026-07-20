@@ -1,9 +1,14 @@
 from attr import dataclass
+import pandas as pd
+from gtda.time_series import SingleTakensEmbedding
 from gtda.homology import VietorisRipsPersistence, WeakAlphaPersistence
+from ripser import Rips
 import torch
-from typing import Literal, List, Tuple, Union, Union
+from typing import Literal, List, Tuple, Union
 import warnings
 import numpy as np
+
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
 def _load_ripserplusplus():
@@ -15,6 +20,115 @@ def _load_ripserplusplus():
             "Install it or use backend='gtda'."
         ) from ex
     return rpp
+
+
+class TopologicalTransformation:
+    """Backward-compatible facade for legacy topological point-cloud helpers."""
+
+    def __init__(self,
+                 time_series: np.ndarray = None,
+                 max_simplex_dim: int = None,
+                 epsilon: int = 10,
+                 persistence_params: dict = None,
+                 window_length: int = None,
+                 stride: int = 1):
+        self.time_series = time_series
+        self.stride = stride
+        self.max_simplex_dim = max_simplex_dim
+        self.epsilon_range = self._create_epsilon_range(epsilon)
+        self.persistence_params = persistence_params or {
+            'coeff': 2,
+            'do_cocycles': False,
+            'verbose': False}
+        self._window_length = window_length
+
+    @staticmethod
+    def _create_epsilon_range(epsilon):
+        return np.array([value / float(epsilon) for value in range(epsilon)])
+
+    def time_series_to_point_cloud(self,
+                                   input_data: np.array = None,
+                                   dimension_embed=3,
+                                   use_gtda=False) -> np.array:
+        if input_data is None:
+            input_data = self.time_series
+        if self._window_length is None:
+            self._window_length = dimension_embed
+        if use_gtda:
+            return self.gtda_time_series_to_pcd(input_data, dimension_embed)
+
+        trajectory_transformer = HankelMatrix(time_series=input_data,
+                                              window_size=self._window_length,
+                                              strides=self.stride)
+        return trajectory_transformer.trajectory_matrix
+
+    def gtda_time_series_to_pcd(self,
+                                input_data: np.array = None,
+                                dimension_embed=3) -> np.array:
+        if input_data is None:
+            input_data = self.time_series
+        embedder_periodic = SingleTakensEmbedding(
+            parameters_type="fixed",
+            n_jobs=2,
+            time_delay=self._window_length,
+            dimension=dimension_embed,
+            stride=self.stride,
+        )
+        return embedder_periodic.fit_transform(input_data)
+
+    def point_cloud_to_persistent_cohomology_ripser(
+            self, point_cloud: np.array = None, max_simplex_dim: int = 1):
+        if point_cloud is None:
+            point_cloud = self.time_series_to_point_cloud()
+
+        self.persistence_params['maxdim'] = max_simplex_dim
+        filtration = Rips(**self.persistence_params)
+        diagrams = filtration.fit_transform(point_cloud)
+        finite_diagrams = [np.array([point for point in diagram
+                                     if np.isfinite(point).all()])
+                           for diagram in diagrams]
+        scale = max((diagram.max() for diagram in finite_diagrams
+                     if diagram.shape[0] > 0),
+                    default=1.0)
+        if scale > 0:
+            finite_diagrams = [diagram / scale for diagram in finite_diagrams]
+
+        homology = {dimension: np.zeros(len(self.epsilon_range)).tolist()
+                    for dimension in range(max_simplex_dim + 1)}
+        for dimension, diagram in enumerate(finite_diagrams):
+            if dimension > max_simplex_dim or len(diagram) == 0:
+                continue
+            homology[dimension] = np.array([
+                ((self.epsilon_range >= point[0]) &
+                 (self.epsilon_range <= point[1])).astype(int)
+                for point in diagram
+            ]).sum(axis=0).tolist()
+        return homology
+
+    def time_series_to_persistent_cohomology_ripser(
+            self, time_series: np.array, max_simplex_dim: int) -> dict:
+        return self.point_cloud_to_persistent_cohomology_ripser(
+            point_cloud=time_series, max_simplex_dim=max_simplex_dim)
+
+    def time_series_rolling_betti_ripser(self, ts):
+        point_cloud = self.rolling_window(array=ts, window=self._window_length)
+        homology = self.time_series_to_persistent_cohomology_ripser(
+            point_cloud, max_simplex_dim=self.max_simplex_dim)
+        df_features = pd.DataFrame(data=homology)
+        df_features.columns = [
+            f"Betti_{idx}" for idx in range(df_features.shape[1])]
+        df_features['Betti_sum'] = df_features.sum(axis=1)
+        return df_features
+
+    @staticmethod
+    def rolling_window(array, window):
+        if window <= 0:
+            raise ValueError("Window size must be a positive integer.")
+        if window > len(array):
+            raise ValueError(
+                "Window size cannot exceed the length of the array.")
+        return np.array([array[i:i + window]
+                         for i in range(len(array) - window + 1)])
 
 
 @dataclass
