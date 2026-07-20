@@ -191,7 +191,7 @@ def aggregate_similarity_to_class_proba(
     )
 
 
-# TODO: left over from the previous version, used in paiwise_model in two places
+# Prediction helpers stay in the facade because estimator classes use them directly.
 def predict_similarity_by_chunks(
     base_model: Any,
     features: Any,
@@ -213,8 +213,6 @@ def predict_similarity_by_chunks(
         same_probability = _predict_same_probability(base_model, pair_features)
         chunks.append(same_probability.reshape(len(chunk), n_anchors))
     return np.vstack(chunks) if chunks else np.empty((0, n_anchors), dtype=float)
-
-# TODO: left over from the previous version, used in paiwise_model in one place (prediction in the regression model)
 
 
 def predict_regression_by_chunks(

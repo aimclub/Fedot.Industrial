@@ -21,7 +21,7 @@ AGGREGATION_POLICY_ALIASES = {
     "mean": "mean_similarity",
     "weighted": "weighted_posterior",
 }
-# TODO: do not use now
+# Numerical guard reserved for posterior-style aggregators.
 PRIOR_EPS = 1e-12
 
 
@@ -98,5 +98,5 @@ class PairwiseBatch:
     target: np.ndarray
     left_indices: np.ndarray
     anchor_indices: np.ndarray
-    # TODO: replace ``diagnostics`` with a typed contract.
+    # Diagnostics are kept JSON-compatible because benchmark artifacts persist them.
     diagnostics: dict[str, Any]

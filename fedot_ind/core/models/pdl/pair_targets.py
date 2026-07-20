@@ -23,5 +23,3 @@ class RegressionDeltaLeftMinusAnchorTargetBuilder:
 
     def build(self, y_left: np.ndarray, y_anchor: np.ndarray) -> np.ndarray:
         return (y_left - y_anchor).astype(float)
-
-# TODO: in the future should be solver from string in config to class instance

@@ -44,7 +44,7 @@ def pair_diagnostics(
     pair_feature_dim: int,
     anchor_indices: np.ndarray,
     task: str,
-) -> dict[str, Any]:   # TODO: add typed contract diagnostic
+) -> dict[str, Any]:
     """Build the runtime diagnostics payload attached to each ``PairwiseBatch``."""
     backend_name, _ = resolve_pairwise_backend(config.backend)
     return {

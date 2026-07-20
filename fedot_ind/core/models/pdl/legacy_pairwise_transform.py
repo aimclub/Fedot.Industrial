@@ -43,7 +43,7 @@ class PDCDataTransformer:
     """Deprecated tabular preprocessor prototype; not wired into production PDL estimators."""
 
     preprocessing_: ColumnTransformer
-    preprocessing_y_: ColumnTransformer  # todo fix the ColumnTransformer annotation
+    preprocessing_y_: ColumnTransformer
 
     def __init__(
         self,
@@ -63,15 +63,13 @@ class PDCDataTransformer:
         self.y_type = y_type
 
     def fit(self, X, y=None):
-        # y = y.astype('category').cat.codes.astype(np.float32) # todo since I
-        # cannot transform the output at least add raise type error on it
         if (
             self.numeric_features is None
             and self.ordinal_features is None
             and self.string_features is None
         ):
             self.numeric_features = []
-            self.ordinal_features = []  # todo fix name, will be processed a ordinal
+            self.ordinal_features = []
             self.string_features = []
             for column in X.columns:
                 dtype = X[column].dtype
@@ -79,7 +77,7 @@ class PDCDataTransformer:
                     self.numeric_features.append(column)
                 elif isinstance(dtype, pd.CategoricalDtype):
                     if dtype.ordered:
-                        self.ordinal_features.append(column)  # ordinal...
+                        self.ordinal_features.append(column)
                     else:
                         self.string_features.append(column)
                 elif pd.api.types.is_bool_dtype(
@@ -135,10 +133,6 @@ class PDCDataTransformer:
         #     raise ValueError('error in data \t X no features left after pre-processing')
         # # if X.isna().any().any():
         # #     raise NotImplementedError('error in data \t Some features are NaNs in the X set')
-        # if any(x in pd.Series(X.values.flatten()).apply(type).unique() for x in
-        #        ('csr_matrix', 'date',)):  # todo think about adding  'str'
-        #     raise NotImplementedError('error in data \t Dataset contains sparse data')
-
         # if y is not None and self.preprocessing_ is not None:
         #     y = pd.Series(self.preprocessing_.transform(y), name='y')
         # if y is None:

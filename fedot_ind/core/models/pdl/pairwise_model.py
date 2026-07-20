@@ -190,7 +190,6 @@ class PairwiseDifferenceClassifier:
             **self.base_model_params)
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
-        # TODO: unify the diagnostics payload behind a typed contract.
         self.diagnostics_: dict[str, Any] = {}
 
     def fit(self, input_data: InputData | np.ndarray, target: Any | None = None):
@@ -407,7 +406,6 @@ class PairwiseDifferenceRegressor:
             strategies=self.strategies_,
         )
         self.base_model.fit(batch.features, batch.target)
-        # TODO: unify the diagnostics payload behind a typed contract.
         self.diagnostics_ = {
             **batch.diagnostics,
             "task": "regression",

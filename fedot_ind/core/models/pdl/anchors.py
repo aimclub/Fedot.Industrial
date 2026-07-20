@@ -26,7 +26,7 @@ class ClassificationAdaptiveAnchorSelector:
 
         Uses ``pairing_policy`` and ``max_pairs`` to choose between the full training set and a per-class subsample.
         """
-        # TODO: This is being removed now because X has never been used anywhere before, but it might come in handy in the future.
+        # ``X`` is accepted to keep all anchor selectors on the same protocol.
         del X
         target = normalize_target_vector(y).astype(int)
         n_samples = len(target)
@@ -58,7 +58,7 @@ class RegressionEvenAnchorSelector:
 
     def select(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Return anchor row indices spread across the training target range."""
-        # TODO: This is being removed now because X has never been used anywhere before, but it might come in handy in the future.
+        # ``X`` is accepted to keep all anchor selectors on the same protocol.
         del X
         target_vector = normalize_target_vector(y)
         n_samples = len(target_vector)
@@ -76,5 +76,3 @@ class RegressionEvenAnchorSelector:
             1, min(n_samples, self._config.max_pairs // max(1, n_samples))
         )
         return _evenly_spaced_indices(np.arange(n_samples, dtype=int), max_anchor_count)
-
-# TODO: in the future should be solver from string in config to class instance
