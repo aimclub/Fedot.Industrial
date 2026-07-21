@@ -19,14 +19,16 @@ from fedot_ind.core.models.detection.modern_detectors import (
 )
 from fedot_ind.core.models.detection.runtime import DetectionBoundaryAdapter, ensure_detection_array
 from fedot_ind.core.repository.detection_registry import canonical_detection_model_name
+from fedot_ind.core.repository.detection_registry import ensure_canonical_detection_model
 
 DETECTION_RUNTIME_MODELS = {
     'feature_iforest_detector': FeatureIsolationForestDetector,
     'feature_oneclass_detector': FeatureOneClassDetector,
     'conv_autoencoder_detector': ConvAutoencoderDetector,
     'tcn_autoencoder_detector': TCNAutoencoderDetector,
-    'legacy_lstm_autoencoder_detector': LSTMAutoEncoderDetector,
-    'legacy_arima_detector': ARIMAFaultDetector,
+    # DETECTION_RUNTIME_MODELS ограничен canonical-only
+    # 'legacy_lstm_autoencoder_detector': LSTMAutoEncoderDetector,
+    # 'legacy_arima_detector': ARIMAFaultDetector,
 }
 
 
@@ -54,42 +56,58 @@ class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
     _operations_by_types = DETECTION_RUNTIME_MODELS
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
-        self.canonical_operation_type = canonical_detection_model_name(operation_type)
+        # self.canonical_operation_type = canonical_detection_model_name(operation_type)
+        # alias типа *_detector продолжают работать, т.к. сначала канонизируются в feature_*
+        self.canonical_operation_type = ensure_canonical_detection_model(operation_type, context='Runtime strategy')
         super().__init__(operation_type, params)
         self.operation_impl = self._convert_to_operation(operation_type)
         self.output_mode = self.params_for_fit.get('output_mode', 'labels')
 
     def _convert_to_operation(self, operation_type: str):
-        canonical_name = canonical_detection_model_name(operation_type)
-        if canonical_name in self._operations_by_types:
-            return self._operations_by_types[canonical_name]
-        raise ValueError(f'Impossible to obtain detection runtime strategy for {operation_type}')
+        # canonical_name = canonical_detection_model_name(operation_type)
+        # if canonical_name in self._operations_by_types:
+        #     return self._operations_by_types[canonical_name]
+        canonical_name = ensure_canonical_detection_model(
+            operation_type,
+            context='Runtime strategy'
+        )
+        return self._operations_by_types[canonical_name]
+        # raise ValueError(f'Impossible to obtain detection runtime strategy for {operation_type}')
 
     def fit(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
         operation_implementation = self.operation_impl(self.params_for_fit)
         train_data = self._normalize_input_data(train_data)
+        # runtime detectors принимают чистые данные, не InputData
         with ImplementationRandomStateHandler(implementation=operation_implementation):
-            operation_implementation.fit(train_data)
+            operation_implementation.fit(train_data.features)
         return operation_implementation
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
-        return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        return self._build_output(trained_operation, predict_data, output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData,
                         output_mode: str = 'default') -> OutputData:
-        prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
-        return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        # На fit FEDOT merge ждёт табличные признаки (proba), не бинарные labels.
+        fit_output_mode = 'probs' if output_mode == 'default' else output_mode
+        # prediction = self._predict_by_mode(trained_operation, predict_data, fit_output_mode)
+        # return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        return self._build_output(trained_operation, predict_data, fit_output_mode)
 
-    def _predict_by_mode(self, trained_operation, input_data: InputData, output_mode: str):
-        input_data = self._normalize_input_data(input_data)
-        resolved_mode = self.output_mode if output_mode == 'default' else output_mode
-        if resolved_mode in {'probs', 'probabilities'}:
-            return trained_operation.predict_proba(input_data)
-        if resolved_mode in {'scores', 'score'}:
-            return trained_operation.score_samples(input_data)
-        return trained_operation.predict(input_data)
+    def _build_output(self, trained_operation, predict_data: InputData, output_mode: str) -> OutputData:
+        # boundary живёт в адаптере, детектор отдаёт типизированный AnomalyScoreSeries,
+        # адаптер выводит из него FEDOT predict (labels/scores/probs)
+        predict_data = self._normalize_input_data(predict_data)
+        resolved_mode = output_mode if output_mode != 'default' else self.output_mode
+        if resolved_mode == 'default':
+            resolved_mode = 'labels'
+        # единая точка получения скоров/меток/порога от детектора
+        score_series = trained_operation.score_series_on_values(predict_data.features)
+        return DetectionBoundaryAdapter.to_output_data(
+            predict_data,
+            score_series=score_series,
+            predict_mode=resolved_mode,
+        )
 
     def _normalize_input_data(self, input_data: InputData) -> InputData:
         features = ensure_detection_array(input_data.features)
