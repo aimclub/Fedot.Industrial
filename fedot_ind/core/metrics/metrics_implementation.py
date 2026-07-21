@@ -23,8 +23,6 @@ from sklearn.metrics import (
     r2_score,
     roc_auc_score,
 )
-from sktime.performance_metrics.forecasting import mean_absolute_scaled_error, median_absolute_scaled_error, \
-    mean_absolute_error as tsf_mae, median_absolute_error as tsf_mdae, mean_absolute_percentage_error as tsf_mape
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 

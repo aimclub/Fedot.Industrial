@@ -37,14 +37,7 @@ __all__ = [
 ]
 
 try:  # pragma: no cover - optional FEDOT runtime dependency
-    from fedot_ind.core.models.detection.modern_detectors import (
-        BaseRuntimeAnomalyDetector,
-        ConvAutoencoderDetector,
-        FeatureIsolationForestDetector,
-        FeatureOneClassDetector,
-        TCNAutoencoderDetector,
-        build_detection_input_data,
-    )
+    pass
 
     __all__.extend(
         [

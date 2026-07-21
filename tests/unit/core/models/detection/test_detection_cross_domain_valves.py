@@ -3,21 +3,14 @@ import os
 import numpy as np
 import pytest
 
-from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 from fedot_ind.core.models.detection.runtime import (
-    DetectionRuntimeResult,
     DetectionSplitKind,
     DetectionSplitSpec,
     build_detection_window_batch,
     build_transfer_alignment_report,
-    coral_feature_align,
 )
 from fedot_ind.core.models.detection.stage_tuning_runtime import _split_series
-from fedot_ind.core.models.detection.modern_detectors import (
-    FeatureIsolationForestDetector,
-    build_detection_input_data,
-)
 
 VALVE_FEATURE_COLUMNS = (
     'Accelerometer1RMS',

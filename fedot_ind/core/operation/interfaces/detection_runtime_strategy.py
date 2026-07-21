@@ -6,11 +6,8 @@ from typing import Optional
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.utilities.random import ImplementationRandomStateHandler
 
-from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
-from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
 from fedot_ind.core.models.detection.modern_detectors import (
     ConvAutoencoderDetector,
     FeatureIsolationForestDetector,
@@ -18,7 +15,6 @@ from fedot_ind.core.models.detection.modern_detectors import (
     TCNAutoencoderDetector,
 )
 from fedot_ind.core.models.detection.runtime import DetectionBoundaryAdapter, ensure_detection_array
-from fedot_ind.core.repository.detection_registry import canonical_detection_model_name
 from fedot_ind.core.repository.detection_registry import ensure_canonical_detection_model
 
 DETECTION_RUNTIME_MODELS = {

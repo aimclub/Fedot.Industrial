@@ -365,7 +365,7 @@ class TestClassificationMetrics:
             # y_pred=Y_PRED_MC,
             predicted_probs=probs_MC,
         )
-        val = assert_new_equals_legacy(new, leg, name)
+        assert_new_equals_legacy(new, leg, name)
         # assert val[0] == pytest.approx(
         #     sklearn_roc_auc(Y_TRUE_MC, probs_MC), rel=1e-4,
         # )

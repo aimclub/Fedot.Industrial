@@ -29,10 +29,6 @@ from fedot_ind.core.models.detection.runtime import (
     build_transfer_alignment_report,
 )
 
-from fedot_ind.core.models.detection.stage_tuning import (
-    DetectionStageName,
-    build_detection_stage_tuning_plan)
-
 
 def _multichannel_series(length: int = 48) -> np.ndarray:
     time = np.arange(length, dtype=float)
@@ -668,7 +664,7 @@ class TestInferRegimeSegments:
 
     def test_basic_regime_detection(self):
         # создаём ряд с явными режимами
-        t = np.arange(100)
+        np.arange(100)
         signal = np.zeros(100)
         signal[:30] = 10   # высокий уровень
         signal[30:60] = 0   # стабильный низкий
