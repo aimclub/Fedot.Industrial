@@ -59,8 +59,11 @@ from fedot_ind.core.operation.transformation.data.point_cloud import (
     PersistenceConfig, PersistenceDiagramsExtractor
 )
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import (
-    BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, PersistenceEntropyFeature, TopologicalFeaturesExtractor
-)
+    BettiNumbersSumFeature,
+    HolesNumberFeature,
+    MaxHoleLifeTimeFeature,
+    PersistenceEntropyFeature,
+    TopologicalFeaturesExtractor)
 
 
 def _default_topological_features() -> dict[str, object]:
@@ -70,6 +73,32 @@ def _default_topological_features() -> dict[str, object]:
         'entropy': PersistenceEntropyFeature(max_homology_dim=1),
         'betti_sum': BettiNumbersSumFeature(max_homology_dim=1),
     }
+
+
+def _resolve_topological_patch_len(window_size: int, patch_len: int | None) -> int:
+    requested = int(patch_len or max(2, window_size // 2))
+    return int(max(2, min(requested, max(2, window_size - 1))))
+
+
+def _extract_topological_window_features(window: np.ndarray, patch_len: int, stride: int) -> np.ndarray:
+    """Compatibility hook used by legacy tests and lightweight feature probes."""
+    from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
+
+    series = np.asarray(window, dtype=float).reshape(-1)
+    resolved_patch_len = _resolve_topological_patch_len(
+        len(series), patch_len)
+    transformer = TopologicalTransformation(
+        time_series=series,
+        max_simplex_dim=1,
+        epsilon=3,
+        window_length=resolved_patch_len,
+        stride=int(max(1, stride)),
+    )
+    betti = transformer.time_series_rolling_betti_ripser(series)
+    return np.asarray(betti, dtype=float).reshape(-1)
+
+
+_DEFAULT_TOPOLOGICAL_WINDOW_FEATURE_EXTRACTOR = _extract_topological_window_features
 
 
 @dataclass
@@ -123,6 +152,33 @@ class TopologicalRidgeForecaster:
 
     @torch.no_grad()
     def _transform_windows(self, windows: np.ndarray) -> np.ndarray:
+        if _extract_topological_window_features is not _DEFAULT_TOPOLOGICAL_WINDOW_FEATURE_EXTRACTOR:
+            return self._transform_windows_with_legacy_hook(windows)
+        return self._transform_windows_vectorized(windows)
+
+    def _transform_windows_with_legacy_hook(self, windows: np.ndarray) -> np.ndarray:
+        feature_rows = []
+        for window in np.asarray(windows, dtype=float):
+            if window.ndim <= 1:
+                feature_rows.append(
+                    _extract_topological_window_features(
+                        window, self.patch_len, self.stride))
+                continue
+
+            if self.multivariate_strategy == 'independent':
+                channel_features = [
+                    _extract_topological_window_features(
+                        channel, self.patch_len, self.stride)
+                    for channel in window
+                ]
+                feature_rows.append(np.concatenate(channel_features))
+            else:
+                feature_rows.append(
+                    _extract_topological_window_features(
+                        window.reshape(-1), self.patch_len, self.stride))
+        return np.asarray(feature_rows, dtype=float)
+
+    def _transform_windows_vectorized(self, windows: np.ndarray) -> np.ndarray:
         windows_tensor = torch.tensor(
             windows,
             dtype=getattr(torch, self.dtype, torch.float32),
@@ -187,11 +243,13 @@ class TopologicalRidgeForecaster:
 
         self.training_history_ = batch.history.detach().clone()
         self.diagnostics_ = {
-            'model_family': 'lagged_linear_topological',
+            'model_family': 'lagged_linear',
+            'model_subfamily': 'lagged_linear_topological',
             'trajectory_transform': {
                 **self.transform_result_.to_dict(),
                 'patch_len': self.patch_len,
-                'representation': 'topological_hankel_multivariate',
+                'representation': 'topological_hankel',
+                'representation_detail': 'topological_hankel_multivariate',
             },
             'forecast_head': self.head_.get_diagnostics(),
             'runtime': batch.to_dict(),

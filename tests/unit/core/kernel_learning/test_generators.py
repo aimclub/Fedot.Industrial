@@ -22,7 +22,6 @@ from fedot_ind.core.kernel_learning import (
 from fedot_ind.core.kernel_learning.contracts import FeatureBundle
 from fedot_ind.core.kernel_learning.generators import adapters
 from fedot_ind.core.kernel_learning.generators import repository as repository_module
-from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 
 
 def test_statistical_summary_is_repo_native_adapter_not_manual_summary():

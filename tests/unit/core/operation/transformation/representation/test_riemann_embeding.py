@@ -1,28 +1,15 @@
-import sys
-import types
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
 from unittest.mock import patch
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional
 
 import numpy as np
 import pytest
-import re
 from fedot_ind.core.kernel_learning import (
-    BudgetedRepositoryFeatureGeneratorAdapter,
-    GeneratorBudgetPolicy,
-    OperationSpec,
-    RepositoryFeatureGeneratorAdapter,
-    ShapeletFeatureGenerator,
-    SummaryFeatureGenerator,
-    build_generator_registry,
     create_feature_generator,
-    resolve_torch_device,
 )
-from fedot_ind.core.kernel_learning.generators import adapters
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 
 from fedot.core.data.data import InputData
