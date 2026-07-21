@@ -40,3 +40,32 @@ def test_build_detection_stage_tuning_plan_marks_legacy_models_as_non_stage_nati
     assert plan.family == 'legacy_detection'
     assert plan.groups == ()
     assert plan.metadata['supports_stage_tuning'] is False
+
+
+def test_stage_tuning_plan_structure_K():
+    model_name = 'conv_autoencoder_detector'
+    plan = build_detection_stage_tuning_plan(model_name)
+    stages_in_plan = {group.stage for group in plan.groups}
+    scoring_group = next(g for g in plan.groups if g.stage == DetectionStageName.ANOMALY_SCORING.value)
+
+    assert plan.model_name == model_name
+    assert plan.metadata['supports_stage_tuning'] is True
+    assert DetectionStageName.REPRESENTATION.value in stages_in_plan
+    assert DetectionStageName.REPRESENTATION.value in scoring_group.depends_on
+
+
+def test_stage_vocabulary_is_complete_K():
+    expected_stages = {
+        'data_quality',
+        'regime_segmentation',
+        'representation',
+        'anomaly_scoring',
+        'calibration',
+        'event_aggregation',
+        'transfer_alignment',
+        'interpretation'
+    }
+
+    actual_stages = {stage.value for stage in DetectionStageName}
+
+    assert actual_stages == expected_stages

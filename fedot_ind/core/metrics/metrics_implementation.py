@@ -7,6 +7,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from golem.core.dag.graph import Graph
 from sklearn.metrics import (
     accuracy_score,
+    balanced_accuracy_score,
     d2_absolute_error_score,
     explained_variance_score,
     f1_score,
@@ -18,11 +19,10 @@ from sklearn.metrics import (
     mean_squared_log_error,
     median_absolute_error,
     precision_score,
+    recall_score,
     r2_score,
     roc_auc_score,
 )
-from sktime.performance_metrics.forecasting import mean_absolute_scaled_error, median_absolute_scaled_error, \
-    mean_absolute_error as tsf_mae, median_absolute_error as tsf_mdae, mean_absolute_percentage_error as tsf_mape
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
@@ -238,110 +238,97 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
+def _flatten_metric_result(result: dict) -> dict:
+    flat = {}
+    for key, value in result.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                # flat[f'{key}_{sub_key}'] = sub_value
+                flat[f'{sub_key}'] = sub_value
+        elif isinstance(value, list):
+            flat[key] = value
+        else:
+            flat[key] = value
+    return flat
+
+
+def _result_to_dataframe(result: dict, rounding_order: int) -> pd.DataFrame:
+    return pd.DataFrame([_flatten_metric_result(result)], index=[0]).round(rounding_order)
+
+
+def _resolve_legacy_predictions(predicted_labels, predicted_probs, kwargs):
+    """Accept old ``labels``/``probs`` kwargs used by FedotIndustrial API."""
+    if predicted_labels is None and 'labels' in kwargs:
+        predicted_labels = kwargs.pop('labels')
+    if predicted_probs is None and 'probs' in kwargs:
+        predicted_probs = kwargs.pop('probs')
+    return predicted_labels, predicted_probs
+
+
 def calculate_regression_metric(target,
-                                labels,
-                                rounding_order=3,
+                                predicted_labels=None,
                                 metric_names=None,
+                                rounding_order=3,
                                 **kwargs):
+    from fedot_ind.core.metrics.metrics import calculate_regression_metric as _calculate
 
-    # Set default metrics
-    if metric_names is None:
-        metric_names = ('r2', 'rmse', 'mae')
-
-    target = target.astype(float)
-
-    # def mean_squared_error(y_true, y_pred):
-    #     return root_mean_squared_error(y_true, y_pred) ** 2
-
-    metric_dict = {'r2': r2_score,
-                   'mse': mean_squared_error,
-                   'rmse': root_mean_squared_error,
-                   'mae': mean_absolute_error,
-                   'msle': mean_squared_log_error,
-                   'mape': mean_absolute_percentage_error,
-                   'median_absolute_error': median_absolute_error,
-                   'explained_variance_score': explained_variance_score,
-                   'max_error': max_error,
-                   'd2_absolute_error_score': d2_absolute_error_score}
-
-    df = pd.DataFrame({name: func(target,
-                                  labels) for name,
-                       func in metric_dict.items() if name in metric_names},
-                      index=[0])
-    return df.round(rounding_order)
+    predicted_labels, _ = _resolve_legacy_predictions(predicted_labels, None, kwargs)
+    result = _calculate(
+        target=target,
+        predicted_labels=predicted_labels,
+        metric_names=metric_names,
+        rounding_order=rounding_order,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 
 def calculate_forecasting_metric(target,
-                                 labels,
-                                 rounding_order=3,
+                                 predicted_labels=None,
                                  metric_names=None,
+                                 rounding_order=3,
                                  train_data=None,
                                  seasonality=None,
                                  **kwargs):
-    target = target.astype(float)
+    from fedot_ind.core.metrics.metrics import calculate_forecasting_metric as _calculate
 
-    # Set default metrics
-    if metric_names is None:
-        metric_names = ('smape', 'rmse', 'mape')
-
-    def rmse(y_true, y_pred, T, _=None):
-        return root_mean_squared_error(y_true, y_pred)
-
-    def mae(A, F, T, _=None):
-        return tsf_mae(A, F)
-
-    def mdae(A, F, T, _=None):
-        return tsf_mdae(A, F)
-
-    def mase(A, F, y_train, sp):
-        return mean_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
-
-    def mdase(A, F, y_train, sp):
-        return median_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
-
-    def mape(A, F, T, _=None):
-        return tsf_mape(A, F) * 100
-
-    def smape(A, F, T, _=None):
-        return tsf_mape(A, F, symmetric=True) * 100
-
-    metric_dict = {
-        'rmse': rmse,
-        'mae': mae,
-        'mdae': mdae,
-        'mase': mase,
-        'mdase': mdase,
-        'mape': mape,
-        'smape': smape,
-    }
-
-    df = pd.DataFrame({name: func(target,
-                                  labels, train_data, seasonality) for name,
-                       func in metric_dict.items() if name in metric_names},
-                      index=[0])
-    return df.round(rounding_order)
+    predicted_labels, _ = _resolve_legacy_predictions(predicted_labels, None, kwargs)
+    result = _calculate(
+        target=target,
+        predicted_labels=predicted_labels,
+        metrics=metric_names,
+        rounding_order=rounding_order,
+        train_data=train_data,
+        seasonality=seasonality,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 
 def calculate_classification_metric(target,
-                                    labels,
-                                    probs,
+                                    predicted_labels=None,
+                                    predicted_probs=None,
+                                    metric_names=None,
                                     rounding_order=3,
-                                    metric_names=('f1', 'accuracy'),
                                     **kwargs):
+    from fedot_ind.core.metrics.metrics import calculate_classification_metric as _calculate
 
-    # Set default metrics
-    if metric_names is None:
-        metric_names = ('f1', 'accuracy')
-
-    metric_dict = {'accuracy': Accuracy,
-                   'f1': F1,
-                   # 'roc_auc': ROCAUC,
-                   'precision': Precision,
-                   'logloss': Logloss}
-
-    df = pd.DataFrame({name: func(target, labels, probs).metric()
-                      for name, func in metric_dict.items() if name in metric_names}, index=[0])
-    return df.round(rounding_order)
+    predicted_labels, predicted_probs = _resolve_legacy_predictions(predicted_labels, predicted_probs, kwargs)
+    result = _calculate(
+        target=target,
+        predicted_labels=predicted_labels,
+        predicted_probs=predicted_probs,
+        metric_names=metric_names,
+        rounding_order=rounding_order,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result
 
 
 def kl_divergence(solution: pd.DataFrame,
@@ -391,7 +378,139 @@ def kl_divergence(solution: pd.DataFrame,
         return np.average(solution.mean())
 
 
+class DetectionQualityMetric:
+    """Бзовый класс для pure detection метрик.
+    источник правдя для любого запуска:
+    benchmark, CLI, example, AutoML, тесты API shells.
+    """
+    default_value = 0.0
+    need_to_minimize = False  # метрику нужно максимизировать (f1, precision, recall, balanced_accuracy)
+    output_mode = 'labels'
+
+    @classmethod
+    def _to_1d_int_array(cls, values):
+        """приводение входных значений к единому формату:
+        одномерный numpy-массив целых чисел."""
+        if hasattr(values, 'detach'):
+            values = values.detach().cpu().numpy()
+        return np.asarray(values, dtype=int).reshape(-1)
+
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        """каждый класс-метрика обязан реализовать свой metric,
+        иначе код упадёт явно"""
+        raise NotImplementedError
+
+
+class DetectionAccuracy(DetectionQualityMetric):
+    """Point-level accuracy."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(accuracy_score(target, predict))
+
+
+class DetectionBalancedAccuracy(DetectionQualityMetric):
+    """Point-level balanced accuracy."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(balanced_accuracy_score(target, predict))
+
+
+class DetectionPrecision(DetectionQualityMetric):
+    """Point-level anomaly precision."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(precision_score(target, predict, zero_division=0))
+
+
+class DetectionRecall(DetectionQualityMetric):
+    """Point-level anomaly recall."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(recall_score(target, predict, zero_division=0))
+
+
+class DetectionF1(DetectionQualityMetric):
+    """Binary point-level F1 для label = 1."""
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(f1_score(target, predict, zero_division=0))
+
+
+class DetectionF1Macro(DetectionQualityMetric):
+    """Macro F1 отдельно для класса 0 и для класса 1
+    с последующим усреднением.
+    """
+    @classmethod
+    def metric(cls, target, predict) -> float:
+        target = cls._to_1d_int_array(target)
+        predict = cls._to_1d_int_array(predict)
+        return float(f1_score(target, predict, average='macro', zero_division=0))
+
+
+# DETECTION_METRICS = {
+#     'accuracy': DetectionAccuracy,
+#     'balanced_accuracy': DetectionBalancedAccuracy,
+#     'precision': DetectionPrecision,
+#     'recall': DetectionRecall,
+#     'f1': DetectionF1,
+#     'f1_macro': DetectionF1Macro,
+
+#     # TODO: реализовать event-level Delay-Aware detection метрики
+#     # 'event_precision': DetectionEventPrecision,
+#     # 'event_recall': DetectionEventRecall,
+#     # 'event_f1': DetectionEventF1,
+#     # 'detection_delay': DetectionDelay,
+#     # 'fp_per_series': DetectionFalsePositivePerSeries,
+#     # 'nab': DetectionNAB,
+# }
+
+# SUPPORTED_DETECTION_METRICS = tuple(DETECTION_METRICS)
+
+
+# def calculate_detection_metric(
+#         target,
+#         labels,
+#         rounding_order=6,
+#         metric_names=None,
+#         **kwargs):
+#     """Единая функция-фасад для расчёта detection-метрик."""
+#     if metric_names is None:
+#         metric_names = ('f1_macro', 'balanced_accuracy')
+
+#     unsupported_metrics = set(metric_names) - set(DETECTION_METRICS)
+#     if unsupported_metrics:
+#         raise ValueError(f'Unsupported detection metrics: {sorted(unsupported_metrics)}')
+
+#     return {
+#         name: round(float(DETECTION_METRICS[name].metric(target, labels)), rounding_order)
+#         for name in metric_names
+#     }
+
+
+# DETECTION_METRICS_TO_MINIMIZE = tuple(
+#     name for name, metric in DETECTION_METRICS.items()
+#     if metric.need_to_minimize
+# )
+
+# DETECTION_METRICS_TO_MAXIMIZE = tuple(
+#     name for name, metric in DETECTION_METRICS.items()
+#     if not metric.need_to_minimize
+# )
+
+
 class AnomalyMetric(QualityMetric):
+    """Legacy NAB/window-based anomaly metric"""
 
     def __init__(self,
                  target,
@@ -650,7 +769,29 @@ class AnomalyMetric(QualityMetric):
         metric_dict = _metric_dict[self.metric](detecting_boundaries)
         return metric_dict
 
+# Legacy public function
+# def calculate_detection_metric(target, labels, **kwargs):
+#     metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
+#     return metric_dict
 
-def calculate_detection_metric(target, labels, **kwargs):
-    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
-    return metric_dict
+
+def calculate_detection_metric(target,
+                               predicted_labels=None,
+                               predicted_probs=None,
+                               metric_names=None,
+                               rounding_order=3,
+                               **kwargs):
+    from fedot_ind.core.metrics.metrics import calculate_detection_metric as _calculate
+
+    predicted_labels, predicted_probs = _resolve_legacy_predictions(predicted_labels, predicted_probs, kwargs)
+    result = _calculate(
+        target=target,
+        predicted_labels=predicted_labels,
+        predicted_probs=predicted_probs,
+        metric_names=metric_names,
+        rounding_order=rounding_order,
+        **kwargs,
+    )
+    if kwargs.get('return_dataframe', True):
+        return _result_to_dataframe(result, rounding_order)
+    return result

@@ -31,13 +31,7 @@ DETECTION_RUNTIME_MODELS = {
 
 
 def build_detection_boundary_batch(input_data: InputData, params: Optional[OperationParameters] = None):
-    """Build a FEDOT-boundary detection batch using the shared runtime adapter.
-
-    Legacy anomaly pipelines used ``window_length`` as a percentage-like knob,
-    while the new runtime speaks explicitly in ``window_size`` and
-    ``window_size_percent``. This helper keeps that boundary rule in one place
-    for strategies and tests.
-    """
+    """Build a FEDOT-boundary detection batch using the shared runtime adapter."""
     params = params or OperationParameters()
     return DetectionBoundaryAdapter.from_input_data(
         input_data,
@@ -49,7 +43,7 @@ def build_detection_boundary_batch(input_data: InputData, params: Optional[Opera
 
 
 class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
-    """Thin FEDOT evaluation strategy for stage-first anomaly detectors."""
+    """FEDOT evaluation strategy for modern and legacy anomaly detectors."""
 
     _operations_by_types = DETECTION_RUNTIME_MODELS
 
@@ -74,16 +68,30 @@ class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
         return operation_implementation
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
-        return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        return self._build_output(trained_operation, predict_data, output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData,
                         output_mode: str = 'default') -> OutputData:
-        prediction = self._predict_by_mode(trained_operation, predict_data, output_mode)
-        return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+        fit_output_mode = 'probs' if output_mode == 'default' else output_mode
+        return self._build_output(trained_operation, predict_data, fit_output_mode)
+
+    def _build_output(self, trained_operation, predict_data: InputData, output_mode: str) -> OutputData:
+        predict_data = self._normalize_input_data(predict_data)
+        resolved_mode = output_mode if output_mode != 'default' else self.output_mode
+        if resolved_mode == 'default':
+            resolved_mode = 'labels'
+        if not hasattr(trained_operation, 'score_series_on_values'):
+            prediction = self._predict_by_mode(trained_operation, predict_data, resolved_mode)
+            return self._convert_to_output(prediction, predict_data, output_data_type=DataTypesEnum.table)
+
+        score_series = trained_operation.score_series_on_values(predict_data)
+        return DetectionBoundaryAdapter.to_output_data(
+            predict_data,
+            score_series=score_series,
+            predict_mode=resolved_mode,
+        )
 
     def _predict_by_mode(self, trained_operation, input_data: InputData, output_mode: str):
-        input_data = self._normalize_input_data(input_data)
         resolved_mode = self.output_mode if output_mode == 'default' else output_mode
         if resolved_mode in {'probs', 'probabilities'}:
             return trained_operation.predict_proba(input_data)

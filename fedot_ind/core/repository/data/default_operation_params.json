@@ -583,6 +583,76 @@
     "ucl_quantile": 0.99,
     "n_steps_share": 0.15
   },
+  "feature_oneclass_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "representation_mode": "statistical",
+    "nu": 0.05,
+    "kernel": "rbf",
+    "gamma": "scale"
+  },
+  "feature_iforest_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "representation_mode": "statistical",
+    "n_jobs": 1,
+    "n_estimators": 200,
+    "contamination": "auto",
+    "random_state": 42
+  },
+  "conv_autoencoder_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "latent_dim": 16,
+    "reconstruction_loss": "mse"
+  },
+  "tcn_autoencoder_detector": {
+    "window_length": 10,
+    "calibration_strategy": "mad",
+    "threshold_quantile": 0.99,
+    "min_event_length": 1,
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "latent_dim": 16,
+    "reconstruction_loss": "mse"
+  },
+  "legacy_sst_detector": {
+    "window_length": 10,
+    "threshold_quantile": 0.99
+  },
+  "legacy_kalman_detector": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
+  "legacy_arima_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ar_order": 3
+  },
+  "legacy_lstm_autoencoder_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ucl_quantile": 0.99,
+    "n_steps_share": 0.15
+  },
+  "legacy_functional_pca_detector": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
   "one_class_svm": {
     "kernel": "rbf",
     "gamma": "auto"

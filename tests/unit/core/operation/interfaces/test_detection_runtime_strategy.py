@@ -61,3 +61,12 @@ def test_build_detection_boundary_batch_respects_window_length_parameter():
 
 def test_legacy_detection_strategy_is_now_a_runtime_wrapper():
     assert issubclass(IndustrialAnomalyDetectionStrategy, IndustrialDetectionModelRuntimeStrategy)
+
+
+def test_build_detection_boundary_batch_logic():
+    input_data = _build_detection_input(length=100)
+    params = OperationParameters(window_size=20, stride=5)
+    batch = build_detection_boundary_batch(input_data, params)
+
+    assert batch.window_size == 20
+    assert batch.stride == 5
