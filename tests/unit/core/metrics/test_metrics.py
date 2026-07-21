@@ -33,6 +33,13 @@ from fedot_ind.core.metrics.metrics import (
     calculate_forecasting_metric,
     calculate_regression_metric,
 )
+
+try:
+    from sklearn.metrics import root_mean_squared_error as sklearn_rmse
+except ImportError:
+    def sklearn_rmse(y_true, y_pred):
+        return np.sqrt(sklearn_mse(y_true, y_pred))
+
 # from fedot_ind.core.metrics.metrics_implementation import (
 #     calculate_classification_metric as legacy_classification,
 #     calculate_detection_metric as legacy_detection,
@@ -443,7 +450,7 @@ class TestRegressionMetrics:
     def test_rmse(self):
         new, leg, name = run_regression('rmse')
         val = assert_new_equals_legacy(new, leg, name)
-        assert val[0] == pytest.approx(sklearn_mse(Y_TRUE_REG, Y_PRED_REG, squared=False), rel=1e-4)
+        assert val[0] == pytest.approx(sklearn_rmse(Y_TRUE_REG, Y_PRED_REG), rel=1e-4)
 
     def test_mae(self):
         new, leg, name = run_regression('mae')
