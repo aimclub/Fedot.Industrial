@@ -10,6 +10,7 @@ import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
+from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
 from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 from tests.unit.api.fixtures import warm_up_cuda_computations
@@ -143,6 +144,93 @@ def test_torch_quantile_extractor_accepts_numpy_sample():
     assert features.ndim == 2
     assert features.shape[0] == 1
     assert torch.isfinite(features).all()
+
+
+def test_torch_quantile_extractor_normalizes_feature_config_keys():
+    normalized = TorchQuantileExtractor._normalize_feature_config(
+        {
+            "mean_": {"axis": -1},
+            StatisticalFeature.std: None,
+        }
+    )
+
+    assert normalized == {
+        StatisticalFeature.mean: {"axis": -1},
+        StatisticalFeature.std: {},
+    }
+
+
+def test_torch_quantile_extractor_filters_supported_kwargs():
+    def accepts_window(values, axis, window=None):
+        return values.mean(dim=axis) + float(window)
+
+    def accepts_any_kwargs(values, axis, **kwargs):
+        return kwargs["offset"] + values.mean(dim=axis)
+
+    fixed_kwargs = TorchQuantileExtractor._supported_kwargs(
+        accepts_window,
+        {"window": 2, "unused": 10},
+    )
+    variadic_kwargs = TorchQuantileExtractor._supported_kwargs(
+        accepts_any_kwargs,
+        {"offset": 3},
+    )
+
+    assert fixed_kwargs == {"window": 2}
+    assert variadic_kwargs == {"offset": 3}
+
+
+def test_torch_quantile_extractor_apply_feature_method_with_and_without_kwargs():
+    values = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+
+    with_kwargs = TorchQuantileExtractor._apply_feature_method(
+        lambda data, axis, offset=0.0: data.mean(dim=axis) + offset,
+        values,
+        -1,
+        {"offset": 1.0},
+    )
+    without_kwargs = TorchQuantileExtractor._apply_feature_method(
+        lambda data, axis: data.max(dim=axis).values,
+        values,
+        -1,
+        {},
+    )
+
+    assert torch.allclose(with_kwargs, torch.tensor([2.5, 4.5]))
+    assert torch.allclose(without_kwargs, torch.tensor([2.0, 4.0]))
+
+
+def test_torch_quantile_extractor_as_feature_matrix_handles_shape_variants():
+    source = torch.zeros(2, 3)
+
+    matrix = TorchQuantileExtractor._as_feature_matrix(
+        [
+            torch.tensor(1.0),
+            torch.tensor([1.0, 2.0]),
+            torch.tensor([5.0, 6.0, 7.0]),
+        ],
+        source,
+    )
+
+    assert matrix.shape == (2, 5)
+    assert torch.allclose(matrix[:, 0], torch.tensor([1.0, 1.0]))
+    assert torch.allclose(matrix[:, 1], torch.tensor([1.0, 2.0]))
+    assert torch.allclose(matrix[0, 2:], torch.tensor([5.0, 6.0, 7.0]))
+
+
+def test_torch_quantile_extractor_select_methods_uses_local_and_global_configs():
+    extractor = TorchQuantileExtractor(
+        OperationParameters(
+            stat_feature_config={StatisticalFeature.mean: {}},
+            stat_feature_global_config={StatisticalFeature.energy: {}},
+        )
+    )
+
+    local_methods = extractor._select_methods(add_global_features=False)
+    global_methods = extractor._select_methods(add_global_features=True)
+
+    assert len(local_methods) == 1
+    assert len(global_methods) == 1
 
 
 if __name__ == "__main__":
