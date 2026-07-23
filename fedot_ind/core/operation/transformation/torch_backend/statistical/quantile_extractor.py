@@ -118,11 +118,11 @@ class TorchQuantileExtractor(BaseExtractor):
         for feature in features:
             tensor = torch.as_tensor(feature, device=source.device, dtype=torch.float32)
             if tensor.ndim == 0:
-                tensor = tensor.reshape(1, 1)
+                tensor = tensor.reshape(1, 1).expand(n_samples, 1)
             elif tensor.shape[0] == n_samples:
                 tensor = tensor.reshape(n_samples, -1)
             else:
-                tensor = tensor.reshape(1, -1)
+                tensor = tensor.reshape(1, -1).expand(n_samples, -1)
             matrices.append(tensor)
         return torch.cat(matrices, dim=-1)
 

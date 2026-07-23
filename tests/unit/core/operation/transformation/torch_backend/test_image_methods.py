@@ -6,11 +6,21 @@ from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
     convert_to_init_dim,
     prepare_series_input,
 )
+from fedot_ind.core.operation.transformation.torch_backend.image.discretize import (
+    _digitize_torch,
+    _linspace_per_row,
+    _pad_rows_with_nan,
+    kbins_discretize_torch,
+)
 from fedot_ind.core.operation.transformation.torch_backend.image.stft_transformation import (
     STFTSpectrogram,
 )
 from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
 from fedot_ind.core.operation.transformation.torch_backend.image.gaf_transformation import GAF
+from fedot_ind.core.operation.transformation.torch_backend.image.paa import (
+    PAA,
+    segmentation_torch,
+)
 from fedot_ind.core.operation.transformation.torch_backend.io import resolve_torch_device
 
 import numpy as np
@@ -159,6 +169,11 @@ class TestGAF:
         out = gaf.transform(torch.randn(B, T))
         assert out.shape == (B, T // 2, T // 2)
 
+    def test_window_size_config_derives_image_side(self):
+        gaf = GAF({"window_size": 8, "torch_device": "cpu"})
+        out = gaf.transform(torch.randn(B, T))
+        assert out.shape == (B, 8, 8)
+
     def test_per_sample_minmax_handles_unnormalized_input_by_default(self):
         gaf = GAF({"image_size": IMAGE_SIDE, "torch_device": "cpu"})
         out = gaf.transform(torch.randn(B, T) * 10.0 + 100.0)
@@ -191,7 +206,11 @@ class TestGAF:
         [
             ({"method": "invalid"}, "method"),
             ({"image_size": 0.0}, "image_size"),
+            ({"image_size": "bad"}, "image_size"),
             ({"image_size": 100, "torch_device": "cpu"}, "<= n_timestamps"),
+            ({"window_size": 0}, "window_size"),
+            ({"window_size": 100}, "window_size"),
+            ({"window_size": 1.5}, "window_size"),
         ],
     )
     def test_invalid_params_raise(self, params, match):
@@ -410,3 +429,93 @@ class TestSmallBatchFiniteValues:
         else:
             assert out.shape[1] == 3
             assert out.shape[2] == out.shape[3]
+
+
+class TestPAAUtilities:
+    @pytest.mark.parametrize(
+        "kwargs,match",
+        [
+            ({"ts_size": 1, "window_size": 1}, "ts_size"),
+            ({"ts_size": 4, "window_size": 0}, "window_size"),
+            ({"ts_size": 4, "window_size": 5}, "window_size"),
+            ({"ts_size": 4, "window_size": 2, "n_segments": 1}, "n_segments"),
+            ({"ts_size": 4, "window_size": 2, "n_segments": 5}, "n_segments"),
+        ],
+    )
+    def test_segmentation_rejects_invalid_bounds(self, kwargs, match):
+        with pytest.raises(ValueError, match=match):
+            segmentation_torch(**kwargs)
+
+    def test_segmentation_default_device_and_overlapping_bounds(self):
+        start, end, size = segmentation_torch(10, 4, overlapping=True, n_segments=3)
+
+        assert str(start.device) == "cpu"
+        assert size == 3
+        assert torch.equal(start, torch.tensor([0, 3, 6]))
+        assert torch.equal(end, torch.tensor([4, 7, 10]))
+
+    def test_paa_segmentation_and_transform_match_segment_means(self):
+        paa = PAA(window_size=2, output_size=2)
+        start, end = paa.segmentation(4)
+        transformed = paa.transform(torch.tensor([[1.0, 2.0, 3.0, 4.0]]))
+
+        assert torch.equal(start, torch.tensor([0, 2]))
+        assert torch.equal(end, torch.tensor([2, 4]))
+        assert torch.allclose(transformed, torch.tensor([[1.5, 3.5]]))
+
+    def test_paa_window_size_one_is_identity(self):
+        x = torch.randn(2, 5)
+        assert torch.equal(PAA(window_size=1, output_size=5).transform(x), x)
+
+
+class TestDiscretizationUtilities:
+    @pytest.mark.parametrize(
+        "start,end,steps,match",
+        [
+            (torch.zeros(1, 1), torch.ones(1), 3, "1D"),
+            (torch.zeros(1), torch.ones(2), 3, "same shape"),
+            (torch.zeros(1), torch.ones(1), 1, ">= 2"),
+        ],
+    )
+    def test_linspace_per_row_rejects_invalid_inputs(self, start, end, steps, match):
+        with pytest.raises(ValueError, match=match):
+            _linspace_per_row(start, end, steps)
+
+    def test_pad_rows_with_nan_handles_empty_and_sparse_rows(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            _pad_rows_with_nan([])
+
+        padded = _pad_rows_with_nan([torch.tensor([]), torch.tensor([1.0, 2.0])])
+
+        assert padded.shape == (2, 2)
+        assert torch.isnan(padded[0]).all()
+        assert torch.equal(padded[1], torch.tensor([1.0, 2.0]))
+
+    def test_kbins_discretize_return_bins_for_uniform_and_normal_strategies(self):
+        x = torch.tensor([[0.0, 1.0, 2.0], [-1.0, 0.0, 1.0]])
+        uniform_binned, uniform_bins = kbins_discretize_torch(
+            x,
+            n_bins=3,
+            strategy="uniform",
+            return_bins=True,
+        )
+        normal_binned, normal_bins = kbins_discretize_torch(
+            x,
+            n_bins=3,
+            strategy="normal",
+            return_bins=True,
+        )
+
+        assert uniform_binned.shape == x.shape
+        assert uniform_bins.shape == (2, 2)
+        assert normal_binned.shape == x.shape
+        assert normal_bins.shape == (2,)
+
+    def test_digitize_rejects_invalid_bin_layouts(self):
+        x = torch.randn(2, 4)
+
+        with pytest.raises(ValueError, match="bins.shape"):
+            _digitize_torch(x, torch.randn(3, 2))
+
+        with pytest.raises(ValueError, match="1D or 2D"):
+            _digitize_torch(x, torch.randn(2, 2, 2))

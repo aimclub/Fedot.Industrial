@@ -133,8 +133,12 @@ class MultimodalDataBundle:
         resolved_target = self.target if keep_target else target
         if target is not None:
             resolved_target = target
+        resolved_metadata = dict(self.metadata if metadata is None else metadata)
+        if modalities is not None and metadata is None:
+            for auto_key in ("modalities", "shapes", "device", "dtype"):
+                resolved_metadata.pop(auto_key, None)
         return MultimodalDataBundle(
             modalities=dict(self.modalities if modalities is None else modalities),
             target=resolved_target,
-            metadata=dict(self.metadata if metadata is None else metadata),
+            metadata=resolved_metadata,
         )

@@ -1,10 +1,22 @@
 import pytest
 import torch
+import torch.nn as nn
 
 from fedot_ind.core.models.future.future_clf import (
     ConfigurableMultimodalFusionClassifier,
 )
 from fedot_ind.core.models.future.mapping import FUSION_REGISTRY, FusionMethod
+from fedot_ind.core.models.future.rules import (
+    require_initialized_model_parts,
+    require_resolved_modalities,
+    resolve_modalities_from_bundle,
+    validate_context_modalities_for_raw_centered,
+    validate_embeddings_count,
+    validate_encoder_registry_has_modalities,
+    validate_multimodal_bundle_input,
+    validate_positive_int,
+    validate_stacked_embeddings_shape,
+)
 from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
@@ -207,4 +219,83 @@ def test_unknown_modality_raises():
             num_classes=2,
             fusion_method="concat",
             d_model=16,
+        )
+
+
+def test_future_rules_resolve_modalities_from_metadata_order():
+    bundle = MultimodalDataBundle(
+        modalities={
+            MultimodalModality.raw: torch.randn(2, 1, 8),
+            MultimodalModality.stats: torch.randn(2, 4),
+        },
+        metadata={"modalities": [MultimodalModality.stats, "raw"]},
+    )
+
+    assert resolve_modalities_from_bundle(bundle) == (
+        MultimodalModality.stats,
+        MultimodalModality.raw,
+    )
+
+
+def test_future_rules_validate_common_failure_surfaces():
+    with pytest.raises(ValueError, match="num_classes"):
+        validate_positive_int(name="num_classes", value=0)
+
+    with pytest.raises(ValueError, match="MultimodalDataBundle"):
+        validate_multimodal_bundle_input(object())
+
+    with pytest.raises(ValueError, match="Unsupported modalities"):
+        validate_encoder_registry_has_modalities(
+            modalities=[MultimodalModality.raw],
+            preset_registry={},
+        )
+
+    with pytest.raises(ValueError, match="requires raw modality"):
+        validate_context_modalities_for_raw_centered(
+            raw_modality=MultimodalModality.raw,
+            modalities=[MultimodalModality.stats],
+        )
+
+    with pytest.raises(ValueError, match="at least one context"):
+        validate_context_modalities_for_raw_centered(
+            raw_modality=MultimodalModality.raw,
+            modalities=[MultimodalModality.raw],
+        )
+
+    with pytest.raises(ValueError, match="not resolved"):
+        require_resolved_modalities(None)
+
+    with pytest.raises(ValueError, match="Expected 2 context embeddings"):
+        validate_embeddings_count(
+            embeddings=(torch.zeros(1, 4),),
+            expected_count=2,
+            label="context embeddings",
+        )
+
+    with pytest.raises(ValueError, match="n_inputs=2"):
+        validate_stacked_embeddings_shape(
+            torch.zeros(3, 1, 4),
+            expected_n_inputs=2,
+            expected_d_model=4,
+        )
+
+    with pytest.raises(ValueError, match="d_model=8"):
+        validate_stacked_embeddings_shape(
+            torch.zeros(3, 2, 4),
+            expected_n_inputs=2,
+            expected_d_model=8,
+        )
+
+    with pytest.raises(ValueError, match="encoders"):
+        require_initialized_model_parts(
+            encoders=None,
+            fusion=nn.Identity(),
+            modalities=[MultimodalModality.raw],
+        )
+
+    with pytest.raises(ValueError, match="Fusion module"):
+        require_initialized_model_parts(
+            encoders=nn.ModuleDict(),
+            fusion=None,
+            modalities=[MultimodalModality.raw],
         )

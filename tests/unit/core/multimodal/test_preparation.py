@@ -7,9 +7,11 @@ from fedot_ind.core.multimodal import (
     DEFAULT_STAT_FEATURES,
     MultimodalDatasetPreparer,
     MultimodalModality,
+    NormalizationMethod,
     PreparationConfig,
     StatisticalFeature,
 )
+from fedot_ind.core.multimodal.configs import normalization_policy_from_steps
 
 
 def make_record() -> ClassificationDatasetRecord:
@@ -72,6 +74,96 @@ def test_preparer_builds_default_modalities_from_classification_record():
             )
 
 
+def test_normalization_policy_from_steps_returns_named_and_custom_policies():
+    assert normalization_policy_from_steps(()) == "none"
+    assert (
+        normalization_policy_from_steps(
+            (
+                NormalizationMethod.imputation,
+                NormalizationMethod.feature_standardization,
+            )
+        )
+        == "train_mean_imputation_then_train_mean_std"
+    )
+    assert (
+        normalization_policy_from_steps((NormalizationMethod.image_standardization,))
+        == "train_image_standardization"
+    )
+    assert (
+        normalization_policy_from_steps(
+            (
+                NormalizationMethod.log1p,
+                NormalizationMethod.image_standardization,
+            )
+        )
+        == "log1p_then_train_image_standardization"
+    )
+    assert (
+        normalization_policy_from_steps((NormalizationMethod.log1p,))
+        == "log1p"
+    )
+
+
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        (
+            {"transformation_config": {"unknown": {}}},
+            "Unsupported modality key",
+        ),
+        (
+            {
+                "transformation_config": {
+                    "raw": {
+                        "per_sample_z_normalize": True,
+                        "per_sample_z_normalize_eps": 0,
+                    }
+                }
+            },
+            "must be positive",
+        ),
+        (
+            {
+                "normalization_config": {
+                    MultimodalModality.raw: (NormalizationMethod.log1p,)
+                }
+            },
+            "Raw modality is not normalized",
+        ),
+        (
+            {
+                "transformation_config": {
+                    "stats": {"feature_names": ("not_a_feature",)}
+                }
+            },
+            "not_a_feature",
+        ),
+    ],
+)
+def test_preparation_config_rejects_invalid_contracts(kwargs, match):
+    with pytest.raises(ValueError, match=match):
+        PreparationConfig(**kwargs)
+
+
+def test_preparation_config_metadata_uses_resolved_transform_params():
+    config = PreparationConfig(
+        transformation_config={
+            "raw": {"per_sample_z_normalize": True},
+            "stats": {"feature_names": ("mean", "std")},
+        }
+    )
+    resolved_stats_params = {"feature_names": ("mean",), "torch_device": torch.device("cpu")}
+
+    metadata = config.metadata(
+        torch.device("cpu"),
+        transform_params={MultimodalModality.stats: resolved_stats_params},
+    )
+
+    assert metadata["normalization"][MultimodalModality.raw] == "per_sample_z_norm"
+    assert metadata["transform_params"][MultimodalModality.stats] == resolved_stats_params
+    assert metadata["preparation_config"]["transformation_config"]["stats"] == resolved_stats_params
+
+
 def test_preparer_does_not_update_statistics_on_record_test_transform():
     record = make_record()
     preparer = MultimodalDatasetPreparer()
@@ -125,6 +217,20 @@ def test_preparer_builds_modalities_from_dataloader_like_object():
     assert test_bundle.modalities[MultimodalModality.stats].shape[0] == 2
 
 
+def test_preparer_rejects_loader_without_load_data():
+    preparer = MultimodalDatasetPreparer()
+
+    with pytest.raises(TypeError, match="load_data"):
+        preparer.prepare_from_loader(object())
+
+
+def test_preparer_transform_requires_fit():
+    preparer = MultimodalDatasetPreparer()
+
+    with pytest.raises(ValueError, match="must be fitted"):
+        preparer.transform(np.zeros((2, 4)), np.array([0, 1]))
+
+
 def test_preparer_keeps_raw_unchanged_and_builds_stats_from_input():
     config = PreparationConfig(
         normalization_config={},
@@ -153,6 +259,19 @@ def test_preparer_keeps_raw_unchanged_and_builds_stats_from_input():
         atol=1e-4,
     )
     assert bundle.metadata["normalization"][MultimodalModality.raw] == "none"
+
+
+def test_preparer_raises_on_unknown_labels_during_transform():
+    config = PreparationConfig(
+        transformation_config={
+            "raw": {"per_sample_z_normalize": False},
+        }
+    )
+    preparer = MultimodalDatasetPreparer(config=config)
+    preparer.fit(np.zeros((2, 4)), np.array(["known", "known"]))
+
+    with pytest.raises(ValueError, match="Unknown target labels"):
+        preparer.transform(np.zeros((1, 4)), np.array(["new"]))
 
 
 def test_preparer_can_per_sample_z_normalize_before_building_modalities():
@@ -228,6 +347,26 @@ def test_preparer_handles_short_constant_multichannel_series():
     for bundle in (train_bundle, test_bundle):
         for tensor in bundle.modalities.values():
             assert torch.isfinite(tensor).all()
+
+
+def test_preparer_builds_mtf_modality_and_records_resolved_params():
+    config = PreparationConfig(
+        normalization_config={},
+        transformation_config={
+            "raw": {"per_sample_z_normalize": False},
+            "mtf": {"image_size": 0.5, "n_bins": 3, "strategy": "uniform"},
+        },
+    )
+    preparer = MultimodalDatasetPreparer(config=config)
+
+    bundle = preparer.fit_transform(
+        np.arange(2 * 8, dtype=float).reshape(2, 8),
+        np.array([0, 1]),
+    )
+
+    assert bundle.modalities[MultimodalModality.mtf].shape == (2, 1, 4, 4)
+    assert bundle.metadata["transform_params"][MultimodalModality.mtf]["n_bins"] == 3
+    assert "mtf" in bundle.metadata["preparation_config"]["transformation_config"]
 
 
 def test_preparer_rejects_inconsistent_target_size():
