@@ -59,8 +59,35 @@ def test_mvp_fusion_forward_shape_cpu(fusion_method, modalities):
         fusion_method=fusion_method,
         d_model=24,
     )
+    model.build(bundle)
     logits = model(bundle)
     assert logits.shape == (bundle.n_samples, 3)
+
+
+def test_fusion_classifier_requires_explicit_build_before_forward():
+    bundle = _make_bundle()
+    model = ConfigurableMultimodalFusionClassifier(
+        num_classes=2,
+        fusion_method="concat",
+        d_model=16,
+    )
+
+    with pytest.raises(ValueError, match="Model is not built"):
+        model(bundle)
+
+
+def test_fusion_classifier_can_keep_legacy_auto_build_mode():
+    bundle = _make_bundle()
+    model = ConfigurableMultimodalFusionClassifier(
+        num_classes=2,
+        fusion_method="concat",
+        d_model=16,
+        auto_build_on_forward=True,
+    )
+
+    logits = model(bundle)
+
+    assert logits.shape == (bundle.n_samples, 2)
 
 
 def test_gated_base_fusion_classifier_returns_aux_gates():
@@ -70,6 +97,7 @@ def test_gated_base_fusion_classifier_returns_aux_gates():
         fusion_method="gated",
         d_model=16,
     )
+    model.build(bundle)
     aux = model(bundle, return_aux=True)
     assert aux.logits.shape == (bundle.n_samples, 2)
     assert aux.gates is not None
@@ -88,6 +116,7 @@ def test_film_base_fusion_classifier_returns_gamma_beta():
         d_model=16,
         raw_modality=MultimodalModality.raw,
     )
+    model.build(bundle)
     aux = model(bundle, return_aux=True)
     assert aux.gamma is not None
     assert aux.beta is not None
@@ -107,6 +136,7 @@ def test_raw_centered_base_fusion_classifier_returns_alpha():
         d_model=16,
         raw_modality=MultimodalModality.raw,
     )
+    model.build(bundle)
     aux = model(bundle, return_aux=True)
     assert aux.alpha is not None
     assert aux.alpha.shape[0] == bundle.n_samples
@@ -147,6 +177,7 @@ def test_missing_modality_in_bundle_raises():
         fusion_method="concat",
         d_model=16,
     )
+    model.build(_make_bundle())
     with pytest.raises(ValueError, match="does not contain required modalities"):
         model(bundle)
 
@@ -164,6 +195,7 @@ def test_mtf_modality_supported_when_provided_explicitly():
         fusion_method="concat",
         d_model=16,
     )
+    model.build(bundle)
     logits = model(bundle)
     assert logits.shape == (bundle.n_samples, 2)
 

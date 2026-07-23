@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Sequence
 
@@ -78,7 +79,7 @@ def default_transformation_config() -> dict[str, dict[str, Any]]:
     }
 
 
-def _normalization_policy(steps: Sequence[NormalizationMethod]) -> str:
+def normalization_policy_from_steps(steps: Sequence[NormalizationMethod]) -> str:
     if not steps:
         return "none"
     if tuple(steps) == (
@@ -217,12 +218,27 @@ class PreparationConfig:
             )
         )
 
-    def metadata(self, device: torch.device) -> dict[str, Any]:
+    def metadata(
+        self,
+        device: torch.device,
+        *,
+        transform_params: Mapping[
+            MultimodalModality,
+            Mapping[str, Any],
+        ] | None = None,
+    ) -> dict[str, Any]:
         normalization_config = self.normalization_config or {}
-        transform_params = {
+        resolved_transform_params = {
             modality: self.modality_config(modality)
             for modality in self.modalities
         }
+        if transform_params is not None:
+            resolved_transform_params.update(
+                {
+                    modality: dict(params)
+                    for modality, params in transform_params.items()
+                }
+            )
         return {
             "normalization": {
                 modality: (
@@ -234,7 +250,7 @@ class PreparationConfig:
                             False,
                         )
                     )
-                    else _normalization_policy(
+                    else normalization_policy_from_steps(
                         tuple(normalization_config.get(modality, ()))
                     )
                 )
@@ -247,11 +263,11 @@ class PreparationConfig:
                 ]
                 for modality in self.modalities
             },
-            "transform_params": transform_params,
+            "transform_params": resolved_transform_params,
             "preparation_config": {
                 "modalities": tuple(modality.value for modality in self.modalities),
                 "transformation_config": {
-                    modality.value: transform_params.get(modality, {})
+                    modality.value: resolved_transform_params.get(modality, {})
                     for modality in self.modalities
                 },
                 "auto_adjust_stft": self.auto_adjust_stft,

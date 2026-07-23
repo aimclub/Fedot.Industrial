@@ -1,5 +1,10 @@
 """Raw-centered residual fusion: keep raw as the main representation."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping
+from collections.abc import Sequence
+
 import torch
 import torch.nn as nn
 
@@ -9,6 +14,7 @@ from fedot_ind.core.models.future.rules import (
     validate_embeddings_count,
 )
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
+from fedot_ind.core.multimodal.enums import MultimodalModality
 
 
 class RawCenteredResidualFusion(BaseFusionStrategy):
@@ -111,3 +117,24 @@ class RawCenteredResidualFusion(BaseFusionStrategy):
             }
 
         return h_final
+
+    def fuse(
+        self,
+        embeddings: Mapping[MultimodalModality, torch.Tensor],
+        modalities: Sequence[MultimodalModality],
+        *,
+        raw_modality: MultimodalModality | None = None,
+        return_aux: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        if raw_modality is None:
+            raise ValueError("Raw-centered residual fusion requires raw_modality.")
+        context_modalities = tuple(
+            modality for modality in modalities if modality != raw_modality
+        )
+        h_raw = embeddings[raw_modality]
+        context_embeddings = self._ordered_embeddings(embeddings, context_modalities)
+        return self.forward(
+            h_raw,
+            *context_embeddings,
+            return_aux=return_aux,
+        )

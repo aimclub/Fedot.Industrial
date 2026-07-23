@@ -3,12 +3,16 @@ from typing import Any, Optional
 
 import torch
 
-from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
+from fedot_ind.core.operation.transformation.torch_backend.image.discretize import (
     _validate_kbins_params,
     kbins_discretize_torch,
+)
+from fedot_ind.core.operation.transformation.torch_backend.image.paa import (
     segmentation_torch,
-    prepare_series_input,
+)
+from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import (
     convert_to_init_dim,
+    prepare_series_input,
 )
 
 

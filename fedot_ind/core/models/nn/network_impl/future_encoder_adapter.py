@@ -1,4 +1,4 @@
-"""Thin BaseNeuralModel adapter for multimodal FUTURE encoders."""
+"""Utility adapter for multimodal FUTURE encoder stacks."""
 
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.future.rules import normalize_unique_modalities
 from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
 from fedot_ind.core.models.nn.network_impl.encoders.config import EncoderConfig
 from fedot_ind.core.models.nn.models_rules import normalize_modality
@@ -97,11 +96,16 @@ class FutureEncoderStack(nn.Module):
         return embeddings, aux
 
 
-class FutureMultimodalEncoderAdapter(BaseNeuralModel):
-    """Thin adapter that builds family-based encoders from multimodal bundles."""
+class FutureMultimodalEncoderAdapter(nn.Module):
+    """Utility that builds family-based encoders from multimodal bundles.
 
-    def __init__(self, params: OperationParameters | None = None):
-        super().__init__(params)
+    This class is intentionally not a FEDOT operation adapter: it exposes
+    deterministic encoder-stack utilities for FUTURE model code.
+    """
+
+    def __init__(self, params: Mapping[str, Any] | None = None):
+        super().__init__()
+        self.params = dict(params or {})
         self.d_model = int(self.params.get("d_model", 128))
         self.encoder_stack: FutureEncoderStack | None = None
 
@@ -114,7 +118,7 @@ class FutureMultimodalEncoderAdapter(BaseNeuralModel):
         if modalities is None:
             selected_modalities = tuple(bundle.available_modalities)
         else:
-            selected_modalities = self._normalize_unique_modalities(modalities)
+            selected_modalities = normalize_unique_modalities(modalities)
 
         unsupported = [
             modality.value
@@ -142,7 +146,6 @@ class FutureMultimodalEncoderAdapter(BaseNeuralModel):
             )
 
         self.encoder_stack = FutureEncoderStack(config_map)
-        self.model = self.encoder_stack
         return self.encoder_stack
 
     def encode_bundle(
@@ -180,32 +183,8 @@ class FutureMultimodalEncoderAdapter(BaseNeuralModel):
         if preset_entry is None:
             raise ValueError(f"Unknown modality '{modality.value}'.")
 
-        preset_builder, shape_param = preset_entry
-        return preset_builder(
+        return preset_entry.build_config(
+            shape=shape,
             d_model=self.d_model,
-            **{shape_param: int(shape[1])},
-            **modality_kwargs,
-        )
-
-    @staticmethod
-    def _normalize_unique_modalities(
-        modalities: Sequence[MultimodalModality | str],
-    ) -> tuple[MultimodalModality, ...]:
-        normalized: list[MultimodalModality] = []
-        seen: set[MultimodalModality] = set()
-        for modality in modalities:
-            normalized_modality = normalize_modality(modality)
-            if normalized_modality in seen:
-                raise ValueError(
-                    f"Duplicate modality in adapter configuration: {normalized_modality.value}."
-                )
-            seen.add(normalized_modality)
-            normalized.append(normalized_modality)
-        if not normalized:
-            raise ValueError("Adapter modality list must not be empty.")
-        return tuple(normalized)
-
-    def _init_model(self, ts) -> tuple:
-        raise NotImplementedError(
-            "FutureMultimodalEncoderAdapter exposes encoder stack utilities only."
+            kwargs=modality_kwargs,
         )

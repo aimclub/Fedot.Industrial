@@ -17,5 +17,4 @@ class NormalizationMethod(str, Enum):
     log1p = "log1p"
 
 
-NormalizationStep = NormalizationMethod
-NormalizationConfig = dict[MultimodalModality, Sequence[NormalizationStep]]
+NormalizationConfig = dict[MultimodalModality, Sequence[NormalizationMethod]]

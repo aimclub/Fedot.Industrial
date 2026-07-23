@@ -36,7 +36,8 @@ def normalize_unique_modalities(
         normalized_modality = normalize_modality(modality)
         if normalized_modality in seen:
             raise ValueError(
-                f"Duplicate modalities are not allowed. Got: {tuple(modalities)}."
+                "Duplicate modality entries are not allowed. "
+                f"Duplicate modalities: {tuple(modalities)}."
             )
         seen.add(normalized_modality)
         normalized.append(normalized_modality)
@@ -112,17 +113,6 @@ def validate_encoder_registry_has_modalities(
         )
 
 
-def validate_supported_modalities(modalities: Sequence[MultimodalModality]) -> None:
-    supported_modalities = frozenset(MultimodalModality)
-    unsupported = [m.value for m in modalities if m not in supported_modalities]
-    if unsupported:
-        raise ValueError(
-            "Supported modalities are "
-            f"{sorted(m.value for m in supported_modalities)}. "
-            f"Got unsupported modalities: {sorted(unsupported)}."
-        )
-
-
 def validate_context_modalities_for_raw_centered(
     raw_modality: MultimodalModality,
     modalities: Sequence[MultimodalModality],
@@ -134,6 +124,16 @@ def validate_context_modalities_for_raw_centered(
     context_modalities = [modality for modality in modalities if modality != raw_modality]
     if len(context_modalities) == 0:
         raise ValueError("Raw-centered fusion requires at least one context modality.")
+
+
+def require_resolved_modalities(
+    modalities: Sequence[MultimodalModality] | None,
+) -> Sequence[MultimodalModality]:
+    """Return model modalities only after they have been resolved."""
+
+    if modalities is None:
+        raise ValueError("Model modalities are not resolved.")
+    return modalities
 
 
 def validate_embeddings_count(
@@ -168,15 +168,13 @@ def require_initialized_model_parts(
     encoders: nn.ModuleDict | None,
     fusion: nn.Module | None,
     modalities: Sequence[MultimodalModality] | None,
-    require_modules: bool = True,
-) -> tuple[nn.ModuleDict | None, nn.Module | None, Sequence[MultimodalModality]]:
+) -> tuple[nn.ModuleDict, nn.Module, Sequence[MultimodalModality]]:
     """Require initialized model parts and return normalized references."""
 
-    if modalities is None:
-        raise ValueError("Model modalities are not resolved.")
+    modalities = require_resolved_modalities(modalities)
 
-    if require_modules and encoders is None:
+    if encoders is None:
         raise ValueError("Model encoders are not initialized.")
-    if require_modules and fusion is None:
+    if fusion is None:
         raise ValueError("Fusion module is not initialized.")
     return encoders, fusion, modalities

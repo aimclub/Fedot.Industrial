@@ -1,13 +1,30 @@
 from __future__ import annotations
 
 from typing import Any
+from typing import Protocol
 
+import torch
+
+from fedot_ind.core.multimodal.normalization import AbstractNormalizer
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
     NormalizationConfig,
 )
 from fedot_ind.core.multimodal.mapping import NORMALIZATION_HANDLERS
+
+
+class NormalizerProtocol(Protocol):
+    """Runtime contract for train-aware normalization handlers."""
+
+    def fit(self, X: torch.Tensor) -> None:
+        """Fit handler statistics on train data."""
+
+    def transform(self, X: torch.Tensor) -> torch.Tensor:
+        """Transform data using fitted statistics."""
+
+    def get_state(self) -> dict[str, object]:
+        """Return serializable fitted statistics."""
 
 
 class MultimodalPreprocessor:
@@ -30,16 +47,28 @@ class MultimodalPreprocessor:
 
     def fit(self, bundle: MultimodalDataBundle) -> "MultimodalPreprocessor":
         self._validate_bundle(bundle)
+        self._fit_pipeline(bundle)
+        self.is_fitted_ = True
+        return self
+
+    def _fit_pipeline(self, bundle: MultimodalDataBundle) -> None:
+        """Fit configured handlers and pass train data between pipeline steps."""
+
         self._handlers_ = {}
 
         for modality, steps in self.normalization_config.items():
             current = bundle.modalities[modality]
-            modality_handlers: list[tuple[str, Any]] = []
+            modality_handlers: list[tuple[str, NormalizerProtocol]] = []
             for step in steps:
                 handler_cls = NORMALIZATION_HANDLERS.get(step)
                 if handler_cls is None:
                     raise ValueError(f"Unsupported normalization step: {step}.")
                 handler = handler_cls(eps=self.eps)
+                if not isinstance(handler, AbstractNormalizer):
+                    raise TypeError(
+                        f"Normalization handler for '{step.value}' must inherit "
+                        "AbstractNormalizer."
+                    )
                 handler.fit(current)
                 current = handler.transform(current)
                 modality_handlers.append((step.value, handler))
@@ -48,9 +77,6 @@ class MultimodalPreprocessor:
                 "input_shape": tuple(bundle.modalities[modality].shape),
                 "output_shape": tuple(current.shape),
             }
-
-        self.is_fitted_ = True
-        return self
 
     def transform(self, bundle: MultimodalDataBundle) -> MultimodalDataBundle:
         if not self.is_fitted_:

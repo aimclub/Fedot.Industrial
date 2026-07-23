@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
 from typing import Any
+from typing import Mapping
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -36,18 +37,18 @@ class FusionAuxOutput:
     h_final: torch.Tensor
     active_modalities: list[str]
     embedding_dim: int
-    num_parameters: dict[str, Any] | None = None
-    embeddings: dict[str, torch.Tensor] | None = None
-    gates: torch.Tensor | None = None
-    alpha: torch.Tensor | None = None
-    gamma: torch.Tensor | None = None
-    beta: torch.Tensor | None = None
-    h_raw: torch.Tensor | None = None
-    h_context: torch.Tensor | None = None
-    delta: torch.Tensor | None = None
-    alpha_stats: dict[str, float] | None = None
-    gamma_beta_summary: dict[str, float] | None = None
-    extra: dict[str, Any] | None = None
+    num_parameters: Optional[dict[str, Any]] = None
+    embeddings: Optional[dict[str, torch.Tensor]] = None
+    gates: Optional[torch.Tensor] = None
+    alpha: Optional[torch.Tensor] = None
+    gamma: Optional[torch.Tensor] = None
+    beta: Optional[torch.Tensor] = None
+    h_raw: Optional[torch.Tensor] = None
+    h_context: Optional[torch.Tensor] = None
+    delta: Optional[torch.Tensor] = None
+    alpha_stats: Optional[dict[str, float]] = None
+    gamma_beta_summary: Optional[dict[str, float]] = None
+    extra: Optional[dict[str, Any]] = None
 
     @staticmethod
     def _summary_stats(tensor: torch.Tensor) -> dict[str, float]:
@@ -106,3 +107,38 @@ class FusionAuxOutput:
             self.num_parameters = num_parameters
         if include_embeddings:
             self.embeddings = embeddings
+
+    @classmethod
+    def from_components(
+        cls,
+        *,
+        logits: torch.Tensor,
+        h_final: torch.Tensor,
+        active_modalities: list[str],
+        embedding_dim: int,
+        fusion_aux: Mapping[str, Any],
+        include_fusion_aux: bool,
+        include_num_parameters: bool,
+        include_embeddings: bool,
+        num_parameters: Optional[dict[str, Any]] = None,
+        embeddings: Optional[dict[str, torch.Tensor]] = None,
+    ) -> "FusionAuxOutput":
+        """Build a complete auxiliary output from model diagnostics."""
+
+        output = cls(
+            logits=logits,
+            h_final=h_final,
+            active_modalities=active_modalities,
+            embedding_dim=embedding_dim,
+        )
+        output.populate_fusion(
+            fusion_aux=fusion_aux,
+            include_fusion_aux=include_fusion_aux,
+        )
+        output.populate_profiling(
+            include_num_parameters=include_num_parameters,
+            include_embeddings=include_embeddings,
+            num_parameters=num_parameters,
+            embeddings=embeddings,
+        )
+        return output

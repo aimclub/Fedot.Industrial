@@ -54,6 +54,27 @@ def gaf_encoder_config(
     )
 
 
+def mtf_encoder_config(
+    in_channels: int = 1,
+    d_model: int = 128,
+    hidden_channels: tuple[int, ...] = (32, 64, 128),
+    dropout: float = 0.1,
+) -> EncoderConfig:
+    """Build an MTF image encoder config.
+
+    The initial architecture mirrors GAF because both modalities are 2D image
+    representations, but the preset stays separate so MTF can evolve without
+    changing the GAF contract.
+    """
+
+    return gaf_encoder_config(
+        in_channels=in_channels,
+        d_model=d_model,
+        hidden_channels=hidden_channels,
+        dropout=dropout,
+    )
+
+
 def stft_encoder_config(
     in_channels: int = 1,
     d_model: int = 128,

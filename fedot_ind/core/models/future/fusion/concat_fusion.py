@@ -1,5 +1,10 @@
 """Concatenation-based fusion of modality embeddings."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping
+from collections.abc import Sequence
+
 import torch
 import torch.nn as nn
 
@@ -9,6 +14,7 @@ from fedot_ind.core.models.future.rules import (
     validate_embeddings_count,
 )
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
+from fedot_ind.core.multimodal.enums import MultimodalModality
 
 
 class MultiConcatFusionMLP(BaseFusionStrategy):
@@ -58,3 +64,16 @@ class MultiConcatFusionMLP(BaseFusionStrategy):
 
         h = torch.cat(list(embeddings), dim=1)
         return self.fusion(h)
+
+    def fuse(
+        self,
+        embeddings: Mapping[MultimodalModality, torch.Tensor],
+        modalities: Sequence[MultimodalModality],
+        *,
+        raw_modality: MultimodalModality | None = None,
+        return_aux: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        h_final = self.forward(*self._ordered_embeddings(embeddings, modalities))
+        if return_aux:
+            return {"h_final": h_final}
+        return h_final

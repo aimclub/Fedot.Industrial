@@ -1,5 +1,10 @@
 """Softmax-gated fusion of modality embeddings."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping
+from collections.abc import Sequence
+
 import torch
 import torch.nn as nn
 
@@ -10,6 +15,7 @@ from fedot_ind.core.models.future.rules import (
     validate_embeddings_count,
 )
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
+from fedot_ind.core.multimodal.enums import MultimodalModality
 
 
 class MultiModalGatedFusion(BaseFusionStrategy):
@@ -80,3 +86,17 @@ class MultiModalGatedFusion(BaseFusionStrategy):
             return h_fused, gates
 
         return h_fused
+
+    def fuse(
+        self,
+        embeddings: Mapping[MultimodalModality, torch.Tensor],
+        modalities: Sequence[MultimodalModality],
+        *,
+        raw_modality: MultimodalModality | None = None,
+        return_aux: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        ordered_embeddings = self._ordered_embeddings(embeddings, modalities)
+        if return_aux:
+            h_final, gates = self.forward(*ordered_embeddings, return_gates=True)
+            return {"h_final": h_final, "gates": gates}
+        return self.forward(*ordered_embeddings, return_gates=False)

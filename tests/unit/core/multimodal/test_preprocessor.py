@@ -46,7 +46,7 @@ def test_multimodal_preprocessor_keeps_raw_unchanged():
     assert bundle.target is target
     assert bundle.metadata["modalities"] == [MultimodalModality.raw]
     assert bundle.metadata["shapes"][MultimodalModality.raw] == (2, 1, 3)
-    assert bundle.metadata["normalization"][MultimodalModality.raw] == "none"
+    assert "normalization" not in bundle.metadata
     assert "fitted_statistics" not in bundle.metadata
     assert preprocessor.fitted_statistics_ == {}
     assert torch.equal(bundle.modalities[MultimodalModality.raw], raw)

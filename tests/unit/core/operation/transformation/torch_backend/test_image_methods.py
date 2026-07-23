@@ -11,7 +11,7 @@ from fedot_ind.core.operation.transformation.torch_backend.image.stft_transforma
 )
 from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
 from fedot_ind.core.operation.transformation.torch_backend.image.gaf_transformation import GAF
-from fedot_ind.core.kernel_learning import resolve_torch_device
+from fedot_ind.core.operation.transformation.torch_backend.io import resolve_torch_device
 
 import numpy as np
 import pytest

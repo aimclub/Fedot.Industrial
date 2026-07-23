@@ -1,17 +1,11 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import torch
 
 from fedot_ind.core.multimodal.enums import MultimodalModality
-
-
-DEFAULT_NORMALIZATION_POLICY = {
-    MultimodalModality.raw: "none",
-    MultimodalModality.stats: "train_mean_std",
-    MultimodalModality.gaf: "per_sample_minmax_then_train_image_standardization",
-    MultimodalModality.stft: "log1p_then_train_image_standardization",
-}
 
 
 @dataclass
@@ -117,17 +111,30 @@ class MultimodalDataBundle:
 
         metadata.setdefault("modalities", self.available_modalities)
         metadata.setdefault("shapes", self.shapes)
-
-        metadata.setdefault(
-            "normalization",
-            {
-                name: DEFAULT_NORMALIZATION_POLICY.get(name, "unknown")
-                for name in self.available_modalities
-            },
-        )
-
         metadata.setdefault("transform_params", {})
         metadata.setdefault("device", self.device)
         metadata.setdefault("dtype", self.dtype)
 
         return metadata
+
+    def with_metadata(self, **updates: Any) -> "MultimodalDataBundle":
+        metadata = dict(self.metadata)
+        metadata.update(updates)
+        return self.replace(metadata=metadata)
+
+    def replace(
+        self,
+        *,
+        modalities: dict[MultimodalModality, torch.Tensor] | None = None,
+        target: Optional[torch.Tensor] | None = None,
+        metadata: dict[str, Any] | None = None,
+        keep_target: bool = True,
+    ) -> "MultimodalDataBundle":
+        resolved_target = self.target if keep_target else target
+        if target is not None:
+            resolved_target = target
+        return MultimodalDataBundle(
+            modalities=dict(self.modalities if modalities is None else modalities),
+            target=resolved_target,
+            metadata=dict(self.metadata if metadata is None else metadata),
+        )

@@ -2,11 +2,13 @@ from typing import Any, Optional
 import math
 import torch
 
-from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
-    PAA,
-    prepare_series_input,
-    convert_to_init_dim,
+from fedot_ind.core.operation.transformation.torch_backend.image.paa import PAA
+from fedot_ind.core.operation.transformation.torch_backend.image.scaling import (
     per_sample_minmax_scale,
+)
+from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import (
+    convert_to_init_dim,
+    prepare_series_input,
 )
 
 

@@ -420,6 +420,7 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         float | torch.Tensor: The Shannon entropy value(s). Returns a scalar if input is 1D,
                               otherwise a tensor with entropy values along the specified axis.
     """
+    original_shape = tuple(X.shape)
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
@@ -444,6 +445,8 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         group_sizes[i, : gs.numel()] = gs
     probs = group_sizes / N
     entropy = torch.sum(-probs * torch.log2(probs + 1e-12), dim=1)
+    if len(original_shape) > 2:
+        entropy = entropy.reshape(*original_shape[:-1])
     return entropy.item() if entropy.numel() == 1 else entropy
 
 

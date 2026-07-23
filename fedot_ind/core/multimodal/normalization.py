@@ -1,14 +1,19 @@
+from abc import ABC
+from abc import abstractmethod
+
 import torch
 
 
-class AbstractNormalizer:
+class AbstractNormalizer(ABC):
     def __init__(self, eps: float = 1e-6):
         self.eps = eps
         self.state_: dict[str, object] = {}
+        self.is_fitted_ = False
 
     def fit(self, X: torch.Tensor) -> None:
-        self.state_ = {}
+        self._set_state({})
 
+    @abstractmethod
     def transform(self, X: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
@@ -18,6 +23,14 @@ class AbstractNormalizer:
 
     def get_state(self) -> dict[str, object]:
         return dict(self.state_)
+
+    def _set_state(self, state: dict[str, object]) -> None:
+        self.state_ = state
+        self.is_fitted_ = True
+
+    def _require_fitted(self) -> None:
+        if not self.is_fitted_:
+            raise ValueError(f"{self.__class__.__name__} must be fitted before transform.")
 
 
 class ImputationNormalizer(AbstractNormalizer):
@@ -32,13 +45,12 @@ class ImputationNormalizer(AbstractNormalizer):
         masked = torch.where(finite, values, torch.zeros_like(values))
         counts = finite.sum(dim=0, keepdim=True).clamp_min(1)
         column_mean = masked.sum(dim=0, keepdim=True) / counts
-        self.state_ = {
+        self._set_state({
             "column_mean": column_mean.detach().clone(),
-        }
+        })
 
     def transform(self, X: torch.Tensor) -> torch.Tensor:
-        if "column_mean" not in self.state_:
-            raise ValueError("ImputationNormalizer must be fitted before transform.")
+        self._require_fitted()
         values = X.float()
         column_mean = self.state_["column_mean"].to(device=X.device, dtype=X.dtype)
         invalid = ~torch.isfinite(values)
@@ -55,15 +67,14 @@ class FeatureStandardizationNormalizer(AbstractNormalizer):
             )
         mean = values.mean(dim=0, keepdim=True)
         std = values.std(dim=0, unbiased=False, keepdim=True).clamp_min(self.eps)
-        self.state_ = {
+        self._set_state({
             "mean": mean.detach().clone(),
             "std": std.detach().clone(),
             "eps": float(self.eps),
-        }
+        })
 
     def transform(self, X: torch.Tensor) -> torch.Tensor:
-        if "mean" not in self.state_ or "std" not in self.state_:
-            raise ValueError("FeatureStandardizationNormalizer must be fitted before transform.")
+        self._require_fitted()
         mean = self.state_["mean"].to(device=X.device, dtype=X.dtype)
         std = self.state_["std"].to(device=X.device, dtype=X.dtype)
         return torch.nan_to_num(((X.float() - mean) / std))
@@ -79,16 +90,15 @@ class ImageStandardizationNormalizer(AbstractNormalizer):
         dims = (0, 2, 3) if X.ndim == 4 else (0, 1, 2)
         mean = X.mean(dim=dims, keepdim=True)
         std = X.std(dim=dims, unbiased=False, keepdim=True).clamp_min(self.eps)
-        self.state_ = {
+        self._set_state({
             "mean": mean.detach().clone(),
             "std": std.detach().clone(),
             "dims": dims,
             "eps": float(self.eps),
-        }
+        })
 
     def transform(self, X: torch.Tensor) -> torch.Tensor:
-        if "mean" not in self.state_ or "std" not in self.state_:
-            raise ValueError("ImageStandardizationNormalizer must be fitted before transform.")
+        self._require_fitted()
         mean = self.state_["mean"].to(device=X.device, dtype=X.dtype)
         std = self.state_["std"].to(device=X.device, dtype=X.dtype)
         return torch.nan_to_num(((X - mean) / std).float())
@@ -96,7 +106,8 @@ class ImageStandardizationNormalizer(AbstractNormalizer):
 
 class Log1pNormalizer(AbstractNormalizer):
     def fit(self, X: torch.Tensor) -> None:
-        self.state_ = {}
+        self._set_state({})
 
     def transform(self, X: torch.Tensor) -> torch.Tensor:
+        self._require_fitted()
         return torch.log1p(X.float().clamp_min(0))

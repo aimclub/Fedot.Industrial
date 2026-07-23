@@ -7,10 +7,6 @@ import math
 import numpy as np
 import torch
 
-from fedot_ind.core.kernel_learning.generators.adapters import (
-    normalize_time_series_tensor,
-    resolve_torch_device,
-)
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
@@ -20,44 +16,14 @@ from fedot_ind.core.multimodal.mapping import (
     DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
     TRANSFORMATION_HANDLERS,
 )
-from fedot_ind.core.operation.transformation.torch_backend.enums import (
-    StatisticalFeature,
+from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
+from fedot_ind.core.operation.transformation.torch_backend.io import (
+    normalize_time_series_tensor,
+    resolve_torch_device,
 )
 from fedot_ind.core.operation.transformation.torch_backend.statistical.tools import (
     normalize_feature_key,
 )
-
-LOCAL_STAT_FEATURES = {
-    StatisticalFeature.mean,
-    StatisticalFeature.median,
-    StatisticalFeature.std,
-    StatisticalFeature.max,
-    StatisticalFeature.min,
-    StatisticalFeature.q5,
-    StatisticalFeature.q25,
-    StatisticalFeature.q75,
-    StatisticalFeature.q95,
-}
-GLOBAL_STAT_FEATURES = {
-    StatisticalFeature.skewness,
-    StatisticalFeature.kurtosis,
-    StatisticalFeature.n_peaks,
-    StatisticalFeature.slope,
-    StatisticalFeature.ben_corr,
-    StatisticalFeature.interquartile_range,
-    StatisticalFeature.energy,
-    StatisticalFeature.cross_rate,
-    StatisticalFeature.autocorrelation,
-    StatisticalFeature.ptp_amplitude,
-    StatisticalFeature.mean_ptp_distance,
-    StatisticalFeature.crest_factor,
-    StatisticalFeature.mean_ema,
-    StatisticalFeature.mean_moving_median,
-    StatisticalFeature.hjorth_mobility,
-    StatisticalFeature.hjorth_complexity,
-    StatisticalFeature.hurst_exponent,
-    StatisticalFeature.petrosian_fractal_dimension,
-}
 
 
 def per_sample_z_normalize(series: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
@@ -116,17 +82,26 @@ class MultimodalDatasetPreparer:
             (record.train_features, record.train_target),
             (record.test_features, record.test_target),
         )
-        for bundle, split in ((train_bundle, "train"), (test_bundle, "test")):
-            bundle.metadata.setdefault("source", {})
-            bundle.metadata["source"].update(
-                {
-                    "kind": "ClassificationDatasetRecord",
-                    "benchmark": getattr(record, "benchmark", None),
-                    "dataset_name": getattr(record, "dataset_name", None),
-                    "subset": getattr(record, "subset", None),
-                    "split": split,
-                }
-            )
+        train_bundle = self._with_source_metadata(
+            train_bundle,
+            {
+                "kind": "ClassificationDatasetRecord",
+                "benchmark": getattr(record, "benchmark", None),
+                "dataset_name": getattr(record, "dataset_name", None),
+                "subset": getattr(record, "subset", None),
+                "split": "train",
+            },
+        )
+        test_bundle = self._with_source_metadata(
+            test_bundle,
+            {
+                "kind": "ClassificationDatasetRecord",
+                "benchmark": getattr(record, "benchmark", None),
+                "dataset_name": getattr(record, "dataset_name", None),
+                "subset": getattr(record, "subset", None),
+                "split": "test",
+            },
+        )
         return train_bundle, test_bundle
 
     def prepare_from_loader(
@@ -137,16 +112,32 @@ class MultimodalDatasetPreparer:
             raise TypeError("loader must provide a load_data() method.")
         train_data, test_data = loader.load_data()
         train_bundle, test_bundle = self.prepare_train_test(train_data, test_data)
-        for bundle, split in ((train_bundle, "train"), (test_bundle, "test")):
-            bundle.metadata.setdefault("source", {})
-            bundle.metadata["source"].update(
-                {
-                    "kind": "DataLoader",
-                    "dataset_name": getattr(loader, "dataset_name", None),
-                    "split": split,
-                }
-            )
+        train_bundle = self._with_source_metadata(
+            train_bundle,
+            {
+                "kind": "DataLoader",
+                "dataset_name": getattr(loader, "dataset_name", None),
+                "split": "train",
+            },
+        )
+        test_bundle = self._with_source_metadata(
+            test_bundle,
+            {
+                "kind": "DataLoader",
+                "dataset_name": getattr(loader, "dataset_name", None),
+                "split": "test",
+            },
+        )
         return train_bundle, test_bundle
+
+    @staticmethod
+    def _with_source_metadata(
+        bundle: MultimodalDataBundle,
+        source_updates: dict[str, Any],
+    ) -> MultimodalDataBundle:
+        source = dict(bundle.metadata.get("source", {}))
+        source.update(source_updates)
+        return bundle.with_metadata(source=source)
 
     def _build_bundle(
         self,
@@ -167,16 +158,19 @@ class MultimodalDatasetPreparer:
                 series,
                 float(raw_config.get("per_sample_z_normalize_eps", 1e-6)),
             )
-        modalities = {
-            modality: self._build_modality(modality, series)
-            for modality in self.config.modalities
-        }
+
+        modalities: dict[MultimodalModality, torch.Tensor] = {}
+        resolved_transform_params: dict[MultimodalModality, dict[str, Any]] = {}
+        for modality in self.config.modalities:
+            tensor, params = self._build_modality(modality, series)
+            modalities[modality] = tensor
+            resolved_transform_params[modality] = params
+
         target, target_metadata = self._target_to_tensor(y, device, fit_target=fit_target)
-        metadata = self.config.metadata(device)
-        if MultimodalModality.stft in self.config.modalities:
-            metadata["transform_params"][MultimodalModality.stft] = (
-                self._resolve_stft_params(series.shape[-1])
-            )
+        metadata = self.config.metadata(
+            device,
+            transform_params=resolved_transform_params,
+        )
         metadata.update(target_metadata)
         return MultimodalDataBundle(
             modalities=modalities,
@@ -188,21 +182,16 @@ class MultimodalDatasetPreparer:
         self,
         modality: MultimodalModality,
         series: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, dict[str, Any]]:
         if modality is MultimodalModality.raw:
-            return series
+            return series, self.config.modality_config(MultimodalModality.raw)
         params = self._resolve_modality_params(modality, series.shape[-1])
         params["torch_device"] = self._resolve_device()
         transformer_cls = TRANSFORMATION_HANDLERS.get(modality)
-        if transformer_cls is None and modality is MultimodalModality.stats:
-            from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import (
-                TorchQuantileExtractor,
-            )
-            transformer_cls = TorchQuantileExtractor
         if transformer_cls is None:
             raise ValueError(f"Unsupported modality: {modality}.")
         transformer = transformer_cls(params)
-        return transformer.transform(series)
+        return transformer.transform(series), params
 
     @staticmethod
     def _normalize_stats_config(config: Any) -> dict[StatisticalFeature, dict[str, Any]]:
@@ -220,8 +209,8 @@ class MultimodalDatasetPreparer:
     ) -> tuple[dict[StatisticalFeature, dict[str, Any]], dict[StatisticalFeature, dict[str, Any]]]:
         local = {}
         global_ = {}
-        local_methods = set(normalize_feature_key(name) for name in LOCAL_STAT_FEATURES)
-        global_methods = set(normalize_feature_key(name) for name in GLOBAL_STAT_FEATURES)
+        local_methods = set(DEFAULT_STAT_FEATURE_CONFIG)
+        global_methods = set(DEFAULT_STAT_FEATURE_GLOBAL_CONFIG)
         for feature_name in feature_names:
             feature = normalize_feature_key(feature_name)
             if feature in local_methods:
