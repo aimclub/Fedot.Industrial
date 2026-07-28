@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Sequence
 
 from fedot_ind.core.multimodal.enums import (
@@ -13,16 +14,18 @@ from fedot_ind.core.multimodal.mapping import (
     DEFAULT_STAT_FEATURE_CONFIG,
     DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
     DEFAULT_STAT_FEATURES as MAPPING_DEFAULT_STAT_FEATURES,
+    NORMALIZATION_HANDLERS,
     SUPPORTED_PREPARATION_MODALITIES,
 )
 from fedot_ind.core.multimodal.rules import (
     normalize_modality,
+    validate_modalities_presence,
     validate_positive_number,
     validate_registry_supports_modalities,
+    validate_registry_supports_normalization_steps,
 )
-from fedot_ind.core.operation.transformation.torch_backend.enums import (
-    StatisticalFeature,
-)
+from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
+
 
 DEFAULT_STAT_FEATURES = tuple(MAPPING_DEFAULT_STAT_FEATURES)
 
@@ -92,108 +95,28 @@ def normalization_policy_from_steps(steps: Sequence[NormalizationMethod]) -> str
     return " -> ".join(step.value for step in steps)
 
 
-def _coerce_stat_feature(value: StatisticalFeature | str) -> str:
-    if isinstance(value, StatisticalFeature):
-        return value.value
-    return StatisticalFeature(str(value)).value
-
-
-@dataclass
+@dataclass(frozen=True)
 class PreparationConfig:
-    """Configuration for benchmark/DataLoader multimodal representation building."""
+    """Normalized immutable contract for multimodal data preparation."""
 
-    normalization_config: NormalizationConfig | None = None
-    transformation_config: dict[
-        MultimodalModality | str,
-        dict[str, Any],
-    ] | None = None
+    normalization_config: Mapping[
+        MultimodalModality,
+        tuple[NormalizationMethod, ...],
+    ]
+    transformation_config: Mapping[
+        MultimodalModality,
+        Mapping[str, Any],
+    ]
     torch_device: Any = "auto"
     preprocessor_eps: float = 1e-6
     auto_adjust_stft: bool = True
 
-    def __post_init__(self) -> None:
-        transformation_source = (
-            default_transformation_config()
-            if self.transformation_config is None
-            else self.transformation_config
-        )
-        normalized_transform_config: dict[MultimodalModality, dict[str, Any]] = {
-            normalize_modality(key): dict(params)
-            for key, params in transformation_source.items()
-        }
-        validate_registry_supports_modalities(
-            modalities=normalized_transform_config,
-            registry=SUPPORTED_PREPARATION_MODALITIES,
-            registry_label="preparation",
-        )
-
-        if MultimodalModality.raw not in normalized_transform_config:
-            normalized_transform_config[MultimodalModality.raw] = dict(
-                default_transformation_config()["raw"]
-            )
-
-        raw_config = normalized_transform_config[MultimodalModality.raw]
-        if raw_config.get("per_sample_z_normalize", False):
-            eps = float(raw_config.get("per_sample_z_normalize_eps", 1e-6))
-            validate_positive_number("raw.per_sample_z_normalize_eps", eps)
-            raw_config["per_sample_z_normalize_eps"] = eps
-        else:
-            raw_config.setdefault("per_sample_z_normalize_eps", 1e-6)
-
-        stats_config = normalized_transform_config.get(MultimodalModality.stats, {})
-        stats_features = stats_config.get("feature_names", DEFAULT_STAT_FEATURES)
-        stats_config["feature_names"] = tuple(
-            _coerce_stat_feature(feature) for feature in stats_features
-        )
-        unsupported = []
-        for feature_name in stats_config["feature_names"]:
-            try:
-                StatisticalFeature(str(feature_name))
-            except ValueError:
-                unsupported.append(feature_name)
-        if unsupported:
-            raise ValueError(f"Unsupported statistical features: {sorted(unsupported)}.")
-        if MultimodalModality.stats in normalized_transform_config:
-            normalized_transform_config[MultimodalModality.stats] = stats_config
-
-        modalities = (MultimodalModality.raw,) + tuple(
-            modality
-            for modality in normalized_transform_config
-            if modality is not MultimodalModality.raw
-        )
-
-        if self.normalization_config is None:
-            defaults = default_normalization_config()
-            normalization_config = {
-                modality: defaults[modality]
-                for modality in modalities
-                if modality in defaults
-            }
-        else:
-            normalization_config = {
-                normalize_modality(modality): tuple(steps)
-                for modality, steps in self.normalization_config.items()
-            }
-        if MultimodalModality.raw in normalization_config:
-            raise ValueError(
-                "Raw modality is not normalized by MultimodalPreprocessor. "
-                "Use transformation_config['raw']['per_sample_z_normalize']."
-            )
-        self.transformation_config = normalized_transform_config
-        self.normalization_config = normalization_config
-
     @property
     def modalities(self) -> tuple[MultimodalModality, ...]:
-        config = self.transformation_config or {}
-        return (MultimodalModality.raw,) + tuple(
-            modality
-            for modality in config
-            if modality is not MultimodalModality.raw
-        )
+        return tuple(self.transformation_config)
 
     def modality_config(self, modality: MultimodalModality) -> dict[str, Any]:
-        config = self.transformation_config or {}
-        return dict(config.get(modality, {}))
+        return _mutable_copy(self.transformation_config.get(modality, {}))
 
     def stats_feature_names(self) -> tuple[str, ...]:
         return tuple(
@@ -217,7 +140,6 @@ class PreparationConfig:
         MultimodalDataBundle from the tensors it holds.
         """
 
-        normalization_config = self.normalization_config or {}
         resolved_transform_params = {
             modality: self.modality_config(modality)
             for modality in self.modalities
@@ -241,7 +163,7 @@ class PreparationConfig:
                         )
                     )
                     else normalization_policy_from_steps(
-                        tuple(normalization_config.get(modality, ()))
+                        self.normalization_config.get(modality, ())
                     )
                 )
                 for modality in self.modalities
@@ -249,7 +171,7 @@ class PreparationConfig:
             "normalization_config": {
                 modality.value: [
                     step.value
-                    for step in normalization_config.get(modality, ())
+                    for step in self.normalization_config.get(modality, ())
                 ]
                 for modality in self.modalities
             },
@@ -263,3 +185,158 @@ class PreparationConfig:
                 "auto_adjust_stft": self.auto_adjust_stft,
             },
         }
+
+
+def build_preparation_config(
+    *,
+    normalization_config: Mapping[
+        MultimodalModality | str,
+        Sequence[NormalizationMethod | str],
+    ]
+    | None = None,
+    transformation_config: Mapping[
+        MultimodalModality | str,
+        Mapping[str, Any],
+    ]
+    | None = None,
+    torch_device: Any = "auto",
+    preprocessor_eps: float = 1e-6,
+    auto_adjust_stft: bool = True,
+) -> PreparationConfig:
+    """Normalize raw user input into an immutable PreparationConfig."""
+
+    validate_positive_number("preprocessor_eps", preprocessor_eps)
+    transformations = _normalize_transformation_config(transformation_config)
+    normalization = _normalize_normalization_config(
+        normalization_config,
+        modalities=transformations,
+    )
+    return PreparationConfig(
+        normalization_config=_freeze_mapping(normalization),
+        transformation_config=_freeze_mapping(transformations),
+        torch_device=torch_device,
+        preprocessor_eps=preprocessor_eps,
+        auto_adjust_stft=auto_adjust_stft,
+    )
+
+
+def _normalize_transformation_config(
+    source: Mapping[MultimodalModality | str, Mapping[str, Any]] | None,
+) -> dict[MultimodalModality, dict[str, Any]]:
+    raw_source = default_transformation_config() if source is None else source
+    normalized = {
+        normalize_modality(modality): dict(params)
+        for modality, params in raw_source.items()
+    }
+    validate_registry_supports_modalities(
+        modalities=normalized,
+        registry=SUPPORTED_PREPARATION_MODALITIES,
+        registry_label="preparation",
+    )
+
+    if MultimodalModality.raw not in normalized:
+        normalized[MultimodalModality.raw] = dict(
+            default_transformation_config()["raw"]
+        )
+
+    raw_config = normalized[MultimodalModality.raw]
+    eps = float(raw_config.get("per_sample_z_normalize_eps", 1e-6))
+    if raw_config.get("per_sample_z_normalize", False):
+        validate_positive_number("raw.per_sample_z_normalize_eps", eps)
+    raw_config["per_sample_z_normalize_eps"] = eps
+
+    if MultimodalModality.stats in normalized:
+        stats_config = normalized[MultimodalModality.stats]
+        features = stats_config.get("feature_names", DEFAULT_STAT_FEATURES)
+        stats_config["feature_names"] = tuple(
+            _normalize_stat_feature(feature) for feature in features
+        )
+
+    return {
+        MultimodalModality.raw: normalized[MultimodalModality.raw],
+        **{
+            modality: params
+            for modality, params in normalized.items()
+            if modality is not MultimodalModality.raw
+        },
+    }
+
+
+def _normalize_normalization_config(
+    source: Mapping[
+        MultimodalModality | str,
+        Sequence[NormalizationMethod | str],
+    ]
+    | None,
+    *,
+    modalities: Mapping[MultimodalModality, Any],
+) -> dict[MultimodalModality, tuple[NormalizationMethod, ...]]:
+    if source is None:
+        defaults = default_normalization_config()
+        normalized = {
+            modality: tuple(defaults[modality])
+            for modality in modalities
+            if modality in defaults
+        }
+    else:
+        normalized = {
+            normalize_modality(modality): tuple(
+                _normalize_method(step) for step in steps
+            )
+            for modality, steps in source.items()
+        }
+
+    if MultimodalModality.raw in normalized:
+        raise ValueError(
+            "Raw modality is not normalized by MultimodalPreprocessor. "
+            "Use transformation_config['raw']['per_sample_z_normalize']."
+        )
+    validate_modalities_presence(
+        required=normalized,
+        available=modalities,
+        source_label="Transformation config",
+    )
+    validate_registry_supports_normalization_steps(
+        normalized,
+        NORMALIZATION_HANDLERS,
+    )
+    return normalized
+
+
+def _normalize_method(value: NormalizationMethod | str) -> NormalizationMethod:
+    if isinstance(value, NormalizationMethod):
+        return value
+    return NormalizationMethod(str(value))
+
+
+def _normalize_stat_feature(value: StatisticalFeature | str) -> str:
+    if isinstance(value, StatisticalFeature):
+        return value.value
+    return StatisticalFeature(str(value)).value
+
+
+def _freeze_mapping(mapping: Mapping[Any, Any]) -> Mapping[Any, Any]:
+    return MappingProxyType(
+        {key: _freeze_value(value) for key, value in mapping.items()}
+    )
+
+
+def _freeze_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _freeze_mapping(value)
+    if isinstance(value, list):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(_freeze_value(item) for item in value)
+    return value
+
+
+
+def _mutable_copy(value: Any) -> Any:
+    """Copy a frozen config value into mutable containers for transformers."""
+
+    if isinstance(value, Mapping):
+        return {key: _mutable_copy(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return tuple(_mutable_copy(item) for item in value)
+    return value

@@ -7,6 +7,7 @@ from fedot_ind.core.operation.transformation.torch_backend.enums import Statisti
 from fedot_ind.core.multimodal.configs import (
     DEFAULT_STAT_FEATURES,
     PreparationConfig,
+    build_preparation_config,
     default_transformation_config,
     default_normalization_config,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "MultimodalPreprocessor",
     "NormalizationMethod",
     "PreparationConfig",
+    "build_preparation_config",
     "default_normalization_config",
     "default_transformation_config",
     "StatisticalFeature",

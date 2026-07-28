@@ -10,7 +10,10 @@ import torch
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
-from fedot_ind.core.multimodal.configs import PreparationConfig
+from fedot_ind.core.multimodal.configs import (
+    PreparationConfig,
+    build_preparation_config,
+)
 from fedot_ind.core.multimodal.mapping import (
     DEFAULT_MODALITY_SPECS,
     DEFAULT_STAT_FEATURE_CONFIG,
@@ -37,7 +40,7 @@ def per_sample_z_normalize(series: torch.Tensor, eps: float = 1e-6) -> torch.Ten
 class MultimodalDatasetPreparer:
     """Build and normalize multimodal time-series bundles from Industrial inputs."""
 
-    config: PreparationConfig = field(default_factory=PreparationConfig)
+    config: PreparationConfig = field(default_factory=build_preparation_config)
     preprocessor_: MultimodalPreprocessor | None = field(default=None, init=False)
     resolved_torch_device_: torch.device | None = field(default=None, init=False)
     label_mapping_: dict[Any, int] | None = field(default=None, init=False)

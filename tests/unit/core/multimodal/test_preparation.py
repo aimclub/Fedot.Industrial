@@ -10,6 +10,7 @@ from fedot_ind.core.multimodal import (
     NormalizationMethod,
     PreparationConfig,
     StatisticalFeature,
+    build_preparation_config,
 )
 from fedot_ind.core.multimodal.configs import normalization_policy_from_steps
 
@@ -142,11 +143,36 @@ def test_normalization_policy_from_steps_returns_named_and_custom_policies():
 )
 def test_preparation_config_rejects_invalid_contracts(kwargs, match):
     with pytest.raises(ValueError, match=match):
-        PreparationConfig(**kwargs)
+        build_preparation_config(**kwargs)
+
+
+def test_build_preparation_config_returns_frozen_normalized_contract():
+    raw_config = {
+        "raw": {"per_sample_z_normalize": False},
+        "stats": {"feature_names": ("mean", "std")},
+    }
+
+    config = build_preparation_config(transformation_config=raw_config)
+    raw_config["raw"]["per_sample_z_normalize"] = True
+
+    assert isinstance(config, PreparationConfig)
+    assert config.modalities == (
+        MultimodalModality.raw,
+        MultimodalModality.stats,
+    )
+    assert not config.transformation_config[MultimodalModality.raw][
+        "per_sample_z_normalize"
+    ]
+    with pytest.raises(AttributeError):
+        config.auto_adjust_stft = False
+    with pytest.raises(TypeError):
+        config.transformation_config[MultimodalModality.raw][
+            "per_sample_z_normalize"
+        ] = True
 
 
 def test_preparation_config_metadata_uses_resolved_transform_params():
-    config = PreparationConfig(
+    config = build_preparation_config(
         transformation_config={
             "raw": {"per_sample_z_normalize": True},
             "stats": {"feature_names": ("mean", "std")},
@@ -200,7 +226,7 @@ def test_preparer_builds_modalities_from_dataloader_like_object():
             test_x = np.arange(2 * 6, dtype=float).reshape(2, 6)
             return (train_x, np.array([0, 1, 0])), (test_x, np.array([1, 0]))
 
-    config = PreparationConfig(
+    config = build_preparation_config(
         transformation_config={
             "raw": {"per_sample_z_normalize": False},
             "stats": {"feature_names": ("mean", "std")},
@@ -231,7 +257,7 @@ def test_preparer_transform_requires_fit():
 
 
 def test_preparer_keeps_raw_unchanged_and_builds_stats_from_input():
-    config = PreparationConfig(
+    config = build_preparation_config(
         normalization_config={},
         transformation_config={
             "raw": {"per_sample_z_normalize": False},
@@ -261,7 +287,7 @@ def test_preparer_keeps_raw_unchanged_and_builds_stats_from_input():
 
 
 def test_preparer_raises_on_unknown_labels_during_transform():
-    config = PreparationConfig(
+    config = build_preparation_config(
         transformation_config={
             "raw": {"per_sample_z_normalize": False},
         }
@@ -274,7 +300,7 @@ def test_preparer_raises_on_unknown_labels_during_transform():
 
 
 def test_preparer_can_per_sample_z_normalize_before_building_modalities():
-    config = PreparationConfig(
+    config = build_preparation_config(
         normalization_config={},
         transformation_config={
             "raw": {"per_sample_z_normalize": True, "per_sample_z_normalize_eps": 1e-6},
@@ -349,7 +375,7 @@ def test_preparer_handles_short_constant_multichannel_series():
 
 
 def test_preparer_builds_mtf_modality_and_records_resolved_params():
-    config = PreparationConfig(
+    config = build_preparation_config(
         normalization_config={},
         transformation_config={
             "raw": {"per_sample_z_normalize": False},
@@ -370,7 +396,7 @@ def test_preparer_builds_mtf_modality_and_records_resolved_params():
 
 def test_preparer_rejects_inconsistent_target_size():
     preparer = MultimodalDatasetPreparer(
-        config=PreparationConfig(
+        config=build_preparation_config(
             transformation_config={"raw": {"per_sample_z_normalize": False}}
         )
     )
@@ -380,7 +406,7 @@ def test_preparer_rejects_inconsistent_target_size():
 
 
 def test_preparer_accepts_stats_features_from_enum():
-    config = PreparationConfig(
+    config = build_preparation_config(
         normalization_config={},
         transformation_config={
             "raw": {"per_sample_z_normalize": False},
