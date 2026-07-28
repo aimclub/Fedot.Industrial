@@ -10,6 +10,16 @@ from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import
     convert_to_init_dim,
     prepare_series_input,
 )
+from fedot_ind.core.operation.transformation.torch_backend.rules import (
+    GAFMethod,
+    normalize_gaf_method,
+    normalize_image_size,
+    normalize_optional_window_size,
+    validate_gaf_input_range,
+    validate_image_size_fits_series,
+    validate_min_series_length,
+    validate_window_size,
+)
 
 
 class GAF:
@@ -48,12 +58,14 @@ class GAF:
 
     def __init__(self, params: Optional[dict[str, Any]] = None):
         params = params or {}
-        self.window_size = params.get('window_size', None)
-        self.sample_range = params.get('sample_range', (-1, 1))
+        self.window_size = normalize_optional_window_size(
+            params.get("window_size", None)
+        )
+        self.sample_range = params.get("sample_range", (-1, 1))
         self.use_per_sample_minmax = bool(params.get("use_per_sample_minmax", True))
-        self.method = params.get('method', 'summation')
-        self.image_size = params.get('image_size', 1.)
-        self.overlapping = params.get('overlapping', False)
+        self.method = normalize_gaf_method(params.get("method", "summation"))
+        self.image_size = normalize_image_size(params.get("image_size", 1.0))
+        self.overlapping = params.get("overlapping", False)
         self.return_init_dim = bool(params.get("return_init_dim", True))
         self.torch_device = params.get("torch_device", "auto")
 
@@ -76,12 +88,8 @@ class GAF:
         """
         X, init_shape = prepare_series_input(X, torch_device=self.torch_device)
         n_timestamps = X.shape[1]
-        if n_timestamps < 2:
-            raise ValueError(
-                f"Time series length must be >= 2 for GAF, got {n_timestamps}."
-            )
-        window_size, paa_output_size = self._check_params(n_timestamps)
-        method = self._resolve_method()
+        validate_min_series_length(n_timestamps, operation="GAF")
+        window_size, paa_output_size = self._resolve_paa_layout(n_timestamps)
         paa = PAA(
             window_size=window_size,
             output_size=paa_output_size,
@@ -93,16 +101,14 @@ class GAF:
             X_cos = per_sample_minmax_scale(X_paa, feature_range=feature_range, dim=1)
         else:
             X_min, X_max = torch.min(X_paa), torch.max(X_paa)
-            eps = 1e-5
-            if (X_min < -1 - eps) or (X_max > 1 + eps):
-                raise ValueError(
-                    "If 'use_per_sample_minmax' is False, all the values "
-                    "of X must be between -1 and 1."
-                )
+            validate_gaf_input_range(
+                float(X_min.item()),
+                float(X_max.item()),
+            )
             X_cos = X_paa.clamp(-1.0, 1.0)
         X_sin = torch.sqrt(torch.clamp(1 - X_cos**2, min=0, max=1))
 
-        if method == "gasf":
+        if self.method is GAFMethod.gasf:
             X_new = self._gasf(X_cos, X_sin)
         else:
             X_new = self._gadf(X_cos, X_sin)
@@ -154,54 +160,21 @@ class GAF:
         cos_sin = X_cos.unsqueeze(2) * X_sin.unsqueeze(1)
         return sin_cos - cos_sin
 
-    def _resolve_method(self) -> str:
-        if self.method in ("summation", "s", "gasf"):
-            return "gasf"
-        if self.method in ("difference", "d", "gadf"):
-            return "gadf"
-        raise ValueError(
-            "'method' must be one of 'summation', 's', 'difference' or 'd'."
-        )
-
-    def _check_params(self, n_timestamps: int) -> tuple[int, int]:
-        """
-        Validates config and computes PAA ``window_size`` and ``output_size``.
-
-        Returns:
-            tuple[int, int]: ``(window_size, paa_output_size)`` for PAA.
-        """
-        self._resolve_method()
+    def _resolve_paa_layout(self, n_timestamps: int) -> tuple[int, int]:
+        """Compute PAA ``window_size`` and ``output_size`` for an input length."""
 
         if self.window_size is None:
             if isinstance(self.image_size, int):
+                validate_image_size_fits_series(self.image_size, n_timestamps)
                 image_size = self.image_size
-                if image_size < 1 or image_size > n_timestamps:
-                    raise ValueError(
-                        "If 'image_size' is an integer, it must be >= 1 "
-                        "and <= n_timestamps."
-                    )
-            elif isinstance(self.image_size, float):
-                if not (0 < self.image_size <= 1.):
-                    raise ValueError(
-                        "If 'image_size' is a float, it must be greater "
-                        "than 0 and lower than or equal to 1 (got {0})."
-                        .format(self.image_size)
-                    )
-                image_size = math.ceil(self.image_size * n_timestamps)
             else:
-                raise ValueError(
-                    "'image_size' must be either an integer or a float."
-                )
+                image_size = math.ceil(self.image_size * n_timestamps)
 
             window_size, remainder = divmod(n_timestamps, image_size)
             if remainder != 0:
                 window_size += 1
         else:
-            if not isinstance(self.window_size, int):
-                raise TypeError("'window_size' must be an integer.")
-            if self.window_size < 1 or self.window_size > n_timestamps:
-                raise ValueError("'window_size' must be >= 1 and <= n_timestamps.")
-
+            validate_window_size(self.window_size, n_timestamps)
             window_size = self.window_size
             image_size, remainder = divmod(n_timestamps, window_size)
             if remainder != 0:

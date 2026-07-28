@@ -14,6 +14,12 @@ from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import
     convert_to_init_dim,
     prepare_series_input,
 )
+from fedot_ind.core.operation.transformation.torch_backend.rules import (
+    normalize_image_size,
+    validate_image_size_fits_series,
+    validate_min_series_length,
+    validate_mtf_output_layout,
+)
 
 
 class MTF:
@@ -40,7 +46,7 @@ class MTF:
 
     def __init__(self, params: Optional[dict[str, Any]] = None):
         params = params or {}
-        self.image_size = params.get("image_size", 1.0)
+        self.image_size = normalize_image_size(params.get("image_size", 1.0))
         self.n_bins = params.get("n_bins", 8)
         self.strategy = params.get("strategy", "quantile")
         self.overlapping = params.get("overlapping", False)
@@ -48,10 +54,10 @@ class MTF:
         self.flatten = params.get("flatten", False)
         self.torch_device = params.get("torch_device", "auto")
 
-        if self.flatten and self.return_init_dim:
-            raise ValueError(
-                "'flatten' and 'return_init_dim' cannot both be True."
-            )
+        validate_mtf_output_layout(
+            flatten=self.flatten,
+            return_init_dim=self.return_init_dim,
+        )
         _validate_kbins_params(self.n_bins, self.strategy)
 
     def transform(self, X: Any) -> torch.Tensor:
@@ -59,24 +65,12 @@ class MTF:
         X, init_shape = prepare_series_input(X, torch_device=self.torch_device)
 
         n_samples, n_timestamps = X.shape
-        if n_timestamps < 2:
-            raise ValueError(
-                f"Time series length must be >= 2 for MTF, got {n_timestamps}."
-            )
+        validate_min_series_length(n_timestamps, operation="MTF")
         if isinstance(self.image_size, int):
+            validate_image_size_fits_series(self.image_size, n_timestamps)
             image_size = self.image_size
-            if image_size < 1 or image_size > n_timestamps:
-                raise ValueError(
-                    "If 'image_size' is an integer, it must be >= 1 and <= n_timestamps."
-                )
-        elif isinstance(self.image_size, float):
-            if self.image_size <= 0.0 or self.image_size > 1.0:
-                raise ValueError(
-                    "If 'image_size' is a float, it must be > 0 and <= 1."
-                )
-            image_size = math.ceil(self.image_size * n_timestamps)
         else:
-            raise TypeError("'image_size' must be int or float.")
+            image_size = math.ceil(self.image_size * n_timestamps)
 
         X_binned = kbins_discretize_torch(
             X, n_bins=self.n_bins, strategy=self.strategy

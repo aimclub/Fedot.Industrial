@@ -5,6 +5,12 @@ from typing import Optional
 import torch
 from torch.nn import functional as F
 
+from fedot_ind.core.operation.transformation.torch_backend.rules import (
+    validate_n_segments_fits_series,
+    validate_n_segments_min,
+    validate_window_size,
+)
+
 
 def segmentation_torch(
     ts_size: int,
@@ -18,18 +24,11 @@ def segmentation_torch(
     if device is None:
         device = torch.device("cpu")
 
-    if ts_size < 2:
-        raise ValueError("'ts_size' must be >= 2.")
-    if window_size < 1:
-        raise ValueError("'window_size' must be >= 1.")
-    if window_size > ts_size:
-        raise ValueError("'window_size' must be <= ts_size.")
+    validate_window_size(window_size, ts_size)
 
     if n_segments is not None:
-        if n_segments < 2:
-            raise ValueError("'n_segments' must be >= 2.")
-        if n_segments > ts_size:
-            raise ValueError("'n_segments' must be <= ts_size.")
+        validate_n_segments_min(n_segments)
+        validate_n_segments_fits_series(n_segments, ts_size)
     else:
         quotient, remainder = divmod(ts_size, window_size)
         n_segments = quotient if remainder == 0 else quotient + 1

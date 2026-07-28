@@ -84,9 +84,16 @@ class TestInputUtilities:
         assert out.shape == expected_working
         assert init_shape == shape
 
-    def test_check_input_shape_rejects_4d(self):
+    @pytest.mark.parametrize(
+        "tensor",
+        [
+            torch.tensor(1.0),
+            torch.randn(2, 3, 4, 5),
+        ],
+    )
+    def test_check_input_shape_rejects_unsupported_rank(self, tensor):
         with pytest.raises(ValueError, match="1D, 2D or 3D"):
-            check_input_shape(torch.randn(2, 3, 4, 5))
+            check_input_shape(tensor)
 
     def test_prepare_series_input_respects_torch_device_cpu(self):
         x = np.random.randn(B, T).astype(np.float32)
@@ -214,9 +221,8 @@ class TestGAF:
         ],
     )
     def test_invalid_params_raise(self, params, match):
-        gaf = GAF({**params, "torch_device": "cpu"})
         with pytest.raises((ValueError, TypeError), match=match):
-            gaf.transform(torch.randn(B, T))
+            GAF({**params, "torch_device": "cpu"}).transform(torch.randn(B, T))
 
     def test_short_series_raises(self):
         gaf = GAF({"image_size": IMAGE_SIDE, "torch_device": "cpu"})
@@ -296,13 +302,15 @@ class TestMTF:
         with pytest.raises(ValueError, match=match):
             MTF({**params, "torch_device": "cpu"})
 
-    def test_invalid_image_size_at_transform(self):
-        mtf = MTF({"image_size": 0.0, "torch_device": "cpu"})
+    def test_invalid_image_size_raises(self):
         with pytest.raises(ValueError, match="image_size"):
-            mtf.transform(torch.randn(B, T))
-        mtf_int = MTF({"image_size": 100, "torch_device": "cpu"})
+            MTF({"image_size": 0.0, "torch_device": "cpu"}).transform(
+                torch.randn(B, T)
+            )
         with pytest.raises(ValueError, match="n_timestamps"):
-            mtf_int.transform(torch.randn(B, T))
+            MTF({"image_size": 100, "torch_device": "cpu"}).transform(
+                torch.randn(B, T)
+            )
 
     def test_short_series_raises(self, transformer):
         with pytest.raises(ValueError, match=">= 2"):

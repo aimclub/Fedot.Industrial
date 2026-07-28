@@ -5,6 +5,10 @@ from typing import Any
 import torch
 
 from fedot_ind.core.operation.transformation.torch_backend.io import resolve_torch_device
+from fedot_ind.core.operation.transformation.torch_backend.rules import (
+    validate_flat_batch_size,
+    validate_series_input_rank,
+)
 
 
 def check_input_shape(X: Any) -> tuple[torch.Tensor, tuple[int, ...]]:
@@ -19,13 +23,12 @@ def check_input_shape(X: Any) -> tuple[torch.Tensor, tuple[int, ...]]:
             ) from exc
 
     init_shape = tuple(X.shape)
+    validate_series_input_rank(X.ndim, init_shape)
     if X.ndim == 1:
         X = X.unsqueeze(0)
     elif X.ndim == 3:
         batch, channels, timestamps = X.shape
         X = X.reshape(batch * channels, timestamps)
-    elif X.ndim > 3:
-        raise ValueError(f"X must be 1D, 2D or 3D, got shape={tuple(X.shape)}")
 
     if not torch.is_floating_point(X):
         X = X.float()
@@ -53,11 +56,11 @@ def convert_to_init_dim(
 
     if len(init_shape) == 3:
         batch, n_channels = init_shape[0], init_shape[1]
-        expected = batch * n_channels
-        if X.shape[0] != expected:
-            raise ValueError(
-                f"Batch/channel flatten mismatch: input shape {init_shape} "
-                f"implies {expected} flat samples, got {X.shape[0]}."
-            )
+        validate_flat_batch_size(
+            X.shape[0],
+            batch=batch,
+            n_channels=n_channels,
+            init_shape=init_shape,
+        )
         return X.reshape(batch, n_channels, *X.shape[1:])
     return X

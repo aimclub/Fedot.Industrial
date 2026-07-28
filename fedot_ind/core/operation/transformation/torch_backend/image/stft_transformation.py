@@ -6,6 +6,14 @@ from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import
     convert_to_init_dim,
     prepare_series_input,
 )
+from fedot_ind.core.operation.transformation.torch_backend.rules import (
+    STFTWindowType,
+    normalize_stft_window_type,
+    validate_min_series_length,
+    validate_stft_fft_fits_series,
+    validate_stft_fft_size,
+    validate_stft_window_fits_series,
+)
 
 
 def _gaussian_window(
@@ -91,7 +99,9 @@ class STFTSpectrogram:
         self.hop_length = _parse_positive_int(
             params.get("hop_length", 64), "hop_length", default=64
         )
-        self.window_type = str(params.get("window_type", "hann")).lower()
+        self.window_type = normalize_stft_window_type(
+            params.get("window_type", STFTWindowType.hann)
+        )
         self.n_fft = _parse_positive_int(
             params.get("n_fft", self.window_size), "n_fft", default=self.window_size
         )
@@ -105,45 +115,16 @@ class STFTSpectrogram:
             self.sigma = _parse_positive_float(self.sigma, "sigma", default=1.0)
         self.return_init_dim = bool(params.get("return_init_dim", True))
         self.torch_device = params.get("torch_device", "auto")
-        self._check_params()
+        validate_stft_fft_size(self.n_fft, self.window_size)
 
     def _window(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
         w = self.window_size
-        if self.window_type == "hann":
+        if self.window_type is STFTWindowType.hann:
             return torch.hann_window(w, periodic=True, device=device, dtype=dtype)
-        if self.window_type == "hamming":
+        if self.window_type is STFTWindowType.hamming:
             return torch.hamming_window(w, periodic=True, device=device, dtype=dtype)
         sigma = self.sigma if self.sigma is not None else self.window_size / 6.0
         return _gaussian_window(w, sigma, device=device, dtype=dtype)
-
-    def _check_params(self) -> None:
-        if self.n_fft < self.window_size:
-            raise ValueError("'n_fft' must be >= 'window_size'.")
-        if self.window_type not in ("hann", "hamming", "gaussian"):
-            raise ValueError(
-                "'window_type' must be one of: hann, hamming, gaussian "
-                f"(got {self.window_type!r})."
-            )
-        if self.window_type == "gaussian":
-            sig = self.sigma if self.sigma is not None else self.window_size / 6.0
-            if sig <= 0:
-                raise ValueError("'sigma' must be > 0 for gaussian window.")
-
-    def _check_series_length(self, n_timestamps: int) -> None:
-        if n_timestamps < 2:
-            raise ValueError(
-                f"Time series length must be >= 2 for STFT, got {n_timestamps}."
-            )
-        if not self.center and n_timestamps < self.n_fft:
-            raise ValueError(
-                f"Time series length ({n_timestamps}) must be >= n_fft "
-                f"({self.n_fft}) when center=False."
-            )
-        if n_timestamps < self.window_size:
-            raise ValueError(
-                f"Time series length ({n_timestamps}) must be >= window_size "
-                f"({self.window_size})."
-            )
 
     def transform(self, X: Any) -> torch.Tensor:
         """
@@ -158,7 +139,14 @@ class STFTSpectrogram:
         """
 
         X, init_shape = prepare_series_input(X, torch_device=self.torch_device)
-        self._check_series_length(X.shape[1])
+        n_timestamps = X.shape[1]
+        validate_min_series_length(n_timestamps, operation="STFT")
+        validate_stft_fft_fits_series(
+            n_timestamps,
+            self.n_fft,
+            center=self.center,
+        )
+        validate_stft_window_fits_series(n_timestamps, self.window_size)
 
         device = X.device
         dtype = X.dtype
