@@ -9,7 +9,6 @@ from fedot_ind.core.models.future.mapping import FUSION_REGISTRY, FusionMethod
 from fedot_ind.core.models.future.rules import (
     require_initialized_model_parts,
     require_resolved_modalities,
-    resolve_modalities_from_bundle,
     validate_context_modalities_for_raw_centered,
     validate_embeddings_count,
     validate_encoder_registry_has_modalities,
@@ -220,24 +219,6 @@ def test_unknown_modality_raises():
             fusion_method="concat",
             d_model=16,
         )
-
-
-def test_future_rules_resolve_modalities_follows_bundle_order():
-    bundle = MultimodalDataBundle(
-        modalities={
-            MultimodalModality.raw: torch.randn(2, 1, 8),
-            MultimodalModality.stats: torch.randn(2, 4),
-        },
-    )
-
-    assert resolve_modalities_from_bundle(bundle) == (
-        MultimodalModality.raw,
-        MultimodalModality.stats,
-    )
-    assert resolve_modalities_from_bundle(bundle, [MultimodalModality.stats, "raw"]) == (
-        MultimodalModality.stats,
-        MultimodalModality.raw,
-    )
 
 
 def test_future_rules_validate_common_failure_surfaces():

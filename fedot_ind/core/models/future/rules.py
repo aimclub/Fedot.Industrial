@@ -22,7 +22,6 @@ __all__ = [
     "normalize_unique_modalities",
     "require_initialized_model_parts",
     "require_resolved_modalities",
-    "resolve_modalities_from_bundle",
     "validate_context_modalities_for_raw_centered",
     "validate_embeddings_count",
     "validate_encoder_registry_has_modalities",
@@ -65,14 +64,6 @@ def validate_supported_fusion_method(
 def validate_multimodal_bundle_input(input_data: Any) -> MultimodalDataBundle:
     validate_bundle_type(input_data, MultimodalDataBundle)
     return input_data
-
-
-def resolve_modalities_from_bundle(
-    bundle: MultimodalDataBundle,
-    modalities: Sequence[MultimodalModality | str] | None = None,
-) -> tuple[MultimodalModality, ...]:
-    resolved = bundle.available_modalities if modalities is None else modalities
-    return normalize_unique_modalities(resolved)
 
 
 def validate_encoder_registry_has_modalities(
