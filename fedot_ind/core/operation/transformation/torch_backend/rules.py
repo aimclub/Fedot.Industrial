@@ -17,6 +17,12 @@ class GAFMethod(str, Enum):
     gadf = "gadf"
 
 
+class BinningStrategy(str, Enum):
+    uniform = "uniform"
+    quantile = "quantile"
+    normal = "normal"
+
+
 _GAF_METHOD_ALIASES = {
     "summation": GAFMethod.gasf,
     "s": GAFMethod.gasf,
@@ -25,6 +31,29 @@ _GAF_METHOD_ALIASES = {
     "d": GAFMethod.gadf,
     "gadf": GAFMethod.gadf,
 }
+
+
+def normalize_binning_strategy(
+    value: BinningStrategy | str,
+) -> BinningStrategy:
+    if isinstance(value, BinningStrategy):
+        return value
+    try:
+        return BinningStrategy(str(value).lower())
+    except ValueError as exc:
+        known = [item.value for item in BinningStrategy]
+        raise ValueError(
+            f"Unknown binning strategy {value!r}. Known values: {known}."
+        ) from exc
+
+
+def validate_kbins_params(
+    n_bins: int,
+    strategy: BinningStrategy | str,
+) -> BinningStrategy:
+    if n_bins < 2:
+        raise ValueError(f"'n_bins' must be >= 2, got {n_bins}.")
+    return normalize_binning_strategy(strategy)
 
 
 def normalize_gaf_method(value: GAFMethod | str) -> GAFMethod:

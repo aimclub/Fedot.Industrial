@@ -1,22 +1,13 @@
 from __future__ import annotations
 
-from typing import Literal
 import warnings
 
 import torch
 
-Strategy = Literal["uniform", "quantile", "normal"]
-
-
-def _validate_kbins_params(n_bins: int, strategy: str) -> None:
-    """Validate discretization parameters."""
-
-    if n_bins < 2:
-        raise ValueError(f"'n_bins' must be >= 2, got {n_bins}.")
-    if strategy not in {"uniform", "quantile", "normal"}:
-        raise ValueError(
-            f"'strategy' must be one of ['uniform', 'quantile', 'normal'], got {strategy}."
-        )
+from fedot_ind.core.operation.transformation.torch_backend.rules import (
+    BinningStrategy,
+    validate_kbins_params,
+)
 
 
 def _linspace_per_row(
@@ -159,18 +150,18 @@ def _digitize_torch(X: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
 def _compute_bins_torch(
     X: torch.Tensor,
     n_bins: int,
-    strategy: Strategy = "quantile",
+    strategy: BinningStrategy | str = BinningStrategy.quantile,
     *,
     raise_warning: bool = True,
 ) -> torch.Tensor:
     """Compute bin edges for discretization."""
 
-    _validate_kbins_params(n_bins, strategy)
+    strategy = validate_kbins_params(n_bins, strategy)
 
-    if strategy == "normal":
+    if strategy is BinningStrategy.normal:
         return _normal_bins_torch(n_bins, device=X.device, dtype=X.dtype)
 
-    if strategy == "uniform":
+    if strategy is BinningStrategy.uniform:
         return _uniform_bins_torch(X, n_bins)
 
     return _quantile_bins_torch(X, n_bins, raise_warning=raise_warning)
@@ -179,7 +170,7 @@ def _compute_bins_torch(
 def kbins_discretize_torch(
     X: torch.Tensor,
     n_bins: int = 5,
-    strategy: Strategy = "quantile",
+    strategy: BinningStrategy | str = BinningStrategy.quantile,
     *,
     raise_warning: bool = True,
     return_bins: bool = False,

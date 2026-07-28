@@ -3,13 +3,8 @@ from typing import Any, Optional
 
 import torch
 
-from fedot_ind.core.operation.transformation.torch_backend.image.discretize import (
-    _validate_kbins_params,
-    kbins_discretize_torch,
-)
-from fedot_ind.core.operation.transformation.torch_backend.image.paa import (
-    segmentation_torch,
-)
+from fedot_ind.core.operation.transformation.torch_backend.image.discretize import kbins_discretize_torch
+from fedot_ind.core.operation.transformation.torch_backend.image.paa import segmentation_torch
 from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import (
     convert_to_init_dim,
     prepare_series_input,
@@ -17,6 +12,7 @@ from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import
 from fedot_ind.core.operation.transformation.torch_backend.rules import (
     normalize_image_size,
     validate_image_size_fits_series,
+    validate_kbins_params,
     validate_min_series_length,
     validate_mtf_output_layout,
 )
@@ -31,8 +27,8 @@ class MTF:
             MTF image. Float values are a fraction of ``T`` in ``(0, 1]``; int
             values set the exact side length.
         n_bins (int, default ``8``): Number of discrete bins for quantization.
-        strategy (str, default ``'quantile'``): Binning strategy — one of
-            ``'uniform'``, ``'quantile'``, ``'normal'``.
+        strategy (str or BinningStrategy, default ``'quantile'``): Binning
+            strategy — one of ``'uniform'``, ``'quantile'``, ``'normal'``.
         overlapping (bool, default ``False``): Use overlapping windows when
             downsampling the MTF image and ``T`` is not evenly divisible.
         flatten (bool, default ``False``): If ``True``, return a 1D vector of
@@ -58,7 +54,7 @@ class MTF:
             flatten=self.flatten,
             return_init_dim=self.return_init_dim,
         )
-        _validate_kbins_params(self.n_bins, self.strategy)
+        self.strategy = validate_kbins_params(self.n_bins, self.strategy)
 
     def transform(self, X: Any) -> torch.Tensor:
 
