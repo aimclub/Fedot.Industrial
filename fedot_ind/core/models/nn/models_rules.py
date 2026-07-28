@@ -7,6 +7,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from fedot_ind.core.multimodal.enums import MultimodalModality
+from fedot_ind.core.multimodal.rules import normalize_modality
 
 if TYPE_CHECKING:
     from fedot_ind.core.models.nn.network_impl.encoders.config import EncoderConfig
@@ -30,20 +31,6 @@ def normalize_encoder_family(value: EncoderFamily | str) -> EncoderFamily:
         supported = [family.value for family in EncoderFamily]
         raise ValueError(
             f"Unsupported encoder family {value!r}. Supported values: {supported}."
-        ) from exc
-
-
-def normalize_modality(modality: MultimodalModality | str) -> MultimodalModality:
-    """Convert user-provided modality value to MultimodalModality."""
-
-    if isinstance(modality, MultimodalModality):
-        return modality
-    try:
-        return MultimodalModality(str(modality))
-    except ValueError as exc:
-        supported = [item.value for item in MultimodalModality]
-        raise ValueError(
-            f"Unsupported modality {modality!r}. Supported values: {supported}."
         ) from exc
 
 

@@ -16,7 +16,6 @@ from fedot_ind.core.models.future.mapping import (
 from fedot_ind.core.models.future.rules import (
     normalize_unique_modalities,
     require_initialized_model_parts,
-    require_resolved_modalities,
     validate_context_modalities_for_raw_centered,
     validate_encoder_registry_has_modalities,
     validate_modalities_presence,
@@ -66,7 +65,6 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
                 min_value=1,
             )
 
-        self.fusion_method = fusion_method
         self.fusion_method = validate_supported_fusion_method(
             fusion_method=fusion_method,
             fusion_registry=FUSION_REGISTRY,
@@ -152,10 +150,10 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
             modality for modality in self.modalities if modality != self.raw_modality
         )
 
-        modalities = require_resolved_modalities(self.modalities)
+        modalities = self.modalities
         validate_modalities_presence(
-            required_modalities=modalities,
-            available_modalities=shapes.keys(),
+            required=modalities,
+            available=shapes,
             source_label="Shape mapping",
         )
         encoders = nn.ModuleDict()
@@ -230,8 +228,8 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
 
         inputs = input.modalities
         validate_modalities_presence(
-            required_modalities=modalities,
-            available_modalities=inputs.keys(),
+            required=modalities,
+            available=inputs,
             source_label="Inputs",
         )
 

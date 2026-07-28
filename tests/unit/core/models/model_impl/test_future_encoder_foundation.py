@@ -166,7 +166,7 @@ def test_future_encoder_stack_raises_for_missing_modality():
             MultimodalModality.stats: stats_encoder_config(in_features=5, d_model=16),
         }
     )
-    with pytest.raises(ValueError, match="Missing required modalities"):
+    with pytest.raises(ValueError, match="does not contain required modalities"):
         stack({MultimodalModality.raw: torch.randn(3, 1, 32)})
 
 
@@ -249,7 +249,7 @@ def test_future_encoder_adapter_rejects_requested_missing_modality():
     )
     adapter = FutureMultimodalEncoderAdapter(params={"d_model": 16})
 
-    with pytest.raises(ValueError, match="does not contain requested modality"):
+    with pytest.raises(ValueError, match="does not contain required modalities"):
         adapter.configure_from_bundle(
             bundle=bundle,
             modalities=[MultimodalModality.raw, MultimodalModality.stats],

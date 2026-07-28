@@ -8,13 +8,17 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from fedot_ind.core.models.future.rules import normalize_unique_modalities
 from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
 from fedot_ind.core.models.nn.network_impl.encoders.config import EncoderConfig
-from fedot_ind.core.models.nn.models_rules import normalize_modality
 from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
+from fedot_ind.core.multimodal.rules import (
+    normalize_modality,
+    normalize_unique_modalities,
+    validate_modalities_presence,
+    validate_registry_supports_modalities,
+)
 
 
 def _count_parameters(module: nn.Module) -> int:
@@ -47,28 +51,30 @@ class FutureEncoderStack(nn.Module):
 
     def forward(
         self,
-        modalities: Mapping[MultimodalModality | str, torch.Tensor],
+        modalities: Mapping[MultimodalModality, torch.Tensor],
         return_aux: bool = False,
     ) -> dict[MultimodalModality, torch.Tensor] | tuple[
         dict[MultimodalModality, torch.Tensor], dict[str, Any]
     ]:
-        normalized = {
-            normalize_modality(modality): tensor
-            for modality, tensor in modalities.items()
-        }
-        missing = [modality for modality in self.modalities if modality not in normalized]
-        if missing:
-            missing_values = [modality.value for modality in missing]
-            raise ValueError(
-                f"Missing required modalities for encoder stack: {missing_values}."
-            )
+        """Encode already-normalized modalities.
+
+        Keys must be MultimodalModality; MultimodalDataBundle guarantees that,
+        and FutureMultimodalEncoderAdapter.encode_modalities coerces the loose
+        mappings that come from callers.
+        """
+
+        validate_modalities_presence(
+            required=self.modalities,
+            available=modalities,
+            source_label="Encoder stack input",
+        )
 
         embeddings: dict[MultimodalModality, torch.Tensor] = {}
         input_shapes: dict[str, tuple[int, ...]] = {}
         output_shapes: dict[str, tuple[int, ...]] = {}
 
         for modality in self.modalities:
-            tensor = normalized[modality]
+            tensor = modalities[modality]
             encoder = self.encoders[modality.value]
             embedding = encoder(tensor)
             embeddings[modality] = embedding
@@ -120,29 +126,26 @@ class FutureMultimodalEncoderAdapter(nn.Module):
         else:
             selected_modalities = normalize_unique_modalities(modalities)
 
-        unsupported = [
-            modality.value
-            for modality in selected_modalities
-            if modality not in ENCODER_PRESET_BUILDERS
-        ]
-        if unsupported:
-            raise ValueError(
-                f"Unsupported modalities for encoder adapter: {sorted(unsupported)}."
-            )
+        validate_registry_supports_modalities(
+            modalities=selected_modalities,
+            registry=ENCODER_PRESET_BUILDERS,
+            registry_label="encoder adapter",
+        )
+        validate_modalities_presence(
+            required=selected_modalities,
+            available=bundle.modalities,
+            source_label="Bundle",
+        )
 
         kwargs_map = dict(encoder_kwargs or self.params.get("encoder_kwargs", {}))
         config_map: dict[MultimodalModality, EncoderConfig] = {}
         for modality in selected_modalities:
-            if modality not in bundle.modalities:
-                raise ValueError(
-                    f"Bundle does not contain requested modality '{modality.value}'."
-                )
             shape = bundle.shapes[modality]
             modality_kwargs = dict(kwargs_map.get(modality.value, {}))
-            config_map[modality] = self._build_preset_config(
-                modality=modality,
+            config_map[modality] = ENCODER_PRESET_BUILDERS[modality].build_config(
                 shape=shape,
-                modality_kwargs=modality_kwargs,
+                d_model=self.d_model,
+                kwargs=modality_kwargs,
             )
 
         self.encoder_stack = FutureEncoderStack(config_map)
@@ -171,20 +174,8 @@ class FutureMultimodalEncoderAdapter(nn.Module):
             raise ValueError(
                 "Encoder stack is not configured. Call configure_from_bundle first."
             )
-        return self.encoder_stack(modalities, return_aux=return_aux)
-
-    def _build_preset_config(
-        self,
-        modality: MultimodalModality,
-        shape: tuple[int, ...],
-        modality_kwargs: dict[str, Any],
-    ) -> EncoderConfig:
-        preset_entry = ENCODER_PRESET_BUILDERS.get(modality)
-        if preset_entry is None:
-            raise ValueError(f"Unknown modality '{modality.value}'.")
-
-        return preset_entry.build_config(
-            shape=shape,
-            d_model=self.d_model,
-            kwargs=modality_kwargs,
-        )
+        normalized = {
+            normalize_modality(modality): tensor
+            for modality, tensor in modalities.items()
+        }
+        return self.encoder_stack(normalized, return_aux=return_aux)

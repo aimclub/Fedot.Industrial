@@ -4,8 +4,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-import torch
-
 from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
     NormalizationConfig,
@@ -15,21 +13,18 @@ from fedot_ind.core.multimodal.mapping import (
     DEFAULT_STAT_FEATURE_CONFIG,
     DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
     DEFAULT_STAT_FEATURES as MAPPING_DEFAULT_STAT_FEATURES,
+    SUPPORTED_PREPARATION_MODALITIES,
+)
+from fedot_ind.core.multimodal.rules import (
+    normalize_modality,
+    validate_positive_number,
+    validate_registry_supports_modalities,
 )
 from fedot_ind.core.operation.transformation.torch_backend.enums import (
     StatisticalFeature,
 )
 
 DEFAULT_STAT_FEATURES = tuple(MAPPING_DEFAULT_STAT_FEATURES)
-SUPPORTED_PREPARATION_MODALITIES = frozenset(
-    (
-        MultimodalModality.raw,
-        MultimodalModality.stats,
-        MultimodalModality.gaf,
-        MultimodalModality.stft,
-        MultimodalModality.mtf,
-    )
-)
 
 
 def default_normalization_config() -> NormalizationConfig:
@@ -97,18 +92,6 @@ def normalization_policy_from_steps(steps: Sequence[NormalizationMethod]) -> str
     return " -> ".join(step.value for step in steps)
 
 
-def _coerce_modality(value: MultimodalModality | str) -> MultimodalModality:
-    if isinstance(value, MultimodalModality):
-        return value
-    try:
-        return MultimodalModality(str(value))
-    except ValueError as exc:
-        raise ValueError(
-            f"Unsupported modality key {value!r}. "
-            f"Supported values: {[modality.value for modality in MultimodalModality]}."
-        ) from exc
-
-
 def _coerce_stat_feature(value: StatisticalFeature | str) -> str:
     if isinstance(value, StatisticalFeature):
         return value.value
@@ -134,12 +117,15 @@ class PreparationConfig:
             if self.transformation_config is None
             else self.transformation_config
         )
-        normalized_transform_config: dict[MultimodalModality, dict[str, Any]] = {}
-        for key, params in transformation_source.items():
-            modality = _coerce_modality(key)
-            if modality not in SUPPORTED_PREPARATION_MODALITIES:
-                raise ValueError(f"Unsupported preparation modality: {modality.value}.")
-            normalized_transform_config[modality] = dict(params)
+        normalized_transform_config: dict[MultimodalModality, dict[str, Any]] = {
+            normalize_modality(key): dict(params)
+            for key, params in transformation_source.items()
+        }
+        validate_registry_supports_modalities(
+            modalities=normalized_transform_config,
+            registry=SUPPORTED_PREPARATION_MODALITIES,
+            registry_label="preparation",
+        )
 
         if MultimodalModality.raw not in normalized_transform_config:
             normalized_transform_config[MultimodalModality.raw] = dict(
@@ -149,8 +135,7 @@ class PreparationConfig:
         raw_config = normalized_transform_config[MultimodalModality.raw]
         if raw_config.get("per_sample_z_normalize", False):
             eps = float(raw_config.get("per_sample_z_normalize_eps", 1e-6))
-            if eps <= 0:
-                raise ValueError("raw.per_sample_z_normalize_eps must be positive.")
+            validate_positive_number("raw.per_sample_z_normalize_eps", eps)
             raw_config["per_sample_z_normalize_eps"] = eps
         else:
             raw_config.setdefault("per_sample_z_normalize_eps", 1e-6)
@@ -186,7 +171,7 @@ class PreparationConfig:
             }
         else:
             normalization_config = {
-                _coerce_modality(modality): tuple(steps)
+                normalize_modality(modality): tuple(steps)
                 for modality, steps in self.normalization_config.items()
             }
         if MultimodalModality.raw in normalization_config:
@@ -220,13 +205,18 @@ class PreparationConfig:
 
     def metadata(
         self,
-        device: torch.device,
         *,
         transform_params: Mapping[
             MultimodalModality,
             Mapping[str, Any],
         ] | None = None,
     ) -> dict[str, Any]:
+        """Provenance for a prepared bundle.
+
+        Device and dtype are deliberately absent: they are derived by
+        MultimodalDataBundle from the tensors it holds.
+        """
+
         normalization_config = self.normalization_config or {}
         resolved_transform_params = {
             modality: self.modality_config(modality)
@@ -272,6 +262,4 @@ class PreparationConfig:
                 },
                 "auto_adjust_stft": self.auto_adjust_stft,
             },
-            "device": device,
-            "dtype": torch.float32,
         }

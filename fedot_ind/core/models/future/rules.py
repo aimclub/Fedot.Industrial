@@ -9,39 +9,34 @@ import torch
 import torch.nn as nn
 
 from fedot_ind.core.models.future.enums import FusionMethod
-from fedot_ind.core.models.nn.models_rules import normalize_modality
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
+from fedot_ind.core.multimodal.rules import (
+    normalize_unique_modalities,
+    validate_bundle_type,
+    validate_modalities_presence,
+    validate_registry_supports_modalities,
+)
+
+__all__ = [
+    "normalize_unique_modalities",
+    "require_initialized_model_parts",
+    "require_resolved_modalities",
+    "resolve_modalities_from_bundle",
+    "validate_context_modalities_for_raw_centered",
+    "validate_embeddings_count",
+    "validate_encoder_registry_has_modalities",
+    "validate_modalities_presence",
+    "validate_multimodal_bundle_input",
+    "validate_positive_int",
+    "validate_stacked_embeddings_shape",
+    "validate_supported_fusion_method",
+]
 
 
 def validate_positive_int(name: str, value: int, min_value: int = 1) -> None:
     if value < min_value:
         raise ValueError(f"{name} must be >= {min_value}, got {value}.")
-
-
-def validate_non_empty_modalities(
-    modalities: Sequence[MultimodalModality | str],
-) -> None:
-    if len(modalities) == 0:
-        raise ValueError("modalities must contain at least one modality.")
-
-
-def normalize_unique_modalities(
-    modalities: Sequence[MultimodalModality | str],
-) -> tuple[MultimodalModality, ...]:
-    validate_non_empty_modalities(modalities)
-    normalized: list[MultimodalModality] = []
-    seen: set[MultimodalModality] = set()
-    for modality in modalities:
-        normalized_modality = normalize_modality(modality)
-        if normalized_modality in seen:
-            raise ValueError(
-                "Duplicate modality entries are not allowed. "
-                f"Duplicate modalities: {tuple(modalities)}."
-            )
-        seen.add(normalized_modality)
-        normalized.append(normalized_modality)
-    return tuple(normalized)
 
 
 def validate_supported_fusion_method(
@@ -68,10 +63,7 @@ def validate_supported_fusion_method(
 
 
 def validate_multimodal_bundle_input(input_data: Any) -> MultimodalDataBundle:
-    if not isinstance(input_data, MultimodalDataBundle):
-        raise ValueError(
-            f"Expected input to be MultimodalDataBundle, got {type(input_data)}."
-        )
+    validate_bundle_type(input_data, MultimodalDataBundle)
     return input_data
 
 
@@ -79,38 +71,19 @@ def resolve_modalities_from_bundle(
     bundle: MultimodalDataBundle,
     modalities: Sequence[MultimodalModality | str] | None = None,
 ) -> tuple[MultimodalModality, ...]:
-    if modalities is None:
-        resolved = tuple(bundle.metadata.get("modalities", bundle.available_modalities))
-    else:
-        resolved = tuple(modalities)
+    resolved = bundle.available_modalities if modalities is None else modalities
     return normalize_unique_modalities(resolved)
-
-
-def validate_modalities_presence(
-    required_modalities: Sequence[MultimodalModality],
-    available_modalities: Sequence[MultimodalModality],
-    source_label: str,
-) -> None:
-    missing = [
-        modality.value
-        for modality in required_modalities
-        if modality not in available_modalities
-    ]
-    if missing:
-        raise ValueError(
-            f"{source_label} does not contain required modalities: {sorted(missing)}."
-        )
 
 
 def validate_encoder_registry_has_modalities(
     modalities: Sequence[MultimodalModality],
     preset_registry: Mapping[MultimodalModality, Any],
 ) -> None:
-    unsupported = [modality.value for modality in modalities if modality not in preset_registry]
-    if unsupported:
-        raise ValueError(
-            f"Unsupported modalities for encoder presets: {sorted(unsupported)}."
-        )
+    validate_registry_supports_modalities(
+        modalities=modalities,
+        registry=preset_registry,
+        registry_label="encoder presets",
+    )
 
 
 def validate_context_modalities_for_raw_centered(

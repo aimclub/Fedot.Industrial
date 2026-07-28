@@ -109,7 +109,7 @@ def test_normalization_policy_from_steps_returns_named_and_custom_policies():
     [
         (
             {"transformation_config": {"unknown": {}}},
-            "Unsupported modality key",
+            "Unsupported modality 'unknown'",
         ),
         (
             {
@@ -155,7 +155,6 @@ def test_preparation_config_metadata_uses_resolved_transform_params():
     resolved_stats_params = {"feature_names": ("mean",), "torch_device": torch.device("cpu")}
 
     metadata = config.metadata(
-        torch.device("cpu"),
         transform_params={MultimodalModality.stats: resolved_stats_params},
     )
 

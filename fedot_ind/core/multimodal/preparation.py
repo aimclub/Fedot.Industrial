@@ -12,6 +12,7 @@ from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
 from fedot_ind.core.multimodal.configs import PreparationConfig
 from fedot_ind.core.multimodal.mapping import (
+    DEFAULT_MODALITY_SPECS,
     DEFAULT_STAT_FEATURE_CONFIG,
     DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
     TRANSFORMATION_HANDLERS,
@@ -167,15 +168,13 @@ class MultimodalDatasetPreparer:
             resolved_transform_params[modality] = params
 
         target, target_metadata = self._target_to_tensor(y, device, fit_target=fit_target)
-        metadata = self.config.metadata(
-            device,
-            transform_params=resolved_transform_params,
-        )
+        metadata = self.config.metadata(transform_params=resolved_transform_params)
         metadata.update(target_metadata)
         return MultimodalDataBundle(
             modalities=modalities,
             target=target,
             metadata=metadata,
+            specs=DEFAULT_MODALITY_SPECS,
         )
 
     def _build_modality(
@@ -187,10 +186,7 @@ class MultimodalDatasetPreparer:
             return series, self.config.modality_config(MultimodalModality.raw)
         params = self._resolve_modality_params(modality, series.shape[-1])
         params["torch_device"] = self._resolve_device()
-        transformer_cls = TRANSFORMATION_HANDLERS.get(modality)
-        if transformer_cls is None:
-            raise ValueError(f"Unsupported modality: {modality}.")
-        transformer = transformer_cls(params)
+        transformer = TRANSFORMATION_HANDLERS[modality](params)
         return transformer.transform(series), params
 
     @staticmethod

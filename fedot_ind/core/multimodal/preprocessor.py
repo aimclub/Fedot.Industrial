@@ -5,13 +5,15 @@ from typing import Protocol
 
 import torch
 
-from fedot_ind.core.multimodal.normalization import AbstractNormalizer
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
-from fedot_ind.core.multimodal.enums import (
-    MultimodalModality,
-    NormalizationConfig,
-)
+from fedot_ind.core.multimodal.enums import NormalizationConfig
 from fedot_ind.core.multimodal.mapping import NORMALIZATION_HANDLERS
+from fedot_ind.core.multimodal.rules import (
+    validate_bundle_type,
+    validate_modalities_presence,
+    validate_positive_number,
+    validate_registry_supports_normalization_steps,
+)
 
 
 class NormalizerProtocol(Protocol):
@@ -36,10 +38,13 @@ class MultimodalPreprocessor:
         *,
         eps: float = 1e-6,
     ) -> None:
-        if eps <= 0:
-            raise ValueError("eps must be positive.")
+        validate_positive_number("eps", eps)
         self.normalization_config = (
             normalization_config if normalization_config is not None else {}
+        )
+        validate_registry_supports_normalization_steps(
+            self.normalization_config,
+            NORMALIZATION_HANDLERS,
         )
         self.eps = eps
         self._handlers_: dict[str, dict[str, Any]] = {}
@@ -60,15 +65,7 @@ class MultimodalPreprocessor:
             current = bundle.modalities[modality]
             modality_handlers: list[tuple[str, NormalizerProtocol]] = []
             for step in steps:
-                handler_cls = NORMALIZATION_HANDLERS.get(step)
-                if handler_cls is None:
-                    raise ValueError(f"Unsupported normalization step: {step}.")
-                handler = handler_cls(eps=self.eps)
-                if not isinstance(handler, AbstractNormalizer):
-                    raise TypeError(
-                        f"Normalization handler for '{step.value}' must inherit "
-                        "AbstractNormalizer."
-                    )
+                handler = NORMALIZATION_HANDLERS[step](eps=self.eps)
                 handler.fit(current)
                 current = handler.transform(current)
                 modality_handlers.append((step.value, handler))
@@ -84,27 +81,13 @@ class MultimodalPreprocessor:
         self._validate_bundle(bundle)
 
         modalities = dict(bundle.modalities)
-        for modality, steps in self.normalization_config.items():
+        for modality in self.normalization_config:
             current = modalities[modality]
-            modality_handlers = self._handlers_.get(modality.value)
-            if modality_handlers is None:
-                raise ValueError(
-                    f"Missing fitted handlers for modality '{modality.value}'."
-                )
-            handlers = modality_handlers["steps"]
-            if len(handlers) != len(tuple(steps)):
-                raise ValueError(
-                    f"Handler count mismatch for modality '{modality.value}'."
-                )
-            for _, handler in handlers:
+            for _, handler in self._handlers_[modality.value]["steps"]:
                 current = handler.transform(current)
             modalities[modality] = current
 
-        return MultimodalDataBundle(
-            modalities=modalities,
-            target=bundle.target,
-            metadata=dict(bundle.metadata),
-        )
+        return bundle.with_modalities(modalities)
 
     def fit_transform(self, bundle: MultimodalDataBundle) -> MultimodalDataBundle:
         return self.fit(bundle).transform(bundle)
@@ -124,16 +107,9 @@ class MultimodalPreprocessor:
         return statistics
 
     def _validate_bundle(self, bundle: MultimodalDataBundle) -> None:
-        if not isinstance(bundle, MultimodalDataBundle):
-            raise TypeError(
-                f"MultimodalPreprocessor expects MultimodalDataBundle, got {type(bundle)}."
-            )
-        missing = [
-            modality.value
-            for modality in self.normalization_config
-            if modality not in bundle.modalities
-        ]
-        if missing:
-            raise ValueError(
-                f"Bundle does not contain required modalities: {', '.join(missing)}."
-            )
+        validate_bundle_type(bundle, MultimodalDataBundle)
+        validate_modalities_presence(
+            required=self.normalization_config,
+            available=bundle.modalities,
+            source_label="Bundle",
+        )

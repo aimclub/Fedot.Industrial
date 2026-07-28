@@ -222,16 +222,19 @@ def test_unknown_modality_raises():
         )
 
 
-def test_future_rules_resolve_modalities_from_metadata_order():
+def test_future_rules_resolve_modalities_follows_bundle_order():
     bundle = MultimodalDataBundle(
         modalities={
             MultimodalModality.raw: torch.randn(2, 1, 8),
             MultimodalModality.stats: torch.randn(2, 4),
         },
-        metadata={"modalities": [MultimodalModality.stats, "raw"]},
     )
 
     assert resolve_modalities_from_bundle(bundle) == (
+        MultimodalModality.raw,
+        MultimodalModality.stats,
+    )
+    assert resolve_modalities_from_bundle(bundle, [MultimodalModality.stats, "raw"]) == (
         MultimodalModality.stats,
         MultimodalModality.raw,
     )
@@ -241,7 +244,7 @@ def test_future_rules_validate_common_failure_surfaces():
     with pytest.raises(ValueError, match="num_classes"):
         validate_positive_int(name="num_classes", value=0)
 
-    with pytest.raises(ValueError, match="MultimodalDataBundle"):
+    with pytest.raises(TypeError, match="MultimodalDataBundle"):
         validate_multimodal_bundle_input(object())
 
     with pytest.raises(ValueError, match="Unsupported modalities"):
