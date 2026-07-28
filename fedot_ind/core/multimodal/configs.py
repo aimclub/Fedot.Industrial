@@ -334,7 +334,6 @@ def _freeze_value(value: Any) -> Any:
     return value
 
 
-
 def _mutable_copy(value: Any) -> Any:
     """Copy a frozen config value into mutable containers for transformers."""
 

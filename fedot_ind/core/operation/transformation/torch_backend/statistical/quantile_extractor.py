@@ -11,7 +11,6 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.torch_backend.enums import (
     STAT_FEATURE_CONFIG,
-    StatisticalFeature,
 )
 from fedot_ind.core.repository.constanst_repository import (
     STAT_METHODS_GLOBAL_TORCH,
