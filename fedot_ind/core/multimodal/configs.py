@@ -14,8 +14,8 @@ from fedot_ind.core.multimodal.mapping import (
     DEFAULT_STAT_FEATURE_CONFIG,
     DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
     DEFAULT_STAT_FEATURES as MAPPING_DEFAULT_STAT_FEATURES,
+    MODALITY_CAPABILITIES,
     NORMALIZATION_HANDLERS,
-    SUPPORTED_PREPARATION_MODALITIES,
 )
 from fedot_ind.core.multimodal.rules import (
     normalize_modality,
@@ -44,13 +44,16 @@ def default_normalization_config() -> NormalizationConfig:
     }
 
 
-def default_transformation_config() -> dict[str, dict[str, Any]]:
+def default_transformation_config() -> dict[
+    MultimodalModality,
+    dict[str, Any],
+]:
     return {
-        "raw": {
+        MultimodalModality.raw: {
             "per_sample_z_normalize": False,
             "per_sample_z_normalize_eps": 1e-6,
         },
-        "stats": {
+        MultimodalModality.stats: {
             "window_size": 12,
             "stride": 50,
             "add_global_features": True,
@@ -58,13 +61,13 @@ def default_transformation_config() -> dict[str, dict[str, Any]]:
             "stat_feature_config": DEFAULT_STAT_FEATURE_CONFIG,
             "stat_feature_global_config": DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
         },
-        "gaf": {
+        MultimodalModality.gaf: {
             "method": "summation",
             "overlapping": True,
             "image_size": 0.25,
             "sample_range": None,
         },
-        "stft": {
+        MultimodalModality.stft: {
             "window_size": 64,
             "hop_length": 16,
             "n_fft": 64,
@@ -230,13 +233,13 @@ def _normalize_transformation_config(
     }
     validate_registry_supports_modalities(
         modalities=normalized,
-        registry=SUPPORTED_PREPARATION_MODALITIES,
+        registry=MODALITY_CAPABILITIES,
         registry_label="preparation",
     )
 
     if MultimodalModality.raw not in normalized:
         normalized[MultimodalModality.raw] = dict(
-            default_transformation_config()["raw"]
+            default_transformation_config()[MultimodalModality.raw]
         )
 
     raw_config = normalized[MultimodalModality.raw]

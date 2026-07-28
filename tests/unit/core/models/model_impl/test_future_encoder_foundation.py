@@ -25,6 +25,8 @@ from fedot_ind.core.models.nn.network_impl.future_encoder_adapter import (
 from fedot_ind.core.models.nn.network_impl.mapping import (
     ENCODER_BUILDERS_BY_FAMILY,
     ENCODER_PRESET_BUILDERS,
+    EncoderShapeArg,
+    normalize_encoder_shape_arg,
 )
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
@@ -69,6 +71,22 @@ def test_normalize_encoder_family_accepts_enum_and_string(value, expected):
 def test_normalize_encoder_family_rejects_unknown_value():
     with pytest.raises(ValueError, match="Unknown encoder family"):
         normalize_encoder_family("transformer")
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (EncoderShapeArg.in_channels, EncoderShapeArg.in_channels),
+        ("in_features", EncoderShapeArg.in_features),
+    ],
+)
+def test_normalize_encoder_shape_arg(value, expected):
+    assert normalize_encoder_shape_arg(value) is expected
+
+
+def test_normalize_encoder_shape_arg_rejects_unknown_value():
+    with pytest.raises(ValueError, match="Unknown encoder shape argument"):
+        normalize_encoder_shape_arg("channels")
 
 
 def test_encoder_builder_registry_determines_supported_families(monkeypatch):

@@ -11,15 +11,19 @@ from fedot_ind.core.multimodal.configs import (
     default_transformation_config,
     default_normalization_config,
 )
-from fedot_ind.core.multimodal.mapping import DEFAULT_MODALITY_SPECS
+from fedot_ind.core.multimodal.mapping import (
+    MODALITY_CAPABILITIES,
+    ModalityCapability,
+)
 from fedot_ind.core.multimodal.preparation import MultimodalDatasetPreparer
 from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
 from fedot_ind.core.multimodal.rules import ModalitySpec
 
 __all__ = [
-    "DEFAULT_MODALITY_SPECS",
     "DEFAULT_STAT_FEATURES",
+    "MODALITY_CAPABILITIES",
     "ModalitySpec",
+    "ModalityCapability",
     "MultimodalDataBundle",
     "MultimodalDatasetPreparer",
     "MultimodalModality",

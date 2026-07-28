@@ -15,10 +15,10 @@ from fedot_ind.core.multimodal.configs import (
     build_preparation_config,
 )
 from fedot_ind.core.multimodal.mapping import (
-    DEFAULT_MODALITY_SPECS,
     DEFAULT_STAT_FEATURE_CONFIG,
     DEFAULT_STAT_FEATURE_GLOBAL_CONFIG,
-    TRANSFORMATION_HANDLERS,
+    MODALITY_CAPABILITIES,
+    DEFAULT_MODALITY_SPECS,
 )
 from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
 from fedot_ind.core.operation.transformation.torch_backend.io import (
@@ -189,7 +189,7 @@ class MultimodalDatasetPreparer:
             return series, self.config.modality_config(MultimodalModality.raw)
         params = self._resolve_modality_params(modality, series.shape[-1])
         params["torch_device"] = self._resolve_device()
-        transformer = TRANSFORMATION_HANDLERS[modality](params)
+        transformer = MODALITY_CAPABILITIES[modality].build_transformer(params)
         return transformer.transform(series), params
 
     @staticmethod
