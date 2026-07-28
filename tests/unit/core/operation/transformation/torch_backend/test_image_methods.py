@@ -464,7 +464,7 @@ class TestPAAUtilities:
 
     def test_paa_segmentation_and_transform_match_segment_means(self):
         paa = PAA(window_size=2, output_size=2)
-        start, end = paa.segmentation(4)
+        start, end = paa._segmentation(4)
         transformed = paa.transform(torch.tensor([[1.0, 2.0, 3.0, 4.0]]))
 
         assert torch.equal(start, torch.tensor([0, 2]))

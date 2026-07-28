@@ -76,7 +76,7 @@ class PAA:
         self.output_size = output_size
         self.overlapping = overlapping
 
-    def segmentation(self, ts_size: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def _segmentation(self, ts_size: int, device: Optional[torch.device] = None) -> tuple[torch.Tensor, torch.Tensor, int]:
         """Return segment bounds for the configured PAA layout."""
 
         start, end, _ = segmentation_torch(
@@ -84,6 +84,7 @@ class PAA:
             self.window_size,
             self.overlapping,
             self.output_size,
+            device=device,
         )
         return start, end
 
@@ -107,11 +108,5 @@ class PAA:
         if self.window_size == 1:
             return x
 
-        start, end, _ = segmentation_torch(
-            x.shape[-1],
-            self.window_size,
-            self.overlapping,
-            self.output_size,
-            device=x.device,
-        )
+        start, end = self._segmentation(x.shape[-1], device=x.device)
         return self._paa(x, start, end)
