@@ -10,7 +10,10 @@ from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.rules import normalize_modality
 
 if TYPE_CHECKING:
-    from fedot_ind.core.models.nn.network_impl.encoders.config import EncoderConfig
+    from fedot_ind.core.models.nn.network_impl.encoders.config import (
+        ConvBlockConfig,
+        EncoderConfig,
+    )
 
 
 class EncoderFamily(str, Enum):
@@ -28,9 +31,9 @@ def normalize_encoder_family(value: EncoderFamily | str) -> EncoderFamily:
     try:
         return EncoderFamily(str(value))
     except ValueError as exc:
-        supported = [family.value for family in EncoderFamily]
+        known = [family.value for family in EncoderFamily]
         raise ValueError(
-            f"Unsupported encoder family {value!r}. Supported values: {supported}."
+            f"Unknown encoder family {value!r}. Known values: {known}."
         ) from exc
 
 
@@ -64,8 +67,6 @@ def validate_encoder_config(config: "EncoderConfig") -> None:
         return
     if config.family is EncoderFamily.mlp:
         _validate_mlp_encoder_config(config)
-        return
-    raise ValueError(f"Unsupported encoder family: {config.family}.")
 
 
 def _validate_cnn_encoder_config(config: "EncoderConfig") -> None:

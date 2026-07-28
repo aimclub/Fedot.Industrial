@@ -22,7 +22,10 @@ from fedot_ind.core.models.nn.network_impl.future_encoder_adapter import (
     FutureEncoderStack,
     FutureMultimodalEncoderAdapter,
 )
-from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
+from fedot_ind.core.models.nn.network_impl.mapping import (
+    ENCODER_BUILDERS_BY_FAMILY,
+    ENCODER_PRESET_BUILDERS,
+)
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 
@@ -64,8 +67,16 @@ def test_normalize_encoder_family_accepts_enum_and_string(value, expected):
 
 
 def test_normalize_encoder_family_rejects_unknown_value():
-    with pytest.raises(ValueError, match="Unsupported encoder family"):
+    with pytest.raises(ValueError, match="Unknown encoder family"):
         normalize_encoder_family("transformer")
+
+
+def test_encoder_builder_registry_determines_supported_families(monkeypatch):
+    config = raw_encoder_config(in_channels=1, d_model=16)
+    monkeypatch.delitem(ENCODER_BUILDERS_BY_FAMILY, EncoderFamily.cnn)
+
+    with pytest.raises(ValueError, match="Unsupported encoder family"):
+        build_encoder(config)
 
 
 @pytest.mark.parametrize(
