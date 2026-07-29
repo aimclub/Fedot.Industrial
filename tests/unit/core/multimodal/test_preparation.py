@@ -12,7 +12,6 @@ from fedot_ind.core.multimodal import (
     StatisticalFeature,
     build_preparation_config,
 )
-from fedot_ind.core.multimodal.configs import normalization_policy_from_steps
 
 
 def make_record() -> ClassificationDatasetRecord:
@@ -75,33 +74,31 @@ def test_preparer_builds_default_modalities_from_classification_record():
             )
 
 
-def test_normalization_policy_from_steps_returns_named_and_custom_policies():
-    assert normalization_policy_from_steps(()) == "none"
+def test_preparation_metadata_describes_transform_and_preprocessor_normalization():
+    config = build_preparation_config(
+        transformation_config={
+            "gaf": {"use_per_sample_minmax": True},
+        },
+        normalization_config={
+            "gaf": (NormalizationStep.image_standardization,),
+        },
+    )
+
+    metadata = config.metadata()
+
     assert (
-        normalization_policy_from_steps(
-            (
-                NormalizationStep.imputation,
-                NormalizationStep.feature_standardization,
-            )
-        )
-        == "train_mean_imputation_then_train_mean_std"
+        metadata["normalization"][MultimodalModality.gaf]
+        == "per_sample_minmax_then_train_image_standardization"
+    )
+
+    metadata_without_minmax = config.metadata(
+        transform_params={
+            MultimodalModality.gaf: {"use_per_sample_minmax": False},
+        }
     )
     assert (
-        normalization_policy_from_steps((NormalizationStep.image_standardization,))
+        metadata_without_minmax["normalization"][MultimodalModality.gaf]
         == "train_image_standardization"
-    )
-    assert (
-        normalization_policy_from_steps(
-            (
-                NormalizationStep.log1p,
-                NormalizationStep.image_standardization,
-            )
-        )
-        == "log1p_then_train_image_standardization"
-    )
-    assert (
-        normalization_policy_from_steps((NormalizationStep.log1p,))
-        == "log1p"
     )
 
 

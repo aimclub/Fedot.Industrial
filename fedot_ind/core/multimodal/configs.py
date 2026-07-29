@@ -66,6 +66,7 @@ def default_transformation_config() -> dict[
             "overlapping": True,
             "image_size": 0.25,
             "sample_range": None,
+            "use_per_sample_minmax": True,
         },
         MultimodalModality.stft: {
             "window_size": 64,
@@ -80,7 +81,9 @@ def default_transformation_config() -> dict[
     }
 
 
-def normalization_policy_from_steps(steps: Sequence[NormalizationStep]) -> str:
+def _normalization_policy_from_steps(
+    steps: Sequence[NormalizationStep],
+) -> str:
     if not steps:
         return "none"
     if tuple(steps) == (
@@ -96,6 +99,43 @@ def normalization_policy_from_steps(steps: Sequence[NormalizationStep]) -> str:
     ):
         return "log1p_then_train_image_standardization"
     return " -> ".join(step.value for step in steps)
+
+
+def _build_normalization_metadata(
+    *,
+    modalities: Sequence[MultimodalModality],
+    transform_params: Mapping[MultimodalModality, Mapping[str, Any]],
+    normalization_config: Mapping[
+        MultimodalModality,
+        Sequence[NormalizationStep],
+    ],
+) -> dict[MultimodalModality, str]:
+    """Describe normalization performed by transforms and the preprocessor."""
+
+    policies = {}
+    for modality in modalities:
+        transform_policy = "none"
+        params = transform_params.get(modality, {})
+        if (
+            modality is MultimodalModality.raw
+            and bool(params.get("per_sample_z_normalize", False))
+        ):
+            transform_policy = "per_sample_z_norm"
+        elif (
+            modality is MultimodalModality.gaf
+            and bool(params.get("use_per_sample_minmax", False))
+        ):
+            transform_policy = "per_sample_minmax"
+
+        preprocessor_policy = _normalization_policy_from_steps(
+            normalization_config.get(modality, ())
+        )
+        policies[modality] = "_then_".join(
+            policy
+            for policy in (transform_policy, preprocessor_policy)
+            if policy != "none"
+        ) or "none"
+    return policies
 
 
 @dataclass(frozen=True)
@@ -155,22 +195,11 @@ class PreparationConfig:
                 }
             )
         return {
-            "normalization": {
-                modality: (
-                    "per_sample_z_norm"
-                    if modality is MultimodalModality.raw
-                    and bool(
-                        self.modality_config(MultimodalModality.raw).get(
-                            "per_sample_z_normalize",
-                            False,
-                        )
-                    )
-                    else normalization_policy_from_steps(
-                        self.normalization_config.get(modality, ())
-                    )
-                )
-                for modality in self.modalities
-            },
+            "normalization": _build_normalization_metadata(
+                modalities=self.modalities,
+                transform_params=resolved_transform_params,
+                normalization_config=self.normalization_config,
+            ),
             "normalization_config": {
                 modality.value: [
                     step.value
@@ -253,6 +282,12 @@ def _normalize_transformation_config(
         features = stats_config.get("feature_names", DEFAULT_STAT_FEATURES)
         stats_config["feature_names"] = tuple(
             _normalize_stat_feature(feature) for feature in features
+        )
+
+    if MultimodalModality.gaf in normalized:
+        normalized[MultimodalModality.gaf].setdefault(
+            "use_per_sample_minmax",
+            True,
         )
 
     return {
