@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 from fedot_ind.core.models.nn.network_impl.encoders.transformation_presets import (
     gaf_encoder_config,
-    mtf_encoder_config,
     raw_encoder_config,
     stats_encoder_config,
     stft_encoder_config,
@@ -118,7 +117,7 @@ MODALITY_CAPABILITIES: dict[MultimodalModality, ModalityCapability] = {
         builder=MTF,
         spec=ModalitySpec(allowed_ndim=(4,)),
         encoder_preset=EncoderPresetEntry(
-            mtf_encoder_config,
+            gaf_encoder_config,
             EncoderShapeArg.in_channels,
             1,
         ),
