@@ -66,6 +66,7 @@ class EncoderPresetEntry:
             **dict(kwargs or {}),
         )
 
+
 ENCODER_BUILDERS_BY_FAMILY: dict[EncoderFamily, Callable[[EncoderConfig], nn.Module]] = {
     EncoderFamily.cnn: CNNEncoder,
     EncoderFamily.mlp: MLPEncoder,

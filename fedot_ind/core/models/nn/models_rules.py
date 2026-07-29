@@ -5,11 +5,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from fedot_ind.core.models.nn.network_impl.encoders.rules import (
-    normalize_encoder_family,
-    validate_conv_block_config,
-    validate_encoder_config,
-)
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.rules import normalize_modality
 
