@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from fedot_ind.core.models.nn.models_rules import EncoderFamily
+from fedot_ind.core.models.nn.enums import EncoderFamily
 from fedot_ind.core.models.nn.network_impl.encoders.config import (
     EncoderConfig,
 )

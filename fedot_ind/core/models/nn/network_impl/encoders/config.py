@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-from fedot_ind.core.models.nn.models_rules import (
-    EncoderFamily,
+from fedot_ind.core.models.nn.enums import EncoderFamily
+from fedot_ind.core.models.nn.network_impl.encoders.rules import (
     normalize_encoder_family,
     validate_encoder_config,
     validate_conv_block_config,

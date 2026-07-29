@@ -24,7 +24,6 @@ from fedot_ind.core.models.future.rules import (
     validate_supported_fusion_method,
 )
 from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
-from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import LinLnDrop
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
@@ -34,6 +33,7 @@ from fedot_ind.core.models.future.tools import (
     FusionAuxOutput,
     count_parameters,
 )
+from fedot_ind.core.multimodal.mapping import MODALITY_CAPABILITIES
 
 
 class ConfigurableMultimodalFusionClassifier(nn.Module):
@@ -139,7 +139,7 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
 
         validate_encoder_registry_has_modalities(
             modalities=self.modalities,
-            preset_registry=ENCODER_PRESET_BUILDERS,
+            preset_registry=MODALITY_CAPABILITIES,
         )
         if self.fusion_entry.requires_raw:
             validate_context_modalities_for_raw_centered(
@@ -158,7 +158,7 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
         )
         encoders = nn.ModuleDict()
         for modality in modalities:
-            preset_entry = ENCODER_PRESET_BUILDERS[modality]
+            preset_entry = MODALITY_CAPABILITIES[modality].encoder_preset
             shape = shapes[modality]
             modality_kwargs = dict(self.encoder_kwargs.get(modality.value, {}))
             config = preset_entry.build_config(

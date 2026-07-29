@@ -16,9 +16,10 @@ from fedot_ind.core.models.future.rules import (
     validate_positive_int,
     validate_stacked_embeddings_shape,
 )
-from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
+from fedot_ind.core.models.nn.network_impl.mapping import EncoderShapeArg
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
+from fedot_ind.core.multimodal.mapping import MODALITY_CAPABILITIES
 
 
 def _make_bundle(batch_size: int = 4) -> MultimodalDataBundle:
@@ -33,13 +34,26 @@ def _make_bundle(batch_size: int = 4) -> MultimodalDataBundle:
     )
 
 
-def test_encoder_registry_contains_mvp_modalities():
+def test_modality_registry_contains_mvp_encoder_presets():
     assert {
         MultimodalModality.raw,
         MultimodalModality.stats,
         MultimodalModality.gaf,
         MultimodalModality.stft,
-    }.issubset(set(ENCODER_PRESET_BUILDERS.keys()))
+    }.issubset(set(MODALITY_CAPABILITIES))
+    assert (
+        MODALITY_CAPABILITIES[MultimodalModality.stats].encoder_preset.shape_arg_name
+        is EncoderShapeArg.in_features
+    )
+    for modality in (
+        MultimodalModality.raw,
+        MultimodalModality.gaf,
+        MultimodalModality.stft,
+    ):
+        assert (
+            MODALITY_CAPABILITIES[modality].encoder_preset.shape_arg_name
+            is EncoderShapeArg.in_channels
+        )
 
 
 def test_fusion_registry_contains_mvp_methods():

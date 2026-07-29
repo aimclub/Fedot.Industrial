@@ -10,9 +10,9 @@ import torch.nn as nn
 
 from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
 from fedot_ind.core.models.nn.network_impl.encoders.config import EncoderConfig
-from fedot_ind.core.models.nn.network_impl.mapping import ENCODER_PRESET_BUILDERS
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
+from fedot_ind.core.multimodal.mapping import MODALITY_CAPABILITIES
 from fedot_ind.core.multimodal.rules import (
     normalize_modality,
     normalize_unique_modalities,
@@ -128,7 +128,7 @@ class FutureMultimodalEncoderAdapter(nn.Module):
 
         validate_registry_supports_modalities(
             modalities=selected_modalities,
-            registry=ENCODER_PRESET_BUILDERS,
+            registry=MODALITY_CAPABILITIES,
             registry_label="encoder adapter",
         )
         validate_modalities_presence(
@@ -142,7 +142,9 @@ class FutureMultimodalEncoderAdapter(nn.Module):
         for modality in selected_modalities:
             shape = bundle.shapes[modality]
             modality_kwargs = dict(kwargs_map.get(modality.value, {}))
-            config_map[modality] = ENCODER_PRESET_BUILDERS[modality].build_config(
+            config_map[modality] = MODALITY_CAPABILITIES[
+                modality
+            ].encoder_preset.build_config(
                 shape=shape,
                 d_model=self.d_model,
                 kwargs=modality_kwargs,

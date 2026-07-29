@@ -3,8 +3,8 @@
 from fedot_ind.core.models.nn.network_impl.encoders.config import (
     ConvBlockConfig,
     EncoderConfig,
-    EncoderFamily,
 )
+from fedot_ind.core.models.nn.enums import EncoderFamily
 
 
 def raw_encoder_config(

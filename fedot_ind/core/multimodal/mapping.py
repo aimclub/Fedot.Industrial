@@ -3,6 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from fedot_ind.core.models.nn.network_impl.encoders.transformation_presets import (
+    gaf_encoder_config,
+    mtf_encoder_config,
+    raw_encoder_config,
+    stats_encoder_config,
+    stft_encoder_config,
+)
+from fedot_ind.core.models.nn.network_impl.mapping import (
+    EncoderPresetEntry,
+    EncoderShapeArg,
+)
 from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
     NormalizationStep,
@@ -58,6 +69,7 @@ class ModalityCapability:
 
     builder: TransformationBuilder | None
     spec: ModalitySpec
+    encoder_preset: EncoderPresetEntry
 
     def build_transformer(self, params: dict[str, Any]) -> Any:
         if self.builder is None:
@@ -69,22 +81,47 @@ MODALITY_CAPABILITIES: dict[MultimodalModality, ModalityCapability] = {
     MultimodalModality.raw: ModalityCapability(
         builder=None,
         spec=ModalitySpec(allowed_ndim=(3,)),
+        encoder_preset=EncoderPresetEntry(
+            raw_encoder_config,
+            EncoderShapeArg.in_channels,
+            1,
+        ),
     ),
     MultimodalModality.stats: ModalityCapability(
         builder=TorchQuantileExtractor,
         spec=ModalitySpec(allowed_ndim=(2,)),
+        encoder_preset=EncoderPresetEntry(
+            stats_encoder_config,
+            EncoderShapeArg.in_features,
+            1,
+        ),
     ),
     MultimodalModality.gaf: ModalityCapability(
         builder=GAF,
         spec=ModalitySpec(allowed_ndim=(4,)),
+        encoder_preset=EncoderPresetEntry(
+            gaf_encoder_config,
+            EncoderShapeArg.in_channels,
+            1,
+        ),
     ),
     MultimodalModality.stft: ModalityCapability(
         builder=STFTSpectrogram,
         spec=ModalitySpec(allowed_ndim=(4,)),
+        encoder_preset=EncoderPresetEntry(
+            stft_encoder_config,
+            EncoderShapeArg.in_channels,
+            1,
+        ),
     ),
     MultimodalModality.mtf: ModalityCapability(
         builder=MTF,
         spec=ModalitySpec(allowed_ndim=(4,)),
+        encoder_preset=EncoderPresetEntry(
+            mtf_encoder_config,
+            EncoderShapeArg.in_channels,
+            1,
+        ),
     ),
 }
 

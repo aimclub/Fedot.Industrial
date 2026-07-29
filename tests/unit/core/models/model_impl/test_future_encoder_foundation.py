@@ -1,8 +1,8 @@
 import pytest
 import torch
 
+from fedot_ind.core.models.nn.enums import EncoderFamily
 from fedot_ind.core.models.nn.models_rules import (
-    EncoderFamily,
     build_encoder_config_map,
     normalize_encoder_family,
     normalize_modality,
@@ -24,12 +24,12 @@ from fedot_ind.core.models.nn.network_impl.future_encoder_adapter import (
 )
 from fedot_ind.core.models.nn.network_impl.mapping import (
     ENCODER_BUILDERS_BY_FAMILY,
-    ENCODER_PRESET_BUILDERS,
     EncoderShapeArg,
     normalize_encoder_shape_arg,
 )
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
+from fedot_ind.core.multimodal.mapping import MODALITY_CAPABILITIES
 
 
 @pytest.mark.parametrize(
@@ -290,10 +290,10 @@ def test_future_encoder_adapter_rejects_registry_gap(monkeypatch):
         modalities={MultimodalModality.mtf: torch.randn(2, 1, 8, 8)}
     )
     adapter = FutureMultimodalEncoderAdapter(params={"d_model": 16})
-    patched_registry = dict(ENCODER_PRESET_BUILDERS)
+    patched_registry = dict(MODALITY_CAPABILITIES)
     patched_registry.pop(MultimodalModality.mtf)
     monkeypatch.setattr(
-        "fedot_ind.core.models.nn.network_impl.future_encoder_adapter.ENCODER_PRESET_BUILDERS",
+        "fedot_ind.core.models.nn.network_impl.future_encoder_adapter.MODALITY_CAPABILITIES",
         patched_registry,
     )
 

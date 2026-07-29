@@ -8,15 +8,7 @@ from enum import Enum
 from typing import Any
 
 from fedot_ind.core.models.nn.network_impl.encoders.config import EncoderConfig
-from fedot_ind.core.models.nn.network_impl.encoders.transformation_presets import (
-    gaf_encoder_config,
-    mtf_encoder_config,
-    raw_encoder_config,
-    stats_encoder_config,
-    stft_encoder_config,
-)
-from fedot_ind.core.multimodal.enums import MultimodalModality
-from fedot_ind.core.models.nn.models_rules import EncoderFamily
+from fedot_ind.core.models.nn.enums import EncoderFamily
 from fedot_ind.core.models.nn.network_impl.encoders.encoders import CNNEncoder, MLPEncoder
 from torch import nn
 
@@ -73,36 +65,6 @@ class EncoderPresetEntry:
             **{self.shape_arg_name.value: int(shape[self.shape_index])},
             **dict(kwargs or {}),
         )
-
-
-ENCODER_PRESET_BUILDERS: dict[MultimodalModality, EncoderPresetEntry] = {
-    MultimodalModality.raw: EncoderPresetEntry(
-        raw_encoder_config,
-        EncoderShapeArg.in_channels,
-        1,
-    ),
-    MultimodalModality.stats: EncoderPresetEntry(
-        stats_encoder_config,
-        EncoderShapeArg.in_features,
-        1,
-    ),
-    MultimodalModality.gaf: EncoderPresetEntry(
-        gaf_encoder_config,
-        EncoderShapeArg.in_channels,
-        1,
-    ),
-    MultimodalModality.stft: EncoderPresetEntry(
-        stft_encoder_config,
-        EncoderShapeArg.in_channels,
-        1,
-    ),
-    MultimodalModality.mtf: EncoderPresetEntry(
-        mtf_encoder_config,
-        EncoderShapeArg.in_channels,
-        1,
-    ),
-}
-
 
 ENCODER_BUILDERS_BY_FAMILY: dict[EncoderFamily, Callable[[EncoderConfig], nn.Module]] = {
     EncoderFamily.cnn: CNNEncoder,
