@@ -208,13 +208,11 @@ class MultimodalDatasetPreparer:
     ) -> tuple[dict[StatisticalFeature, dict[str, Any]], dict[StatisticalFeature, dict[str, Any]]]:
         local = {}
         global_ = {}
-        local_methods = set(DEFAULT_STAT_FEATURE_CONFIG)
-        global_methods = set(DEFAULT_STAT_FEATURE_GLOBAL_CONFIG)
         for feature_name in feature_names:
             feature = normalize_feature_key(feature_name)
-            if feature in local_methods:
+            if feature in DEFAULT_STAT_FEATURE_CONFIG:
                 local[feature] = {}
-            elif feature in global_methods:
+            elif feature in DEFAULT_STAT_FEATURE_GLOBAL_CONFIG:
                 global_[feature] = {}
             else:
                 raise ValueError(f"Unsupported statistical feature: {feature_name}")
