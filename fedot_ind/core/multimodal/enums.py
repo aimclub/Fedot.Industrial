@@ -10,11 +10,11 @@ class MultimodalModality(Enum):
     mtf = "mtf"
 
 
-class NormalizationMethod(str, Enum):
+class NormalizationStep(str, Enum):
     imputation = "imputation"
     feature_standardization = "feature_standardization"
     image_standardization = "image_standardization"
     log1p = "log1p"
 
 
-NormalizationConfig = dict[MultimodalModality, Sequence[NormalizationMethod]]
+NormalizationConfig = dict[MultimodalModality, Sequence[NormalizationStep]]

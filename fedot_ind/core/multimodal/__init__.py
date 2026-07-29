@@ -1,7 +1,7 @@
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
-    NormalizationMethod,
+    NormalizationStep,
 )
 from fedot_ind.core.operation.transformation.torch_backend.enums import StatisticalFeature
 from fedot_ind.core.multimodal.configs import (
@@ -28,7 +28,7 @@ __all__ = [
     "MultimodalDatasetPreparer",
     "MultimodalModality",
     "MultimodalPreprocessor",
-    "NormalizationMethod",
+    "NormalizationStep",
     "PreparationConfig",
     "build_preparation_config",
     "default_normalization_config",

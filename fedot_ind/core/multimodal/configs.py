@@ -8,7 +8,7 @@ from typing import Any, Sequence
 from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
     NormalizationConfig,
-    NormalizationMethod,
+    NormalizationStep,
 )
 from fedot_ind.core.multimodal.mapping import (
     DEFAULT_STAT_FEATURE_CONFIG,
@@ -33,13 +33,13 @@ DEFAULT_STAT_FEATURES = tuple(MAPPING_DEFAULT_STAT_FEATURES)
 def default_normalization_config() -> NormalizationConfig:
     return {
         MultimodalModality.stats: (
-            NormalizationMethod.imputation,
-            NormalizationMethod.feature_standardization,
+            NormalizationStep.imputation,
+            NormalizationStep.feature_standardization,
         ),
-        MultimodalModality.gaf: (NormalizationMethod.image_standardization,),
+        MultimodalModality.gaf: (NormalizationStep.image_standardization,),
         MultimodalModality.stft: (
-            NormalizationMethod.log1p,
-            NormalizationMethod.image_standardization,
+            NormalizationStep.log1p,
+            NormalizationStep.image_standardization,
         ),
     }
 
@@ -80,19 +80,19 @@ def default_transformation_config() -> dict[
     }
 
 
-def normalization_policy_from_steps(steps: Sequence[NormalizationMethod]) -> str:
+def normalization_policy_from_steps(steps: Sequence[NormalizationStep]) -> str:
     if not steps:
         return "none"
     if tuple(steps) == (
-        NormalizationMethod.imputation,
-        NormalizationMethod.feature_standardization,
+        NormalizationStep.imputation,
+        NormalizationStep.feature_standardization,
     ):
         return "train_mean_imputation_then_train_mean_std"
-    if tuple(steps) == (NormalizationMethod.image_standardization,):
+    if tuple(steps) == (NormalizationStep.image_standardization,):
         return "train_image_standardization"
     if tuple(steps) == (
-        NormalizationMethod.log1p,
-        NormalizationMethod.image_standardization,
+        NormalizationStep.log1p,
+        NormalizationStep.image_standardization,
     ):
         return "log1p_then_train_image_standardization"
     return " -> ".join(step.value for step in steps)
@@ -104,7 +104,7 @@ class PreparationConfig:
 
     normalization_config: Mapping[
         MultimodalModality,
-        tuple[NormalizationMethod, ...],
+        tuple[NormalizationStep, ...],
     ]
     transformation_config: Mapping[
         MultimodalModality,
@@ -194,7 +194,7 @@ def build_preparation_config(
     *,
     normalization_config: Mapping[
         MultimodalModality | str,
-        Sequence[NormalizationMethod | str],
+        Sequence[NormalizationStep | str],
     ]
     | None = None,
     transformation_config: Mapping[
@@ -268,12 +268,12 @@ def _normalize_transformation_config(
 def _normalize_normalization_config(
     source: Mapping[
         MultimodalModality | str,
-        Sequence[NormalizationMethod | str],
+        Sequence[NormalizationStep | str],
     ]
     | None,
     *,
     modalities: Mapping[MultimodalModality, Any],
-) -> dict[MultimodalModality, tuple[NormalizationMethod, ...]]:
+) -> dict[MultimodalModality, tuple[NormalizationStep, ...]]:
     if source is None:
         defaults = default_normalization_config()
         normalized = {
@@ -284,7 +284,7 @@ def _normalize_normalization_config(
     else:
         normalized = {
             normalize_modality(modality): tuple(
-                _normalize_method(step) for step in steps
+                _normalize_step(step) for step in steps
             )
             for modality, steps in source.items()
         }
@@ -306,10 +306,10 @@ def _normalize_normalization_config(
     return normalized
 
 
-def _normalize_method(value: NormalizationMethod | str) -> NormalizationMethod:
-    if isinstance(value, NormalizationMethod):
+def _normalize_step(value: NormalizationStep | str) -> NormalizationStep:
+    if isinstance(value, NormalizationStep):
         return value
-    return NormalizationMethod(str(value))
+    return NormalizationStep(str(value))
 
 
 def _normalize_stat_feature(value: StatisticalFeature | str) -> str:

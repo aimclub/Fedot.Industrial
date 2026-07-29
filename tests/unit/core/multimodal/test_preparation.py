@@ -7,7 +7,7 @@ from fedot_ind.core.multimodal import (
     DEFAULT_STAT_FEATURES,
     MultimodalDatasetPreparer,
     MultimodalModality,
-    NormalizationMethod,
+    NormalizationStep,
     PreparationConfig,
     StatisticalFeature,
     build_preparation_config,
@@ -80,27 +80,27 @@ def test_normalization_policy_from_steps_returns_named_and_custom_policies():
     assert (
         normalization_policy_from_steps(
             (
-                NormalizationMethod.imputation,
-                NormalizationMethod.feature_standardization,
+                NormalizationStep.imputation,
+                NormalizationStep.feature_standardization,
             )
         )
         == "train_mean_imputation_then_train_mean_std"
     )
     assert (
-        normalization_policy_from_steps((NormalizationMethod.image_standardization,))
+        normalization_policy_from_steps((NormalizationStep.image_standardization,))
         == "train_image_standardization"
     )
     assert (
         normalization_policy_from_steps(
             (
-                NormalizationMethod.log1p,
-                NormalizationMethod.image_standardization,
+                NormalizationStep.log1p,
+                NormalizationStep.image_standardization,
             )
         )
         == "log1p_then_train_image_standardization"
     )
     assert (
-        normalization_policy_from_steps((NormalizationMethod.log1p,))
+        normalization_policy_from_steps((NormalizationStep.log1p,))
         == "log1p"
     )
 
@@ -126,7 +126,7 @@ def test_normalization_policy_from_steps_returns_named_and_custom_policies():
         (
             {
                 "normalization_config": {
-                    MultimodalModality.raw: (NormalizationMethod.log1p,)
+                    MultimodalModality.raw: (NormalizationStep.log1p,)
                 }
             },
             "Raw modality is not normalized",

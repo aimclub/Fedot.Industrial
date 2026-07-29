@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from fedot_ind.core.multimodal.enums import (
     MultimodalModality,
-    NormalizationMethod,
+    NormalizationStep,
 )
 from fedot_ind.core.multimodal.rules import (
     ModalitySpec,
@@ -41,10 +41,10 @@ DEFAULT_STAT_FEATURES = tuple(
 )
 
 NORMALIZATION_HANDLERS = {
-    NormalizationMethod.imputation: ImputationNormalizer,
-    NormalizationMethod.feature_standardization: FeatureStandardizationNormalizer,
-    NormalizationMethod.image_standardization: ImageStandardizationNormalizer,
-    NormalizationMethod.log1p: Log1pNormalizer,
+    NormalizationStep.imputation: ImputationNormalizer,
+    NormalizationStep.feature_standardization: FeatureStandardizationNormalizer,
+    NormalizationStep.image_standardization: ImageStandardizationNormalizer,
+    NormalizationStep.log1p: Log1pNormalizer,
 }
 
 validate_normalization_handler_types(NORMALIZATION_HANDLERS, AbstractNormalizer)

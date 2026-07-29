@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
-from fedot_ind.core.multimodal.enums import MultimodalModality, NormalizationMethod
+from fedot_ind.core.multimodal.enums import MultimodalModality, NormalizationStep
 from fedot_ind.core.multimodal.preprocessor import MultimodalPreprocessor
 
 
@@ -57,7 +57,7 @@ def test_multimodal_preprocessor_standardizes_gaf_images_with_train_statistics()
     test_gaf = train_gaf + 100.0
     preprocessor = MultimodalPreprocessor(
         normalization_config={
-            MultimodalModality.gaf: [NormalizationMethod.image_standardization],
+            MultimodalModality.gaf: [NormalizationStep.image_standardization],
         }
     )
 
@@ -87,8 +87,8 @@ def test_multimodal_preprocessor_applies_stft_log1p_before_image_standardization
     preprocessor = MultimodalPreprocessor(
         normalization_config={
             MultimodalModality.stft: [
-                NormalizationMethod.log1p,
-                NormalizationMethod.image_standardization,
+                NormalizationStep.log1p,
+                NormalizationStep.image_standardization,
             ],
         }
     )
@@ -115,7 +115,7 @@ def test_multimodal_preprocessor_does_not_update_statistics_on_transform():
     test_gaf = train_gaf + 100.0
     preprocessor = MultimodalPreprocessor(
         normalization_config={
-            MultimodalModality.gaf: [NormalizationMethod.image_standardization],
+            MultimodalModality.gaf: [NormalizationStep.image_standardization],
         }
     ).fit(make_bundle(gaf=train_gaf))
     train_mean = preprocessor.fitted_statistics_["gaf"]["image_standardization"]["mean"].clone()
@@ -131,7 +131,7 @@ def test_multimodal_preprocessor_does_not_update_statistics_on_transform():
 def test_multimodal_preprocessor_supports_configured_steps():
     stft = torch.arange(1, 1 + 2 * 1 * 2 * 2, dtype=torch.float32).reshape(2, 1, 2, 2)
     preprocessor = MultimodalPreprocessor(
-        normalization_config={MultimodalModality.stft: [NormalizationMethod.log1p]},
+        normalization_config={MultimodalModality.stft: [NormalizationStep.log1p]},
     )
 
     bundle = preprocessor.fit_transform(make_bundle(stft=stft))
@@ -158,7 +158,7 @@ def test_multimodal_preprocessor_imputes_stats_with_train_column_means():
     )
     preprocessor = MultimodalPreprocessor(
         normalization_config={
-            MultimodalModality.stats: [NormalizationMethod.imputation],
+            MultimodalModality.stats: [NormalizationStep.imputation],
         }
     )
 
@@ -182,7 +182,7 @@ def test_multimodal_preprocessor_standardizes_stats_per_feature_with_train_stati
     test_stats = torch.tensor([[4.0, 10.0]])
     preprocessor = MultimodalPreprocessor(
         normalization_config={
-            MultimodalModality.stats: [NormalizationMethod.feature_standardization],
+            MultimodalModality.stats: [NormalizationStep.feature_standardization],
         }
     )
 
@@ -212,8 +212,8 @@ def test_multimodal_preprocessor_applies_stats_imputation_before_feature_standar
     preprocessor = MultimodalPreprocessor(
         normalization_config={
             MultimodalModality.stats: [
-                NormalizationMethod.imputation,
-                NormalizationMethod.feature_standardization,
+                NormalizationStep.imputation,
+                NormalizationStep.feature_standardization,
             ],
         }
     )
@@ -243,7 +243,7 @@ def test_multimodal_preprocessor_does_not_update_stats_statistics_on_transform()
     test_stats = torch.tensor([[4.0, 10.0]])
     preprocessor = MultimodalPreprocessor(
         normalization_config={
-            MultimodalModality.stats: [NormalizationMethod.feature_standardization],
+            MultimodalModality.stats: [NormalizationStep.feature_standardization],
         }
     ).fit(make_bundle(stats=train_stats))
     train_mean = preprocessor.fitted_statistics_["stats"]["feature_standardization"]["mean"].clone()
@@ -270,6 +270,6 @@ def test_multimodal_preprocessor_requires_configured_modalities():
     with pytest.raises(ValueError, match="required modalities"):
         MultimodalPreprocessor(
             normalization_config={
-                MultimodalModality.gaf: [NormalizationMethod.image_standardization],
+                MultimodalModality.gaf: [NormalizationStep.image_standardization],
             }
         ).fit(make_bundle(raw=torch.randn(2, 1, 4)))
