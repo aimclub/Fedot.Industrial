@@ -21,7 +21,7 @@ industrial_search_space = {
          'low_freq': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'fourier_basis':
         {'threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
-         'low_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 30, 3)]]},
+         'low_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(2, 30, 3)]]},
          'approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [['smooth', 'exact']]},
          'output_format': {'hyperopt-dist': hp.choice, 'sampling-scope': [['signal', 'spectrum']]}
          },

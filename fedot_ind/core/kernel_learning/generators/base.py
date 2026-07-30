@@ -9,6 +9,12 @@ from typing import Any
 import numpy as np
 
 from fedot_ind.core.kernel_learning.contracts import FeatureInput, KernelBundle, KernelTaskType
+from fedot_ind.core.operation.transformation.torch_backend.io import (
+    normalize_time_series_tensor,
+    resolve_torch_device,
+    to_numpy,
+    to_torch,
+)
 
 DEFAULT_GENERATOR_NAMES = (
     "quantile_extractor",
@@ -38,19 +44,6 @@ def normalize_feature_matrix(values: Any) -> np.ndarray:
     elif array.ndim > 2:
         array = array.reshape(array.shape[0], -1)
     return np.nan_to_num(array.astype(float, copy=False), nan=0.0, posinf=0.0, neginf=0.0)
-
-
-def normalize_time_series_tensor(values: Any) -> np.ndarray:
-    array = _to_numpy(values).astype(float, copy=False)
-    if array.ndim == 0:
-        raise ValueError("X must contain at least one sample.")
-    if array.ndim == 1:
-        return array.reshape(1, 1, -1)
-    if array.ndim == 2:
-        return array.reshape(array.shape[0], 1, array.shape[1])
-    if array.ndim == 3:
-        return array
-    return array.reshape(array.shape[0], int(np.prod(array.shape[1:-1])), array.shape[-1])
 
 
 def to_fedot_input_data(
@@ -108,41 +101,6 @@ def unwrap_operation_output(value: Any) -> Any:
     if prediction is not None and not callable(prediction):
         return prediction
     return value
-
-
-def to_numpy(values: Any) -> np.ndarray:
-    if hasattr(values, "detach") and callable(values.detach):
-        values = values.detach().cpu().numpy()
-    elif hasattr(values, "cpu") and callable(values.cpu) and values.__class__.__module__.startswith("torch"):
-        values = values.cpu().numpy()
-    elif hasattr(values, "values") and not isinstance(values, np.ndarray):
-        values = values.values
-    return np.asarray(values)
-
-
-def resolve_torch_device(device: Any = "auto"):
-    import torch
-
-    if isinstance(device, torch.device):
-        resolved = device
-    else:
-        requested = "auto" if device is None else str(device).strip().lower()
-        if requested == "auto":
-            requested = "cuda" if torch.cuda.is_available() else "cpu"
-        resolved = torch.device(requested)
-    if resolved.type == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError(
-            "torch_device='cuda' was requested, but CUDA is not available.")
-    return resolved
-
-
-def to_torch(values: Any, *, device: Any = "auto"):
-    import torch
-
-    resolved_device = resolve_torch_device(device)
-    if isinstance(values, torch.Tensor):
-        return values.to(device=resolved_device, dtype=torch.float32)
-    return torch.as_tensor(to_numpy(values), dtype=torch.float32, device=resolved_device)
 
 
 def operation_params(params: dict[str, Any]):

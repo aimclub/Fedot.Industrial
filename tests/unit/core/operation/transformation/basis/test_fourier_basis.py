@@ -1,6 +1,7 @@
 import dask
 import pytest
 from fedot.core.data.data import OutputData
+from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -51,3 +52,46 @@ def test_decompose_signal(input_train):
     transformed_sample = basis._decompose_signal(sample)
     assert isinstance(transformed_sample, np.ndarray)
     assert transformed_sample.shape[1] == len(sample)
+
+
+def test_low_rank_one_is_clamped_and_decomposes():
+    basis = FourierBasisImplementation(OperationParameters(low_rank=1))
+    assert basis.min_rank >= 2
+    sample = np.random.RandomState(0).randn(100)
+    transformed = basis._decompose_signal(sample)
+    assert isinstance(transformed, np.ndarray)
+    assert np.isfinite(transformed).all()
+    assert transformed.shape[1] == len(sample)
+
+
+def test_ci_like_freq_reg_fourier_params_decompose():
+    """Params that SequentialTuner produced before the low_rank=1 crash."""
+    basis = FourierBasisImplementation(
+        OperationParameters(
+            threshold=0.8,
+            approximation='smooth',
+            low_rank=1,
+            output_format='signal',
+        )
+    )
+    sample = np.random.RandomState(34).randn(100)
+    transformed = basis._decompose_signal(sample)
+    assert isinstance(transformed, np.ndarray)
+    assert np.isfinite(transformed).all()
+    assert transformed.shape == (1, len(sample))
+
+
+def test_smooth_mask_keeps_only_high_quantile_bins():
+    basis = FourierBasisImplementation(
+        OperationParameters(
+            threshold=0.8,
+            approximation='smooth',
+            low_rank=5,
+            output_format='spectrum',
+        )
+    )
+    sample = np.random.RandomState(0).randn(100)
+    spectrum = basis._decompose_signal(sample)
+    assert spectrum.ndim == 1
+    nonzero_share = np.count_nonzero(spectrum) / spectrum.size
+    assert nonzero_share <= 0.25 + 1e-9

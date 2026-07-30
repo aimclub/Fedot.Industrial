@@ -145,7 +145,7 @@ def kurtosis_torch(x: torch.Tensor, axis=-1, fisher=True):
     return kurt
 
 
-def n_peaks_torch(X: torch.Tensor, axis=-1):
+def n_peaks_torch(X: torch.Tensor, axis=-1, normalized: bool = False):
     """
     A peak is defined as a point where the signal transitions from increasing to decreasing.
     The function identifies peaks by analyzing sign changes in the first differences of the signal.
@@ -171,12 +171,15 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
     s[s == 0] = 1
     dd = torch.diff(s, axis=-1)
     n_peaks = torch.count_nonzero(dd == -2, axis=-1)
+    if normalized:
+        n_peaks = n_peaks / x.shape[-1]
     if X.ndim > 2:
         return n_peaks.reshape(*X.shape[:-1])
-    return n_peaks.item() if n_peaks.numel() == 1 else n_peaks
+    else:
+        return n_peaks.item() if n_peaks.numel() == 1 else n_peaks
 
 
-def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
+def mean_ptp_distance_torch(X: torch.Tensor, axis=-1, normalized: bool = False):
     """
     Peaks are identified as points where the signal transitions from increasing to decreasing.
     The function calculates the average distance (in samples) between these peaks.
@@ -226,6 +229,8 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     diff_peaks = torch.diff(peak_indices, dim=-1)
     diff_peaks[diff_peaks < 0] = 0
     mean_dist = diff_peaks.sum(dim=-1) / count_peaks.float()
+    if normalized:
+        mean_dist = mean_dist / x.shape[-1]
     if X.ndim > 2:
         return mean_dist.reshape(*X.shape[:-1])
     return mean_dist.item() if mean_dist.numel() == 1 else mean_dist
@@ -415,6 +420,7 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         float | torch.Tensor: The Shannon entropy value(s). Returns a scalar if input is 1D,
                               otherwise a tensor with entropy values along the specified axis.
     """
+    original_shape = tuple(X.shape)
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
@@ -439,6 +445,8 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         group_sizes[i, : gs.numel()] = gs
     probs = group_sizes / N
     entropy = torch.sum(-probs * torch.log2(probs + 1e-12), dim=1)
+    if len(original_shape) > 2:
+        entropy = entropy.reshape(*original_shape[:-1])
     return entropy.item() if entropy.numel() == 1 else entropy
 
 
