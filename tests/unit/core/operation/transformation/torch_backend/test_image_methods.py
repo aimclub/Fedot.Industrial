@@ -1,10 +1,11 @@
 """Unit tests for torch image transformations (GAF, MTF, STFT)."""
 
 from __future__ import annotations
-from fedot_ind.core.operation.transformation.torch_backend.image.tools import (
+
+from fedot_ind.core.operation.transformation.torch_backend.image.shape_io import (
     check_input_shape,
     convert_to_init_dim,
-    prepare_series_input,
+    prepare_series_input
 )
 from fedot_ind.core.operation.transformation.torch_backend.image.discretize import (
     _digitize_torch,

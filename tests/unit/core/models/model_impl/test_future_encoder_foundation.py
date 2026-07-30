@@ -4,9 +4,10 @@ import torch
 from fedot_ind.core.models.nn.enums import EncoderFamily
 from fedot_ind.core.models.nn.models_rules import (
     build_encoder_config_map,
-    normalize_encoder_family,
-    normalize_modality,
 )
+
+from fedot_ind.core.multimodal.rules import normalize_modality
+from fedot_ind.core.models.nn.network_impl.encoders.rules import normalize_encoder_family
 from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
 from fedot_ind.core.models.nn.network_impl.encoders.config import (
     ConvBlockConfig,
