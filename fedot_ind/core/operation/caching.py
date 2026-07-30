@@ -60,17 +60,17 @@ class DataCacher:
         Args:
             hashed_info: hashed string of needed info about the data.
         """
-        self.logger.info('Trying to load features from cache')
-
         start = timeit.default_timer()
         file_path = os.path.join(self.cache_folder, hashed_info + '.npy')
         try:
             data = np.load(file_path)
-        except FileNotFoundError:
-            self.logger.info('Cache not found')
-            raise FileNotFoundError(f'File {file_path} was not found')
+        except FileNotFoundError as ex:
+            self.logger.error(
+                f'Cache file {file_path} was not found',
+                exc_info=ex,
+            )
         elapsed_time = round(timeit.default_timer() - start, 5)
-        print(
+        self.logger.info(
             f'{self.data_type} of {type(data)} type are loaded from cache in {elapsed_time} sec')
         return data
 
@@ -80,11 +80,13 @@ class DataCacher:
             hashed_info: hashed string.
             data: pd.DataFrame.
         """
-        self.logger.info('Caching features')
         cache_file = os.path.join(self.cache_folder, hashed_info)
 
         try:
             np.save(cache_file, data)
 
         except Exception as ex:
-            print(f'Data was not cached due to error { ex }')
+            self.logger.error(
+                f'Data was not cached due to error {ex}',
+                exc_info=ex,
+            )
