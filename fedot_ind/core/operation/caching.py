@@ -62,13 +62,7 @@ class DataCacher:
         """
         start = timeit.default_timer()
         file_path = os.path.join(self.cache_folder, hashed_info + '.npy')
-        try:
-            data = np.load(file_path)
-        except FileNotFoundError as ex:
-            self.logger.error(
-                f'Cache file {file_path} was not found',
-                exc_info=ex,
-            )
+        data = np.load(file_path)
         elapsed_time = round(timeit.default_timer() - start, 5)
         self.logger.info(
             f'{self.data_type} of {type(data)} type are loaded from cache in {elapsed_time} sec')
