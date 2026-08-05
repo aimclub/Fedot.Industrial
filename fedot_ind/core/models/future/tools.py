@@ -15,6 +15,41 @@ def count_parameters(module: nn.Module) -> int:
     return sum(parameter.numel() for parameter in module.parameters())
 
 
+def summarize_bottleneck_attn(
+    attn_list: list[dict[str, torch.Tensor]],
+) -> dict[str, float]:
+    """Compact cross/self-attention diagnostics over all bottleneck layers."""
+
+    if not attn_list:
+        return {}
+
+    cross_means: list[float] = []
+    cross_stds: list[float] = []
+    self_means: list[float] = []
+    self_stds: list[float] = []
+
+    for layer_attn in attn_list:
+        cross = layer_attn.get("cross_attn")
+        self_attn = layer_attn.get("self_attn")
+        if cross is not None:
+            detached = cross.detach()
+            cross_means.append(float(detached.mean().item()))
+            cross_stds.append(float(detached.std(unbiased=False).item()))
+        if self_attn is not None:
+            detached = self_attn.detach()
+            self_means.append(float(detached.mean().item()))
+            self_stds.append(float(detached.std(unbiased=False).item()))
+
+    summary: dict[str, float] = {"num_layers_with_attn": float(len(attn_list))}
+    if cross_means:
+        summary["cross_attn_mean"] = sum(cross_means) / len(cross_means)
+        summary["cross_attn_std"] = sum(cross_stds) / len(cross_stds)
+    if self_means:
+        summary["self_attn_mean"] = sum(self_means) / len(self_means)
+        summary["self_attn_std"] = sum(self_stds) / len(self_stds)
+    return summary
+
+
 @dataclass(frozen=True)
 class AuxOutputConfig:
     """Configuration for auxiliary diagnostics payload."""
@@ -25,7 +60,21 @@ class AuxOutputConfig:
 
 
 KNOWN_FUSION_KEYS = frozenset(
-    {"gates", "alpha", "gamma", "beta", "h_raw", "h_context", "delta", "h_final"}
+    {
+        "gates",
+        "alpha",
+        "gamma",
+        "beta",
+        "h_raw",
+        "h_context",
+        "delta",
+        "h_final",
+        "attention_summary",
+        "pooling",
+        "num_latents",
+        "num_heads",
+        "num_layers",
+    }
 )
 
 
@@ -48,6 +97,11 @@ class FusionAuxOutput:
     delta: Optional[torch.Tensor] = None
     alpha_stats: Optional[dict[str, float]] = None
     gamma_beta_summary: Optional[dict[str, float]] = None
+    attention_summary: Optional[dict[str, float]] = None
+    pooling: Optional[str] = None
+    num_latents: Optional[int] = None
+    num_heads: Optional[int] = None
+    num_layers: Optional[int] = None
     extra: Optional[dict[str, Any]] = None
 
     @staticmethod
@@ -76,6 +130,11 @@ class FusionAuxOutput:
         self.h_raw = fusion_aux.get("h_raw")
         self.h_context = fusion_aux.get("h_context")
         self.delta = fusion_aux.get("delta")
+        self.attention_summary = fusion_aux.get("attention_summary")
+        self.pooling = fusion_aux.get("pooling")
+        self.num_latents = fusion_aux.get("num_latents")
+        self.num_heads = fusion_aux.get("num_heads")
+        self.num_layers = fusion_aux.get("num_layers")
         if self.alpha is not None:
             self.alpha_stats = self._summary_stats(self.alpha)
         if self.gamma is not None and self.beta is not None:

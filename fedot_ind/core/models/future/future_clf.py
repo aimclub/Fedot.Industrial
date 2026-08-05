@@ -109,7 +109,7 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
     def _build_fusion_module(self, n_modalities: int) -> None:
         n_fusion_inputs = self.fusion_entry.resolve_input_count(n_modalities)
         self.fusion = self.fusion_entry.fusion_class(
-            **{self.fusion_entry.inputs_param_name: n_fusion_inputs},
+            **{self.fusion_entry.inputs_param.value: n_fusion_inputs},
             d_model=self.d_model,
             **self.fusion_kwargs,
         )
