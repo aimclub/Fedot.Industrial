@@ -1,3 +1,5 @@
+import math
+
 import pytest
 import torch
 import torch.nn as nn
@@ -315,8 +317,16 @@ def test_residual_bottleneck_returns_alpha(fusion_method):
     assert aux.alpha is not None
     assert aux.alpha.shape[0] == bundle.n_samples
     assert aux.alpha_stats is not None
+    assert aux.delta is not None
+    assert aux.delta.shape == (bundle.n_samples, 16)
+    assert aux.h_context is not None
+    assert aux.h_context.shape == (bundle.n_samples, 16)
+    assert aux.h_raw is not None
+    assert aux.h_raw.shape == (bundle.n_samples, 16)
     assert aux.attention_summary is not None
     assert aux.pooling == "mean"
+    assert aux.alpha_stats["mean"] > 0.0
+    assert aux.delta.detach().norm().item() > 0.0
 
 
 def test_residual_bottleneck_requires_raw_in_modalities():
@@ -336,6 +346,116 @@ def test_residual_bottleneck_requires_raw_in_modalities():
     )
     with pytest.raises(ValueError, match="requires raw modality"):
         model.build(bundle)
+
+
+def test_bottleneck_missing_modality_in_bundle_raises():
+    bundle = MultimodalDataBundle(
+        modalities={
+            MultimodalModality.raw: torch.randn(4, 1, 32),
+            MultimodalModality.gaf: torch.randn(4, 1, 16, 16),
+        },
+    )
+    model = ConfigurableMultimodalFusionClassifier(
+        modalities=(
+            MultimodalModality.raw,
+            MultimodalModality.stats,
+            MultimodalModality.gaf,
+        ),
+        num_classes=2,
+        fusion_method="ordinary_bottleneck",
+        d_model=16,
+        fusion_kwargs={"num_heads": 4, "num_latents": 2},
+    )
+    model.build(_make_bundle())
+    with pytest.raises(ValueError, match="does not contain required modalities"):
+        model(bundle)
+
+
+def test_bottleneck_invalid_pooling_via_build_raises():
+    bundle = _make_bundle()
+    model = ConfigurableMultimodalFusionClassifier(
+        modalities=(
+            MultimodalModality.raw,
+            MultimodalModality.stats,
+            MultimodalModality.gaf,
+        ),
+        num_classes=2,
+        fusion_method="ordinary_bottleneck",
+        d_model=16,
+        fusion_kwargs={"num_heads": 4, "pooling": "max"},
+    )
+    with pytest.raises(ValueError, match="Unknown pooling"):
+        model.build(bundle)
+
+
+def test_bottleneck_invalid_num_heads_via_build_raises():
+    bundle = _make_bundle()
+    model = ConfigurableMultimodalFusionClassifier(
+        modalities=(
+            MultimodalModality.raw,
+            MultimodalModality.stats,
+            MultimodalModality.gaf,
+        ),
+        num_classes=2,
+        fusion_method="ordinary_bottleneck",
+        d_model=16,
+        fusion_kwargs={"num_heads": 5, "num_latents": 2},
+    )
+    with pytest.raises(ValueError, match="divisible by num_heads"):
+        model.build(bundle)
+
+
+@pytest.mark.parametrize(
+    "fusion_method",
+    [
+        "ordinary_bottleneck",
+        "raw_residual_bottleneck",
+        "context_only_residual_bottleneck",
+    ],
+)
+def test_bottleneck_smoke_train_synthetic_cpu(fusion_method):
+    torch.manual_seed(0)
+    batch_size = 8
+    num_classes = 3
+    epochs = 2
+    bundle = MultimodalDataBundle(
+        modalities={
+            MultimodalModality.raw: torch.randn(batch_size, 1, 32),
+            MultimodalModality.stats: torch.randn(batch_size, 12),
+            MultimodalModality.gaf: torch.randn(batch_size, 1, 16, 16),
+        },
+        target=torch.randint(0, num_classes, (batch_size,)),
+    )
+    model = ConfigurableMultimodalFusionClassifier(
+        modalities=(
+            MultimodalModality.raw,
+            MultimodalModality.stats,
+            MultimodalModality.gaf,
+        ),
+        num_classes=num_classes,
+        fusion_method=fusion_method,
+        d_model=16,
+        raw_modality=MultimodalModality.raw,
+        fusion_kwargs={"num_heads": 4, "num_latents": 2, "num_layers": 1},
+    )
+    model.build(bundle)
+    model.train()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+    last_loss = None
+    for _ in range(epochs):
+        optimizer.zero_grad()
+        logits = model(bundle)
+        loss = criterion(logits, bundle.target)
+        loss.backward()
+        optimizer.step()
+        last_loss = float(loss.detach().item())
+
+    assert logits.shape == (batch_size, num_classes)
+    assert last_loss is not None
+    assert math.isfinite(last_loss)
+    assert any(parameter.grad is not None for parameter in model.parameters())
 
 
 def test_unknown_fusion_method_raises():
