@@ -20,7 +20,6 @@ from benchmark.industrial import (
 from benchmark.industrial.errors import BenchmarkClassificationError
 from benchmark.industrial.experiments.presets import run_local_benchmark_preset
 from benchmark.industrial.models.classification import (
-    FutureFusionClassifierAdapter,
     FutureMultimodalClassifierAdapter,
     MiniRocketRidgeClassifierAdapter,
     build_classification_model,
@@ -55,7 +54,6 @@ def test_build_future_multimodal_classifier_adapter():
         )
     )
     assert isinstance(model, FutureMultimodalClassifierAdapter)
-    assert FutureFusionClassifierAdapter is FutureMultimodalClassifierAdapter
     status, message = model.availability()
     assert status is RunStatus.SUCCESS
     assert message == 'ready'
