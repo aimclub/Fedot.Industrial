@@ -194,7 +194,7 @@ class MiniRocketRidgeClassifierAdapter:
 
         channel_features: list[np.ndarray] = []
         for channel_index in range(n_channels):
-            channel = series[:, channel_index : channel_index + 1, :]
+            channel = series[:, channel_index: channel_index + 1, :]
             kernel = _fit_minirocket_kernel(
                 channel,
                 num_features=num_features,
@@ -250,7 +250,7 @@ class MiniRocketRidgeClassifierAdapter:
             )
         channel_features = [
             _extract_minirocket_features(
-                series[:, channel_index : channel_index + 1, :],
+                series[:, channel_index: channel_index + 1, :],
                 kernel,
                 chunksize=chunksize,
             )
@@ -586,7 +586,7 @@ def _fit_minirocket_kernel(
     random_state: int | None,
     device: Any,
 ):
-    import torch
+    pass
 
     from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import (
         MiniRocketFeatures,

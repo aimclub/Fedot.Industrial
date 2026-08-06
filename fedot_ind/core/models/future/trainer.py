@@ -26,6 +26,7 @@ from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.operation.transformation.torch_backend.io import resolve_torch_device
 from fedot_ind.tools.time_counter import DeviceTimer
 
+
 class FutureClassifierTrainer:
     """Train/evaluate a :class:`ConfigurableMultimodalFusionClassifier`.
 
