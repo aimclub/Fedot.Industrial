@@ -1,15 +1,24 @@
 from __future__ import annotations
 
+import inspect
 import json
+from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from benchmark.industrial.api import run_forecasting_benchmark_suite, run_tsc_benchmark_suite, run_tser_benchmark_suite
 from benchmark.industrial.core import ArtifactSpec, BenchmarkSuiteConfig, DatasetSpec, ModelSpec, RunSpec, TaskType
+from benchmark.industrial.experiments.fusion_over_raw.expand import build_fusion_over_raw_smoke_suite_config
 
 PRESET_DEFAULTS_PATH = Path(__file__).with_name('preset_defaults.json')
 PRESET_DEFAULTS_VERSION = 'benchmark_industrial_preset_defaults@1'
+
+SUITE_RUNNERS_BY_TASK: dict[TaskType, Callable[[BenchmarkSuiteConfig], Any]] = {
+    TaskType.FORECASTING: run_forecasting_benchmark_suite,
+    TaskType.TS_CLASSIFICATION: run_tsc_benchmark_suite,
+    TaskType.TS_REGRESSION: run_tser_benchmark_suite,
+}
 
 
 @lru_cache(maxsize=1)
@@ -171,6 +180,20 @@ def build_local_okhs_smoothing_suite_config(
     )
 
 
+LOCAL_PRESET_BUILDERS: dict[str, Callable[..., BenchmarkSuiteConfig]] = {
+    'm4': build_local_m4_suite_config,
+    'monash': build_local_monash_suite_config,
+    'okhs_smoothing': build_local_okhs_smoothing_suite_config,
+    'ucr': build_local_ucr_suite_config,
+    'tser': build_local_tser_suite_config,
+    'fusion_over_raw_smoke': build_fusion_over_raw_smoke_suite_config,
+}
+
+
+def available_local_presets() -> tuple[str, ...]:
+    return tuple(sorted(LOCAL_PRESET_BUILDERS))
+
+
 def run_local_benchmark_preset(
         preset_name: str,
         *,
@@ -184,73 +207,43 @@ def run_local_benchmark_preset(
         models: tuple[ModelSpec, ...] | None = None,
 ):
     normalized = preset_name.lower()
-    if normalized == 'm4':
-        config = build_local_m4_suite_config(
-            subset=subset or 'daily',
-            sample_size=sample_size if sample_size is not None else 3,
-            random_seed=random_seed,
-            output_dir=output_dir,
-            persist_on_run=persist_on_run,
-            models=models,
-            include_optional_external=include_optional_external,
-        )
-        return run_forecasting_benchmark_suite(config)
-    if normalized == 'monash':
-        config = build_local_monash_suite_config(
-            dataset_name=dataset_name or 'Bitcoin',
-            subset=subset or 'daily',
-            sample_size=sample_size if sample_size is not None else 3,
-            random_seed=random_seed,
-            output_dir=output_dir,
-            persist_on_run=persist_on_run,
-            models=models,
-            include_optional_external=include_optional_external,
-        )
-        return run_forecasting_benchmark_suite(config)
-    if normalized == 'okhs_smoothing':
-        config = build_local_okhs_smoothing_suite_config(
-            subset=subset or 'daily',
-            output_dir=output_dir,
-            persist_on_run=persist_on_run,
-            models=models,
-        )
-        return run_forecasting_benchmark_suite(config)
-    if normalized == 'ucr':
-        config = build_local_ucr_suite_config(
-            dataset_name=dataset_name or 'Lightning7',
-            output_dir=output_dir,
-            persist_on_run=persist_on_run,
-            models=models,
-        )
-        return run_tsc_benchmark_suite(config)
-    if normalized == 'tser':
-        config = build_local_tser_suite_config(
-            dataset_name=dataset_name or 'NaturalGasPricesSentiment',
-            output_dir=output_dir,
-            persist_on_run=persist_on_run,
-            models=models,
-        )
-        return run_tser_benchmark_suite(config)
-    if normalized == 'fusion_over_raw_smoke':
-        from benchmark.industrial.experiments.fusion_over_raw import (
-            build_fusion_over_raw_smoke_suite_config,
+    builder = LOCAL_PRESET_BUILDERS.get(normalized)
+    if builder is None:
+        raise BenchmarkPresetError(
+            f'Unsupported local benchmark preset: {preset_name}. '
+            f'Available: {", ".join(available_local_presets())}'
         )
 
-        config = build_fusion_over_raw_smoke_suite_config(
-            output_dir=output_dir,
-            persist_on_run=persist_on_run,
-        )
-        if models is not None:
-            config = BenchmarkSuiteConfig(
-                task_type=config.task_type,
-                datasets=config.datasets,
-                models=models,
-                metrics=config.metrics,
-                artifact_spec=config.artifact_spec,
-                run_spec=config.run_spec,
-            )
-        return run_tsc_benchmark_suite(config)
-    raise BenchmarkPresetError(f'Unsupported local benchmark preset: {preset_name}')
+    candidate_kwargs = {
+        'dataset_name': dataset_name,
+        'subset': subset,
+        'sample_size': sample_size,
+        'output_dir': output_dir,
+        'persist_on_run': persist_on_run,
+        'random_seed': random_seed,
+        'include_optional_external': include_optional_external,
+        'models': models,
+    }
+    accepted = set(inspect.signature(builder).parameters)
+    build_kwargs = {
+        key: value
+        for key, value in candidate_kwargs.items()
+        if key in accepted and value is not None
+    }
+    # Booleans must remain explicit even when False.
+    if 'persist_on_run' in accepted:
+        build_kwargs['persist_on_run'] = persist_on_run
+    if 'include_optional_external' in accepted:
+        build_kwargs['include_optional_external'] = include_optional_external
+
+    config = builder(**build_kwargs)
+    if models is not None and 'models' not in accepted:
+        config = replace(config, models=models)
+
+    runner = SUITE_RUNNERS_BY_TASK.get(config.task_type)
+    if runner is None:
+        raise BenchmarkPresetError(f'No suite runner registered for task type: {config.task_type}')
+    return runner(config)
 
 
 def _artifact_spec(
