@@ -69,9 +69,8 @@ def build_fusion_over_raw_suite_config(
     )
     metrics = tuple(str(item) for item in payload.get('metrics', ('accuracy', 'balanced_accuracy', 'f1_macro')))
     primary_metric = str(payload.get('primary_metric', 'f1_macro'))
-    resolved_output = Path(
-        output_dir if output_dir is not None else payload.get('output_dir', 'benchmark/results/industrial_presets/fusion_over_raw')
-    )
+    resolved_output = Path(output_dir if output_dir is not None else payload.get(
+        'output_dir', 'benchmark/results/industrial_presets/fusion_over_raw'))
     return BenchmarkSuiteConfig(
         task_type=TaskType.TS_CLASSIFICATION,
         datasets=dataset_specs,
@@ -221,7 +220,10 @@ def expand_fusion_over_raw_model_specs(
                     )
 
         external = dict(payload.get('external_baseline') or {})
-        enabled = bool(external.get('enabled', True)) if include_external_baseline is None else include_external_baseline
+        enabled = bool(
+            external.get(
+                'enabled',
+                True)) if include_external_baseline is None else include_external_baseline
         if enabled:
             models.append(_build_minirocket_model_spec(payload, seed=seed))
 
