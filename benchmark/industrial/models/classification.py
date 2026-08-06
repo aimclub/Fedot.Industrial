@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any
 
 import numpy as np
@@ -61,7 +61,7 @@ class NearestCentroidClassifier:
 class OptionalExternalClassifier:
     dependency_name: str
     name: str
-    tags: tuple[str, ...] = ('baseline', 'classification', 'external')
+    tags: tuple[str, ...] = ('industrial', 'classification', 'external')
     optional: bool = True
 
     def availability(self) -> tuple[RunStatus, str]:
@@ -343,48 +343,46 @@ class FutureFusionClassifierAdapter:
         return artifacts
 
 
+CLASSIFICATION_ADAPTER_REGISTRY: dict[str, type] = {
+    'majority_class': MajorityClassClassifier,
+    'nearest_centroid': NearestCentroidClassifier,
+    'kernel_ensemble_classifier': KernelEnsembleClassifierAdapter,
+    'pdl_classifier': PDLClassifierAdapter,
+    'pdl_clf': PDLClassifierAdapter,
+    'future_fusion_classifier': FutureFusionClassifierAdapter,
+    'future_classifier': FutureFusionClassifierAdapter,
+    'fedot_industrial_classifier': OptionalExternalClassifier,
+}
+
+_ADAPTER_EXTRA_KWARGS: dict[str, dict[str, Any]] = {
+    'fedot_industrial_classifier': {'dependency_name': 'fedot'},
+    'pdl_classifier': {'optional': True},
+    'pdl_clf': {'optional': True},
+}
+
+
 def build_classification_model(spec: ModelSpec):
-    name = spec.adapter_name.lower()
-    if name == 'majority_class':
-        return MajorityClassClassifier(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'classification'),
+    key = spec.adapter_name.lower()
+    adapter_cls = CLASSIFICATION_ADAPTER_REGISTRY.get(key)
+    if adapter_cls is None:
+        available = sorted(CLASSIFICATION_ADAPTER_REGISTRY)
+        raise BenchmarkClassificationError(
+            f'Unsupported classification model adapter: {spec.adapter_name}. '
+            f'Available adapters: {available}.'
         )
-    if name == 'nearest_centroid':
-        return NearestCentroidClassifier(
-            name=spec.display_name,
-            tags=spec.tags or ('baseline', 'classification'),
-        )
-    if name == 'kernel_ensemble_classifier':
-        return KernelEnsembleClassifierAdapter(
-            name=spec.display_name,
-            tags=spec.tags or ('industrial', 'classification', 'kernel_learning'),
-            optional=spec.optional,
-            params=dict(spec.params),
-        )
-    if name in {'pdl_classifier', 'pdl_clf'}:
-        return PDLClassifierAdapter(
-            name=spec.display_name,
-            tags=spec.tags or ('industrial', 'classification', 'pdl'),
-            optional=True,
-            params=dict(spec.params),
-        )
-    if name in {'future_fusion_classifier', 'future_classifier'}:
-        return FutureFusionClassifierAdapter(
-            name=spec.display_name,
-            tags=spec.tags or ('industrial', 'classification', 'future', 'multimodal'),
-            optional=spec.optional,
-            params=dict(spec.params),
-        )
-    if name == 'fedot_industrial_classifier':
-        return OptionalExternalClassifier(
-            dependency_name='fedot',
-            name=spec.display_name,
-            tags=spec.tags or ('industrial', 'classification', 'external'),
-        )
-    raise BenchmarkClassificationError(
-        f'Unsupported classification model adapter: {spec.adapter_name}'
-    )
+
+    field_names = {item.name for item in fields(adapter_cls)}
+    kwargs: dict[str, Any] = {}
+    if 'name' in field_names:
+        kwargs['name'] = spec.display_name
+    if 'tags' in field_names and spec.tags:
+        kwargs['tags'] = spec.tags
+    if 'optional' in field_names:
+        kwargs['optional'] = spec.optional
+    if 'params' in field_names:
+        kwargs['params'] = dict(spec.params)
+    kwargs.update(_ADAPTER_EXTRA_KWARGS.get(key, {}))
+    return adapter_cls(**kwargs)
 
 
 def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
@@ -415,6 +413,7 @@ def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: st
 
 
 __all__ = [
+    "CLASSIFICATION_ADAPTER_REGISTRY",
     "FutureFusionClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "MajorityClassClassifier",
