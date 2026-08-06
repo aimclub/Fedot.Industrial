@@ -488,6 +488,10 @@ class FutureMultimodalClassifierAdapter:
         return artifacts
 
 
+# Backward-compatible alias.
+FutureFusionClassifierAdapter = FutureMultimodalClassifierAdapter
+
+
 CLASSIFICATION_ADAPTER_REGISTRY: dict[str, type] = {
     'majority_class': MajorityClassClassifier,
     'nearest_centroid': NearestCentroidClassifier,
@@ -618,6 +622,8 @@ def _fit_minirocket_kernel(
     random_state: int | None,
     device: Any,
 ):
+    import torch
+
     from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import (
         MiniRocketFeatures,
     )
@@ -702,6 +708,7 @@ def _json_safe(value: Any) -> Any:
 
 __all__ = [
     "CLASSIFICATION_ADAPTER_REGISTRY",
+    "FutureFusionClassifierAdapter",
     "FutureMultimodalClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "MajorityClassClassifier",
