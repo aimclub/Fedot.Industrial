@@ -27,6 +27,7 @@ class FutureTrainingConfig:
     early_stopping_patience: int | None = None
     device: Any = "cpu"
     seed: int | None = 42
+    timing_warmup: bool = True
 
 
 @dataclass

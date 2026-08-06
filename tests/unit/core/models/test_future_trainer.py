@@ -14,6 +14,7 @@ from fedot_ind.core.models.future import (
     FutureClassifierTrainer,
     FutureTrainingConfig,
 )
+from fedot_ind.tools.time_counter import DeviceTimer
 from fedot_ind.core.multimodal.batching import (
     make_bundle_dataloader,
     select_bundle_indices,
@@ -225,6 +226,29 @@ def test_future_trainer_restores_best_weights_with_early_stopping():
     current_state = trainer.model.state_dict()
     for key, value in trainer._best_state_dict.items():
         assert torch.equal(current_state[key], value)
+
+
+def test_device_timer_cpu_measures_positive_elapsed():
+    timer = DeviceTimer("cpu")
+    assert timer.uses_cuda_events is False
+    timer.warmup()
+    timer.start()
+    _ = sum(range(10_000))
+    elapsed = timer.stop()
+    assert elapsed >= 0.0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_device_timer_cuda_events_measure_positive_elapsed():
+    timer = DeviceTimer("cuda")
+    assert timer.uses_cuda_events is True
+    timer.warmup(n_iters=1, size=64)
+    timer.start()
+    left = torch.randn(128, 128, device="cuda")
+    right = torch.randn(128, 128, device="cuda")
+    _ = (left @ right).sum()
+    elapsed = timer.stop()
+    assert elapsed > 0.0
 
 
 def test_future_trainer_accepts_custom_optimizer_and_criterion():

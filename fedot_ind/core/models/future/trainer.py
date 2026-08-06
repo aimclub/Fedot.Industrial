@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import time
 from collections.abc import Iterable
 from dataclasses import asdict
 from pathlib import Path
@@ -25,7 +24,7 @@ from fedot_ind.core.multimodal.batching import make_bundle_dataloader
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.operation.transformation.torch_backend.io import resolve_torch_device
-
+from fedot_ind.tools.time_counter import DeviceTimer
 
 class FutureClassifierTrainer:
     """Train/evaluate a :class:`ConfigurableMultimodalFusionClassifier`.
@@ -91,7 +90,10 @@ class FutureClassifierTrainer:
         patience_counter = 0
         self._best_state_dict = copy.deepcopy(self.model.state_dict())
 
-        started_at = time.perf_counter()
+        timer = DeviceTimer(self.device)
+        if self.config.timing_warmup:
+            timer.warmup()
+        timer.start()
         for epoch in range(1, self.config.epochs + 1):
             train_loss = self._run_epoch(
                 train_loader,
@@ -131,7 +133,7 @@ class FutureClassifierTrainer:
         history.best_validation_loss = (
             None if val_loader is None else best_metric
         )
-        history.train_duration_s = time.perf_counter() - started_at
+        history.train_duration_s = timer.stop()
 
         if self._best_state_dict is not None:
             self.model.load_state_dict(self._best_state_dict)
