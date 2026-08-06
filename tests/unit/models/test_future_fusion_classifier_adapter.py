@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from benchmark.industrial.core import ModelSpec, RunStatus
+from benchmark.industrial.errors import BenchmarkClassificationError
 from benchmark.industrial.models.classification import (
     FutureFusionClassifierAdapter,
     build_classification_model,
@@ -28,6 +30,13 @@ def test_build_future_fusion_classifier_adapter():
     status, message = model.availability()
     assert status is RunStatus.SUCCESS
     assert message == 'ready'
+
+
+def test_build_classification_model_unknown_adapter_lists_registry():
+    with pytest.raises(BenchmarkClassificationError, match='Available adapters'):
+        build_classification_model(
+            ModelSpec(adapter_name='unknown_adapter', display_name='Unknown')
+        )
 
 
 def test_future_fusion_classifier_adapter_fit_predict_smoke():
