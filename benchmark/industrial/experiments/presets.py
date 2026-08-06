@@ -231,6 +231,25 @@ def run_local_benchmark_preset(
             models=models,
         )
         return run_tser_benchmark_suite(config)
+    if normalized == 'fusion_over_raw_smoke':
+        from benchmark.industrial.experiments.fusion_over_raw import (
+            build_fusion_over_raw_smoke_suite_config,
+        )
+
+        config = build_fusion_over_raw_smoke_suite_config(
+            output_dir=output_dir,
+            persist_on_run=persist_on_run,
+        )
+        if models is not None:
+            config = BenchmarkSuiteConfig(
+                task_type=config.task_type,
+                datasets=config.datasets,
+                models=models,
+                metrics=config.metrics,
+                artifact_spec=config.artifact_spec,
+                run_spec=config.run_spec,
+            )
+        return run_tsc_benchmark_suite(config)
     raise BenchmarkPresetError(f'Unsupported local benchmark preset: {preset_name}')
 
 
