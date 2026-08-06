@@ -1,8 +1,10 @@
 """Benchmark model specs and built-in model adapter factories."""
 
 from benchmark.industrial.models.classification import (
+    FutureMultimodalClassifierAdapter,
     KernelEnsembleClassifierAdapter,
     MajorityClassClassifier,
+    MiniRocketRidgeClassifierAdapter,
     NearestCentroidClassifier,
     OptionalExternalClassifier,
     PDLClassifierAdapter,
@@ -26,11 +28,13 @@ def build_forecasting_model_adapter(*args, **kwargs):
 
 
 __all__ = [
+    "FutureMultimodalClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "KernelEnsembleRegressorAdapter",
     "LinearRegressor",
     "MajorityClassClassifier",
     "MeanRegressor",
+    "MiniRocketRidgeClassifierAdapter",
     "ModelSpec",
     "NearestCentroidClassifier",
     "OptionalExternalClassifier",
