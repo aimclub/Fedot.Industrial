@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import field
 from typing import Any
 from typing import Mapping
 from typing import Optional
@@ -13,6 +14,32 @@ import torch.nn as nn
 
 def count_parameters(module: nn.Module) -> int:
     return sum(parameter.numel() for parameter in module.parameters())
+
+
+@dataclass
+class FutureTrainingConfig:
+    """Hyperparameters for FUTURE classifier training."""
+
+    epochs: int = 10
+    batch_size: int = 32
+    learning_rate: float = 1e-3
+    weight_decay: float = 0.0
+    early_stopping_patience: int | None = None
+    device: Any = "cpu"
+    seed: int | None = 42
+
+
+@dataclass
+class FutureTrainingHistory:
+    """Lifecycle diagnostics produced by FUTURE classifier training."""
+
+    train_loss: list[float] = field(default_factory=list)
+    validation_loss: list[float | None] = field(default_factory=list)
+    best_epoch: int = 0
+    best_validation_loss: float | None = None
+    train_duration_s: float = 0.0
+    stopped_early: bool = False
+    num_parameters: int | None = None
 
 
 def summarize_bottleneck_attn(

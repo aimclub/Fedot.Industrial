@@ -79,7 +79,11 @@ class ConfigurableMultimodalFusionClassifier(nn.Module):
         )
         self.raw_modality = normalize_unique_modalities([raw_modality])[0]
         self.context_modalities: tuple[MultimodalModality, ...] = ()
+        self.num_classes = num_classes
         self.d_model = d_model
+        self.head_hidden_dim = head_hidden_dim
+        self.head_dropout = head_dropout
+        self.head_activation = head_activation
         self.encoder_kwargs = dict(encoder_kwargs or {})
         self.fusion_kwargs = dict(fusion_kwargs or {})
         self.aux_output_config = aux_output_config or AuxOutputConfig()

@@ -138,12 +138,223 @@ class PDLClassifierAdapter:
         return np.asarray(values).reshape(-1).astype(object)
 
 
+@dataclass
+class FutureFusionClassifierAdapter:
+    """Thin benchmark adapter over MultimodalDatasetPreparer + FutureClassifierTrainer."""
+
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'classification', 'future', 'multimodal')
+    optional: bool = True
+    params: dict[str, Any] | None = None
+    preparer_: Any | None = None
+    trainer_: Any | None = None
+    label_mapping_: dict[str, int] | None = None
+    inverse_label_mapping_: dict[int, str] | None = None
+    history_: dict[str, Any] | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot_ind.core.models.future import (  # noqa: F401
+                ConfigurableMultimodalFusionClassifier,
+                FutureClassifierTrainer,
+            )
+            from fedot_ind.core.multimodal.preparation import (  # noqa: F401
+                MultimodalDatasetPreparer,
+            )
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'FUTURE fusion classifier is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.models.future import (
+            ConfigurableMultimodalFusionClassifier,
+            FutureClassifierTrainer,
+            FutureTrainingConfig,
+        )
+        from fedot_ind.core.multimodal.configs import build_preparation_config
+        from fedot_ind.core.multimodal.preparation import MultimodalDatasetPreparer
+
+        params = dict(self.params or {})
+        preparation_kwargs = dict(params.pop('preparation', {}))
+        training_kwargs = dict(params.pop('training', {}))
+        classifier_kwargs = dict(params)
+
+        fusion_method = classifier_kwargs.pop('fusion_method', 'concat')
+        d_model = int(classifier_kwargs.pop('d_model', 64))
+        modalities = classifier_kwargs.pop('modalities', None)
+        fusion_kwargs = dict(classifier_kwargs.pop('fusion_kwargs', {}))
+        raw_modality = classifier_kwargs.pop('raw_modality', 'raw')
+        encoder_kwargs = dict(classifier_kwargs.pop('encoder_kwargs', {}))
+        head_hidden_dim = classifier_kwargs.pop('head_hidden_dim', None)
+        head_dropout = float(classifier_kwargs.pop('head_dropout', 0.2))
+        head_activation = classifier_kwargs.pop('head_activation', 'GELU')
+        if classifier_kwargs:
+            raise BenchmarkClassificationError(
+                f'Unsupported FUTURE adapter params: {sorted(classifier_kwargs)}'
+            )
+
+        self.preparer_ = MultimodalDatasetPreparer(
+            config=build_preparation_config(**preparation_kwargs)
+            if preparation_kwargs
+            else build_preparation_config()
+        )
+        train_bundle = self.preparer_.fit_transform(features, target)
+        if train_bundle.target is None:
+            raise BenchmarkClassificationError('Prepared train bundle is missing targets.')
+
+        if self.preparer_.label_mapping_ is not None:
+            self.label_mapping_ = {
+                str(label): int(index)
+                for label, index in self.preparer_.label_mapping_.items()
+            }
+            num_classes = len(self.label_mapping_)
+        else:
+            unique_targets = sorted(
+                int(value) for value in train_bundle.target.unique().tolist()
+            )
+            if any(label < 0 for label in unique_targets):
+                raise BenchmarkClassificationError(
+                    'FUTURE adapter expects non-negative integer class labels.'
+                )
+            num_classes = int(train_bundle.target.max().item()) + 1
+            self.label_mapping_ = {
+                str(label): int(label) for label in unique_targets
+            }
+        self.inverse_label_mapping_ = {
+            index: label for label, index in self.label_mapping_.items()
+        }
+
+        model = ConfigurableMultimodalFusionClassifier(
+            num_classes=num_classes,
+            fusion_method=fusion_method,
+            d_model=d_model,
+            modalities=modalities,
+            encoder_kwargs=encoder_kwargs,
+            fusion_kwargs=fusion_kwargs,
+            head_hidden_dim=head_hidden_dim,
+            head_dropout=head_dropout,
+            head_activation=head_activation,
+            raw_modality=raw_modality,
+        )
+        training_config = FutureTrainingConfig(
+            epochs=int(training_kwargs.pop('epochs', 2)),
+            batch_size=int(training_kwargs.pop('batch_size', 32)),
+            learning_rate=float(training_kwargs.pop('learning_rate', 1e-3)),
+            weight_decay=float(training_kwargs.pop('weight_decay', 0.0)),
+            early_stopping_patience=training_kwargs.pop('early_stopping_patience', None),
+            device=training_kwargs.pop('device', 'cpu'),
+            seed=training_kwargs.pop('seed', 42),
+        )
+        validation_fraction = float(training_kwargs.pop('validation_fraction', 0.0))
+        drop_last = bool(training_kwargs.pop('drop_last', False))
+        if training_kwargs:
+            raise BenchmarkClassificationError(
+                f'Unsupported FUTURE training params: {sorted(training_kwargs)}'
+            )
+
+        from fedot_ind.core.multimodal.batching import (
+            make_bundle_dataloader,
+            split_bundle_by_fraction,
+        )
+
+        fit_bundle = train_bundle
+        val_bundle = None
+        if validation_fraction > 0.0:
+            fit_bundle, val_bundle = split_bundle_by_fraction(
+                train_bundle,
+                validation_fraction=validation_fraction,
+                seed=training_config.seed,
+            )
+
+        train_loader = make_bundle_dataloader(
+            fit_bundle,
+            batch_size=training_config.batch_size,
+            shuffle=True,
+            device=training_config.device,
+            seed=training_config.seed,
+            drop_last=drop_last,
+            require_target=True,
+        )
+        val_loader = None
+        if val_bundle is not None:
+            val_loader = make_bundle_dataloader(
+                val_bundle,
+                batch_size=training_config.batch_size,
+                shuffle=False,
+                device=training_config.device,
+                seed=training_config.seed,
+                drop_last=False,
+                require_target=True,
+            )
+
+        self.trainer_ = FutureClassifierTrainer(model=model, config=training_config)
+        history = self.trainer_.fit(
+            train_loader,
+            val_loader,
+            build_bundle=fit_bundle,
+        )
+        self.history_ = {
+            'train_duration_s': history.train_duration_s,
+            'best_epoch': history.best_epoch,
+            'stopped_early': history.stopped_early,
+            'train_loss': list(history.train_loss),
+            'validation_loss': list(history.validation_loss),
+            'num_parameters': history.num_parameters,
+            'best_validation_loss': history.best_validation_loss,
+        }
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if (
+            self.preparer_ is None
+            or self.trainer_ is None
+            or self.inverse_label_mapping_ is None
+        ):
+            raise BenchmarkClassificationError(
+                'FutureFusionClassifierAdapter must be fitted before prediction.'
+            )
+        test_bundle = self.preparer_.transform(features)
+        predictions = (
+            self.trainer_.predict(test_bundle.without_target()).detach().cpu().numpy()
+        )
+        return np.asarray(
+            [self.inverse_label_mapping_[int(index)] for index in predictions],
+            dtype=object,
+        )
+
+    def export_artifacts(self) -> dict[str, Any]:
+        artifacts: dict[str, Any] = {
+            'adapter': 'future_fusion_classifier',
+            'label_mapping': dict(self.label_mapping_ or {}),
+        }
+        if self.history_ is not None:
+            artifacts['training_history'] = dict(self.history_)
+            artifacts['train_duration_s'] = self.history_.get('train_duration_s')
+        if self.trainer_ is not None:
+            artifacts['fusion_method'] = self.trainer_.model.fusion_method.value
+            artifacts['d_model'] = self.trainer_.model.d_model
+            artifacts['num_parameters'] = {
+                'total': int(
+                    sum(
+                        parameter.numel()
+                        for parameter in self.trainer_.model.parameters()
+                    )
+                ),
+            }
+        return artifacts
+
+
 def build_classification_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'majority_class':
-        return MajorityClassClassifier(name=spec.display_name, tags=spec.tags or ('baseline', 'classification'))
+        return MajorityClassClassifier(
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'classification'),
+        )
     if name == 'nearest_centroid':
-        return NearestCentroidClassifier(name=spec.display_name, tags=spec.tags or ('baseline', 'classification'))
+        return NearestCentroidClassifier(
+            name=spec.display_name,
+            tags=spec.tags or ('baseline', 'classification'),
+        )
     if name == 'kernel_ensemble_classifier':
         return KernelEnsembleClassifierAdapter(
             name=spec.display_name,
@@ -158,13 +369,22 @@ def build_classification_model(spec: ModelSpec):
             optional=True,
             params=dict(spec.params),
         )
+    if name in {'future_fusion_classifier', 'future_classifier'}:
+        return FutureFusionClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'future', 'multimodal'),
+            optional=spec.optional,
+            params=dict(spec.params),
+        )
     if name == 'fedot_industrial_classifier':
         return OptionalExternalClassifier(
             dependency_name='fedot',
             name=spec.display_name,
             tags=spec.tags or ('industrial', 'classification', 'external'),
         )
-    raise BenchmarkClassificationError(f'Unsupported classification model adapter: {spec.adapter_name}')
+    raise BenchmarkClassificationError(
+        f'Unsupported classification model adapter: {spec.adapter_name}'
+    )
 
 
 def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
@@ -180,7 +400,11 @@ def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: st
     from fedot.core.repository.dataset_types import DataTypesEnum
     from fedot.core.repository.tasks import Task, TaskTypesEnum
 
-    task = Task(TaskTypesEnum.classification if task_type == 'classification' else TaskTypesEnum.regression)
+    task = Task(
+        TaskTypesEnum.classification
+        if task_type == 'classification'
+        else TaskTypesEnum.regression
+    )
     return InputData(
         idx=np.arange(features.shape[0]),
         features=features,
@@ -191,6 +415,7 @@ def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: st
 
 
 __all__ = [
+    "FutureFusionClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "MajorityClassClassifier",
     "NearestCentroidClassifier",
