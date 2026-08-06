@@ -35,7 +35,6 @@ from fedot_ind.tools.time_counter import DeviceTimer
 def _checkpoint_meta_path(weights_path: Path) -> Path:
     return weights_path.with_suffix(".meta.json")
 
-
 class FutureClassifierTrainer:
     """Train/evaluate a :class:`ConfigurableMultimodalFusionClassifier`.
 
