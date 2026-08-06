@@ -32,7 +32,19 @@ _EXPORTS = {
     "load_stage1_kernel_records": "benchmark.industrial.experiments.kernel_learning",
     "load_stage1_result_from_artifacts": "benchmark.industrial.experiments.kernel_learning",
     "resolve_existing_stage1_run_dir": "benchmark.industrial.experiments.kernel_learning",
-    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning", }
+    "run_stage2_for_dataset": "benchmark.industrial.experiments.kernel_learning",
+    "load_fusion_over_raw_defaults": "benchmark.industrial.experiments.fusion_over_raw",
+    "build_fusion_over_raw_suite_config": "benchmark.industrial.experiments.fusion_over_raw",
+    "build_fusion_over_raw_smoke_suite_config": "benchmark.industrial.experiments.fusion_over_raw",
+    "expand_fusion_over_raw_model_specs": "benchmark.industrial.experiments.fusion_over_raw",
+    "average_metrics_by_family": "benchmark.industrial.experiments.fusion_over_raw",
+    "build_family_vs_best_single_frame": "benchmark.industrial.experiments.fusion_over_raw",
+    "build_feature_combination_sensitivity_frame": "benchmark.industrial.experiments.fusion_over_raw",
+    "build_minirocket_comparison_frame": "benchmark.industrial.experiments.fusion_over_raw",
+    "build_top_family_by_dataset_frame": "benchmark.industrial.experiments.fusion_over_raw",
+    "render_fusion_over_raw_analysis_pack": "benchmark.industrial.experiments.fusion_over_raw",
+    "FusionOverRawConfigError": "benchmark.industrial.experiments.fusion_over_raw",
+}
 
 __all__ = sorted(_EXPORTS)
 
