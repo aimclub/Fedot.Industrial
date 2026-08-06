@@ -1,6 +1,7 @@
 """Benchmark model specs and built-in model adapter factories."""
 
 from benchmark.industrial.models.classification import (
+    FutureFusionClassifierAdapter,
     KernelEnsembleClassifierAdapter,
     MajorityClassClassifier,
     NearestCentroidClassifier,
@@ -26,6 +27,7 @@ def build_forecasting_model_adapter(*args, **kwargs):
 
 
 __all__ = [
+    "FutureFusionClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "KernelEnsembleRegressorAdapter",
     "LinearRegressor",
