@@ -189,7 +189,6 @@ class MiniRocketRidgeClassifierAdapter:
 
         series = _to_minirocket_series(features)
         n_channels = int(series.shape[1])
-        seq_len = int(series.shape[2])
         self.random_state_ = random_state
         self.kernels_ = []
 
@@ -493,10 +492,6 @@ class FutureMultimodalClassifierAdapter:
         return artifacts
 
 
-# Backward-compatible alias.
-FutureFusionClassifierAdapter = FutureMultimodalClassifierAdapter
-
-
 CLASSIFICATION_ADAPTER_REGISTRY: dict[str, type] = {
     'majority_class': MajorityClassClassifier,
     'nearest_centroid': NearestCentroidClassifier,
@@ -677,7 +672,6 @@ def _json_safe(value: Any) -> Any:
 
 __all__ = [
     "CLASSIFICATION_ADAPTER_REGISTRY",
-    "FutureFusionClassifierAdapter",
     "FutureMultimodalClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "MajorityClassClassifier",
