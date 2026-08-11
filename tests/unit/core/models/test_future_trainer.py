@@ -181,6 +181,12 @@ def test_future_trainer_fit_predict_and_history(fusion_method, tmp_path: Path):
     diagnostics = trainer.evaluate_diagnostics(test_bundle)
     assert diagnostics.logits.shape == (test_bundle.n_samples, num_classes)
     assert diagnostics.num_parameters is not None
+    assert diagnostics.embeddings is None
+    diagnostics_with_embeddings = trainer.evaluate_diagnostics(
+        test_bundle,
+        include_embeddings=True,
+    )
+    assert diagnostics_with_embeddings.embeddings is not None
     if fusion_method == "ordinary_bottleneck":
         assert diagnostics.attention_summary is not None
         assert diagnostics.pooling == "mean"
@@ -295,3 +301,46 @@ def test_future_trainer_requires_integer_targets():
             _make_loader(float_bundle, batch_size=2),
             build_bundle=float_bundle,
         )
+
+
+def test_evaluate_diagnostics_batches_and_defaults_embeddings_off():
+    from fedot_ind.core.models.future.tools import AuxOutputConfig
+
+    bundle = _make_supervised_bundle(batch_size=10, num_classes=2, seed=9)
+    model = ConfigurableMultimodalFusionClassifier(
+        modalities=_MODALITIES,
+        num_classes=2,
+        fusion_method="gated",
+        d_model=16,
+        aux_output_config=AuxOutputConfig(include_embeddings=True),
+    )
+    trainer = FutureClassifierTrainer(
+        model=model,
+        config=FutureTrainingConfig(epochs=1, batch_size=4, device="cpu", seed=9),
+    )
+    trainer.fit(
+        _make_loader(bundle, batch_size=4, shuffle=False, seed=9),
+        build_bundle=bundle,
+    )
+
+    assert model.aux_output_config.include_embeddings is True
+    diagnostics = trainer.evaluate_diagnostics(bundle.without_target())
+    predictions = trainer.predict(bundle.without_target())
+
+    assert diagnostics.logits.shape == (bundle.n_samples, 2)
+    assert diagnostics.h_final.shape[0] == bundle.n_samples
+    assert diagnostics.gates is not None
+    assert diagnostics.gates.shape[0] == bundle.n_samples
+    assert diagnostics.embeddings is None
+    assert torch.equal(diagnostics.logits.argmax(dim=-1), predictions)
+    # Helper must not leak the temporary embeddings override.
+    assert model.aux_output_config.include_embeddings is True
+
+    with_embeddings = trainer.evaluate_diagnostics(
+        bundle.without_target(),
+        include_embeddings=True,
+    )
+    assert with_embeddings.embeddings is not None
+    assert set(with_embeddings.embeddings) == {"raw", "stats"}
+    assert with_embeddings.embeddings["raw"].shape[0] == bundle.n_samples
+    assert model.aux_output_config.include_embeddings is True

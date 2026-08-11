@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Iterable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,7 @@ from fedot_ind.core.models.future.tools import (
     FutureTrainingHistory,
     FusionAuxOutput,
     count_parameters,
+    merge_fusion_aux_outputs,
 )
 from fedot_ind.core.multimodal.batching import make_bundle_dataloader
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
@@ -159,16 +160,29 @@ class FutureClassifierTrainer:
         return probabilities.argmax(dim=-1)
 
     @torch.no_grad()
-    def evaluate_diagnostics(self, bundle: MultimodalDataBundle) -> FusionAuxOutput:
-        """Run a diagnostic forward pass with fusion aux payload."""
+    def evaluate_diagnostics(
+        self,
+        bundle: MultimodalDataBundle,
+        *,
+        include_embeddings: bool = False,
+    ) -> FusionAuxOutput:
+        """Run a batched diagnostic forward pass with fusion aux payload.
+
+        Embeddings are omitted by default to keep memory comparable to
+        :meth:`predict`; pass ``include_embeddings=True`` to opt in.
+        """
 
         self._ensure_built(bundle)
         self.model.eval()
-        device_bundle = bundle.to(device=self.device)
-        aux = self.model(device_bundle, return_aux=True)
-        if not isinstance(aux, FusionAuxOutput):
-            raise RuntimeError("Expected FusionAuxOutput when return_aux=True.")
-        return aux
+        previous_aux_config = self.model.aux_output_config
+        self.model.aux_output_config = replace(
+            previous_aux_config,
+            include_embeddings=include_embeddings,
+        )
+        try:
+            return self._predict_aux(bundle)
+        finally:
+            self.model.aux_output_config = previous_aux_config
 
     def save_checkpoint(self, path: str | Path) -> None:
         """Persist model weights, rebuild metadata, config and history."""
@@ -307,6 +321,27 @@ class FutureClassifierTrainer:
             forward_bundle = batch.without_target() if batch.target is not None else batch
             outputs.append(self.model(forward_bundle))
         return torch.cat(outputs, dim=0)
+
+    @torch.no_grad()
+    def _predict_aux(self, bundle: MultimodalDataBundle) -> FusionAuxOutput:
+        self.model.eval()
+        loader = make_bundle_dataloader(
+            bundle,
+            batch_size=self.config.batch_size,
+            shuffle=False,
+            device=self.device,
+            seed=self.config.seed,
+            drop_last=False,
+            require_target=False,
+        )
+        outputs = []
+        for batch in loader:
+            forward_bundle = batch.without_target() if batch.target is not None else batch
+            aux = self.model(forward_bundle, return_aux=True)
+            if not isinstance(aux, FusionAuxOutput):
+                raise RuntimeError("Expected FusionAuxOutput when return_aux=True.")
+            outputs.append(aux)
+        return merge_fusion_aux_outputs(outputs)
 
     def _ensure_built_for_fit(
         self,
