@@ -239,7 +239,12 @@ class FutureClassifierTrainer:
                 "Expected a sidecar JSON written by save_checkpoint()."
             )
 
-        state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+        resolved_device = resolve_torch_device(device)
+        state_dict = torch.load(
+            weights_path,
+            map_location=resolved_device,
+            weights_only=True,
+        )
         metadata = json.loads(meta_path.read_text(encoding="utf-8"))
         classifier_config = dict(metadata["classifier_config"])
         model = ConfigurableMultimodalFusionClassifier(**classifier_config)
@@ -256,7 +261,7 @@ class FutureClassifierTrainer:
         raw_config.pop("validation_fraction", None)
         raw_config.pop("drop_last", None)
         training_config = config or FutureTrainingConfig(**raw_config)
-        training_config.device = device
+        training_config.device = resolved_device
         trainer = cls(model=model, config=training_config)
         trainer._build_shapes = shapes
         trainer.model.load_state_dict(state_dict)
