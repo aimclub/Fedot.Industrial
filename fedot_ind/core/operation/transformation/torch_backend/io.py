@@ -57,6 +57,19 @@ def resolve_torch_device(device: Any = "auto"):
     return resolved
 
 
+def set_torch_seed(seed: int | None) -> None:
+    """Seed PyTorch CPU/CUDA RNGs; ``None`` leaves the generators unchanged."""
+
+    if seed is None:
+        return
+
+    import torch
+
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 def to_torch(values: Any, *, device: Any = "auto"):
     """Convert values to ``torch.float32`` on a resolved device."""
 

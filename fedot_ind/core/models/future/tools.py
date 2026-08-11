@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import field
 from typing import Any
 from typing import Mapping
 from typing import Optional
@@ -15,6 +16,68 @@ def count_parameters(module: nn.Module) -> int:
     return sum(parameter.numel() for parameter in module.parameters())
 
 
+@dataclass
+class FutureTrainingConfig:
+    """Hyperparameters for FUTURE classifier training."""
+
+    epochs: int = 10
+    batch_size: int = 32
+    learning_rate: float = 1e-3
+    weight_decay: float = 0.0
+    early_stopping_patience: int | None = None
+    device: Any = "cpu"
+    seed: int | None = 42
+    timing_warmup: bool = True
+
+
+@dataclass
+class FutureTrainingHistory:
+    """Lifecycle diagnostics produced by FUTURE classifier training."""
+
+    train_loss: list[float] = field(default_factory=list)
+    validation_loss: list[float | None] = field(default_factory=list)
+    best_epoch: int = 0
+    best_validation_loss: float | None = None
+    train_duration_s: float = 0.0
+    stopped_early: bool = False
+    num_parameters: int | None = None
+
+
+def summarize_bottleneck_attn(
+    attn_list: list[dict[str, torch.Tensor]],
+) -> dict[str, float]:
+    """Compact cross/self-attention diagnostics over all bottleneck layers."""
+
+    if not attn_list:
+        return {}
+
+    cross_means: list[float] = []
+    cross_stds: list[float] = []
+    self_means: list[float] = []
+    self_stds: list[float] = []
+
+    for layer_attn in attn_list:
+        cross = layer_attn.get("cross_attn")
+        self_attn = layer_attn.get("self_attn")
+        if cross is not None:
+            detached = cross.detach()
+            cross_means.append(float(detached.mean().item()))
+            cross_stds.append(float(detached.std(unbiased=False).item()))
+        if self_attn is not None:
+            detached = self_attn.detach()
+            self_means.append(float(detached.mean().item()))
+            self_stds.append(float(detached.std(unbiased=False).item()))
+
+    summary: dict[str, float] = {"num_layers_with_attn": float(len(attn_list))}
+    if cross_means:
+        summary["cross_attn_mean"] = sum(cross_means) / len(cross_means)
+        summary["cross_attn_std"] = sum(cross_stds) / len(cross_stds)
+    if self_means:
+        summary["self_attn_mean"] = sum(self_means) / len(self_means)
+        summary["self_attn_std"] = sum(self_stds) / len(self_stds)
+    return summary
+
+
 @dataclass(frozen=True)
 class AuxOutputConfig:
     """Configuration for auxiliary diagnostics payload."""
@@ -25,7 +88,21 @@ class AuxOutputConfig:
 
 
 KNOWN_FUSION_KEYS = frozenset(
-    {"gates", "alpha", "gamma", "beta", "h_raw", "h_context", "delta", "h_final"}
+    {
+        "gates",
+        "alpha",
+        "gamma",
+        "beta",
+        "h_raw",
+        "h_context",
+        "delta",
+        "h_final",
+        "attention_summary",
+        "pooling",
+        "num_latents",
+        "num_heads",
+        "num_layers",
+    }
 )
 
 
@@ -48,6 +125,11 @@ class FusionAuxOutput:
     delta: Optional[torch.Tensor] = None
     alpha_stats: Optional[dict[str, float]] = None
     gamma_beta_summary: Optional[dict[str, float]] = None
+    attention_summary: Optional[dict[str, float]] = None
+    pooling: Optional[str] = None
+    num_latents: Optional[int] = None
+    num_heads: Optional[int] = None
+    num_layers: Optional[int] = None
     extra: Optional[dict[str, Any]] = None
 
     @staticmethod
@@ -76,6 +158,11 @@ class FusionAuxOutput:
         self.h_raw = fusion_aux.get("h_raw")
         self.h_context = fusion_aux.get("h_context")
         self.delta = fusion_aux.get("delta")
+        self.attention_summary = fusion_aux.get("attention_summary")
+        self.pooling = fusion_aux.get("pooling")
+        self.num_latents = fusion_aux.get("num_latents")
+        self.num_heads = fusion_aux.get("num_heads")
+        self.num_layers = fusion_aux.get("num_layers")
         if self.alpha is not None:
             self.alpha_stats = self._summary_stats(self.alpha)
         if self.gamma is not None and self.beta is not None:
@@ -142,3 +229,85 @@ class FusionAuxOutput:
             embeddings=embeddings,
         )
         return output
+
+
+def _average_float_dicts(
+    payloads: list[dict[str, float] | None],
+) -> dict[str, float] | None:
+    present = [payload for payload in payloads if payload is not None]
+    if not present:
+        return None
+    keys = present[0].keys()
+    return {
+        key: float(sum(payload[key] for payload in present) / len(present))
+        for key in keys
+    }
+
+
+def _cat_optional_tensors(
+    values: list[torch.Tensor | None],
+) -> torch.Tensor | None:
+    if values[0] is None:
+        return None
+    return torch.cat([value for value in values if value is not None], dim=0)
+
+
+def merge_fusion_aux_outputs(outputs: list[FusionAuxOutput]) -> FusionAuxOutput:
+    """Concatenate per-batch diagnostic payloads into one dataset-level output."""
+
+    if not outputs:
+        raise ValueError("Cannot merge an empty FusionAuxOutput list.")
+
+    first = outputs[0]
+    if first.embeddings is None:
+        merged_embeddings = None
+    else:
+        embedding_keys = tuple(first.embeddings)
+        merged_embeddings = {
+            key: torch.cat(
+                [
+                    item.embeddings[key]
+                    for item in outputs
+                    if item.embeddings is not None
+                ],
+                dim=0,
+            )
+            for key in embedding_keys
+        }
+
+    merged = FusionAuxOutput(
+        logits=torch.cat([item.logits for item in outputs], dim=0),
+        h_final=torch.cat([item.h_final for item in outputs], dim=0),
+        active_modalities=list(first.active_modalities),
+        embedding_dim=first.embedding_dim,
+        num_parameters=first.num_parameters,
+        embeddings=merged_embeddings,
+        gates=_cat_optional_tensors([item.gates for item in outputs]),
+        alpha=_cat_optional_tensors([item.alpha for item in outputs]),
+        gamma=_cat_optional_tensors([item.gamma for item in outputs]),
+        beta=_cat_optional_tensors([item.beta for item in outputs]),
+        h_raw=_cat_optional_tensors([item.h_raw for item in outputs]),
+        h_context=_cat_optional_tensors([item.h_context for item in outputs]),
+        delta=_cat_optional_tensors([item.delta for item in outputs]),
+        pooling=first.pooling,
+        num_latents=first.num_latents,
+        num_heads=first.num_heads,
+        num_layers=first.num_layers,
+        extra=first.extra,
+        attention_summary=_average_float_dicts(
+            [item.attention_summary for item in outputs]
+        ),
+    )
+
+    if merged.alpha is not None:
+        merged.alpha_stats = FusionAuxOutput._summary_stats(merged.alpha)
+    if merged.gamma is not None and merged.beta is not None:
+        gamma_stats = FusionAuxOutput._summary_stats(merged.gamma)
+        beta_stats = FusionAuxOutput._summary_stats(merged.beta)
+        merged.gamma_beta_summary = {
+            "gamma_l2_norm": gamma_stats["l2_norm"],
+            "gamma_mean": gamma_stats["mean"],
+            "beta_l2_norm": beta_stats["l2_norm"],
+            "beta_mean": beta_stats["mean"],
+        }
+    return merged

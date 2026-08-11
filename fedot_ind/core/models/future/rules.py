@@ -22,7 +22,9 @@ __all__ = [
     "normalize_unique_modalities",
     "require_initialized_model_parts",
     "require_resolved_modalities",
+    "validate_choice",
     "validate_context_modalities_for_raw_centered",
+    "validate_divisible",
     "validate_embeddings_count",
     "validate_encoder_registry_has_modalities",
     "validate_modalities_presence",
@@ -36,6 +38,27 @@ __all__ = [
 def validate_positive_int(name: str, value: int, min_value: int = 1) -> None:
     if value < min_value:
         raise ValueError(f"{name} must be >= {min_value}, got {value}.")
+
+
+def validate_choice(name: str, value: Any, allowed: Sequence[Any]) -> None:
+    if value not in allowed:
+        options = ", ".join(repr(item) for item in allowed)
+        raise ValueError(
+            f"Unknown {name}={value!r}. Expected one of: {options}."
+        )
+
+
+def validate_divisible(
+    dividend_name: str,
+    dividend: int,
+    divisor_name: str,
+    divisor: int,
+) -> None:
+    if dividend % divisor != 0:
+        raise ValueError(
+            f"{dividend_name}={dividend} must be divisible by "
+            f"{divisor_name}={divisor}."
+        )
 
 
 def validate_supported_fusion_method(

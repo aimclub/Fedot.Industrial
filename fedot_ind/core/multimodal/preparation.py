@@ -43,7 +43,13 @@ class MultimodalDatasetPreparer:
     config: PreparationConfig = field(default_factory=build_preparation_config)
     preprocessor_: MultimodalPreprocessor | None = field(default=None, init=False)
     resolved_torch_device_: torch.device | None = field(default=None, init=False)
-    label_mapping_: dict[Any, int] | None = field(default=None, init=False)
+    label_encoder_: Any | None = field(default=None, init=False)
+
+    @property
+    def label_mapping_(self) -> dict[Any, int] | None:
+        if self.label_encoder_ is None:
+            return None
+        return self.label_encoder_.as_label_mapping()
 
     def fit(self, X: Any, y: Any | None = None) -> "MultimodalDatasetPreparer":
         bundle = self._build_bundle(X, y, fit_target=True)
@@ -315,25 +321,30 @@ class MultimodalDatasetPreparer:
         if y is None:
             return None, {}
 
+        from fedot_ind.core.architecture.preprocessing.label_mapping import (
+            ContiguousLabelEncoder,
+            LabelMappingError,
+        )
+
         values = np.asarray(y).reshape(-1)
-        if values.dtype.kind in {"b", "i", "u"}:
-            return torch.as_tensor(values, dtype=torch.long, device=device), {}
         if values.dtype.kind == "f":
             return torch.as_tensor(values, dtype=torch.float32, device=device), {}
 
-        labels = tuple(str(label) for label in values.tolist())
-        if fit_target or self.label_mapping_ is None:
-            self.label_mapping_ = {
-                label: index
-                for index, label in enumerate(sorted(set(labels)))
-            }
-        unknown = sorted(set(labels) - set(self.label_mapping_))
-        if unknown:
-            raise ValueError(f"Unknown target labels during transform: {unknown}.")
-        encoded = [self.label_mapping_[label] for label in labels]
+        if values.dtype.kind in {"b", "i", "u"}:
+            labels: tuple[Any, ...] = tuple(int(value) for value in values.tolist())
+        else:
+            labels = tuple(str(label) for label in values.tolist())
+
+        try:
+            if fit_target or self.label_encoder_ is None:
+                self.label_encoder_ = ContiguousLabelEncoder().fit(labels)
+            encoded = self.label_encoder_.transform(labels)
+        except LabelMappingError as exc:
+            raise ValueError(str(exc)) from exc
+
         return (
             torch.as_tensor(encoded, dtype=torch.long, device=device),
-            {"target_labels": tuple(self.label_mapping_.keys())},
+            {"target_labels": tuple(self.label_encoder_.classes_ or ())},
         )
 
     def _resolve_device(self) -> torch.device:

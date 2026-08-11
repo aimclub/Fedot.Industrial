@@ -39,6 +39,25 @@ def slugify_artifact_part(value: str) -> str:
     return normalized or "unnamed"
 
 
+# kind -> filename for specialized slices of model_artifacts
+_SPECIALIZED_MODEL_ARTIFACT_FILES: dict[str, str] = {
+    "kernel_diagnostics": "kernel_diagnostics.json",
+    "kernel_selection": "kernel_selection.json",
+}
+
+
+def resolve_model_artifact_files(model_artifacts: dict[str, Any]) -> dict[str, tuple[str, Any]]:
+    """Map artifact kind -> (filename, payload) for non-empty / present model artifacts."""
+    files = {}
+    if model_artifacts:
+        files["model_artifacts"] = ("model_artifacts.json", model_artifacts)
+    for kind, filename in _SPECIALIZED_MODEL_ARTIFACT_FILES.items():
+        payload = model_artifacts.get(kind)
+        if payload is not None:
+            files[kind] = (filename, payload)
+    return files
+
+
 class IncrementalBenchmarkArtifactWriter:
     def __init__(self, config: BenchmarkSuiteConfig, run_id: str):
         self.enabled = bool(config.artifact_spec.persist_on_run)
@@ -69,15 +88,16 @@ class IncrementalBenchmarkArtifactWriter:
             / slugify_artifact_part(run_record.model_name)
         )
         model_artifacts = model_artifacts or {}
+        model_artifact_files = resolve_model_artifact_files(model_artifacts)
         artifact_paths = {
             "run": str(run_dir / "run.json"),
             "metrics": str(run_dir / "metrics.json"),
             "predictions": str(run_dir / "predictions.csv"),
+            **{
+                kind: str(run_dir / filename)
+                for kind, (filename, _) in model_artifact_files.items()
+            },
         }
-        if model_artifacts.get("kernel_diagnostics") is not None:
-            artifact_paths["kernel_diagnostics"] = str(run_dir / "kernel_diagnostics.json")
-        if model_artifacts.get("kernel_selection") is not None:
-            artifact_paths["kernel_selection"] = str(run_dir / "kernel_selection.json")
 
         metadata = dict(run_record.metadata)
         metadata["artifact_paths"] = artifact_paths
@@ -91,7 +111,7 @@ class IncrementalBenchmarkArtifactWriter:
             enriched_run_record,
             metric_records=metric_records,
             prediction_records=prediction_records,
-            model_artifacts=model_artifacts,
+            model_artifact_files=model_artifact_files,
         )
         self._append_records(enriched_run_record, metric_records, prediction_records, model_artifacts)
         return enriched_run_record
@@ -103,7 +123,7 @@ class IncrementalBenchmarkArtifactWriter:
             *,
             metric_records: Sequence[Any],
             prediction_records: Sequence[Any],
-            model_artifacts: dict[str, Any],
+            model_artifact_files: dict[str, tuple[str, Any]],
     ) -> None:
         run_path = run_dir / "run.json"
         metrics_path = run_dir / "metrics.json"
@@ -119,17 +139,10 @@ class IncrementalBenchmarkArtifactWriter:
         self._remember("metrics", metrics_path, "json")
         self._remember("predictions", predictions_path, "csv")
 
-        kernel_diagnostics = model_artifacts.get("kernel_diagnostics")
-        if kernel_diagnostics is not None:
-            path = run_dir / "kernel_diagnostics.json"
-            write_json(path, sanitize_artifact_payload(kernel_diagnostics))
-            self._remember("kernel_diagnostics", path, "json")
-
-        kernel_selection = model_artifacts.get("kernel_selection")
-        if kernel_selection is not None:
-            path = run_dir / "kernel_selection.json"
-            write_json(path, sanitize_artifact_payload(kernel_selection))
-            self._remember("kernel_selection", path, "json")
+        for kind, (filename, payload) in model_artifact_files.items():
+            path = run_dir / filename
+            write_json(path, sanitize_artifact_payload(payload))
+            self._remember(kind, path, "json")
 
     def _append_records(
             self,
