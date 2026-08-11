@@ -11,6 +11,30 @@ from benchmark.industrial.models.classification import (
     FutureFusionClassifierAdapter,
     build_classification_model,
 )
+from fedot_ind.core.architecture.preprocessing.label_mapping import ContiguousLabelEncoder
+
+
+def _future_adapter(**param_overrides: object) -> FutureFusionClassifierAdapter:
+    params: dict = {
+        'fusion_method': 'concat',
+        'd_model': 16,
+        'modalities': ['raw'],
+        'training': {
+            'epochs': 1,
+            'batch_size': 8,
+            'device': 'cpu',
+            'seed': 0,
+        },
+        'preparation': {
+            'torch_device': 'cpu',
+            'transformation_config': {
+                'raw': {'per_sample_z_normalize': False},
+            },
+            'normalization_config': {},
+        },
+    }
+    params.update(param_overrides)
+    return FutureFusionClassifierAdapter(name='FutureConcat', params=params)
 
 
 def test_build_future_fusion_classifier_adapter():
@@ -45,27 +69,7 @@ def test_future_fusion_classifier_adapter_fit_predict_smoke():
     train_y = np.asarray(['a', 'b'] * 10, dtype=object)
     test_x = rng.normal(size=(6, 32))
 
-    model = FutureFusionClassifierAdapter(
-        name='FutureConcat',
-        params={
-            'fusion_method': 'concat',
-            'd_model': 16,
-            'modalities': ['raw'],
-            'training': {
-                'epochs': 1,
-                'batch_size': 8,
-                'device': 'cpu',
-                'seed': 0,
-            },
-            'preparation': {
-                'torch_device': 'cpu',
-                'transformation_config': {
-                    'raw': {'per_sample_z_normalize': False},
-                },
-                'normalization_config': {},
-            },
-        },
-    )
+    model = _future_adapter()
     status, _ = model.availability()
     assert status is RunStatus.SUCCESS
 
@@ -78,3 +82,30 @@ def test_future_fusion_classifier_adapter_fit_predict_smoke():
     assert artifacts['adapter'] == 'future_fusion_classifier'
     assert artifacts['train_duration_s'] > 0
     assert artifacts['training_history']['best_epoch'] >= 1
+
+
+def test_future_fusion_classifier_remaps_gapped_integer_labels():
+    rng = np.random.default_rng(1)
+    train_x = rng.normal(size=(24, 32))
+    train_y = np.asarray([0, 2, 5] * 8, dtype=np.int64)
+
+    model = _future_adapter()
+    model.fit(train_x, train_y)
+
+    assert model.label_mapping_ == {'0': 0, '2': 1, '5': 2}
+    assert model.label_encoder_.inverse_transform([0, 1, 2]) == [0, 2, 5]
+    assert model.trainer_.model.num_classes == 3
+
+
+def test_future_fusion_classifier_decode_rejects_oov_class_index():
+    model = FutureFusionClassifierAdapter(name='FutureConcat')
+    model.label_encoder_ = ContiguousLabelEncoder().fit(['a', 'b'])
+
+    decoded = model._decode_predicted_labels(np.asarray([0, 1]))
+    assert decoded.tolist() == ['a', 'b']
+
+    with pytest.raises(
+        BenchmarkClassificationError,
+        match='out of vocabulary',
+    ):
+        model._decode_predicted_labels(np.asarray([0, 99]))

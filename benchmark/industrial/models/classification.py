@@ -148,9 +148,17 @@ class FutureFusionClassifierAdapter:
     params: dict[str, Any] | None = None
     preparer_: Any | None = None
     trainer_: Any | None = None
-    label_mapping_: dict[str, int] | None = None
-    inverse_label_mapping_: dict[int, str] | None = None
+    label_encoder_: Any | None = None
     history_: dict[str, Any] | None = None
+
+    @property
+    def label_mapping_(self) -> dict[str, int] | None:
+        if self.label_encoder_ is None:
+            return None
+        return {
+            str(label): int(index)
+            for label, index in self.label_encoder_.as_label_mapping().items()
+        }
 
     def availability(self) -> tuple[RunStatus, str]:
         try:
@@ -201,28 +209,12 @@ class FutureFusionClassifierAdapter:
         train_bundle = self.preparer_.fit_transform(features, target)
         if train_bundle.target is None:
             raise BenchmarkClassificationError('Prepared train bundle is missing targets.')
-
-        if self.preparer_.label_mapping_ is not None:
-            self.label_mapping_ = {
-                str(label): int(index)
-                for label, index in self.preparer_.label_mapping_.items()
-            }
-            num_classes = len(self.label_mapping_)
-        else:
-            unique_targets = sorted(
-                int(value) for value in train_bundle.target.unique().tolist()
+        if self.preparer_.label_encoder_ is None:
+            raise BenchmarkClassificationError(
+                'FUTURE adapter requires categorical targets; float targets are not supported.'
             )
-            if any(label < 0 for label in unique_targets):
-                raise BenchmarkClassificationError(
-                    'FUTURE adapter expects non-negative integer class labels.'
-                )
-            num_classes = int(train_bundle.target.max().item()) + 1
-            self.label_mapping_ = {
-                str(label): int(label) for label in unique_targets
-            }
-        self.inverse_label_mapping_ = {
-            index: label for label, index in self.label_mapping_.items()
-        }
+        self.label_encoder_ = self.preparer_.label_encoder_
+        num_classes = self.label_encoder_.num_classes
 
         model = ConfigurableMultimodalFusionClassifier(
             num_classes=num_classes,
@@ -307,7 +299,7 @@ class FutureFusionClassifierAdapter:
         if (
             self.preparer_ is None
             or self.trainer_ is None
-            or self.inverse_label_mapping_ is None
+            or self.label_encoder_ is None
         ):
             raise BenchmarkClassificationError(
                 'FutureFusionClassifierAdapter must be fitted before prediction.'
@@ -316,10 +308,24 @@ class FutureFusionClassifierAdapter:
         predictions = (
             self.trainer_.predict(test_bundle.without_target()).detach().cpu().numpy()
         )
-        return np.asarray(
-            [self.inverse_label_mapping_[int(index)] for index in predictions],
-            dtype=object,
+        return self._decode_predicted_labels(predictions)
+
+    def _decode_predicted_labels(self, class_indices: np.ndarray) -> np.ndarray:
+        from fedot_ind.core.architecture.preprocessing.label_mapping import (
+            LabelMappingError,
         )
+
+        if self.label_encoder_ is None:
+            raise BenchmarkClassificationError(
+                'FutureFusionClassifierAdapter must be fitted before prediction.'
+            )
+        try:
+            decoded = self.label_encoder_.inverse_transform(
+                np.asarray(class_indices).reshape(-1).tolist()
+            )
+        except LabelMappingError as exc:
+            raise BenchmarkClassificationError(str(exc)) from exc
+        return np.asarray(decoded, dtype=object)
 
     def export_artifacts(self) -> dict[str, Any]:
         artifacts: dict[str, Any] = {
