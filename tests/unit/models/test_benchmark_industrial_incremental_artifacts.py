@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -7,15 +8,20 @@ import numpy as np
 
 from benchmark.industrial import (
     ArtifactSpec,
+    BenchmarkRunRecord,
     BenchmarkSuiteConfig,
     DatasetSpec,
     ModelSpec,
     RunSpec,
+    RunStatus,
     TaskType,
     discover_local_ucr_datasets,
     run_tsc_benchmark_suite,
 )
-from benchmark.industrial.experiments.artifacts import sanitize_artifact_payload
+from benchmark.industrial.experiments.artifacts import (
+    IncrementalBenchmarkArtifactWriter,
+    sanitize_artifact_payload,
+)
 from benchmark.industrial.models.kernel_artifacts import export_kernel_learning_artifacts
 from fedot_ind.core.kernel_learning.contracts import KernelBundle, KernelSelectionReport
 from fedot_ind.core.kernel_learning.selection import KernelImportanceConfig, select_significant_generators
@@ -61,6 +67,73 @@ def test_tsc_suite_writes_incremental_artifacts_for_each_run(tmp_path: Path):
     assert (root / "records" / "metrics.jsonl").exists()
     assert (root / "records" / "predictions.jsonl").exists()
     assert (root / "aggregate" / "runs.csv").exists()
+
+
+def test_incremental_writer_persists_nonempty_model_artifacts(tmp_path: Path):
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.TS_CLASSIFICATION,
+        datasets=(_in_memory_dataset("toy"),),
+        models=(ModelSpec(adapter_name="majority_class", display_name="MajorityClass"),),
+        metrics=("accuracy",),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name="model_artifacts", primary_metric="accuracy", show_progress=False),
+    )
+    writer = IncrementalBenchmarkArtifactWriter(config, run_id="model_artifacts_run")
+    model_artifacts = {
+        "adapter": "future_fusion_classifier",
+        "training_history": {"best_epoch": 2, "train_duration_s": 1.5},
+        "fusion_method": "concat",
+        "d_model": 16,
+        "num_parameters": {"total": 128},
+    }
+
+    run_record = writer.write_run(
+        BenchmarkRunRecord(
+            run_id="model_artifacts_run",
+            benchmark="in_memory_tsc",
+            dataset_name="toy",
+            subset="default",
+            series_id="toy",
+            model_name="FutureConcat",
+            status=RunStatus.SUCCESS,
+        ),
+        model_artifacts=model_artifacts,
+    )
+
+    artifacts_path = tmp_path / "model_artifacts_run" / "runs" / "toy" / "FutureConcat" / "model_artifacts.json"
+    assert artifacts_path.exists()
+    payload = json.loads(artifacts_path.read_text(encoding="utf-8"))
+    assert payload == model_artifacts
+    assert run_record.metadata["artifact_paths"]["model_artifacts"] == str(artifacts_path)
+
+
+def test_incremental_writer_skips_empty_model_artifacts(tmp_path: Path):
+    config = BenchmarkSuiteConfig(
+        task_type=TaskType.TS_CLASSIFICATION,
+        datasets=(_in_memory_dataset("toy"),),
+        models=(ModelSpec(adapter_name="majority_class", display_name="MajorityClass"),),
+        metrics=("accuracy",),
+        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=True),
+        run_spec=RunSpec(run_name="empty_artifacts", primary_metric="accuracy", show_progress=False),
+    )
+    writer = IncrementalBenchmarkArtifactWriter(config, run_id="empty_artifacts_run")
+
+    run_record = writer.write_run(
+        BenchmarkRunRecord(
+            run_id="empty_artifacts_run",
+            benchmark="in_memory_tsc",
+            dataset_name="toy",
+            subset="default",
+            series_id="toy",
+            model_name="MajorityClass",
+            status=RunStatus.SUCCESS,
+        ),
+        model_artifacts={},
+    )
+
+    run_dir = tmp_path / "empty_artifacts_run" / "runs" / "toy" / "MajorityClass"
+    assert not (run_dir / "model_artifacts.json").exists()
+    assert "model_artifacts" not in run_record.metadata["artifact_paths"]
 
 
 def test_kernel_artifact_export_summarizes_selection_and_kernel_shapes():
