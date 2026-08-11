@@ -139,8 +139,137 @@ class PDLClassifierAdapter:
 
 
 @dataclass
-class FutureFusionClassifierAdapter:
-    """Thin benchmark adapter over MultimodalDatasetPreparer + FutureClassifierTrainer."""
+class MiniRocketRidgeClassifierAdapter:
+    """MiniRocket feature transform + RidgeClassifierCV baseline for TSC benchmarks.
+
+    Uses the same MiniRocketFeatures / get_minirocket_features primitives as
+    MiniRocketExtractor, but fits kernels once on train and reuses them on test.
+    """
+
+    name: str
+    tags: tuple[str, ...] = ('baseline', 'classification', 'minirocket')
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    kernels_: list[Any] | None = None
+    classifier_: Any | None = None
+    num_features_: int | None = None
+    random_state_: int | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from sklearn.linear_model import RidgeClassifierCV  # noqa: F401
+
+            from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import (  # noqa: F401
+                MiniRocketFeatures,
+                get_minirocket_features,
+            )
+            from fedot_ind.core.operation.transformation.torch_backend.io import (  # noqa: F401
+                normalize_time_series_tensor,
+            )
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'MiniRocketRidge classifier is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from sklearn.linear_model import RidgeClassifierCV
+
+        params = dict(self.params or {})
+        num_features = int(params.pop('num_features', 1000))
+        random_state = params.pop('random_state', params.pop('seed', 42))
+        if random_state is not None:
+            random_state = int(random_state)
+        max_dilations_per_kernel = int(params.pop('max_dilations_per_kernel', 32))
+        chunksize = params.pop('chunksize', None)
+        device = params.pop('device', 'cpu')
+        ridge_kwargs = dict(params.pop('ridge', {}))
+        if params:
+            raise BenchmarkClassificationError(
+                f'Unsupported MiniRocketRidge adapter params: {sorted(params)}'
+            )
+
+        series = _to_minirocket_series(features)
+        n_channels = int(series.shape[1])
+        self.random_state_ = random_state
+        self.kernels_ = []
+
+        channel_features: list[np.ndarray] = []
+        for channel_index in range(n_channels):
+            channel = series[:, channel_index: channel_index + 1, :]
+            kernel = _fit_minirocket_kernel(
+                channel,
+                num_features=num_features,
+                max_dilations_per_kernel=max_dilations_per_kernel,
+                random_state=random_state,
+                device=device,
+            )
+            self.kernels_.append(kernel)
+            channel_features.append(
+                _extract_minirocket_features(channel, kernel, chunksize=chunksize)
+            )
+
+        feature_matrix = np.concatenate(channel_features, axis=1)
+        self.num_features_ = int(feature_matrix.shape[1])
+        self.classifier_ = RidgeClassifierCV(**ridge_kwargs)
+        self.classifier_.fit(feature_matrix, np.asarray(target).reshape(-1))
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.kernels_ is None or self.classifier_ is None:
+            raise BenchmarkClassificationError(
+                'MiniRocketRidgeClassifierAdapter must be fitted before prediction.'
+            )
+        feature_matrix = self._transform_features(features)
+        return np.asarray(self.classifier_.predict(feature_matrix), dtype=object)
+
+    def export_artifacts(self) -> dict[str, Any]:
+        artifacts: dict[str, Any] = {
+            'adapter': 'minirocket_ridge_classifier',
+            'num_features': self.num_features_,
+            'random_state': self.random_state_,
+            'n_kernels': None if self.kernels_ is None else len(self.kernels_),
+        }
+        if self.classifier_ is not None:
+            artifacts['ridge'] = {
+                'alpha_': _json_safe(getattr(self.classifier_, 'alpha_', None)),
+                'coef_shape': list(getattr(self.classifier_, 'coef_', np.empty(0)).shape),
+                'classes_': [
+                    _json_safe(label)
+                    for label in getattr(self.classifier_, 'classes_', ())
+                ],
+            }
+        return artifacts
+
+    def _transform_features(self, features: np.ndarray) -> np.ndarray:
+        assert self.kernels_ is not None
+        params = dict(self.params or {})
+        chunksize = params.get('chunksize')
+        series = _to_minirocket_series(features)
+        if series.shape[1] != len(self.kernels_):
+            raise BenchmarkClassificationError(
+                f'MiniRocketRidge expected {len(self.kernels_)} channels, '
+                f'got {series.shape[1]}.'
+            )
+        channel_features = [
+            _extract_minirocket_features(
+                series[:, channel_index: channel_index + 1, :],
+                kernel,
+                chunksize=chunksize,
+            )
+            for channel_index, kernel in enumerate(self.kernels_)
+        ]
+        return np.concatenate(channel_features, axis=1)
+
+
+@dataclass
+class FutureMultimodalClassifierAdapter:
+    """Thin benchmark adapter over MultimodalDatasetPreparer + FutureClassifierTrainer.
+
+    Supported top-level params include modalities, fusion_method, d_model, and
+    nested ``preparation`` / ``training`` blocks. Training accepts seed, device,
+    epochs, learning_rate, patience (alias of early_stopping_patience),
+    batch_size or train_batch_size/val_batch_size, and validation_fraction as the
+    train/val split policy. Set ``output_diagnostics=True`` to attach compact
+    fusion diagnostics to export_artifacts().
+    """
 
     name: str
     tags: tuple[str, ...] = ('industrial', 'classification', 'future', 'multimodal')
@@ -150,6 +279,8 @@ class FutureFusionClassifierAdapter:
     trainer_: Any | None = None
     label_encoder_: Any | None = None
     history_: dict[str, Any] | None = None
+    diagnostics_: dict[str, Any] | None = None
+    output_diagnostics_: bool = False
 
     @property
     def label_mapping_(self) -> dict[str, int] | None:
@@ -171,7 +302,7 @@ class FutureFusionClassifierAdapter:
             )
             return RunStatus.SUCCESS, 'ready'
         except Exception as exc:  # pragma: no cover
-            return RunStatus.NOT_AVAILABLE, f'FUTURE fusion classifier is unavailable: {exc}'
+            return RunStatus.NOT_AVAILABLE, f'FUTURE multimodal classifier is unavailable: {exc}'
 
     def fit(self, features: np.ndarray, target: np.ndarray) -> None:
         from fedot_ind.core.models.future import (
@@ -184,6 +315,7 @@ class FutureFusionClassifierAdapter:
         params = dict(self.params or {})
         preparation_kwargs = dict(params.pop('preparation', {}))
         training_kwargs = dict(params.pop('training', {}))
+        self.output_diagnostics_ = bool(params.pop('output_diagnostics', False))
         classifier_kwargs = dict(params)
 
         fusion_method = classifier_kwargs.pop('fusion_method', 'concat')
@@ -225,8 +357,17 @@ class FutureFusionClassifierAdapter:
             head_activation=head_activation,
             raw_modality=raw_modality,
         )
+
+        train_batch_size, val_batch_size, training_kwargs = _resolve_future_batch_sizes(
+            training_kwargs
+        )
+        # validation_fraction / drop_last are adapter split/loader policy, not trainer fields.
         validation_fraction = float(training_kwargs.pop('validation_fraction', 0.0))
         drop_last = bool(training_kwargs.pop('drop_last', False))
+        if 'patience' in training_kwargs:
+            patience = training_kwargs.pop('patience')
+            training_kwargs.setdefault('early_stopping_patience', patience)
+        training_kwargs['batch_size'] = train_batch_size
         allowed_training_keys = {field.name for field in fields(FutureTrainingConfig)}
         unknown_training_keys = sorted(set(training_kwargs) - allowed_training_keys)
         if unknown_training_keys:
@@ -251,7 +392,7 @@ class FutureFusionClassifierAdapter:
 
         train_loader = make_bundle_dataloader(
             fit_bundle,
-            batch_size=training_config.batch_size,
+            batch_size=train_batch_size,
             shuffle=True,
             device=training_config.device,
             seed=training_config.seed,
@@ -262,7 +403,7 @@ class FutureFusionClassifierAdapter:
         if val_bundle is not None:
             val_loader = make_bundle_dataloader(
                 val_bundle,
-                batch_size=training_config.batch_size,
+                batch_size=val_batch_size,
                 shuffle=False,
                 device=training_config.device,
                 seed=training_config.seed,
@@ -285,6 +426,10 @@ class FutureFusionClassifierAdapter:
             'num_parameters': history.num_parameters,
             'best_validation_loss': history.best_validation_loss,
         }
+        self.diagnostics_ = None
+        if self.output_diagnostics_:
+            aux = self.trainer_.evaluate_diagnostics(fit_bundle.without_target())
+            self.diagnostics_ = _compact_fusion_diagnostics(aux)
 
     def predict(self, features: np.ndarray) -> np.ndarray:
         if (
@@ -293,7 +438,7 @@ class FutureFusionClassifierAdapter:
             or self.label_encoder_ is None
         ):
             raise BenchmarkClassificationError(
-                'FutureFusionClassifierAdapter must be fitted before prediction.'
+                'FutureMultimodalClassifierAdapter must be fitted before prediction.'
             )
         test_bundle = self.preparer_.transform(features)
         predictions = (
@@ -308,7 +453,7 @@ class FutureFusionClassifierAdapter:
 
         if self.label_encoder_ is None:
             raise BenchmarkClassificationError(
-                'FutureFusionClassifierAdapter must be fitted before prediction.'
+                'FutureMultimodalClassifierAdapter must be fitted before prediction.'
             )
         try:
             decoded = self.label_encoder_.inverse_transform(
@@ -320,12 +465,15 @@ class FutureFusionClassifierAdapter:
 
     def export_artifacts(self) -> dict[str, Any]:
         artifacts: dict[str, Any] = {
-            'adapter': 'future_fusion_classifier',
+            'adapter': 'future_multimodal_classifier',
             'label_mapping': dict(self.label_mapping_ or {}),
+            'output_diagnostics': self.output_diagnostics_,
         }
         if self.history_ is not None:
             artifacts['training_history'] = dict(self.history_)
             artifacts['train_duration_s'] = self.history_.get('train_duration_s')
+        if self.diagnostics_ is not None:
+            artifacts['diagnostics'] = dict(self.diagnostics_)
         if self.trainer_ is not None:
             artifacts['fusion_method'] = self.trainer_.model.fusion_method.value
             artifacts['d_model'] = self.trainer_.model.d_model
@@ -346,8 +494,11 @@ CLASSIFICATION_ADAPTER_REGISTRY: dict[str, type] = {
     'kernel_ensemble_classifier': KernelEnsembleClassifierAdapter,
     'pdl_classifier': PDLClassifierAdapter,
     'pdl_clf': PDLClassifierAdapter,
-    'future_fusion_classifier': FutureFusionClassifierAdapter,
-    'future_classifier': FutureFusionClassifierAdapter,
+    'minirocket_ridge_classifier': MiniRocketRidgeClassifierAdapter,
+    'future_multimodal_classifier': FutureMultimodalClassifierAdapter,
+    # Backward-compatible aliases from main.
+    'future_fusion_classifier': FutureMultimodalClassifierAdapter,
+    'future_classifier': FutureMultimodalClassifierAdapter,
     'fedot_industrial_classifier': OptionalExternalClassifier,
 }
 
@@ -442,11 +593,119 @@ def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: st
     )
 
 
+def _resolve_future_batch_sizes(training_kwargs: dict[str, Any]) -> tuple[int, int, dict[str, Any]]:
+    kwargs = dict(training_kwargs)
+    default_batch_size = int(kwargs.pop('batch_size', 32))
+    train_batch_size = int(kwargs.pop('train_batch_size', default_batch_size))
+    val_batch_size = int(kwargs.pop('val_batch_size', default_batch_size))
+    return train_batch_size, val_batch_size, kwargs
+
+
+def _to_minirocket_series(features: np.ndarray) -> np.ndarray:
+    from fedot_ind.core.operation.transformation.torch_backend.io import (
+        normalize_time_series_tensor,
+    )
+
+    series = normalize_time_series_tensor(features)
+    return np.asarray(series, dtype=np.float32)
+
+
+def _fit_minirocket_kernel(
+    channel: np.ndarray,
+    *,
+    num_features: int,
+    max_dilations_per_kernel: int,
+    random_state: int | None,
+    device: Any,
+):
+    from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import (
+        MiniRocketFeatures,
+    )
+
+    kernel = MiniRocketFeatures(
+        input_dim=1,
+        seq_len=int(channel.shape[2]),
+        num_features=num_features,
+        max_dilations_per_kernel=max_dilations_per_kernel,
+        random_state=random_state,
+    ).to(device)
+    kernel.fit(channel)
+    kernel.eval()
+    return kernel
+
+
+def _extract_minirocket_features(
+    channel: np.ndarray,
+    kernel: Any,
+    *,
+    chunksize: int | None,
+) -> np.ndarray:
+    from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import (
+        get_minirocket_features,
+    )
+
+    kwargs: dict[str, Any] = {'convert_to_numpy': True}
+    if chunksize is not None:
+        kwargs['chunksize'] = int(chunksize)
+    features = get_minirocket_features(channel, kernel, **kwargs)
+    # get_minirocket_features returns (N, F, 1); flatten to (N, F).
+    return np.asarray(features, dtype=np.float32).reshape(features.shape[0], -1)
+
+
+def _compact_fusion_diagnostics(aux: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        'active_modalities': list(getattr(aux, 'active_modalities', []) or []),
+        'embedding_dim': int(getattr(aux, 'embedding_dim', 0) or 0),
+    }
+    num_parameters = getattr(aux, 'num_parameters', None)
+    if num_parameters is not None:
+        payload['num_parameters'] = _json_safe(num_parameters)
+    for key in (
+        'alpha_stats',
+        'gamma_beta_summary',
+        'attention_summary',
+        'pooling',
+        'num_latents',
+        'num_heads',
+        'num_layers',
+    ):
+        value = getattr(aux, key, None)
+        if value is not None:
+            payload[key] = _json_safe(value)
+    logits = getattr(aux, 'logits', None)
+    if logits is not None and hasattr(logits, 'shape'):
+        payload['logits_shape'] = list(logits.shape)
+    h_final = getattr(aux, 'h_final', None)
+    if h_final is not None and hasattr(h_final, 'shape'):
+        payload['h_final_shape'] = list(h_final.shape)
+    return payload
+
+
+def _json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if hasattr(value, 'detach') and hasattr(value, 'cpu'):
+        return _json_safe(value.detach().cpu().numpy())
+    if hasattr(value, 'item'):
+        try:
+            return value.item()
+        except Exception:
+            pass
+    return str(value)
+
+
 __all__ = [
     "CLASSIFICATION_ADAPTER_REGISTRY",
-    "FutureFusionClassifierAdapter",
+    "FutureMultimodalClassifierAdapter",
     "KernelEnsembleClassifierAdapter",
     "MajorityClassClassifier",
+    "MiniRocketRidgeClassifierAdapter",
     "NearestCentroidClassifier",
     "OptionalExternalClassifier",
     "PDLClassifierAdapter",
