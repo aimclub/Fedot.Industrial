@@ -228,21 +228,15 @@ class FutureFusionClassifierAdapter:
             head_activation=head_activation,
             raw_modality=raw_modality,
         )
-        training_config = FutureTrainingConfig(
-            epochs=int(training_kwargs.pop('epochs', 2)),
-            batch_size=int(training_kwargs.pop('batch_size', 32)),
-            learning_rate=float(training_kwargs.pop('learning_rate', 1e-3)),
-            weight_decay=float(training_kwargs.pop('weight_decay', 0.0)),
-            early_stopping_patience=training_kwargs.pop('early_stopping_patience', None),
-            device=training_kwargs.pop('device', 'cpu'),
-            seed=training_kwargs.pop('seed', 42),
-        )
         validation_fraction = float(training_kwargs.pop('validation_fraction', 0.0))
         drop_last = bool(training_kwargs.pop('drop_last', False))
-        if training_kwargs:
+        allowed_training_keys = {field.name for field in fields(FutureTrainingConfig)}
+        unknown_training_keys = sorted(set(training_kwargs) - allowed_training_keys)
+        if unknown_training_keys:
             raise BenchmarkClassificationError(
-                f'Unsupported FUTURE training params: {sorted(training_kwargs)}'
+                f'Unsupported FUTURE training params: {unknown_training_keys}'
             )
+        training_config = FutureTrainingConfig(**training_kwargs)
 
         from fedot_ind.core.multimodal.batching import (
             make_bundle_dataloader,
