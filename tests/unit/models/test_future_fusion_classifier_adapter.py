@@ -109,3 +109,87 @@ def test_future_fusion_classifier_decode_rejects_oov_class_index():
         match='out of vocabulary',
     ):
         model._decode_predicted_labels(np.asarray([0, 99]))
+
+
+def test_future_fusion_derives_preparation_modalities_when_preparation_omitted():
+    from fedot_ind.core.multimodal.enums import MultimodalModality
+
+    rng = np.random.default_rng(2)
+    train_x = rng.normal(size=(16, 32))
+    train_y = np.asarray(['a', 'b'] * 8, dtype=object)
+
+    model = FutureFusionClassifierAdapter(
+        name='FutureConcat',
+        params={
+            'fusion_method': 'concat',
+            'd_model': 16,
+            'modalities': ['raw'],
+            'training': {
+                'epochs': 1,
+                'batch_size': 8,
+                'device': 'cpu',
+                'seed': 0,
+            },
+        },
+    )
+    model.fit(train_x, train_y)
+
+    assert tuple(model.preparer_.config.modalities) == (MultimodalModality.raw,)
+
+
+def test_future_fusion_derives_multiple_preparation_modalities_when_omitted():
+    from fedot_ind.core.multimodal.enums import MultimodalModality
+
+    rng = np.random.default_rng(4)
+    train_x = rng.normal(size=(16, 64))
+    train_y = np.asarray(['a', 'b'] * 8, dtype=object)
+
+    model = FutureFusionClassifierAdapter(
+        name='FutureConcat',
+        params={
+            'fusion_method': 'concat',
+            'd_model': 16,
+            'modalities': ['raw', 'stats', 'stft'],
+            'training': {
+                'epochs': 1,
+                'batch_size': 8,
+                'device': 'cpu',
+                'seed': 0,
+            },
+        },
+    )
+    model.fit(train_x, train_y)
+
+    assert tuple(model.preparer_.config.modalities) == (
+        MultimodalModality.raw,
+        MultimodalModality.stats,
+        MultimodalModality.stft,
+    )
+    assert set(model.preparer_.config.modalities) == set(
+        model.trainer_.model.modalities
+    )
+
+
+def test_future_fusion_defaults_preparation_to_raw_when_modalities_none():
+    from fedot_ind.core.multimodal.enums import MultimodalModality
+
+    rng = np.random.default_rng(3)
+    train_x = rng.normal(size=(16, 32))
+    train_y = np.asarray(['a', 'b'] * 8, dtype=object)
+
+    model = FutureFusionClassifierAdapter(
+        name='FutureConcat',
+        params={
+            'fusion_method': 'concat',
+            'd_model': 16,
+            'training': {
+                'epochs': 1,
+                'batch_size': 8,
+                'device': 'cpu',
+                'seed': 0,
+            },
+        },
+    )
+    model.fit(train_x, train_y)
+
+    assert tuple(model.preparer_.config.modalities) == (MultimodalModality.raw,)

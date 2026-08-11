@@ -179,7 +179,6 @@ class FutureFusionClassifierAdapter:
             FutureClassifierTrainer,
             FutureTrainingConfig,
         )
-        from fedot_ind.core.multimodal.configs import build_preparation_config
         from fedot_ind.core.multimodal.preparation import MultimodalDatasetPreparer
 
         params = dict(self.params or {})
@@ -202,9 +201,7 @@ class FutureFusionClassifierAdapter:
             )
 
         self.preparer_ = MultimodalDatasetPreparer(
-            config=build_preparation_config(**preparation_kwargs)
-            if preparation_kwargs
-            else build_preparation_config()
+            config=_build_future_preparation_config(preparation_kwargs, modalities)
         )
         train_bundle = self.preparer_.fit_transform(features, target)
         if train_bundle.target is None:
@@ -383,6 +380,31 @@ def build_classification_model(spec: ModelSpec):
         kwargs['params'] = dict(spec.params)
     kwargs.update(_ADAPTER_EXTRA_KWARGS.get(key, {}))
     return adapter_cls(**kwargs)
+
+
+def _build_future_preparation_config(
+    preparation_kwargs: dict[str, Any],
+    modalities: Any,
+) -> Any:
+    """Build preparation config, deriving modalities from classifier when omitted."""
+    from fedot_ind.core.multimodal.configs import (
+        build_preparation_config,
+        default_transformation_config,
+    )
+    from fedot_ind.core.multimodal.rules import normalize_unique_modalities
+
+    if preparation_kwargs:
+        return build_preparation_config(**preparation_kwargs)
+
+    resolved_modalities = normalize_unique_modalities(
+        modalities if modalities is not None else ('raw',)
+    )
+    defaults = default_transformation_config()
+    transformation_config = {
+        modality: dict(defaults.get(modality, {}))
+        for modality in resolved_modalities
+    }
+    return build_preparation_config(transformation_config=transformation_config)
 
 
 def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
