@@ -193,11 +193,15 @@ def test_future_trainer_fit_predict_and_history(fusion_method, tmp_path: Path):
 
     checkpoint_path = tmp_path / "future_trainer.pt"
     trainer.save_checkpoint(checkpoint_path)
+    assert checkpoint_path.exists()
+    assert checkpoint_path.with_suffix(".meta.json").exists()
     restored = FutureClassifierTrainer.load_checkpoint(
         checkpoint_path, device="cpu"
     )
     restored_predictions = restored.predict(test_bundle.without_target())
     assert torch.equal(predictions, restored_predictions)
+    assert restored.history is not None
+    assert restored.history.best_epoch == history.best_epoch
 
 
 def test_future_trainer_restores_best_weights_with_early_stopping():
@@ -232,6 +236,59 @@ def test_future_trainer_restores_best_weights_with_early_stopping():
     current_state = trainer.model.state_dict()
     for key, value in trainer._best_state_dict.items():
         assert torch.equal(current_state[key], value)
+
+
+def test_future_trainer_checkpoint_splits_weights_and_metadata(tmp_path: Path):
+    import json
+
+    bundle = _make_supervised_bundle(batch_size=8, num_classes=2, seed=21)
+    model = ConfigurableMultimodalFusionClassifier(
+        modalities=_MODALITIES,
+        num_classes=2,
+        fusion_method="concat",
+        d_model=16,
+    )
+    trainer = FutureClassifierTrainer(
+        model=model,
+        config=FutureTrainingConfig(epochs=1, batch_size=4, device="cpu", seed=21),
+    )
+    trainer.fit(
+        _make_loader(bundle, batch_size=4, shuffle=False, seed=21),
+        build_bundle=bundle,
+    )
+
+    weights_path = tmp_path / "checkpoint.pt"
+    meta_path = weights_path.with_suffix(".meta.json")
+    trainer.save_checkpoint(weights_path)
+
+    state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+    assert isinstance(state_dict, dict)
+    assert state_dict
+    assert all(isinstance(value, torch.Tensor) for value in state_dict.values())
+    assert "classifier_config" not in state_dict
+    assert "model_state_dict" not in state_dict
+
+    metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert set(metadata) >= {
+        "classifier_config",
+        "shapes",
+        "modalities",
+        "training_config",
+        "history",
+    }
+    assert metadata["classifier_config"]["num_classes"] == 2
+    assert metadata["history"] is not None
+
+    orphan_weights = tmp_path / "orphan.pt"
+    torch.save(state_dict, orphan_weights)
+    with pytest.raises(FileNotFoundError, match="metadata"):
+        FutureClassifierTrainer.load_checkpoint(orphan_weights, device="cpu")
+
+    restored = FutureClassifierTrainer.load_checkpoint(weights_path, device="cpu")
+    assert torch.equal(
+        trainer.predict(bundle.without_target()),
+        restored.predict(bundle.without_target()),
+    )
 
 
 def test_device_timer_cpu_measures_positive_elapsed():

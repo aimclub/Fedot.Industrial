@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from collections.abc import Iterable
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -29,6 +30,10 @@ from fedot_ind.core.operation.transformation.torch_backend.io import (
     set_torch_seed,
 )
 from fedot_ind.tools.time_counter import DeviceTimer
+
+
+def _checkpoint_meta_path(weights_path: Path) -> Path:
+    return weights_path.with_suffix(".meta.json")
 
 
 class FutureClassifierTrainer:
@@ -188,15 +193,17 @@ class FutureClassifierTrainer:
             self.model.aux_output_config = previous_aux_config
 
     def save_checkpoint(self, path: str | Path) -> None:
-        """Persist model weights, rebuild metadata, config and history."""
+        """Persist model weights (``.pt``) and JSON metadata (``.meta.json``)."""
 
         if self.model.encoders is None or self.model.fusion is None:
             raise ValueError("Model must be built before saving a checkpoint.")
         if self._build_shapes is None:
             raise ValueError("Missing build shapes. Call fit() before save_checkpoint().")
 
-        payload = {
-            "model_state_dict": self.model.state_dict(),
+        weights_path = Path(path)
+        training_config = asdict(self.config)
+        training_config["device"] = str(self.device)
+        metadata = {
             "classifier_config": self._classifier_config(),
             "shapes": {
                 modality.value: list(shape)
@@ -205,10 +212,14 @@ class FutureClassifierTrainer:
             "modalities": [
                 modality.value for modality in self._build_shapes
             ],
-            "training_config": asdict(self.config),
+            "training_config": training_config,
             "history": None if self.history is None else asdict(self.history),
         }
-        torch.save(payload, Path(path))
+        torch.save(self.model.state_dict(), weights_path)
+        _checkpoint_meta_path(weights_path).write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     @classmethod
     def load_checkpoint(
@@ -218,20 +229,29 @@ class FutureClassifierTrainer:
         device: Any = "cpu",
         config: FutureTrainingConfig | None = None,
     ) -> "FutureClassifierTrainer":
-        """Restore a trainer and rebuilt model from ``save_checkpoint`` output."""
+        """Restore a trainer from ``save_checkpoint`` weights + JSON metadata."""
 
-        payload = torch.load(Path(path), map_location="cpu", weights_only=False)
-        classifier_config = dict(payload["classifier_config"])
+        weights_path = Path(path)
+        meta_path = _checkpoint_meta_path(weights_path)
+        if not meta_path.exists():
+            raise FileNotFoundError(
+                f"Checkpoint metadata not found: {meta_path}. "
+                "Expected a sidecar JSON written by save_checkpoint()."
+            )
+
+        state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+        classifier_config = dict(metadata["classifier_config"])
         model = ConfigurableMultimodalFusionClassifier(**classifier_config)
 
         shapes = {
             MultimodalModality(name): tuple(shape)
-            for name, shape in payload["shapes"].items()
+            for name, shape in metadata["shapes"].items()
         }
-        modalities = tuple(MultimodalModality(name) for name in payload["modalities"])
+        modalities = tuple(MultimodalModality(name) for name in metadata["modalities"])
         model.build_from_shapes(shapes, bundle_modalities=modalities)
 
-        raw_config = dict(payload["training_config"])
+        raw_config = dict(metadata["training_config"])
         # Backward-compatible ignore of loader-owned fields from older checkpoints.
         raw_config.pop("validation_fraction", None)
         raw_config.pop("drop_last", None)
@@ -239,10 +259,10 @@ class FutureClassifierTrainer:
         training_config.device = device
         trainer = cls(model=model, config=training_config)
         trainer._build_shapes = shapes
-        trainer.model.load_state_dict(payload["model_state_dict"])
+        trainer.model.load_state_dict(state_dict)
         trainer.model.to(trainer.device)
 
-        history_payload = payload.get("history")
+        history_payload = metadata.get("history")
         if history_payload is not None:
             trainer.history = FutureTrainingHistory(**history_payload)
         trainer._best_state_dict = copy.deepcopy(trainer.model.state_dict())
