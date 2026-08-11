@@ -24,7 +24,10 @@ from fedot_ind.core.models.future.tools import (
 from fedot_ind.core.multimodal.batching import make_bundle_dataloader
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
-from fedot_ind.core.operation.transformation.torch_backend.io import resolve_torch_device
+from fedot_ind.core.operation.transformation.torch_backend.io import (
+    resolve_torch_device,
+    set_torch_seed,
+)
 from fedot_ind.tools.time_counter import DeviceTimer
 
 
@@ -79,7 +82,7 @@ class FutureClassifierTrainer:
             when these arguments are omitted.
         """
 
-        self._set_seed(self.config.seed)
+        set_torch_seed(self.config.seed)
         self._ensure_built_for_fit(build_bundle=build_bundle)
         self.model.to(self.device)
 
@@ -409,14 +412,6 @@ class FutureClassifierTrainer:
                 f"{name}.target must contain integer class indices, "
                 f"got dtype={bundle.target.dtype}."
             )
-
-    @staticmethod
-    def _set_seed(seed: int | None) -> None:
-        if seed is None:
-            return
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
 
 
 __all__ = [
