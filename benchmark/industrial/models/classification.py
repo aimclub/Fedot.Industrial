@@ -61,7 +61,7 @@ class NearestCentroidClassifier:
 class OptionalExternalClassifier:
     dependency_name: str
     name: str
-    tags: tuple[str, ...] = ('industrial', 'classification', 'external')
+    tags: tuple[str, ...] = ('baseline', 'classification', 'external')
     optional: bool = True
 
     def availability(self) -> tuple[RunStatus, str]:
@@ -277,11 +277,19 @@ class FutureMultimodalClassifierAdapter:
     params: dict[str, Any] | None = None
     preparer_: Any | None = None
     trainer_: Any | None = None
-    label_mapping_: dict[str, int] | None = None
-    inverse_label_mapping_: dict[int, str] | None = None
+    label_encoder_: Any | None = None
     history_: dict[str, Any] | None = None
     diagnostics_: dict[str, Any] | None = None
     output_diagnostics_: bool = False
+
+    @property
+    def label_mapping_(self) -> dict[str, int] | None:
+        if self.label_encoder_ is None:
+            return None
+        return {
+            str(label): int(index)
+            for label, index in self.label_encoder_.as_label_mapping().items()
+        }
 
     def availability(self) -> tuple[RunStatus, str]:
         try:
@@ -302,7 +310,6 @@ class FutureMultimodalClassifierAdapter:
             FutureClassifierTrainer,
             FutureTrainingConfig,
         )
-        from fedot_ind.core.multimodal.configs import build_preparation_config
         from fedot_ind.core.multimodal.preparation import MultimodalDatasetPreparer
 
         params = dict(self.params or {})
@@ -326,35 +333,17 @@ class FutureMultimodalClassifierAdapter:
             )
 
         self.preparer_ = MultimodalDatasetPreparer(
-            config=build_preparation_config(**preparation_kwargs)
-            if preparation_kwargs
-            else build_preparation_config()
+            config=_build_future_preparation_config(preparation_kwargs, modalities)
         )
         train_bundle = self.preparer_.fit_transform(features, target)
         if train_bundle.target is None:
             raise BenchmarkClassificationError('Prepared train bundle is missing targets.')
-
-        if self.preparer_.label_mapping_ is not None:
-            self.label_mapping_ = {
-                str(label): int(index)
-                for label, index in self.preparer_.label_mapping_.items()
-            }
-            num_classes = len(self.label_mapping_)
-        else:
-            unique_targets = sorted(
-                int(value) for value in train_bundle.target.unique().tolist()
+        if self.preparer_.label_encoder_ is None:
+            raise BenchmarkClassificationError(
+                'FUTURE adapter requires categorical targets; float targets are not supported.'
             )
-            if any(label < 0 for label in unique_targets):
-                raise BenchmarkClassificationError(
-                    'FUTURE adapter expects non-negative integer class labels.'
-                )
-            num_classes = int(train_bundle.target.max().item()) + 1
-            self.label_mapping_ = {
-                str(label): int(label) for label in unique_targets
-            }
-        self.inverse_label_mapping_ = {
-            index: label for label, index in self.label_mapping_.items()
-        }
+        self.label_encoder_ = self.preparer_.label_encoder_
+        num_classes = self.label_encoder_.num_classes
 
         model = ConfigurableMultimodalFusionClassifier(
             num_classes=num_classes,
@@ -372,27 +361,20 @@ class FutureMultimodalClassifierAdapter:
         train_batch_size, val_batch_size, training_kwargs = _resolve_future_batch_sizes(
             training_kwargs
         )
-        patience = training_kwargs.pop('patience', None)
-        early_stopping_patience = training_kwargs.pop('early_stopping_patience', patience)
-        if early_stopping_patience is not None:
-            early_stopping_patience = int(early_stopping_patience)
-
-        training_config = FutureTrainingConfig(
-            epochs=int(training_kwargs.pop('epochs', 2)),
-            batch_size=train_batch_size,
-            learning_rate=float(training_kwargs.pop('learning_rate', 1e-3)),
-            weight_decay=float(training_kwargs.pop('weight_decay', 0.0)),
-            early_stopping_patience=early_stopping_patience,
-            device=training_kwargs.pop('device', 'cpu'),
-            seed=training_kwargs.pop('seed', 42),
-        )
-        # validation_fraction is the train/val split policy for the adapter.
+        # validation_fraction / drop_last are adapter split/loader policy, not trainer fields.
         validation_fraction = float(training_kwargs.pop('validation_fraction', 0.0))
         drop_last = bool(training_kwargs.pop('drop_last', False))
-        if training_kwargs:
+        if 'patience' in training_kwargs:
+            patience = training_kwargs.pop('patience')
+            training_kwargs.setdefault('early_stopping_patience', patience)
+        training_kwargs['batch_size'] = train_batch_size
+        allowed_training_keys = {field.name for field in fields(FutureTrainingConfig)}
+        unknown_training_keys = sorted(set(training_kwargs) - allowed_training_keys)
+        if unknown_training_keys:
             raise BenchmarkClassificationError(
-                f'Unsupported FUTURE training params: {sorted(training_kwargs)}'
+                f'Unsupported FUTURE training params: {unknown_training_keys}'
             )
+        training_config = FutureTrainingConfig(**training_kwargs)
 
         from fedot_ind.core.multimodal.batching import (
             make_bundle_dataloader,
@@ -453,7 +435,7 @@ class FutureMultimodalClassifierAdapter:
         if (
             self.preparer_ is None
             or self.trainer_ is None
-            or self.inverse_label_mapping_ is None
+            or self.label_encoder_ is None
         ):
             raise BenchmarkClassificationError(
                 'FutureMultimodalClassifierAdapter must be fitted before prediction.'
@@ -462,10 +444,24 @@ class FutureMultimodalClassifierAdapter:
         predictions = (
             self.trainer_.predict(test_bundle.without_target()).detach().cpu().numpy()
         )
-        return np.asarray(
-            [self.inverse_label_mapping_[int(index)] for index in predictions],
-            dtype=object,
+        return self._decode_predicted_labels(predictions)
+
+    def _decode_predicted_labels(self, class_indices: np.ndarray) -> np.ndarray:
+        from fedot_ind.core.architecture.preprocessing.label_mapping import (
+            LabelMappingError,
         )
+
+        if self.label_encoder_ is None:
+            raise BenchmarkClassificationError(
+                'FutureMultimodalClassifierAdapter must be fitted before prediction.'
+            )
+        try:
+            decoded = self.label_encoder_.inverse_transform(
+                np.asarray(class_indices).reshape(-1).tolist()
+            )
+        except LabelMappingError as exc:
+            raise BenchmarkClassificationError(str(exc)) from exc
+        return np.asarray(decoded, dtype=object)
 
     def export_artifacts(self) -> dict[str, Any]:
         artifacts: dict[str, Any] = {
@@ -500,11 +496,17 @@ CLASSIFICATION_ADAPTER_REGISTRY: dict[str, type] = {
     'pdl_clf': PDLClassifierAdapter,
     'minirocket_ridge_classifier': MiniRocketRidgeClassifierAdapter,
     'future_multimodal_classifier': FutureMultimodalClassifierAdapter,
+    # Backward-compatible aliases from main.
+    'future_fusion_classifier': FutureMultimodalClassifierAdapter,
+    'future_classifier': FutureMultimodalClassifierAdapter,
     'fedot_industrial_classifier': OptionalExternalClassifier,
 }
 
 _ADAPTER_EXTRA_KWARGS: dict[str, dict[str, Any]] = {
-    'fedot_industrial_classifier': {'dependency_name': 'fedot'},
+    'fedot_industrial_classifier': {
+        'dependency_name': 'fedot',
+        'tags': ('industrial', 'classification', 'external'),
+    },
     'pdl_classifier': {'optional': True},
     'pdl_clf': {'optional': True},
 }
@@ -521,17 +523,47 @@ def build_classification_model(spec: ModelSpec):
         )
 
     field_names = {item.name for item in fields(adapter_cls)}
+    extra = dict(_ADAPTER_EXTRA_KWARGS.get(key, {}))
     kwargs: dict[str, Any] = {}
     if 'name' in field_names:
         kwargs['name'] = spec.display_name
-    if 'tags' in field_names and spec.tags:
-        kwargs['tags'] = spec.tags
+    if 'tags' in field_names:
+        if spec.tags:
+            kwargs['tags'] = spec.tags
+            extra.pop('tags', None)
+        elif 'tags' in extra:
+            kwargs['tags'] = extra.pop('tags')
     if 'optional' in field_names:
         kwargs['optional'] = spec.optional
     if 'params' in field_names:
         kwargs['params'] = dict(spec.params)
-    kwargs.update(_ADAPTER_EXTRA_KWARGS.get(key, {}))
+    kwargs.update(extra)
     return adapter_cls(**kwargs)
+
+
+def _build_future_preparation_config(
+    preparation_kwargs: dict[str, Any],
+    modalities: Any,
+) -> Any:
+    """Build preparation config, deriving modalities from classifier when omitted."""
+    from fedot_ind.core.multimodal.configs import (
+        build_preparation_config,
+        default_transformation_config,
+    )
+    from fedot_ind.core.multimodal.rules import normalize_unique_modalities
+
+    if preparation_kwargs:
+        return build_preparation_config(**preparation_kwargs)
+
+    resolved_modalities = normalize_unique_modalities(
+        modalities if modalities is not None else ('raw',)
+    )
+    defaults = default_transformation_config()
+    transformation_config = {
+        modality: dict(defaults.get(modality, {}))
+        for modality in resolved_modalities
+    }
+    return build_preparation_config(transformation_config=transformation_config)
 
 
 def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):

@@ -24,6 +24,7 @@ from benchmark.industrial.models.classification import (
     MiniRocketRidgeClassifierAdapter,
     build_classification_model,
 )
+from fedot_ind.core.architecture.preprocessing.label_mapping import ContiguousLabelEncoder
 
 
 def _synthetic_tsc(
@@ -38,6 +39,29 @@ def _synthetic_tsc(
     train_y = np.asarray(['a', 'b'] * (n_train // 2), dtype=object)
     test_x = rng.normal(size=(n_test, seq_len))
     return train_x, train_y, test_x
+
+
+def _future_adapter(**param_overrides: object) -> FutureMultimodalClassifierAdapter:
+    params: dict = {
+        'fusion_method': 'concat',
+        'd_model': 16,
+        'modalities': ['raw'],
+        'training': {
+            'epochs': 1,
+            'batch_size': 8,
+            'device': 'cpu',
+            'seed': 0,
+        },
+        'preparation': {
+            'torch_device': 'cpu',
+            'transformation_config': {
+                'raw': {'per_sample_z_normalize': False},
+            },
+            'normalization_config': {},
+        },
+    }
+    params.update(param_overrides)
+    return FutureMultimodalClassifierAdapter(name='FutureConcat', params=params)
 
 
 def test_build_future_multimodal_classifier_adapter():
@@ -123,6 +147,117 @@ def test_future_multimodal_classifier_adapter_fit_predict_smoke():
     assert artifacts['output_diagnostics'] is True
     assert 'diagnostics' in artifacts
     assert 'active_modalities' in artifacts['diagnostics']
+
+
+def test_future_multimodal_classifier_remaps_gapped_integer_labels():
+    rng = np.random.default_rng(1)
+    train_x = rng.normal(size=(24, 32))
+    train_y = np.asarray([0, 2, 5] * 8, dtype=np.int64)
+
+    model = _future_adapter()
+    model.fit(train_x, train_y)
+
+    assert model.label_mapping_ == {'0': 0, '2': 1, '5': 2}
+    assert model.label_encoder_.inverse_transform([0, 1, 2]) == [0, 2, 5]
+    assert model.trainer_.model.num_classes == 3
+
+
+def test_future_multimodal_classifier_decode_rejects_oov_class_index():
+    model = FutureMultimodalClassifierAdapter(name='FutureConcat')
+    model.label_encoder_ = ContiguousLabelEncoder().fit(['a', 'b'])
+
+    decoded = model._decode_predicted_labels(np.asarray([0, 1]))
+    assert decoded.tolist() == ['a', 'b']
+
+    with pytest.raises(
+        BenchmarkClassificationError,
+        match='out of vocabulary',
+    ):
+        model._decode_predicted_labels(np.asarray([0, 99]))
+
+
+def test_future_multimodal_derives_preparation_modalities_when_preparation_omitted():
+    from fedot_ind.core.multimodal.enums import MultimodalModality
+
+    rng = np.random.default_rng(2)
+    train_x = rng.normal(size=(16, 32))
+    train_y = np.asarray(['a', 'b'] * 8, dtype=object)
+
+    model = FutureMultimodalClassifierAdapter(
+        name='FutureConcat',
+        params={
+            'fusion_method': 'concat',
+            'd_model': 16,
+            'modalities': ['raw'],
+            'training': {
+                'epochs': 1,
+                'batch_size': 8,
+                'device': 'cpu',
+                'seed': 0,
+            },
+        },
+    )
+    model.fit(train_x, train_y)
+
+    assert tuple(model.preparer_.config.modalities) == (MultimodalModality.raw,)
+
+
+def test_future_multimodal_derives_multiple_preparation_modalities_when_omitted():
+    from fedot_ind.core.multimodal.enums import MultimodalModality
+
+    rng = np.random.default_rng(4)
+    train_x = rng.normal(size=(16, 64))
+    train_y = np.asarray(['a', 'b'] * 8, dtype=object)
+
+    model = FutureMultimodalClassifierAdapter(
+        name='FutureConcat',
+        params={
+            'fusion_method': 'concat',
+            'd_model': 16,
+            'modalities': ['raw', 'stats', 'stft'],
+            'training': {
+                'epochs': 1,
+                'batch_size': 8,
+                'device': 'cpu',
+                'seed': 0,
+            },
+        },
+    )
+    model.fit(train_x, train_y)
+
+    assert tuple(model.preparer_.config.modalities) == (
+        MultimodalModality.raw,
+        MultimodalModality.stats,
+        MultimodalModality.stft,
+    )
+    assert set(model.preparer_.config.modalities) == set(
+        model.trainer_.model.modalities
+    )
+
+
+def test_future_multimodal_defaults_preparation_to_raw_when_modalities_none():
+    from fedot_ind.core.multimodal.enums import MultimodalModality
+
+    rng = np.random.default_rng(3)
+    train_x = rng.normal(size=(16, 32))
+    train_y = np.asarray(['a', 'b'] * 8, dtype=object)
+
+    model = FutureMultimodalClassifierAdapter(
+        name='FutureConcat',
+        params={
+            'fusion_method': 'concat',
+            'd_model': 16,
+            'training': {
+                'epochs': 1,
+                'batch_size': 8,
+                'device': 'cpu',
+                'seed': 0,
+            },
+        },
+    )
+    model.fit(train_x, train_y)
+
+    assert tuple(model.preparer_.config.modalities) == (MultimodalModality.raw,)
 
 
 def test_minirocket_ridge_classifier_adapter_fit_predict_smoke():
