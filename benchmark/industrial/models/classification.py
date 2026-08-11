@@ -61,7 +61,7 @@ class NearestCentroidClassifier:
 class OptionalExternalClassifier:
     dependency_name: str
     name: str
-    tags: tuple[str, ...] = ('industrial', 'classification', 'external')
+    tags: tuple[str, ...] = ('baseline', 'classification', 'external')
     optional: bool = True
 
     def availability(self) -> tuple[RunStatus, str]:
@@ -352,7 +352,10 @@ CLASSIFICATION_ADAPTER_REGISTRY: dict[str, type] = {
 }
 
 _ADAPTER_EXTRA_KWARGS: dict[str, dict[str, Any]] = {
-    'fedot_industrial_classifier': {'dependency_name': 'fedot'},
+    'fedot_industrial_classifier': {
+        'dependency_name': 'fedot',
+        'tags': ('industrial', 'classification', 'external'),
+    },
     'pdl_classifier': {'optional': True},
     'pdl_clf': {'optional': True},
 }
@@ -369,16 +372,21 @@ def build_classification_model(spec: ModelSpec):
         )
 
     field_names = {item.name for item in fields(adapter_cls)}
+    extra = dict(_ADAPTER_EXTRA_KWARGS.get(key, {}))
     kwargs: dict[str, Any] = {}
     if 'name' in field_names:
         kwargs['name'] = spec.display_name
-    if 'tags' in field_names and spec.tags:
-        kwargs['tags'] = spec.tags
+    if 'tags' in field_names:
+        if spec.tags:
+            kwargs['tags'] = spec.tags
+            extra.pop('tags', None)
+        elif 'tags' in extra:
+            kwargs['tags'] = extra.pop('tags')
     if 'optional' in field_names:
         kwargs['optional'] = spec.optional
     if 'params' in field_names:
         kwargs['params'] = dict(spec.params)
-    kwargs.update(_ADAPTER_EXTRA_KWARGS.get(key, {}))
+    kwargs.update(extra)
     return adapter_cls(**kwargs)
 
 
