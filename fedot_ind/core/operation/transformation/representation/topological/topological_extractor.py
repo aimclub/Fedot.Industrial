@@ -108,6 +108,7 @@ class TopologicalExtractor(BaseExtractor):
             )
 
     def _resolve_params(self, ts_length: int) -> tuple[TopologicalEmbeddingConfig, PersistenceConfig]:
+        window_size = self.params.get('window_size')
         window_share = self.params.get('window_size_as_share', 0.1)
         stride = self.params.get('stride', 1)
         delay = self.params.get('delay', 1)
@@ -117,7 +118,10 @@ class TopologicalExtractor(BaseExtractor):
         max_dim = self.params.get('max_homology_dimension', 2)
         homology_dims = tuple(range(max_dim + 1))
         
-        absolute_window = max(2, int(ts_length * window_share))
+        if window_size is not None:
+            absolute_window = int(window_size)
+        else:
+            absolute_window = max(2, int(ts_length * window_share))
 
         embed_config = TopologicalEmbeddingConfig(
             window_size=absolute_window,

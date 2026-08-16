@@ -1,7 +1,7 @@
 from attr import dataclass
 import pandas as pd
 from gtda.time_series import SingleTakensEmbedding
-from gtda.homology import VietorisRipsPersistence, WeakAlphaPersistence
+from gtda.homology import VietorisRipsPersistence, WeakAlphaPersistence, SparseRipsPersistence
 from gtda.diagrams import Scaler
 from ripser import Rips, ripser
 import ripserplusplus as rpp
@@ -112,12 +112,13 @@ class PointCloudBuilder:
             trajectory_matrix = point_cloud.transpose(2, 3)
             
         return trajectory_matrix
-
+        
 @dataclass
 class PersistenceConfig:
     homology_dimensions: Tuple[int, ...] = (0, 1, 2)
     backend: Literal['gtda', 'ripser++'] = 'gtda'
-    filtration_type: Literal['vietoris-rips', 'alpha'] = 'vietoris-rips'
+    n_jobs: int = -1
+    filtration_type: Literal['vietoris-rips', 'alpha', 'sparse-rips'] = 'vietoris-rips'
     normalize: bool = True
     distance_metric: Literal['euclidean', 'manhattan', 'cosine'] = 'euclidean'
     distance_device: Literal['cpu', 'cuda'] = 'cuda'
@@ -147,6 +148,8 @@ class PersistenceDiagramsExtractor:
             return self._compute_alpha(point_clouds)
         elif self.config.filtration_type == 'vietoris-rips':
             return self._compute_vietoris_rips(point_clouds)
+        elif self.config.filtration_type == 'sparse-rips':
+            return self._compute_sparse_rips(point_clouds)
         else:
             raise ValueError(f"Unknown filtration_type: {self.config.filtration_type}")
 
@@ -163,7 +166,11 @@ class PersistenceDiagramsExtractor:
                 dist_matrix = torch.clamp(dist_matrix, min=0.0)
             else:
                 raise ValueError(f"Unsupported metric: {self.config.distance_metric}")
-        return dist_matrix.cpu().numpy()
+            
+            dist_matrix = (dist_matrix + dist_matrix.transpose(1, 2)) / 2
+            dist_matrix.diagonal(dim1=-2, dim2=-1).fill_(0.0)
+
+        return np.array(dist_matrix.cpu().numpy(), dtype=np.float64, copy=True)
 
     def _compute_alpha(self, point_clouds: torch.Tensor) -> np.ndarray:
         if self.config.backend == 'ripser++':
@@ -175,11 +182,27 @@ class PersistenceDiagramsExtractor:
         pc_array = point_clouds.detach().cpu().numpy()
         alpha = WeakAlphaPersistence(
             homology_dimensions=self.config.homology_dimensions,
-            n_jobs=-1
+            n_jobs=self.config.n_jobs
         )
         diagrams = alpha.fit_transform(pc_array)
         return self._normalize(diagrams)
 
+    def _compute_sparse_rips(self, point_clouds: torch.Tensor) -> np.ndarray:
+        if self.config.backend == 'ripser++':
+            warnings.warn(
+                "ripser++ does not support sparse Rips filtration. "
+                "Calculation has been forcibly switched to gtda."
+            )
+
+        sparse_rips = SparseRipsPersistence(
+            metric='precomputed',
+            homology_dimensions=self.config.homology_dimensions,
+            n_jobs=self.config.n_jobs
+        )
+        dist_matrices = self._compute_distance_matrix(point_clouds)
+        diagrams = sparse_rips.fit_transform(dist_matrices)
+        return self._normalize(diagrams)
+    
     def _compute_vietoris_rips(self, point_clouds: torch.Tensor) -> np.ndarray:
         dist_matrices = self._compute_distance_matrix(point_clouds)
 
@@ -187,11 +210,11 @@ class PersistenceDiagramsExtractor:
             vr = VietorisRipsPersistence(
                 metric='precomputed',
                 homology_dimensions=self.config.homology_dimensions,
-                n_jobs=-1
+                n_jobs=self.config.n_jobs
             )
             diagrams = vr.fit_transform(dist_matrices)
             return self._normalize(diagrams)
-            
+
         elif self.config.backend == 'ripser++':
             batch_size = dist_matrices.shape[0]
             raw_diagrams: List[np.ndarray] = []

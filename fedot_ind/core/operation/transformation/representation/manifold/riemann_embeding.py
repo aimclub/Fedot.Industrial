@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from pyriemann.estimation import Covariances, Shrinkage
+from pyriemann.estimation import Covariances, Shrinkage, CoSpectra, BlockCovariances
 from pyriemann.tangentspace import TangentSpace
 from pyriemann.utils import mean_covariance, median_riemann, median_euclid
 from pyriemann.utils.distance import distance
@@ -23,6 +23,11 @@ class RiemannExtractor(BaseExtractor):
         extraction_strategy (str): feature extraction approach ('mdm', 'tangent', 'ensemble')
         centroid_strategy (str): strategy for centroid calculation ('class-wise', 'global')
         centroid_type (str): type of centroid ('mean', 'median')
+        representation_type (str): type of representation ('covariance', 'cospectra', 'block')
+        fmin (float): minimum frequency for cospectra representation
+        fmax (float): maximum frequency for cospectra representation
+        fs (float): sampling frequency for cospectra representation
+        block_sizes (list): list of block sizes for block representation
 
     Example:
         To use this class you need to import it and call needed methods::
@@ -55,11 +60,27 @@ class RiemannExtractor(BaseExtractor):
             params.get('extraction_method', 'ensemble'),
         )
 
+        self.representation_type = params.get('representation_type', 'covariance')
+        self.fmin = params.get('fmin', 1.0)
+        self.fmax = params.get('fmax', 32.0)
+        self.fs = params.get('fs', 100.0)
+        self.block_sizes = params.get('block_sizes', None)
+
         default_centroid_strategy = 'global' if self.extraction_strategy == 'tangent' else 'class-wise'
         self.centroid_strategy = params.get('centroid_strategy', default_centroid_strategy)
         self.centroid_type = params.get('centroid_type', 'mean')
 
-        self.spd_space = Covariances(estimator=self.estimator)
+        if self.representation_type == 'covariance':
+            self.spd_space = Covariances(estimator=self.estimator)
+        elif self.representation_type == 'cospectra':
+            self.spd_space = CoSpectra(fmin=self.fmin, fmax=self.fmax, fs=self.fs)
+        elif self.representation_type == 'block':
+            if self.block_sizes is None:
+                raise ValueError("For representation_type='block' it is required to pass the 'block_sizes' parameter.")
+            self.spd_space = BlockCovariances(estimator=self.estimator, block_size=self.block_sizes)
+        else:
+            raise ValueError(f"Unknown representation type: '{self.representation_type}'")
+        
         self.shrinkage = Shrinkage()
         self.tangent_space = TangentSpace(metric=self.tangent_metric)
 
@@ -67,6 +88,7 @@ class RiemannExtractor(BaseExtractor):
         self.covmeans_ = None
         self.is_fitted = False
         self.predict = None
+        self.active_features_indices_ = None
 
         self._validate_params()
         self.logging_params.update({
@@ -76,6 +98,11 @@ class RiemannExtractor(BaseExtractor):
             'extraction_strategy': self.extraction_strategy,
             'centroid_strategy': self.centroid_strategy,
             'centroid_type': self.centroid_type,
+            'representation_type': self.representation_type,
+            'fmin': self.fmin,
+            'fmax': self.fmax,
+            'fs': self.fs,
+            'block_sizes': self.block_sizes
         })
 
     def __repr__(self):
@@ -101,6 +128,13 @@ class RiemannExtractor(BaseExtractor):
             raise ValueError(
                 f"Unsupported centroid_type: '{self.centroid_type}'. "
                 f"Valid options are: {valid_centroid_types}. Mean is used for L2 metrics, median is used for L1 metrics."
+            )
+
+        valid_representation_types = {'covariance', 'cospectra', 'block'}
+        if self.representation_type not in valid_representation_types:
+            raise ValueError(
+                f"Unsupported representation_type: '{self.representation_type}'. "
+                f"Valid options are: {valid_representation_types}"
             )
 
         valid_estimators = {'corr', 'cov', 'scm', 'lwf', 'oas', 'mcd', 'hub'}
@@ -181,6 +215,20 @@ class RiemannExtractor(BaseExtractor):
                         "Use 'riemann' or 'euclid', or change centroid_type to 'mean'."
                     )
 
+    def _get_analytical_block_indices(self, total_dim: int, block_sizes: list) -> np.ndarray:
+
+        indices = []
+        offset = 0
+        for b in block_sizes:
+            for i in range(offset, offset + b):
+                for j in range(i, offset + b):
+                    idx = i * total_dim - (i * (i + 1)) // 2 + j
+                    indices.append(idx)
+            offset += b
+
+        return np.array(indices)
+
+    
     def fit(self, input_data: InputData):
         """Called ONCE at start. Trains everything."""
 
@@ -188,6 +236,19 @@ class RiemannExtractor(BaseExtractor):
         y = np.asarray(input_data.target).flatten() if input_data.target is not None else None
 
         SPD = self.spd_space.fit_transform(X)
+
+        if self.representation_type == 'cospectra':
+            N, C, _, F = SPD.shape
+            SPD_block = np.zeros((N, C * F, C * F))
+            for f in range(F):
+                SPD_block[:, f*C:(f+1)*C, f*C:(f+1)*C] = SPD[:, :, :, f]
+            SPD = SPD_block
+            self.active_features_indices_ = self._get_analytical_block_indices(C * F, [C] * F)
+
+        elif self.representation_type == 'block':
+            total_dim = SPD.shape[-1]
+            self.active_features_indices_ = self._get_analytical_block_indices(total_dim, self.block_sizes)
+
         SPD = self.shrinkage.fit_transform(SPD)
 
         if self.extraction_strategy in ['tangent', 'ensemble']:
@@ -219,12 +280,22 @@ class RiemannExtractor(BaseExtractor):
         X = self._prepare_tensor(input_data.features)
 
         SPD = self.spd_space.transform(X)
+
+        if self.representation_type == 'cospectra':
+            N, C, _, F = SPD.shape
+            SPD_block = np.zeros((N, C * F, C * F))
+            for f in range(F):
+                SPD_block[:, f*C:(f+1)*C, f*C:(f+1)*C] = SPD[:, :, :, f]
+            SPD = SPD_block
+
         SPD = self.shrinkage.transform(SPD)
 
         features = []
 
         if self.extraction_strategy in {'tangent', 'ensemble'}:
             tangent_features = self.tangent_space.transform(SPD)
+            if self.active_features_indices_ is not None:
+                tangent_features = tangent_features[:, self.active_features_indices_]
             features.append(tangent_features)
 
         if self.extraction_strategy in {'mdm', 'ensemble'}:
@@ -245,9 +316,6 @@ class RiemannExtractor(BaseExtractor):
             feature_matrix = feature_matrix.reshape(1, -1)
         elif feature_matrix.ndim > 2:
             feature_matrix = feature_matrix.reshape(feature_matrix.shape[0], -1)
-
-        if not np.isfinite(feature_matrix).all():
-            feature_matrix = np.nan_to_num(feature_matrix, nan=0.0, posinf=0.0, neginf=0.0)
 
         self.predict = self._clean_predict(feature_matrix)
         return self.predict
