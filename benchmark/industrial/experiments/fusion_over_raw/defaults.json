@@ -1,0 +1,171 @@
+{
+  "version": "benchmark_industrial_fusion_over_raw@1",
+  "experiment_name": "fusion_over_raw",
+  "primary_metric": "f1_macro",
+  "metrics": [
+    "accuracy",
+    "balanced_accuracy",
+    "f1_macro"
+  ],
+  "output_dir": "benchmark/results/industrial_presets/fusion_over_raw",
+  "datasets": [
+    "FordA",
+    "ElectricDevices",
+    "Crop",
+    "StarLightCurves",
+    "NonInvasiveFetalECGThorax1",
+    "UWaveGestureLibraryAll"
+  ],
+  "seeds": [42, 3407, 2025],
+  "validation": {
+    "val_size": 0.2,
+    "stratify": true
+  },
+  "training": {
+    "epochs": 100,
+    "patience": 15,
+    "lr": 0.001,
+    "max_batch_size": 32,
+    "feature_batch_size": 512,
+    "image_batch_size": 64,
+    "optimizer": "adam"
+  },
+  "representations": {
+    "stat_params": {
+      "window_size": 12,
+      "stride": 50,
+      "add_global_features": true
+    },
+    "gaf_params": {
+      "method": "summation",
+      "overlapping": true,
+      "image_size": 0.25,
+      "sample_range": null
+    },
+    "stft_params": {
+      "window_size": 64,
+      "hop_length": 16,
+      "n_fft": 64,
+      "window_type": "hann",
+      "center": false,
+      "pad_mode": "reflect",
+      "power": 2.0,
+      "normalized": false
+    }
+  },
+  "model": {
+    "d_model": 128,
+    "head_hidden_dim": 128,
+    "head_dropout": 0.2,
+    "raw_encoder": {
+      "hidden_channels": [64, 128, 128],
+      "kernel_size": 5,
+      "dropout": 0.1
+    },
+    "raw_larger_encoder": {
+      "hidden_channels": [128, 192, 256],
+      "kernel_size": 5,
+      "dropout": 0.1
+    },
+    "stats_encoder": {
+      "hidden_dims": [128, 64],
+      "dropout": 0.2
+    },
+    "image_encoder": {
+      "hidden_channels": [32, 64, 128],
+      "dropout": 0.1
+    },
+    "fusion": {
+      "fusion_hidden_dim": 128,
+      "fusion_dropout": 0.2,
+      "context_hidden_dim": 128,
+      "film_hidden_dim": 128,
+      "delta_hidden_dim": 128,
+      "bottleneck_dropout": 0.1,
+      "residual_dropout": 0.2,
+      "num_latents": 4,
+      "num_bottleneck_layers": 1,
+      "num_heads": 4,
+      "mlp_ratio": 4.0,
+      "pooling": "mean"
+    }
+  },
+  "single_view_baselines": [
+    ["raw"],
+    ["raw_larger"],
+    ["stats"],
+    ["gaf"],
+    ["stft"]
+  ],
+  "mvp_fusions": [
+    "concat",
+    "gated",
+    "raw_centered_residual",
+    "film"
+  ],
+  "bottleneck_fusions": [
+    "ordinary_bottleneck",
+    "raw_residual_bottleneck",
+    "context_only_residual_bottleneck"
+  ],
+  "fusion_experiments": [
+    {
+      "modalities": ["raw", "stats"],
+      "fusions": ["concat", "gated", "raw_centered_residual", "film"]
+    },
+    {
+      "modalities": ["raw", "gaf"],
+      "fusions": ["concat", "gated", "raw_centered_residual", "film"]
+    },
+    {
+      "modalities": ["raw", "stft"],
+      "fusions": ["concat", "gated", "raw_centered_residual", "film"]
+    },
+    {
+      "modalities": ["raw", "stats", "gaf"],
+      "fusions": ["concat", "gated", "raw_centered_residual", "film"]
+    },
+    {
+      "modalities": ["raw", "stats", "stft"],
+      "fusions": ["concat", "gated", "raw_centered_residual", "film"]
+    },
+    {
+      "modalities": ["raw", "gaf", "stft"],
+      "fusions": ["concat", "gated", "raw_centered_residual", "film"]
+    },
+    {
+      "modalities": ["raw", "stats", "gaf", "stft"],
+      "fusions": [
+        "concat",
+        "gated",
+        "film",
+        "raw_centered_residual",
+        "ordinary_bottleneck",
+        "raw_residual_bottleneck",
+        "context_only_residual_bottleneck"
+      ]
+    }
+  ],
+  "external_baseline": {
+    "enabled": true,
+    "name": "minirocket_ridge",
+    "adapter_name": "minirocket_ridge_classifier",
+    "display_name": "MiniRocketRidge",
+    "params": {
+      "num_features": 9996,
+      "device": "cpu"
+    }
+  },
+  "smoke": {
+    "seed": 42,
+    "baseline": "raw",
+    "fusion_modalities": ["raw", "stats"],
+    "fusion_method": "concat",
+    "epochs": 1,
+    "patience": 1,
+    "d_model": 16,
+    "batch_size": 8,
+    "dataset_name": "fusion_over_raw_smoke",
+    "output_dir": "benchmark/results/industrial_presets/fusion_over_raw_smoke"
+  }
+}

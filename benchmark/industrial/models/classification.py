@@ -618,6 +618,8 @@ def _fit_minirocket_kernel(
     random_state: int | None,
     device: Any,
 ):
+    pass
+
     from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import (
         MiniRocketFeatures,
     )
