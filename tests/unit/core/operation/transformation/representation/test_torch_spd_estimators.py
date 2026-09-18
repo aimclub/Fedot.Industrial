@@ -95,3 +95,65 @@ def test_cospectra_matches_pyriemann_and_exposes_frequencies():
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual.numpy(), expected, rtol=1e-7, atol=1e-8)
     np.testing.assert_array_equal(actual_estimator.freqs_, expected_estimator.freqs_)
+
+
+def test_cospectra_preserves_float32_input_dtype_and_remains_close_to_float64():
+    """Allow the caller to trade PyRiemann-level precision for FP32 throughput."""
+    signals = _signals(n_channels=4)
+    parameters = {"window": 64, "overlap": 0.5, "fmin": 2.0, "fmax": 20.0, "fs": 128.0}
+
+    float64_result = TorchCoSpectra(**parameters).fit_transform(torch.from_numpy(signals))
+    float32_result = TorchCoSpectra(**parameters).fit_transform(
+        torch.as_tensor(signals, dtype=torch.float32)
+    )
+
+    assert float32_result.dtype is torch.float32
+    assert torch.isfinite(float32_result).all()
+    np.testing.assert_allclose(
+        float32_result.numpy(), float64_result.numpy(), rtol=1e-5, atol=1e-6
+    )
+
+
+def test_covariance_builder_constructs_itself_from_view_params():
+    """Keep covariance-specific config parsing inside the covariance builder."""
+    builder = TorchCovariances.from_params({
+        "estimator": "scm",
+        "estimator_params": {"assume_centered": True},
+    })
+
+    assert builder.estimator == "scm"
+    assert builder.kwds == {"assume_centered": True}
+
+
+def test_grouped_builder_constructs_itself_from_view_params():
+    """Keep group-name translation and estimator options inside the block builder."""
+    builder = TorchBlockCovariances.from_params({
+        "group_sizes": [2, 3],
+        "estimator": "oas",
+        "estimator_params": {"assume_centered": True},
+    })
+
+    assert builder.block_size == [2, 3]
+    assert builder.estimator == "oas"
+    assert builder.kwds == {"assume_centered": True}
+
+
+@pytest.mark.parametrize(
+    ("builder", "params", "match"),
+    [
+        (TorchCovariances, {"estimator_params": []}, "estimator_params"),
+        (TorchCovariances, {"unexpected": 1}, "Unknown parameters"),
+        (TorchBlockCovariances, {}, "requires 'group_sizes'"),
+        (
+            TorchBlockCovariances,
+            {"group_sizes": [2, 2], "unexpected": 1},
+            "Unknown parameters",
+        ),
+    ],
+)
+def test_builder_view_params_are_validated_by_the_owning_builder(
+    builder, params, match
+):
+    """Reject builder-specific config without involving the extractor."""
+    with pytest.raises((TypeError, ValueError), match=match):
+        builder.from_params(params)

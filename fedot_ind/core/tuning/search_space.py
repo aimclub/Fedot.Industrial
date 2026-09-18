@@ -37,17 +37,16 @@ industrial_search_space = {
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
          'add_global_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'riemann_extractor':
-        {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
-                                                                       'cov', 'lwf', 'mcd', 'hub']]},
-         'tangent_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
+        {'tangent_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
              'euclid',
              'logeuclid',
              'riemann'
          ]]},
-         'SPD_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
+         'mdm_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
              'euclid',
-             'identity',
-             'logeuclid', 'riemann']]}},
+             'logeuclid',
+             'riemann'
+         ]]}},
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},

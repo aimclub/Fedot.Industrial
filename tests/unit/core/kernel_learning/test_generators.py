@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 from types import SimpleNamespace
@@ -18,6 +19,19 @@ from fedot_ind.core.kernel_learning import (
 )
 from fedot_ind.core.kernel_learning.generators import adapters
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
+from fedot_ind.core.tuning.search_space import industrial_search_space
+from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
+
+
+def _raw_riemann_view() -> dict:
+    """Return the canonical raw-covariance view used by adapter tests."""
+    return {
+        "name": "raw",
+        "builder": "covariance",
+        "weight": 1.0,
+        "shrinkage": 0.1,
+        "params": {"estimator": "scm", "estimator_params": {}},
+    }
 
 
 def test_statistical_summary_is_repo_native_adapter_not_manual_summary():
@@ -124,6 +138,61 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
     assert np.all(np.isfinite(left))
 
 
+def test_repository_adapter_uses_native_fit_transform_for_stateful_operation(monkeypatch):
+    """Opt-in operations must own fitting while inference keeps using transform."""
+    class StatefulOperation:
+        def __init__(self, params):
+            """Store configured device and initialise lifecycle counters."""
+            self.torch_device = params.get("torch_device")
+            self.fit_transform_calls = 0
+            self.transform_calls = 0
+            self.fit_target = None
+
+        def fit_transform(self, input_data):
+            """Record fitting and return deterministic train features."""
+            self.fit_transform_calls += 1
+            self.fit_target = np.asarray(input_data.target).reshape(-1)
+            return SimpleNamespace(predict=np.asarray(input_data.features) + 1.0)
+
+        def transform(self, input_data):
+            """Record inference and return distinguishable features."""
+            self.transform_calls += 1
+            return SimpleNamespace(predict=np.asarray(input_data.features) + 2.0)
+
+    fake_module = types.ModuleType("fake_stateful_kernel_learning_ops")
+    fake_module.StatefulOperation = StatefulOperation
+    monkeypatch.setitem(sys.modules, "fake_stateful_kernel_learning_ops", fake_module)
+
+    generator = RepositoryFeatureGeneratorAdapter(
+        name="stateful_repo_generator",
+        operation_specs=(
+            OperationSpec(
+                name="stateful_op",
+                module_path="fake_stateful_kernel_learning_ops",
+                class_name="StatefulOperation",
+                params={"torch_device": "cuda"},
+                use_torch=True,
+                fit_transform_on_fit=True,
+            ),
+        ),
+        torch_device="cpu",
+    )
+    X = np.arange(8, dtype=float).reshape(2, 4)
+    y = np.array([0, 1])
+
+    train = generator.fit_transform(X, y).features
+    inference = generator.transform(X).features
+    operation = generator.operations_[0]
+
+    assert operation.fit_transform_calls == 1
+    assert operation.transform_calls == 1
+    np.testing.assert_array_equal(operation.fit_target, y)
+    assert operation.torch_device == "cpu"
+    assert generator.resolved_torch_device_ == "cpu"
+    np.testing.assert_allclose(train, X + 1.0)
+    np.testing.assert_allclose(inference, X + 2.0)
+
+
 def test_shapelet_generator_is_deterministic_and_target_free():
     X = np.array(
         [
@@ -207,6 +276,59 @@ def test_budgeted_adapter_can_use_statistical_summary_fallback():
     assert bundle.diagnostics["budget"]["fallback_generator"] == "statistical_summary"
 
 
+def test_budgeted_adapter_reuses_train_features_after_fallback_refit(monkeypatch):
+    """A successful refit must clear fallback state and avoid train inference."""
+    class StatefulOperation:
+        def __init__(self, params):
+            """Initialise lifecycle counters for the budgeted operation."""
+            del params
+            self.fit_transform_calls = 0
+            self.transform_calls = 0
+
+        def fit_transform(self, input_data):
+            """Record fitting and return deterministic train features."""
+            self.fit_transform_calls += 1
+            return SimpleNamespace(predict=np.asarray(input_data.features) + 1.0)
+
+        def transform(self, input_data):
+            """Record inference and return distinguishable features."""
+            self.transform_calls += 1
+            return SimpleNamespace(predict=np.asarray(input_data.features) + 2.0)
+
+    fake_module = types.ModuleType("fake_budgeted_stateful_ops")
+    fake_module.StatefulOperation = StatefulOperation
+    monkeypatch.setitem(sys.modules, "fake_budgeted_stateful_ops", fake_module)
+
+    generator = BudgetedRepositoryFeatureGeneratorAdapter(
+        name="budgeted_stateful_generator",
+        operation_specs=(
+            OperationSpec(
+                name="stateful_op",
+                module_path="fake_budgeted_stateful_ops",
+                class_name="StatefulOperation",
+                fit_transform_on_fit=True,
+            ),
+        ),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="identity"),
+    )
+    X = np.arange(8, dtype=float).reshape(2, 4)
+
+    fallback = generator.fit_transform(X)
+    generator.budget_policy = GeneratorBudgetPolicy(
+        max_cells=100,
+        fallback_generator="identity",
+    )
+    primary = generator.fit_transform(X)
+    operation = generator.operations_[0]
+
+    assert fallback.diagnostics["source"] == "budgeted_fallback"
+    assert primary.diagnostics["source"] == "fedot_industrial_operation"
+    assert generator.fallback_generator_ is None
+    assert operation.fit_transform_calls == 1
+    assert operation.transform_calls == 0
+    np.testing.assert_allclose(primary.features, X + 1.0)
+
+
 def test_resolve_torch_device_auto_uses_cpu_when_cuda_is_unavailable(monkeypatch):
     torch = pytest.importorskip("torch")
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
@@ -222,13 +344,22 @@ def test_resolve_torch_device_auto_prefers_cuda_when_available(monkeypatch):
 
 
 def test_riemann_extractor_is_budgeted_repo_adapter():
+    """The registry must expose the stateful Torch multi-view operation."""
     generator = create_feature_generator("riemann_extractor")
+    spec = generator.operation_specs[0]
 
     assert isinstance(generator, BudgetedRepositoryFeatureGeneratorAdapter)
-    assert generator.operation_specs[0].name == "riemann_extractor"
+    assert spec.name == "riemann_extractor"
+    assert spec.use_torch is True
+    assert spec.fit_transform_on_fit is True
+    assert spec.params["views"] == [_raw_riemann_view()]
+    assert spec.params["feature_mode"] == "both"
+    assert spec.params["mdm_centroid_scope"] == "class"
+    assert spec.params["torch_dtype"] == "float64"
 
 
-def test_riemann_extractor_adapter_passes_extraction_strategy_param():
+def test_riemann_extractor_adapter_passes_multi_view_params():
+    """The adapter must instantiate and fit RiemannExtractor from the new schema."""
     generator = BudgetedRepositoryFeatureGeneratorAdapter(
         name="riemann_extractor",
         operation_specs=(
@@ -236,7 +367,14 @@ def test_riemann_extractor_adapter_passes_extraction_strategy_param():
                 name="riemann_extractor",
                 module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
                 class_name="RiemannExtractor",
-                params={"extraction_strategy": "tangent"},
+                params={
+                    "views": [_raw_riemann_view()],
+                    "feature_mode": "tangent",
+                    "torch_device": "cpu",
+                    "torch_dtype": "float64",
+                },
+                use_torch=True,
+                fit_transform_on_fit=True,
             ),
         ),
         budget_policy=GeneratorBudgetPolicy(max_cells=100, fallback_generator="identity"),
@@ -250,7 +388,24 @@ def test_riemann_extractor_adapter_passes_extraction_strategy_param():
 
     generator.fit(X)
 
-    assert generator.operations_[0].extraction_strategy == "tangent"
+    operation = generator.operations_[0]
+    assert generator.fallback_generator_ is None
+    assert operation.feature_mode == "tangent"
+    assert operation.views == (_raw_riemann_view(),)
+    assert str(operation.dtype) == "torch.float64"
+
+
+def test_riemann_default_configs_use_multi_view_contract():
+    """Registry, FEDOT defaults, and tuning space must share the new schema."""
+    spec = create_feature_generator("riemann_extractor").operation_specs[0]
+    with open(PATH_TO_DEFAULT_PARAMS, encoding="utf-8") as params_file:
+        default_params = json.load(params_file)["riemann_extractor"]
+
+    assert default_params == spec.params
+    assert set(industrial_search_space["riemann_extractor"]) == {
+        "tangent_metric",
+        "mdm_metric",
+    }
 
 
 def test_topological_extractor_fit_transform_and_transform_are_target_free():
@@ -280,23 +435,32 @@ def test_topological_extractor_fit_transform_and_transform_are_target_free():
 
 
 def test_riemann_extractor_output_is_finite_and_has_expected_shape():
+    """Default class MDM must run through the primary registry operation."""
     pytest.importorskip("fedot")    
     pytest.importorskip("torch")
 
-    X = np.array(
-        [
-            [0.0, 1.0, 2.0, 3.0],
-            [3.0, 2.0, 1.0, 0.0],
-        ]
-    )
+    X = np.random.default_rng(42).normal(size=(4, 2, 16))
+    y = np.array([0, 0, 1, 1])
     generator = create_feature_generator("riemann_extractor")
-    features = generator.fit_transform(X).features
+    bundle = generator.fit_transform(X, y)
 
-    assert np.all(np.isfinite(features))
-    assert features.shape == (2, 4)
+    assert bundle.diagnostics["source"] == "fedot_industrial_operation"
+    assert np.all(np.isfinite(bundle.features))
+    assert bundle.features.shape == (4, 5)
+
+
+def test_default_riemann_class_mdm_without_target_uses_budgeted_fallback():
+    """The budget wrapper must retain its fallback contract for missing target."""
+    X = np.random.default_rng(42).normal(size=(4, 2, 16))
+
+    bundle = create_feature_generator("riemann_extractor").fit_transform(X)
+
+    assert bundle.diagnostics["source"] == "budgeted_fallback"
+    assert bundle.diagnostics["budget"]["skip_reason"] == "operation_unavailable:ValueError"
 
 
 def test_topological_extractor_output_is_finite_and_has_expected_shape():
+    """Default topology must return H0/H1 statistics from the primary operation."""
     pytest.importorskip("fedot")    
     pytest.importorskip("torch")
 
@@ -307,10 +471,11 @@ def test_topological_extractor_output_is_finite_and_has_expected_shape():
         ]
     )
     generator = create_feature_generator("topological_extractor")
-    features = generator.fit_transform(X).features
+    bundle = generator.fit_transform(X)
 
-    assert np.all(np.isfinite(features))
-    assert features.shape == (2, 4)
+    assert bundle.diagnostics["source"] == "fedot_industrial_operation"
+    assert np.all(np.isfinite(bundle.features))
+    assert bundle.features.shape == (2, 20)
 
 
 def test_empty_input_in_riemann_extractor_raises_value_error():
@@ -411,6 +576,7 @@ def test_topological_extractor_same_for_classification_and_regression_and_ts_for
 
 
 def test_budgeted_riemann_adapter_diagnostics_include_operation_params():
+    """Diagnostics must expose the effective multi-view Riemann configuration."""
     generator = BudgetedRepositoryFeatureGeneratorAdapter(
         name="riemann_extractor",
         operation_specs=(
@@ -418,26 +584,33 @@ def test_budgeted_riemann_adapter_diagnostics_include_operation_params():
                 name="riemann_extractor",
                 module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
                 class_name="RiemannExtractor",
-                params={"SPD_metric": "logeuclid", "tangent_metric": "euclid"},
+                params={
+                    "views": [_raw_riemann_view()],
+                    "feature_mode": "both",
+                    "tangent_metric": "euclid",
+                    "mdm_metric": "logeuclid",
+                    "mdm_centroid_scope": "class",
+                    "torch_device": "cpu",
+                    "torch_dtype": "float64",
+                },
+                use_torch=True,
+                fit_transform_on_fit=True,
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=100, fallback_generator="statistical_summary"),
+        budget_policy=GeneratorBudgetPolicy(max_cells=1_000, fallback_generator="statistical_summary"),
     )
-    X = np.array(
-        [
-            [0.0, 1.0, 2.0, 3.0],
-            [3.0, 2.0, 1.0, 0.0],
-        ]
-    )
-    y = np.array([0, 1])
+    X = np.random.default_rng(42).normal(size=(4, 2, 16))
+    y = np.array([0, 0, 1, 1])
 
     bundle = generator.fit_transform(X, y)
 
     assert bundle.name == "riemann_extractor"
-    assert bundle.features.shape[0] == 2
-    assert bundle.diagnostics["SPD_metric"] == "logeuclid"
+    assert bundle.features.shape[0] == 4
+    assert bundle.diagnostics["source"] == "fedot_industrial_operation"
+    assert bundle.diagnostics["views"] == (_raw_riemann_view(),)
+    assert bundle.diagnostics["mdm_metric"] == "logeuclid"
     assert bundle.diagnostics["tangent_metric"] == "euclid"
-    assert bundle.diagnostics['estimator'] == 'scm'
+    assert bundle.diagnostics["feature_mode"] == "both"
 
 
 

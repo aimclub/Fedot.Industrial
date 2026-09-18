@@ -26,6 +26,7 @@ class OperationSpec:
     class_name: str
     params: dict[str, Any] = field(default_factory=dict)
     use_torch: bool = False
+    fit_transform_on_fit: bool = False
 
 
 @dataclass(frozen=True)
@@ -207,30 +208,58 @@ class RepositoryFeatureGeneratorAdapter:
     resolved_torch_device_: str | None = None
 
     def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+        """Build repository operations and produce their training features."""
         self.task_type_ = task_type
-        self.operations_ = [self._build_operation(spec) for spec in self.operation_specs]
-        self.train_features_ = self._run_operations(X, y)
+        torch_device = self._resolve_torch_device_for_run()
+        self.operations_ = [
+            self._build_operation(spec, torch_device=torch_device)
+            for spec in self.operation_specs
+        ]
+        self.train_features_ = self._run_operations(
+            X,
+            y,
+            for_fit=True,
+            torch_device=torch_device,
+        )
         return self
 
     def transform(self, X: Any) -> FeatureBundle:
+        """Apply fitted repository operations to inference data."""
         if not self.operations_:
             raise ValueError(f"Feature generator {self.name!r} must be fitted before transform.")
-        features = self._run_operations(X, None)
+        features = self._run_operations(
+            X,
+            None,
+            torch_device=self.resolved_torch_device_ or self.torch_device,
+        )
         return self._bundle(features)
 
     def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
         self.fit(X, y, task_type=task_type)
         return self._bundle(self.train_features_)
 
-    def _build_operation(self, spec: OperationSpec):
+    def _build_operation(self, spec: OperationSpec, *, torch_device: Any):
+        """Instantiate an operation and propagate its resolved Torch device."""
         operation_cls = _load_operation_class(spec)
-        return operation_cls(_operation_params(dict(spec.params)))
+        params = dict(spec.params)
+        if spec.use_torch and "torch_device" in params:
+            params["torch_device"] = str(torch_device)
+        return operation_cls(_operation_params(params))
 
-    def _run_operations(self, X: Any, y: Any | None) -> np.ndarray:
+    def _run_operations(
+        self,
+        X: Any,
+        y: Any | None,
+        *,
+        for_fit: bool = False,
+        torch_device: Any | None = None,
+    ) -> np.ndarray:
+        """Run the configured chain, fitting only explicitly stateful operations."""
         if not self.operation_specs:
             raise ValueError(f"Feature generator {self.name!r} has no operation specs.")
 
-        torch_device = self._resolve_torch_device_for_run()
+        if torch_device is None:
+            torch_device = self._resolve_torch_device_for_run()
         current = to_fedot_input_data(
             X,
             y,
@@ -240,7 +269,11 @@ class RepositoryFeatureGeneratorAdapter:
         )
         raw_output: Any = None
         for index, (spec, operation) in enumerate(zip(self.operation_specs, self.operations_)):
-            output = _call_transform(operation, current)
+            output = (
+                operation.fit_transform(current)
+                if for_fit and spec.fit_transform_on_fit
+                else _call_transform(operation, current)
+            )
             raw_output = _unwrap_operation_output(output)
             next_index = index + 1
             if next_index < len(self.operation_specs):
@@ -293,6 +326,9 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
     budget_diagnostics_: dict[str, Any] = field(default_factory=dict)
 
     def fit(self, X: Any, y: Any | None = None, *, task_type: str = "classification"):
+        """Fit the primary generator when allowed, otherwise fit its fallback."""
+        self.fallback_generator_ = None
+        self.train_features_ = None
         allowed, diagnostics = self.budget_policy.allows(X)
         self.budget_diagnostics_ = diagnostics
         if not allowed:
@@ -324,8 +360,16 @@ class BudgetedRepositoryFeatureGeneratorAdapter(RepositoryFeatureGeneratorAdapte
         )
 
     def fit_transform(self, X: Any, y: Any | None = None, *, task_type: str = "classification") -> FeatureBundle:
+        """Return cached primary train features or transformed fallback features."""
         self.fit(X, y, task_type=task_type)
-        return self.transform(X)
+        if self.fallback_generator_ is not None:
+            return self.transform(X)
+        bundle = self._bundle(self.train_features_)
+        return FeatureBundle(
+            name=bundle.name,
+            features=bundle.features,
+            diagnostics={**bundle.diagnostics, "budget": self.budget_diagnostics_},
+        )
 
     def _fit_fallback(self, X: Any, y: Any | None, *, task_type: str, reason: str):
         self.fallback_generator_ = _build_lightweight_fallback(self.budget_policy.fallback_generator)
@@ -578,7 +622,7 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
             name="topological_extractor",
             operation_specs=(_topological_spec(),),
             budget_policy=GeneratorBudgetPolicy(
-                max_cells=250_000,
+                max_cells=100_000_000,
                 fallback_generator="identity",
             ),
         ),
@@ -772,7 +816,7 @@ def _topological_spec() -> OperationSpec:
             "window_size_as_share": 0.1,
             "stride": 1, 
             "delay": 1,
-            "max_homology_dimension": 2,
+            "max_homology_dimension": 1,
             "filtration_type": "vietoris-rips",
             "backend": "gtda",
             "multivariate_strategy": "independent",
@@ -790,18 +834,36 @@ def _tabular_spec() -> OperationSpec:
         params={"feature_domain": "all", "reduce_dimension": True, "use_cache": False},
     )
 
+
 def _riemann_spec() -> OperationSpec:
+    """Return the default stateful multi-view Riemann operation specification."""
     return OperationSpec(
         name="riemann_extractor",
         module_path="fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding",
         class_name="RiemannExtractor",
-        params={"Classes": None,
-                "estimator": "scm",
-                "SPD_metric": "riemann",
-                "tangent_metric": "riemann",
-                "extraction_strategy": "ensemble",
-                "centroid_strategy": "class-wise",
-                "centroid_type": "mean",
-                "use_cache": False
+        params={
+            "views": [
+                {
+                    "name": "raw",
+                    "builder": "covariance",
+                    "weight": 1.0,
+                    "shrinkage": 0.1,
+                    "params": {
+                        "estimator": "scm",
+                        "estimator_params": {},
+                    },
                 },
+            ],
+            "feature_mode": "both",
+            "tangent_metric": "riemann",
+            "mdm_metric": "riemann",
+            "mdm_centroid_scope": "class",
+            "centroid_type": "mean",
+            "centroid_params": {},
+            "torch_device": "cpu",
+            "torch_dtype": "float64",
+            "use_cache": False,
+        },
+        use_torch=True,
+        fit_transform_on_fit=True,
     )

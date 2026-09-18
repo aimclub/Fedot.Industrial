@@ -18,7 +18,6 @@ import warnings
 from typing import Literal, Optional
 
 import torch
-
 from fedot_ind.core.operation.transformation.representation.manifold.torch_spd import (
     DenseSPDBatch,
     DenseSPDReference,
@@ -488,8 +487,15 @@ class TorchSPDCentroid:
             warnings.warn("Riemannian mean did not converge within max_iter.", RuntimeWarning)
         return mean
 
-    def _median_blocks(self, blocks: tuple[torch.Tensor, ...], sample_weight=None) -> tuple[torch.Tensor, ...]:
+    def _median_blocks(
+        self,
+        blocks: tuple[torch.Tensor, ...],
+        sample_weight=None,
+        block_weights: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor, ...]:
         """Compute a coupled geometric median without materialising block diagonals."""
+        if block_weights is None:
+            block_weights = blocks[0].new_ones(len(blocks))
         if self.metric == "logeuclid":
             log_blocks = tuple(
                 matrix_log(block, eigenvalue_floor=self.eigenvalue_floor) for block in blocks
@@ -497,7 +503,9 @@ class TorchSPDCentroid:
             original_metric = self.metric
             self.metric = "euclid"
             try:
-                median_blocks = self._median_blocks(log_blocks, sample_weight)
+                median_blocks = self._median_blocks(
+                    log_blocks, sample_weight, block_weights
+                )
             finally:
                 self.metric = original_metric
             return tuple(matrix_exp(block) for block in median_blocks)
@@ -508,8 +516,10 @@ class TorchSPDCentroid:
             if self.metric == "euclid":
                 differences = tuple(block - median for block, median in zip(blocks, medians))
                 squared_distances = sum(
-                    torch.linalg.matrix_norm(difference, ord="fro", dim=(-2, -1)).square()
-                    for difference in differences
+                    weight * torch.linalg.matrix_norm(
+                        difference, ord="fro", dim=(-2, -1)
+                    ).square()
+                    for weight, difference in zip(block_weights, differences)
                 )
                 directions = differences
             else:
@@ -525,8 +535,10 @@ class TorchSPDCentroid:
                     for block, invsqrt in zip(blocks, inverse_square_roots)
                 )
                 squared_distances = sum(
-                    torch.linalg.matrix_norm(direction, ord="fro", dim=(-2, -1)).square()
-                    for direction in directions
+                    weight * torch.linalg.matrix_norm(
+                        direction, ord="fro", dim=(-2, -1)
+                    ).square()
+                    for weight, direction in zip(block_weights, directions)
                 )
 
             distances = torch.sqrt(squared_distances)
@@ -540,8 +552,12 @@ class TorchSPDCentroid:
                     mean_euclid(block[nonzero], sample_weight=reweights) for block in blocks
                 )
                 criterion = torch.sqrt(sum(
-                    torch.linalg.matrix_norm(candidate - median, ord="fro").square()
-                    for candidate, median in zip(candidates, medians)
+                    weight * torch.linalg.matrix_norm(
+                        candidate - median, ord="fro"
+                    ).square()
+                    for weight, candidate, median in zip(
+                        block_weights, candidates, medians
+                    )
                 )).item()
             else:
                 updates = tuple(
@@ -555,7 +571,8 @@ class TorchSPDCentroid:
                     for sqrt, update in zip(square_roots, updates)
                 )
                 criterion = torch.sqrt(sum(
-                    torch.linalg.matrix_norm(update, ord="fro").square() for update in updates
+                    weight * torch.linalg.matrix_norm(update, ord="fro").square()
+                    for weight, update in zip(block_weights, updates)
                 )).item()
             medians = candidates
             if criterion <= self.median_tol:
@@ -564,7 +581,37 @@ class TorchSPDCentroid:
             warnings.warn("Structured geometric median did not converge within max_iter.", RuntimeWarning)
         return medians
 
-    def fit(self, X: TorchSPDBatch, y=None, sample_weight=None) -> "TorchSPDCentroid":
+    @staticmethod
+    def _validate_block_weights(
+        X: TorchSPDBatch, block_weights
+    ) -> torch.Tensor:
+        """Return finite positive metric weights matching the SPD block layout."""
+        reference = X.matrices[0] if isinstance(X, RaggedBlockSPDBatch) else X.matrices
+        if block_weights is None:
+            return reference.new_ones(len(X.block_shapes))
+        try:
+            weights = torch.as_tensor(
+                block_weights, dtype=reference.dtype, device=reference.device
+            )
+        except (TypeError, ValueError) as error:
+            raise TypeError("block_weights must be a one-dimensional array-like.") from error
+        if weights.ndim != 1:
+            raise TypeError("block_weights must be a one-dimensional array-like.")
+        if weights.numel() != len(X.block_shapes):
+            raise ValueError("block_weights must contain one value for every SPD block.")
+        if not torch.all(torch.isfinite(weights)):
+            raise ValueError("block_weights must contain only finite values.")
+        if not torch.all(weights > 0):
+            raise ValueError("block_weights must be strictly positive.")
+        return weights
+
+    def fit(
+        self,
+        X: TorchSPDBatch,
+        y=None,
+        sample_weight=None,
+        block_weights=None,
+    ) -> "TorchSPDCentroid":
         """Estimate and retain the SPD centroid of ``X``.
 
         ``y`` is accepted for compatibility with estimator pipelines and is
@@ -573,13 +620,16 @@ class TorchSPDCentroid:
         del y
         if not isinstance(X, TorchSPDBatch):
             raise TypeError("X must be a validated TorchSPDBatch.")
+        validated_block_weights = self._validate_block_weights(X, block_weights)
         if isinstance(X, DenseSPDBatch):
             self.centroid_ = DenseSPDReference(self._mean(X.matrices, sample_weight))
         elif isinstance(X, UniformBlockSPDBatch):
             if self.centroid_type == "median":
                 blocks = tuple(X.matrices[:, index] for index in range(X.matrices.shape[1]))
                 self.centroid_ = UniformBlockSPDReference(
-                    torch.stack(self._median_blocks(blocks, sample_weight))
+                    torch.stack(self._median_blocks(
+                        blocks, sample_weight, validated_block_weights
+                    ))
                 )
             else:
                 self.centroid_ = UniformBlockSPDReference(
@@ -588,7 +638,9 @@ class TorchSPDCentroid:
         elif isinstance(X, RaggedBlockSPDBatch):
             if self.centroid_type == "median":
                 self.centroid_ = RaggedBlockSPDReference(
-                    self._median_blocks(X.matrices, sample_weight)
+                    self._median_blocks(
+                        X.matrices, sample_weight, validated_block_weights
+                    )
                 )
             else:
                 self.centroid_ = RaggedBlockSPDReference(

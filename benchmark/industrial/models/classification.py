@@ -8,6 +8,12 @@ import numpy as np
 from benchmark.industrial.core import ModelSpec, RunStatus
 from benchmark.industrial.errors import BenchmarkClassificationError
 from benchmark.industrial.models.kernel_artifacts import export_kernel_learning_artifacts
+from fedot_ind.core.kernel_learning.generators.adapters import (
+    BudgetedRepositoryFeatureGeneratorAdapter,
+    GeneratorBudgetPolicy,
+    OperationSpec,
+    create_feature_generator,
+)
 
 
 @dataclass
@@ -102,6 +108,106 @@ class KernelEnsembleClassifierAdapter:
         return export_kernel_learning_artifacts(self.model_)
 
 
+@dataclass
+class KernelFeatureGeneratorClassifierAdapter:
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'classification', 'feature_generator')
+    optional: bool = False
+    params: dict[str, Any] | None = None
+    generator_: Any | None = None
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from sklearn.ensemble import RandomForestClassifier  # noqa: F401
+            from sklearn.linear_model import LogisticRegression  # noqa: F401
+            from sklearn.neighbors import KNeighborsClassifier  # noqa: F401
+            from sklearn.svm import SVC  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover
+            return RunStatus.NOT_AVAILABLE, f'Scikit-learn classifiers are unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        generator_name = (self.params or {}).get('generator_name', 'statistical_summary')
+        generator_params = (self.params or {}).get('generator_params', {}) or {}
+        classifier_name = (self.params or {}).get('classifier_name', 'logistic_regression')
+        classifier_params = (self.params or {}).get('classifier_params', {}) or {}
+
+        self.generator_ = self._build_feature_generator(generator_name, generator_params)
+        transformed = self.generator_.fit_transform(features, target, task_type='classification')
+        self.model_ = self._build_classifier(classifier_name, classifier_params)
+        target_labels = np.asarray(target).reshape(-1).astype(str)
+        self.model_.fit(transformed.features, target_labels)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.generator_ is None or self.model_ is None:
+            raise BenchmarkClassificationError('KernelFeatureGeneratorClassifierAdapter must be fitted before prediction.')
+        transformed = self.generator_.transform(features)
+        return np.asarray(self.model_.predict(transformed.features), dtype=object)
+
+    def _build_feature_generator(self, generator_name: str, generator_params: dict[str, Any]):
+
+        generator = create_feature_generator(generator_name, torch_device='auto')
+
+        if generator_params and hasattr(generator, 'operation_specs'):
+            new_specs = []
+            for spec in generator.operation_specs:
+                merged_params = dict(spec.params)
+                merged_params.update(generator_params)
+                new_specs.append(OperationSpec(
+                    name=spec.name,
+                    module_path=spec.module_path,
+                    class_name=spec.class_name,
+                    params=merged_params,
+                    use_torch=spec.use_torch,
+                    fit_transform_on_fit=spec.fit_transform_on_fit,
+                ))
+            generator.operation_specs = tuple(new_specs)
+
+        return generator
+
+    def _build_classifier(self, classifier_name: str, classifier_params: dict[str, Any]):
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.svm import SVC
+        from sklearn.linear_model import RidgeClassifier
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        from sklearn.neural_network import MLPClassifier
+
+        classifier_name = classifier_name.lower()
+        if classifier_name == 'logistic_regression':
+            params = {'max_iter': 5000, 'random_state': 42}
+            params.update(classifier_params)
+            return LogisticRegression(**params)
+        if classifier_name == 'random_forest':
+            params = {'random_state': 42, 'n_estimators': 200}
+            params.update(classifier_params)
+            return RandomForestClassifier(**params)
+        if classifier_name == 'svc':
+            params = {'random_state': 42}
+            params.update(classifier_params)
+            return SVC(**params)
+        if classifier_name == 'knn':
+            params = {'n_neighbors': 5}
+            params.update(classifier_params)
+            return KNeighborsClassifier(**params)
+        if classifier_name == 'ridge':
+            params = {'random_state': 42}
+            params.update(classifier_params)
+            return RidgeClassifier(**params)
+        if classifier_name == 'gradient_boosting':
+            params = {'random_state': 42, 'max_iter': 200}
+            params.update(classifier_params)
+            return HistGradientBoostingClassifier(**params)
+        if classifier_name == 'mlp':
+            params = {'random_state': 42, 'max_iter': 1000, 'early_stopping': True}
+            params.update(classifier_params)
+            return MLPClassifier(**params)
+
+        raise BenchmarkClassificationError(f'Unsupported sklearn classifier adapter: {classifier_name}')
+
+
 def build_classification_model(spec: ModelSpec):
     name = spec.adapter_name.lower()
     if name == 'majority_class':
@@ -112,6 +218,13 @@ def build_classification_model(spec: ModelSpec):
         return KernelEnsembleClassifierAdapter(
             name=spec.display_name,
             tags=spec.tags or ('industrial', 'classification', 'kernel_learning'),
+            optional=spec.optional,
+            params=dict(spec.params),
+        )
+    if name == 'sklearn_classifier':
+        return KernelFeatureGeneratorClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'feature_generator'),
             optional=spec.optional,
             params=dict(spec.params),
         )
@@ -126,6 +239,7 @@ def build_classification_model(spec: ModelSpec):
 
 __all__ = [
     "KernelEnsembleClassifierAdapter",
+    "KernelFeatureGeneratorClassifierAdapter",
     "MajorityClassClassifier",
     "NearestCentroidClassifier",
     "OptionalExternalClassifier",

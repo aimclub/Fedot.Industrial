@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Any, Literal, Optional, Tuple, Union
 
 import numpy as np
@@ -289,6 +290,18 @@ class TorchShrinkage:
 class BaseTorchSPDBuilder(ABC):
     """Common interface for Torch transformers that construct SPD batches."""
 
+    @classmethod
+    def from_params(
+        cls,
+        params: Optional[Mapping[str, Any]] = None,
+    ) -> "BaseTorchSPDBuilder":
+        """Construct a builder from its view-specific configuration."""
+        if params is None:
+            params = {}
+        if not isinstance(params, Mapping):
+            raise TypeError("Builder params must be a mapping.")
+        return cls(**dict(params))
+
     @abstractmethod
     def fit(self, X: torch.Tensor, y=None) -> "BaseTorchSPDBuilder":
         """Validate or fit a transformer on input signals."""
@@ -313,9 +326,12 @@ def cospectrum_torch(
 
     """Estimate co-spectral matrices for an entire batch of signals.
 
-    The result matches ``pyriemann.utils.covariance.cospectrum`` for every
-    sample, while windowing, FFT and spectral products are vectorised across
-    the leading sample dimension. Input shape is ``(samples, channels, time)``.
+    For ``float64`` input, the result matches
+    ``pyriemann.utils.covariance.cospectrum`` for every sample. The output
+    preserves the floating dtype of the input, allowing ``float32`` execution
+    when lower precision is explicitly selected. Windowing, FFT and spectral
+    products are vectorised across the leading sample dimension. Input shape
+    is ``(samples, channels, time)``.
     """
 
     if not isinstance(X, torch.Tensor):
@@ -337,8 +353,8 @@ def cospectrum_torch(
     if n_windows < 1:
         raise ValueError("The input time dimension must be at least `window`.")
 
-    # NumPy FFT, used by PyRiemann, operates in float64 for real-valued input.
-    X = X.to(dtype=torch.float64)
+    if not torch.is_floating_point(X):
+        X = X.to(dtype=torch.get_default_dtype())
     win = torch.hann_window(window, periodic=False, dtype=X.dtype, device=X.device)
     windows = X.unfold(dimension=-1, size=window, step=step)
     fdata = torch.fft.rfft(windows * win, n=window, dim=-1).permute(0, 2, 1, 3)
@@ -494,6 +510,25 @@ class TorchCovariances(BaseTorchSPDBuilder):
     _TORCH_ESTIMATORS = {"corr", "cov", "scm", "lwf", "oas"}
     _PYRIEMANN_FALLBACK_ESTIMATORS = {"mcd", "hub"}
 
+    @classmethod
+    def from_params(
+        cls,
+        params: Optional[Mapping[str, Any]] = None,
+    ) -> "TorchCovariances":
+        """Construct covariance estimation from the public view schema."""
+        if params is None:
+            params = {}
+        if not isinstance(params, Mapping):
+            raise TypeError("Builder params must be a mapping.")
+        parameters = dict(params)
+        estimator = parameters.pop("estimator", "scm")
+        estimator_params = parameters.pop("estimator_params", {})
+        if not isinstance(estimator_params, Mapping):
+            raise TypeError("estimator_params must be a mapping.")
+        if parameters:
+            raise ValueError(f"Unknown parameters for covariance: {sorted(parameters)}.")
+        return cls(estimator=estimator, **dict(estimator_params))
+
     def __init__(self, estimator: str = "scm", **kwds: Any):
         """Initialise with the same estimator and keyword interface as PyRiemann."""
         self.estimator = estimator
@@ -546,6 +581,34 @@ class TorchCovariances(BaseTorchSPDBuilder):
 
 class TorchBlockCovariances(BaseTorchSPDBuilder):
     """PyTorch counterpart of PyRiemann's dense block-diagonal estimator."""
+
+    @classmethod
+    def from_params(
+        cls,
+        params: Optional[Mapping[str, Any]] = None,
+    ) -> "TorchBlockCovariances":
+        """Construct grouped covariance estimation from its public view schema."""
+        if params is None:
+            params = {}
+        if not isinstance(params, Mapping):
+            raise TypeError("Builder params must be a mapping.")
+        parameters = dict(params)
+        if "group_sizes" not in parameters:
+            raise ValueError("grouped_covariance requires 'group_sizes'.")
+        group_sizes = parameters.pop("group_sizes")
+        estimator = parameters.pop("estimator", "scm")
+        estimator_params = parameters.pop("estimator_params", {})
+        if not isinstance(estimator_params, Mapping):
+            raise TypeError("estimator_params must be a mapping.")
+        if parameters:
+            raise ValueError(
+                f"Unknown parameters for grouped_covariance: {sorted(parameters)}."
+            )
+        return cls(
+            block_size=group_sizes,
+            estimator=estimator,
+            **dict(estimator_params),
+        )
 
     def __init__(self, block_size: Union[int, list[int]], estimator: str = "scm", **kwds: Any):
         """Initialise with the same block and estimator interface as PyRiemann."""

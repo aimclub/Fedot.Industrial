@@ -150,7 +150,13 @@ class TorchClassCentroids:
             return UniformBlockSPDBatch(spd.matrices[indices])
         return RaggedBlockSPDBatch(tuple(block[indices] for block in spd.matrices))
 
-    def fit(self, X: TorchSPDBatch, y, sample_weight=None) -> "TorchClassCentroids":
+    def fit(
+        self,
+        X: TorchSPDBatch,
+        y,
+        sample_weight=None,
+        block_weights=None,
+    ) -> "TorchClassCentroids":
         """Estimate a centroid for each sorted class in ``y``."""
         if not isinstance(X, TorchSPDBatch):
             raise TypeError("X must be a validated TorchSPDBatch.")
@@ -166,7 +172,11 @@ class TorchClassCentroids:
             centroids.append(
                 TorchSPDCentroid(
                     metric=self.metric, centroid_type=self.centroid_type, **self.centroid_kwargs
-                ).fit(self._subset(X, indices), sample_weight=class_weight).centroid_
+                ).fit(
+                    self._subset(X, indices),
+                    sample_weight=class_weight,
+                    block_weights=block_weights,
+                ).centroid_
             )
         self.centroids_ = tuple(centroids)
         return self

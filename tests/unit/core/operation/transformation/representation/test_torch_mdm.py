@@ -81,3 +81,26 @@ def test_class_centroids_group_labels_and_produce_mdm_features_in_class_order():
         ]
     )
     np.testing.assert_allclose(actual.numpy(), expected, rtol=1e-7, atol=1e-8)
+
+
+def test_class_centroids_forward_product_block_weights():
+    """Every class median must use the configured product-manifold weights."""
+    labels = np.array([0, 0, 0, 1, 1, 1])
+    spd = _structured_batch("ragged")
+    block_weights = [0.5, 2.0]
+
+    actual = TorchClassCentroids(
+        metric="euclid", centroid_type="median", median_tol=1e-8, median_max_iter=200
+    ).fit(spd, labels, block_weights=block_weights)
+
+    for class_index, label in enumerate(actual.classes_):
+        indices = torch.as_tensor(np.flatnonzero(labels == label))
+        expected = TorchSPDCentroid(
+            metric="euclid", centroid_type="median", median_tol=1e-8, median_max_iter=200
+        ).fit(
+            RaggedBlockSPDBatch(tuple(block[indices] for block in spd.matrices)),
+            block_weights=block_weights,
+        ).centroid_
+        torch.testing.assert_close(
+            actual.centroids_[class_index].to_dense(), expected.to_dense()
+        )

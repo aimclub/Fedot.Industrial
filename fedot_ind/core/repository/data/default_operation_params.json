@@ -475,10 +475,27 @@
     "use_cache": true
   },
   "riemann_extractor": {
-    "n_filter": 4,
-    "estimator": "scm",
+    "views": [
+      {
+        "name": "raw",
+        "builder": "covariance",
+        "weight": 1.0,
+        "shrinkage": 0.1,
+        "params": {
+          "estimator": "scm",
+          "estimator_params": {}
+        }
+      }
+    ],
+    "feature_mode": "both",
     "tangent_metric": "riemann",
-    "SPD_metric": "riemann"
+    "mdm_metric": "riemann",
+    "mdm_centroid_scope": "class",
+    "centroid_type": "mean",
+    "centroid_params": {},
+    "torch_device": "cpu",
+    "torch_dtype": "float64",
+    "use_cache": false
   },
   "fedot_cls": {
     "timeout": 10,

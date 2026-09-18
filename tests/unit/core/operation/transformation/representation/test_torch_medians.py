@@ -66,3 +66,75 @@ def test_structured_geometric_median_matches_full_block_diagonal_pyriemann(
     expected = pyriemann_function(spd.to_dense().numpy(), tol=1e-5, maxiter=50)
 
     np.testing.assert_allclose(actual.numpy(), expected, rtol=1e-7, atol=1e-8)
+
+
+def test_weighted_product_median_matches_scaled_euclidean_reference():
+    """Block weights must define the metric of one coupled product median."""
+    points = np.array([
+        [1.0, 1.0],
+        [2.0, 4.0],
+        [4.0, 2.0],
+        [6.0, 6.0],
+        [3.0, 5.0],
+        [7.0, 3.0],
+    ])
+    block_weights = np.array([4.0, 1.0])
+    spd = RaggedBlockSPDBatch(tuple(
+        torch.from_numpy(points[:, index, None, None])
+        for index in range(points.shape[1])
+    ))
+
+    actual = TorchSPDCentroid(
+        metric="euclid", centroid_type="median", median_tol=1e-8, median_max_iter=200
+    ).fit(spd, block_weights=block_weights).centroid_.matrices
+
+    scaled = np.stack([
+        np.diag(np.sqrt(block_weights) * point)
+        for point in points
+    ])
+    expected_scaled = median_euclid(scaled, tol=1e-8, maxiter=200)
+    expected = np.diag(expected_scaled) / np.sqrt(block_weights)
+
+    np.testing.assert_allclose(
+        np.array([block.item() for block in actual]), expected, rtol=1e-7, atol=1e-8
+    )
+
+
+def test_product_mean_coordinates_do_not_depend_on_block_weights():
+    """Positive product weights must not change separable Frechet means."""
+    blocks = tuple(
+        torch.from_numpy(_spd_batch(n_channels=size, seed=seed))
+        for size, seed in ((2, 10), (3, 11))
+    )
+    spd = RaggedBlockSPDBatch(blocks)
+
+    unweighted = TorchSPDCentroid(metric="riemann").fit(spd).centroid_.matrices
+    weighted = TorchSPDCentroid(metric="riemann").fit(
+        spd, block_weights=[0.25, 3.0]
+    ).centroid_.matrices
+
+    for actual, expected in zip(weighted, unweighted):
+        torch.testing.assert_close(actual, expected)
+
+
+@pytest.mark.parametrize(
+    ("block_weights", "error_type", "match"),
+    [
+        ([1.0], ValueError, "one value for every SPD block"),
+        ([1.0, 0.0], ValueError, "strictly positive"),
+        ([1.0, -1.0], ValueError, "strictly positive"),
+        ([1.0, np.nan], ValueError, "finite"),
+        ("invalid", TypeError, "one-dimensional array-like"),
+    ],
+)
+def test_product_centroid_rejects_invalid_block_weights(block_weights, error_type, match):
+    """Product metric weights must be finite, positive, and layout-compatible."""
+    blocks = tuple(
+        torch.from_numpy(_spd_batch(n_channels=2, seed=seed))
+        for seed in (20, 21)
+    )
+
+    with pytest.raises(error_type, match=match):
+        TorchSPDCentroid().fit(
+            RaggedBlockSPDBatch(blocks), block_weights=block_weights
+        )
