@@ -42,16 +42,18 @@ from fedot_ind.core.operation.transformation.representation.statistical.stat_fea
     crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, max_torch, min_torch, \
-    autocorrelation_torch, ben_corr_torch, std_torch, \
-    crest_factor_torch, energy_torch, \
-    hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
-    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
-
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
+from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, \
+    max_torch, min_torch, \
+    autocorrelation_torch, ben_corr_torch, std_torch, \
+    crest_factor_torch, energy_torch, \
+    hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, \
+    mean_ema_torch, mean_moving_median_torch, \
+    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, \
+    shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
 from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
@@ -177,7 +179,8 @@ class DataTypeConstant(Enum):
 class PathConstant(Enum):
     IND_DATA_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
                                            'industrial_data_operation_repository.json')
-    DEFAULT_DATA_OPERATION_PATH = pathlib.Path('data_operation_repository.json')
+    DEFAULT_DATA_OPERATION_PATH = pathlib.Path(
+        'data_operation_repository.json')
     IND_MODEL_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
                                             'industrial_model_repository.json')
     DEFAULT_MODEL_OPERATION_PATH = pathlib.Path('model_repository.json')
@@ -400,7 +403,8 @@ class FedotOperationConstant(Enum):
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().
-        add_node('quantile_extractor_torch', params=stat_params).add_node('catboost', params=catboost_params),
+        add_node('quantile_extractor_torch', params=stat_params).add_node(
+            'catboost', params=catboost_params),
         'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor_torch', params=stat_params).add_node('treg'),
         'regression_tabular': PipelineBuilder().add_node('treg'),
@@ -720,7 +724,8 @@ class BenchmarkDatasets(Enum):
         'M12452']
     M4_FORECASTING_BENCH_SMALL_QUARTERLY = ['Q10070', 'Q10262', 'Q10292',
                                             'Q10466', 'Q10598', 'Q10665', 'Q1069', 'Q10743', 'Q10800', 'Q10881']
-    M4_FORECASTING_BENCH_SMALL_WEEKLY = ['W103', 'W105', 'W106', 'W107', 'W109', 'W10', 'W110', 'W111', 'W113', 'W116']
+    M4_FORECASTING_BENCH_SMALL_WEEKLY = [
+        'W103', 'W105', 'W106', 'W107', 'W109', 'W10', 'W110', 'W111', 'W113', 'W116']
     M4_FORECASTING_BENCH_SMALL_YEARLY = [
         'Y10907',
         'Y10908',
@@ -936,6 +941,7 @@ class BenchmarkDatasets(Enum):
         "Yoga",
     ]
     MULTI_CLF_BENCH = [
+        "AtrialFibrillation",
         "ArticularyWordRecognition",
         "AtrialFibrillation",
         "BasicMotions",

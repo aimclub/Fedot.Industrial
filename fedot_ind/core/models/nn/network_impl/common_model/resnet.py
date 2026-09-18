@@ -134,7 +134,7 @@ class ResNetModel(BaseNeuralModel):
         self.model_for_inference = ResNet(input_dim=ts.features.shape[1],
                                           output_dim=self.num_classes,
                                           model_name=self.model_name).model
-        self.model = self.model.model
+        self.model = self.model.model.to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
         return loss_fn, optimizer
@@ -142,6 +142,7 @@ class ResNetModel(BaseNeuralModel):
     @convert_to_4d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        x_test = Tensor(x_test).to(default_device('cpu'))
+        model_device = next(self.model.parameters()).device
+        x_test = Tensor(x_test).to(model_device)
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)

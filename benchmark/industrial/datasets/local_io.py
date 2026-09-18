@@ -8,8 +8,15 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_LOCAL_DATA_DIR = PROJECT_ROOT / 'fedot_ind' / 'data'
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_LOCAL_DATA_DIR = PROJECT_ROOT / 'examples' / 'utils' / 'data'
+DEFAULT_LEGACY_DATA_DIR = PROJECT_ROOT / 'fedot_ind' / 'data'
+LOCAL_TASK_DATA_DIRS = (
+    'ts_classification',
+    'ts_regression',
+    'forecasting',
+    'anomaly_detection',
+)
 
 
 class LocalDatasetParseError(ValueError):
@@ -35,19 +42,31 @@ def resolve_local_split_paths(
     if train_path is not None and test_path is not None:
         return Path(train_path), Path(test_path)
 
-    dataset_dir = Path(data_root or DEFAULT_LOCAL_DATA_DIR) / dataset_name
-    if not dataset_dir.exists():
-        raise LocalDatasetParseError(f'Local dataset directory does not exist: {dataset_dir}')
+    roots = [Path(data_root)] if data_root is not None else [DEFAULT_LOCAL_DATA_DIR, DEFAULT_LEGACY_DATA_DIR]
+    candidate_dirs: list[Path] = []
+    seen_dirs: set[Path] = set()
+    for root in roots:
+        for candidate in (root / dataset_name, *(root / task_dir / dataset_name for task_dir in LOCAL_TASK_DATA_DIRS)):
+            if candidate in seen_dirs:
+                continue
+            seen_dirs.add(candidate)
+            candidate_dirs.append(candidate)
 
-    train_base = dataset_dir / f'{dataset_name}_TRAIN'
-    test_base = dataset_dir / f'{dataset_name}_TEST'
-    for extension in ('.tsv', '.csv', '.ts'):
-        train_candidate = train_base.with_suffix(extension)
-        test_candidate = test_base.with_suffix(extension)
-        if train_candidate.exists() and test_candidate.exists():
-            return train_candidate, test_candidate
+    searched_dirs = []
+    for dataset_dir in candidate_dirs:
+        searched_dirs.append(str(dataset_dir))
+        if not dataset_dir.exists():
+            continue
+        train_base = dataset_dir / f'{dataset_name}_TRAIN'
+        test_base = dataset_dir / f'{dataset_name}_TEST'
+        for extension in ('.tsv', '.csv', '.ts'):
+            train_candidate = train_base.with_suffix(extension)
+            test_candidate = test_base.with_suffix(extension)
+            if train_candidate.exists() and test_candidate.exists():
+                return train_candidate, test_candidate
 
-    raise LocalDatasetParseError(f'Could not resolve local TRAIN/TEST files for {dataset_name} in {dataset_dir}')
+    searched = ', '.join(searched_dirs)
+    raise LocalDatasetParseError(f'Could not resolve local TRAIN/TEST files for {dataset_name}. Searched: {searched}')
 
 
 def load_local_supervised_split(
@@ -118,6 +137,18 @@ def _load_tabular_split(path: Path, *, separator: str) -> tuple[np.ndarray, np.n
 
 
 def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    last_error: UnicodeDecodeError | None = None
+    for encoding in ('utf-8', 'utf-8-sig', 'cp1252', 'latin-1'):
+        try:
+            return _load_ts_split_with_encoding(path, encoding=encoding)
+        except UnicodeDecodeError as error:
+            last_error = error
+    if last_error is not None:
+        raise LocalDatasetParseError(f'Could not decode .ts file with supported encodings: {path}') from last_error
+    raise LocalDatasetParseError(f'Could not parse .ts file: {path}')
+
+
+def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     timestamps = False
     target_label = False
     class_label = False
@@ -127,7 +158,7 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     case_vectors: list[np.ndarray] = []
     targets: list[Any] = []
 
-    with path.open('r', encoding='utf-8') as source:
+    with path.open('r', encoding=encoding) as source:
         for raw_line in source:
             line = raw_line.strip()
             if not line or line.startswith('#'):

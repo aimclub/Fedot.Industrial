@@ -92,12 +92,14 @@ from benchmark.industrial.experiments.incremental_persistence import Forecasting
 
 SUPPORTED_FORECASTING_METRICS = ('mase', 'smape', 'owa', 'rmse', 'mae')
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_LOCAL_M4_DIR = PROJECT_ROOT / 'examples' / 'data' / 'm4' / 'datasets'
+EXAMPLES_DATA_DIR = PROJECT_ROOT / 'examples' / 'utils' / 'data'
+DEFAULT_LOCAL_M4_DIR = EXAMPLES_DATA_DIR / 'm4' / 'datasets'
 DEFAULT_LOCAL_M4_LONG_DIRS = (
     PROJECT_ROOT / 'fedot_ind' / 'data' / 'M100',
+    EXAMPLES_DATA_DIR / 'benchmark' / 'forecasting',
     PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting',
 )
-DEFAULT_LOCAL_MONASH_DIR = PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting' / 'monash_benchmark'
+DEFAULT_LOCAL_MONASH_DIR = EXAMPLES_DATA_DIR / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
 
 class BenchmarkConfigurationError(ValueError):
@@ -2339,8 +2341,8 @@ class ForecastingSuiteRunner:
         validate_forecasting_suite_config(config)
         self.config = config
         self.run_id = (
-                ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
-                or new_run_id(config.run_spec.run_name)
+            ForecastingIncrementalPersistenceCoordinator.resolve_run_id(config)
+            or new_run_id(config.run_spec.run_name)
         )
         self.series_records: list[ForecastingSeriesRecord] = []
         self.run_records: list[BenchmarkRunRecord] = []
@@ -2517,10 +2519,10 @@ class ForecastingSuiteRunner:
                     (
                         record for record in self.run_records
                         if record.benchmark == series_record.benchmark
-                           and record.dataset_name == series_record.dataset_name
-                           and record.subset == series_record.subset
-                           and record.series_id == series_record.series_id
-                           and record.model_name == model.name
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
                     ),
                     None,
                 )
@@ -2575,10 +2577,10 @@ class ForecastingSuiteRunner:
                     (
                         record for record in self.run_records
                         if record.benchmark == series_record.benchmark
-                           and record.dataset_name == series_record.dataset_name
-                           and record.subset == series_record.subset
-                           and record.series_id == series_record.series_id
-                           and record.model_name == model.name
+                        and record.dataset_name == series_record.dataset_name
+                        and record.subset == series_record.subset
+                        and record.series_id == series_record.series_id
+                        and record.model_name == model.name
                     ),
                     None,
                 )

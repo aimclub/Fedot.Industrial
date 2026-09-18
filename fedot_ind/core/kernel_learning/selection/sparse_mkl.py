@@ -72,7 +72,7 @@ class MKLOptimizationResult:
 
 
 @dataclass
-class SparseMKLSelector:
+class AdaptiveKernelWeightSelector:
     complexity_penalty: float = 0.01
     redundancy_penalty: float = 0.05
     min_weight: float = 0.05
@@ -85,7 +85,7 @@ class SparseMKLSelector:
 
     def fit(self, kernel_bundles: list[KernelBundle], y, *, task_type: str) -> KernelSelectionReport:
         if not kernel_bundles:
-            raise ValueError("SparseMKLSelector requires at least one KernelBundle.")
+            raise ValueError("AdaptiveKernelWeightSelector requires at least one KernelBundle.")
 
         target_kernel = TargetKernelBuilder(task_type=task_type, gamma=self.target_gamma).build(y)
         names = tuple(bundle.name for bundle in kernel_bundles)
@@ -142,6 +142,7 @@ class SparseMKLSelector:
                 "complexity_penalty": float(self.complexity_penalty),
                 "redundancy_penalty": float(self.redundancy_penalty),
                 "min_weight": float(self.min_weight),
+                "selector_family": "adaptive_kernel_weight_selector",
                 "optimizer": optimization.optimizer,
                 "iterations": int(optimization.iterations),
                 "converged": bool(optimization.converged),
@@ -199,7 +200,7 @@ class SparseMKLSelector:
             return MKLOptimizationResult(
                 weights=tuple(float(weight) for weight in weights),
                 objective_history=(
-                float(self._objective(weights, names, alignments, complexities, redundancy_matrix)),),
+                    float(self._objective(weights, names, alignments, complexities, redundancy_matrix)),),
                 iterations=1,
                 converged=True,
                 optimizer="score",
@@ -264,9 +265,9 @@ class SparseMKLSelector:
         alignment_vector = np.asarray([alignments[name] for name in names], dtype=float)
         complexity_vector = np.asarray([complexities[name] for name in names], dtype=float)
         return (
-                alignment_vector
-                - self.complexity_penalty * complexity_vector
-                - 2.0 * self.redundancy_penalty * (redundancy_matrix @ weights)
+            alignment_vector
+            - self.complexity_penalty * complexity_vector
+            - 2.0 * self.redundancy_penalty * (redundancy_matrix @ weights)
         )
 
     def _apply_min_weight_threshold(self, weights: np.ndarray) -> np.ndarray:
@@ -278,6 +279,10 @@ class SparseMKLSelector:
             thresholded[winner] = 1.0
             return thresholded
         return thresholded / np.sum(thresholded)
+
+
+# Backward-compatible public alias kept for existing benchmark configs and imports.
+SparseMKLSelector = AdaptiveKernelWeightSelector
 
 
 def _project_to_simplex(values: np.ndarray) -> np.ndarray:

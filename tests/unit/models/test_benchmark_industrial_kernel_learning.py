@@ -17,10 +17,13 @@ from benchmark.industrial import (
     run_tsc_benchmark_suite,
     run_tser_benchmark_suite,
 )
-from benchmark.industrial.api import build_legacy_tsc_suite_config, build_legacy_tser_suite_config
 from benchmark.industrial.classification import (
     BenchmarkClassificationError,
     LocalClassificationAdapter,
+)
+from benchmark.experiments.kernel_learning.configs import (
+    build_tser_kernel_learning_models,
+    build_ucr_kernel_learning_models,
 )
 
 pytest.importorskip("fedot")
@@ -46,11 +49,13 @@ def test_tsc_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
             ModelSpec(
                 adapter_name="kernel_ensemble_classifier",
                 display_name="KernelEnsembleClassifier",
-                params={"generator_names": ("statistical_summary",), "kernel": "linear", "C": 10.0},
+                params={"generator_names": (
+                    "statistical_summary",), "kernel": "linear", "C": 10.0},
             ),
         ),
         metrics=("accuracy", "balanced_accuracy", "f1_macro"),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name="toy_kernel_tsc", primary_metric="accuracy"),
     )
 
@@ -80,11 +85,13 @@ def test_tser_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
             ModelSpec(
                 adapter_name="kernel_ensemble_regressor",
                 display_name="KernelEnsembleRegressor",
-                params={"generator_names": ("statistical_summary",), "kernel": "linear", "alpha": 1e-6},
+                params={"generator_names": (
+                    "statistical_summary",), "kernel": "linear", "alpha": 1e-6},
             ),
         ),
         metrics=("rmse", "mae", "r2"),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
         run_spec=RunSpec(run_name="toy_kernel_tser", primary_metric="rmse"),
     )
 
@@ -128,8 +135,10 @@ def test_forecasting_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
             ),
         ),
         metrics=("rmse", "mae"),
-        artifact_spec=ArtifactSpec(output_dir=str(tmp_path), persist_on_run=False),
-        run_spec=RunSpec(run_name="toy_kernel_forecasting", primary_metric="rmse"),
+        artifact_spec=ArtifactSpec(
+            output_dir=str(tmp_path), persist_on_run=False),
+        run_spec=RunSpec(run_name="toy_kernel_forecasting",
+                         primary_metric="rmse"),
     )
 
     result = run_forecasting_benchmark_suite(config)
@@ -140,14 +149,14 @@ def test_forecasting_suite_runs_kernel_ensemble_adapter(tmp_path: Path):
     assert "kernel_selection" in result.run_records[0].metadata
 
 
-def test_legacy_builders_default_to_kernel_model_specs():
-    tsc_config = build_legacy_tsc_suite_config({"custom_datasets": ("Lightning7",)})
-    tser_config = build_legacy_tser_suite_config({"custom_datasets": ("NaturalGasPricesSentiment",)})
+def test_kernel_learning_experiment_builders_default_to_kernel_model_specs():
+    tsc_models = build_ucr_kernel_learning_models()
+    tser_models = build_tser_kernel_learning_models()
 
-    assert tsc_config.models[0].adapter_name == "kernel_ensemble_classifier"
-    assert tsc_config.datasets[0].dataset_name == "Lightning7"
-    assert tser_config.models[0].adapter_name == "kernel_ensemble_regressor"
-    assert tser_config.datasets[0].dataset_name == "NaturalGasPricesSentiment"
+    assert any(model.adapter_name ==
+               "kernel_ensemble_classifier" for model in tsc_models)
+    assert any(model.adapter_name ==
+               "kernel_ensemble_regressor" for model in tser_models)
 
 
 def test_ucr_adapter_uses_dataloader_fallback_with_local_root(monkeypatch, tmp_path: Path):
@@ -165,11 +174,13 @@ def test_ucr_adapter_uses_dataloader_fallback_with_local_root(monkeypatch, tmp_p
 
     fake_loader_module = types.ModuleType("fedot_ind.tools.loader")
     fake_loader_module.DataLoader = FakeDataLoader
-    monkeypatch.setitem(sys.modules, "fedot_ind.tools.loader", fake_loader_module)
+    monkeypatch.setitem(
+        sys.modules, "fedot_ind.tools.loader", fake_loader_module)
     spec = DatasetSpec(
         benchmark="ucr",
         dataset_name="MissingUCR",
-        adapter_options={"local_data_root": str(tmp_path), "download_if_missing": True},
+        adapter_options={"local_data_root": str(
+            tmp_path), "download_if_missing": True},
     )
 
     records = LocalClassificationAdapter().load_dataset(spec)
@@ -182,7 +193,8 @@ def test_ucr_adapter_can_disable_download_fallback(tmp_path: Path):
     spec = DatasetSpec(
         benchmark="ucr",
         dataset_name="MissingUCR",
-        adapter_options={"local_data_root": str(tmp_path), "download_if_missing": False},
+        adapter_options={"local_data_root": str(
+            tmp_path), "download_if_missing": False},
     )
 
     with pytest.raises(BenchmarkClassificationError):

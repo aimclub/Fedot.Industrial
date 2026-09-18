@@ -8,12 +8,7 @@ import numpy as np
 from benchmark.industrial.core import ModelSpec, RunStatus
 from benchmark.industrial.errors import BenchmarkClassificationError
 from benchmark.industrial.models.kernel_artifacts import export_kernel_learning_artifacts
-from fedot_ind.core.kernel_learning.generators.adapters import (
-    BudgetedRepositoryFeatureGeneratorAdapter,
-    GeneratorBudgetPolicy,
-    OperationSpec,
-    create_feature_generator,
-)
+from fedot_ind.core.kernel_learning.generators.adapters import OperationSpec, create_feature_generator
 
 
 @dataclass
@@ -110,6 +105,8 @@ class KernelEnsembleClassifierAdapter:
 
 @dataclass
 class KernelFeatureGeneratorClassifierAdapter:
+    """Wrap a repository feature generator with a scikit-learn classifier."""
+
     name: str
     tags: tuple[str, ...] = ('industrial', 'classification', 'feature_generator')
     optional: bool = False
@@ -118,16 +115,15 @@ class KernelFeatureGeneratorClassifierAdapter:
     model_: Any | None = None
 
     def availability(self) -> tuple[RunStatus, str]:
+        """Report whether the scikit-learn classifier backend is available."""
         try:
-            from sklearn.ensemble import RandomForestClassifier  # noqa: F401
             from sklearn.linear_model import LogisticRegression  # noqa: F401
-            from sklearn.neighbors import KNeighborsClassifier  # noqa: F401
-            from sklearn.svm import SVC  # noqa: F401
             return RunStatus.SUCCESS, 'ready'
         except Exception as exc:  # pragma: no cover
             return RunStatus.NOT_AVAILABLE, f'Scikit-learn classifiers are unavailable: {exc}'
 
     def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        """Fit the configured feature generator and downstream classifier."""
         generator_name = (self.params or {}).get('generator_name', 'statistical_summary')
         generator_params = (self.params or {}).get('generator_params', {}) or {}
         classifier_name = (self.params or {}).get('classifier_name', 'logistic_regression')
@@ -140,72 +136,93 @@ class KernelFeatureGeneratorClassifierAdapter:
         self.model_.fit(transformed.features, target_labels)
 
     def predict(self, features: np.ndarray) -> np.ndarray:
+        """Generate fitted features and predict class labels."""
         if self.generator_ is None or self.model_ is None:
-            raise BenchmarkClassificationError('KernelFeatureGeneratorClassifierAdapter must be fitted before prediction.')
+            raise BenchmarkClassificationError(
+                'KernelFeatureGeneratorClassifierAdapter must be fitted before prediction.'
+            )
         transformed = self.generator_.transform(features)
         return np.asarray(self.model_.predict(transformed.features), dtype=object)
 
-    def _build_feature_generator(self, generator_name: str, generator_params: dict[str, Any]):
-
+    @staticmethod
+    def _build_feature_generator(generator_name: str, generator_params: dict[str, Any]):
+        """Create a generator and overlay operation-specific parameters."""
         generator = create_feature_generator(generator_name, torch_device='auto')
-
         if generator_params and hasattr(generator, 'operation_specs'):
-            new_specs = []
-            for spec in generator.operation_specs:
-                merged_params = dict(spec.params)
-                merged_params.update(generator_params)
-                new_specs.append(OperationSpec(
+            generator.operation_specs = tuple(
+                OperationSpec(
                     name=spec.name,
                     module_path=spec.module_path,
                     class_name=spec.class_name,
-                    params=merged_params,
+                    params={**spec.params, **generator_params},
                     use_torch=spec.use_torch,
                     fit_transform_on_fit=spec.fit_transform_on_fit,
-                ))
-            generator.operation_specs = tuple(new_specs)
-
+                )
+                for spec in generator.operation_specs
+            )
         return generator
 
-    def _build_classifier(self, classifier_name: str, classifier_params: dict[str, Any]):
-        from sklearn.ensemble import RandomForestClassifier
-        from sklearn.linear_model import LogisticRegression
+    @staticmethod
+    def _build_classifier(classifier_name: str, classifier_params: dict[str, Any]):
+        """Instantiate one supported scikit-learn classifier."""
+        from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+        from sklearn.linear_model import LogisticRegression, RidgeClassifier
         from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.svm import SVC
-        from sklearn.linear_model import RidgeClassifier
-        from sklearn.ensemble import HistGradientBoostingClassifier
         from sklearn.neural_network import MLPClassifier
+        from sklearn.svm import SVC
 
         classifier_name = classifier_name.lower()
-        if classifier_name == 'logistic_regression':
-            params = {'max_iter': 5000, 'random_state': 42}
-            params.update(classifier_params)
-            return LogisticRegression(**params)
-        if classifier_name == 'random_forest':
-            params = {'random_state': 42, 'n_estimators': 200}
-            params.update(classifier_params)
-            return RandomForestClassifier(**params)
-        if classifier_name == 'svc':
-            params = {'random_state': 42}
-            params.update(classifier_params)
-            return SVC(**params)
-        if classifier_name == 'knn':
-            params = {'n_neighbors': 5}
-            params.update(classifier_params)
-            return KNeighborsClassifier(**params)
-        if classifier_name == 'ridge':
-            params = {'random_state': 42}
-            params.update(classifier_params)
-            return RidgeClassifier(**params)
-        if classifier_name == 'gradient_boosting':
-            params = {'random_state': 42, 'max_iter': 200}
-            params.update(classifier_params)
-            return HistGradientBoostingClassifier(**params)
-        if classifier_name == 'mlp':
-            params = {'random_state': 42, 'max_iter': 1000, 'early_stopping': True}
-            params.update(classifier_params)
-            return MLPClassifier(**params)
+        classifiers = {
+            'logistic_regression': (LogisticRegression, {'max_iter': 5000, 'random_state': 42}),
+            'random_forest': (RandomForestClassifier, {'random_state': 42, 'n_estimators': 200}),
+            'svc': (SVC, {'random_state': 42}),
+            'knn': (KNeighborsClassifier, {'n_neighbors': 5}),
+            'ridge': (RidgeClassifier, {'random_state': 42}),
+            'gradient_boosting': (HistGradientBoostingClassifier, {'random_state': 42, 'max_iter': 200}),
+            'mlp': (MLPClassifier, {'random_state': 42, 'max_iter': 1000, 'early_stopping': True}),
+        }
+        if classifier_name not in classifiers:
+            raise BenchmarkClassificationError(
+                f'Unsupported sklearn classifier adapter: {classifier_name}'
+            )
+        classifier, defaults = classifiers[classifier_name]
+        return classifier(**{**defaults, **classifier_params})
 
-        raise BenchmarkClassificationError(f'Unsupported sklearn classifier adapter: {classifier_name}')
+
+@dataclass
+class PDLClassifierAdapter:
+    name: str
+    tags: tuple[str, ...] = ('industrial', 'classification', 'pdl')
+    optional: bool = True
+    params: dict[str, Any] | None = None
+    model_: Any | None = None
+
+    def availability(self) -> tuple[RunStatus, str]:
+        try:
+            from fedot.core.data.data import InputData  # noqa: F401
+            from fedot.core.operations.operation_parameters import OperationParameters  # noqa: F401
+            from fedot.core.repository.dataset_types import DataTypesEnum  # noqa: F401
+            from fedot.core.repository.tasks import Task, TaskTypesEnum  # noqa: F401
+            from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier  # noqa: F401
+            return RunStatus.SUCCESS, 'ready'
+        except Exception as exc:  # pragma: no cover - optional FEDOT runtime boundary
+            return RunStatus.NOT_AVAILABLE, f'PDL classifier is unavailable: {exc}'
+
+    def fit(self, features: np.ndarray, target: np.ndarray) -> None:
+        from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier
+
+        input_data = _fedot_input_data(features=features, target=target, task_type='classification')
+        self.model_ = PairwiseDifferenceClassifier(params=_operation_parameters(self.params, default_model='rf'))
+        self.model_.fit(input_data)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        if self.model_ is None:
+            raise BenchmarkClassificationError('PDLClassifierAdapter must be fitted before prediction.')
+        dummy_target = np.zeros(features.shape[0], dtype=int)
+        input_data = _fedot_input_data(features=features, target=dummy_target, task_type='classification')
+        prediction = self.model_.predict(input_data)
+        values = getattr(prediction, 'predict', prediction)
+        return np.asarray(values).reshape(-1).astype(object)
 
 
 def build_classification_model(spec: ModelSpec):
@@ -228,6 +245,13 @@ def build_classification_model(spec: ModelSpec):
             optional=spec.optional,
             params=dict(spec.params),
         )
+    if name in {'pdl_classifier', 'pdl_clf'}:
+        return PDLClassifierAdapter(
+            name=spec.display_name,
+            tags=spec.tags or ('industrial', 'classification', 'pdl'),
+            optional=True,
+            params=dict(spec.params),
+        )
     if name == 'fedot_industrial_classifier':
         return OptionalExternalClassifier(
             dependency_name='fedot',
@@ -237,11 +261,35 @@ def build_classification_model(spec: ModelSpec):
     raise BenchmarkClassificationError(f'Unsupported classification model adapter: {spec.adapter_name}')
 
 
+def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
+    from fedot.core.operations.operation_parameters import OperationParameters
+
+    payload = {'model': default_model}
+    payload.update(dict(params or {}))
+    return OperationParameters(payload)
+
+
+def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: str):
+    from fedot.core.data.data import InputData
+    from fedot.core.repository.dataset_types import DataTypesEnum
+    from fedot.core.repository.tasks import Task, TaskTypesEnum
+
+    task = Task(TaskTypesEnum.classification if task_type == 'classification' else TaskTypesEnum.regression)
+    return InputData(
+        idx=np.arange(features.shape[0]),
+        features=features,
+        target=target,
+        task=task,
+        data_type=DataTypesEnum.table,
+    )
+
+
 __all__ = [
     "KernelEnsembleClassifierAdapter",
     "KernelFeatureGeneratorClassifierAdapter",
     "MajorityClassClassifier",
     "NearestCentroidClassifier",
     "OptionalExternalClassifier",
+    "PDLClassifierAdapter",
     "build_classification_model",
 ]

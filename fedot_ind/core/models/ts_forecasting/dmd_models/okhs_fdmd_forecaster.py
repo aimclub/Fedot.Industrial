@@ -73,6 +73,16 @@ OKHS_FDMD_DEFAULT_PARAMS: dict[str, Any] = {
 }
 
 
+def _resolve_okhs_forecaster_class():
+    import sys
+
+    public_module = sys.modules.get(
+        'fedot_ind.core.models.ts_forecasting.okhs_fdmd_forecaster')
+    if public_module is not None and hasattr(public_module, 'OKHSForecaster'):
+        return getattr(public_module, 'OKHSForecaster')
+    return OKHSForecaster
+
+
 def _maybe_int(value: Any) -> int | None:
     if value is None:
         return None
@@ -107,40 +117,59 @@ def normalize_okhs_fdmd_params(
     else:
         max_window_size = max(2, int(series_length) - 1)
         min_window_size = 4 if max_window_size >= 4 else max_window_size
-        resolved['window_size'] = min(max(resolved_window_size, min_window_size), max_window_size)
+        resolved['window_size'] = min(
+            max(resolved_window_size, min_window_size), max_window_size)
 
     resolved['q'] = float(resolved.get('q', 0.7))
     resolved['n_modes'] = int(resolved.get('n_modes', 5))
     resolved['q_policy'] = str(resolved.get('q_policy', 'fixed'))
-    resolved['window_policy'] = str(resolved.get('window_policy', 'adaptive_cycle_aware'))
-    resolved['trajectory_sampling_policy'] = str(resolved.get('trajectory_sampling_policy', 'dense'))
-    resolved['trajectory_rank_policy'] = str(resolved.get('trajectory_rank_policy', 'explained_dispersion'))
-    resolved['trajectory_rank_value'] = _maybe_int(resolved.get('trajectory_rank_value'))
+    resolved['window_policy'] = str(resolved.get(
+        'window_policy', 'adaptive_cycle_aware'))
+    resolved['trajectory_sampling_policy'] = str(
+        resolved.get('trajectory_sampling_policy', 'dense'))
+    resolved['trajectory_rank_policy'] = str(resolved.get(
+        'trajectory_rank_policy', 'explained_dispersion'))
+    resolved['trajectory_rank_value'] = _maybe_int(
+        resolved.get('trajectory_rank_value'))
     resolved['trajectory_representation_policy'] = str(
         resolved.get('trajectory_representation_policy', 'projected')
     )
     resolved['latent_trajectory_stride_policy'] = str(
         resolved.get('latent_trajectory_stride_policy', 'adaptive')
     )
-    resolved['latent_trajectory_stride'] = _maybe_int(resolved.get('latent_trajectory_stride'))
-    resolved['mode_selection_policy'] = str(resolved.get('mode_selection_policy', 'energy'))
-    resolved['mode_energy_threshold'] = float(resolved.get('mode_energy_threshold', 0.95))
+    resolved['latent_trajectory_stride'] = _maybe_int(
+        resolved.get('latent_trajectory_stride'))
+    resolved['mode_selection_policy'] = str(
+        resolved.get('mode_selection_policy', 'energy'))
+    resolved['mode_energy_threshold'] = float(
+        resolved.get('mode_energy_threshold', 0.95))
     resolved['prediction_mode_selection_policy'] = str(
-        resolved.get('prediction_mode_selection_policy', 'adaptive_tail_energy')
+        resolved.get('prediction_mode_selection_policy',
+                     'adaptive_tail_energy')
     )
-    resolved['max_prediction_modes'] = _maybe_int(resolved.get('max_prediction_modes'))
-    resolved['min_prediction_modes'] = int(resolved.get('min_prediction_modes', 4))
-    resolved['boundary_alignment_policy'] = str(resolved.get('boundary_alignment_policy', 'tapered_offset'))
-    resolved['boundary_alignment_decay'] = float(resolved.get('boundary_alignment_decay', 4.0))
-    resolved['prediction_stability_threshold'] = _maybe_float(resolved.get('prediction_stability_threshold'))
-    resolved['anti_smoothing_policy'] = str(resolved.get('anti_smoothing_policy', 'residual_bridge'))
-    resolved['anti_smoothing_tail_window'] = _maybe_int(resolved.get('anti_smoothing_tail_window'))
-    resolved['anti_smoothing_amplitude_ratio'] = float(resolved.get('anti_smoothing_amplitude_ratio', 0.35))
-    resolved['anti_smoothing_monotone_ratio'] = float(resolved.get('anti_smoothing_monotone_ratio', 0.9))
+    resolved['max_prediction_modes'] = _maybe_int(
+        resolved.get('max_prediction_modes'))
+    resolved['min_prediction_modes'] = int(
+        resolved.get('min_prediction_modes', 4))
+    resolved['boundary_alignment_policy'] = str(
+        resolved.get('boundary_alignment_policy', 'tapered_offset'))
+    resolved['boundary_alignment_decay'] = float(
+        resolved.get('boundary_alignment_decay', 4.0))
+    resolved['prediction_stability_threshold'] = _maybe_float(
+        resolved.get('prediction_stability_threshold'))
+    resolved['anti_smoothing_policy'] = str(
+        resolved.get('anti_smoothing_policy', 'residual_bridge'))
+    resolved['anti_smoothing_tail_window'] = _maybe_int(
+        resolved.get('anti_smoothing_tail_window'))
+    resolved['anti_smoothing_amplitude_ratio'] = float(
+        resolved.get('anti_smoothing_amplitude_ratio', 0.35))
+    resolved['anti_smoothing_monotone_ratio'] = float(
+        resolved.get('anti_smoothing_monotone_ratio', 0.9))
     resolved['anti_smoothing_oscillation_floor'] = float(
         resolved.get('anti_smoothing_oscillation_floor', 0.25)
     )
-    resolved['anti_smoothing_decay'] = float(resolved.get('anti_smoothing_decay', 2.5))
+    resolved['anti_smoothing_decay'] = float(
+        resolved.get('anti_smoothing_decay', 2.5))
     resolved['anti_smoothing_target_amplitude_ratio'] = float(
         resolved.get('anti_smoothing_target_amplitude_ratio', 0.8)
     )
@@ -213,10 +242,13 @@ class OKHSFDMDForecaster:
     anti_smoothing_oscillation_floor: float = 0.25
     anti_smoothing_decay: float = 2.5
     anti_smoothing_target_amplitude_ratio: float = 0.8
-    device: str = 'auto'
+    device: str = 'cpu'
 
     def _build_inner_model(self) -> OKHSForecaster:
-        return OKHSForecaster(
+        forecaster_class = _resolve_okhs_forecaster_class()
+        resolved_device = 'cpu' if str(
+            self.device).lower() == 'auto' else self.device
+        return forecaster_class(
             q=self.q,
             forecast_horizon=self.forecast_horizon,
             n_modes=self.n_modes,
@@ -244,14 +276,16 @@ class OKHSFDMDForecaster:
             anti_smoothing_oscillation_floor=self.anti_smoothing_oscillation_floor,
             anti_smoothing_decay=self.anti_smoothing_decay,
             anti_smoothing_target_amplitude_ratio=self.anti_smoothing_target_amplitude_ratio,
-            device=self.device,
+            device=resolved_device,
         )
 
     def _refresh_diagnostics(self):
         optimization_info = dict(self.inner_model_.get_optimization_info())
         self.raw_diagnostics_ = optimization_info
-        self.stage_diagnostics_ = build_okhs_stage_diagnostics(optimization_info)
-        self.diagnostics_ = build_okhs_fdmd_runtime_diagnostics(optimization_info)
+        self.stage_diagnostics_ = build_okhs_stage_diagnostics(
+            optimization_info)
+        self.diagnostics_ = build_okhs_fdmd_runtime_diagnostics(
+            optimization_info)
 
     def fit(self, time_series: np.ndarray) -> 'OKHSFDMDForecaster':
         """Fit the inner OKHS fDMD model on a univariate time series."""
@@ -275,7 +309,8 @@ class OKHSFDMDForecaster:
             'source_series_length': int(len(source_series)),
         }
         forecast = self.inner_model_.predict(source_series)
-        values = normalize_okhs_fdmd_prediction(forecast, forecast_horizon=horizon)
+        values = normalize_okhs_fdmd_prediction(
+            forecast, forecast_horizon=horizon)
         self._refresh_diagnostics()
         self.last_prediction_diagnostics_.update({
             'forecast_shape': tuple(int(value) for value in values.shape),

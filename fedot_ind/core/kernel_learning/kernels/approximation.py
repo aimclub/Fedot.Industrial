@@ -8,17 +8,26 @@ import numpy as np
 
 @dataclass(frozen=True)
 class NystromApproximationPolicy:
-    n_components: int = 32
+    n_components: int | None = None
+    default_max_components: int = 32
     landmark_strategy: str = "even"
     ridge: float = 1e-10
 
     def __post_init__(self):
-        if self.n_components < 1:
+        if self.n_components is not None and self.n_components < 1:
             raise ValueError("n_components must be at least 1.")
+        if self.default_max_components < 1:
+            raise ValueError("default_max_components must be at least 1.")
         if self.ridge < 0.0:
             raise ValueError("ridge must be non-negative.")
         if self.landmark_strategy not in {"even", "first"}:
             raise ValueError(f"Unsupported landmark_strategy: {self.landmark_strategy}")
+
+    def resolve_n_components(self, n_samples: int) -> int:
+        if n_samples < 1:
+            raise ValueError("At least one sample is required for Nystrom approximation.")
+        requested = self.n_components if self.n_components is not None else self.default_max_components
+        return min(int(requested), int(n_samples))
 
 
 @dataclass
@@ -28,7 +37,7 @@ class NystromKernelApproximator:
     def fit(self, features: np.ndarray, kernel_fn: Any):
         matrix = np.asarray(features, dtype=float)
         n_samples = matrix.shape[0]
-        n_landmarks = min(int(self.policy.n_components), n_samples)
+        n_landmarks = self.policy.resolve_n_components(n_samples)
         self.kernel_fn_ = kernel_fn
         self.landmark_indices_ = _select_landmarks(
             n_samples,

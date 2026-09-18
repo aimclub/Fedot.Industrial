@@ -1,0 +1,26 @@
+{
+  "version": "industrial_real_world_results@1",
+  "task_type": "ts_classification",
+  "metric_name": "accuracy",
+  "metric_direction": "higher",
+  "sources": [
+    {
+      "label": "ucr_univariate_2025_01_23",
+      "path": "UCR_UNI_23_01_25",
+      "source_version": "2025-01-23",
+      "external_data_key": "real_world_ucr_classification_results"
+    },
+    {
+      "label": "ucr_classification_2025_02_04",
+      "path": "UCR_CLF_04_02_25",
+      "source_version": "2025-02-04",
+      "external_data_key": "real_world_ucr_classification_results"
+    },
+    {
+      "label": "benchmark_result_exports",
+      "path": "benchmark_results",
+      "source_version": "local",
+      "external_data_key": "real_world_ucr_classification_results"
+    }
+  ]
+}

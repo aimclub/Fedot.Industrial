@@ -1,4 +1,5 @@
 from __future__ import annotations
+from benchmark.industrial.evaluation.kernel_learning import render_kernel_stage1_summary_report
 
 import argparse
 import sys
@@ -8,15 +9,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from benchmark.industrial.evaluation.kernel_learning import render_kernel_stage1_summary_report
 
 DEFAULT_RUN_DIR = (
-        PROJECT_ROOT
-        / "benchmark"
-        / "results"
-        / "kernel_learning"
-        / "ucr_two_stage_140526"
-        / "kernel_learning_ucr_stage1_ba419d49e4"
+    PROJECT_ROOT
+    / "benchmark"
+    / "results"
+    / "kernel_learning"
+    / "ucr_two_stage_140526"
+    / "kernel_learning_ucr_stage1_ba419d49e4"
 )
 
 

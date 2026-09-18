@@ -1,0 +1,28 @@
+{
+  "version": "industrial_real_world_examples@1",
+  "kaggle_forecasting": {
+    "train_file": "train.csv",
+    "test_file": "test.csv",
+    "submission_file": "submission.csv",
+    "warehouses": [
+      "Prague_1",
+      "Brno_1",
+      "Prague_2",
+      "Prague_3",
+      "Budapest_1",
+      "Munich_1",
+      "Frankfurt_1"
+    ]
+  },
+  "eeg_classification": {
+    "data_root": "examples/utils/data/ts_classification/eeg",
+    "feature_file": "sig_data.npy",
+    "target_file": "sig_target.npy"
+  },
+  "debet_forecasting": {
+    "data_root": "examples/utils/data/forecasting/debet",
+    "config_file": "config.json",
+    "supported_models": ["transformer", "patch_transformer", "deep_ar"],
+    "output_dirs": ["model_checkpoint", "plots_archive", "predict_on_train", "predict_on_val", "predict_on_test"]
+  }
+}

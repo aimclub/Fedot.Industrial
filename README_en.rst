@@ -156,11 +156,13 @@ The comprehensive documentation is available on `wikipage`_.
 
 Useful tutorials and examples can be found in the `examples`_ folder.
 
-Benchmark V2 local documentation:
+Benchmark and Kernel Learning documentation is maintained in the project wiki:
 
-- `Overview <docs/benchmark_v2/benchmark_v2_overview.md>`__
-- `Quickstart <docs/benchmark_v2/quickstart.md>`__
-- `Migration Guide <docs/benchmark_v2/migration_guide.md>`__
+- `Kernel Learning and benchmark.industrial documentation <https://github.com/aimclub/Fedot.Industrial/wiki/Fedot-Industrial-KL-Documentation>`__
+- `Benchmark infrastructure <https://github.com/aimclub/Fedot.Industrial/wiki/Benchmark-Infrastructure>`__
+- `Migration from benchmark.v2 to benchmark.industrial <https://github.com/aimclub/Fedot.Industrial/wiki/Benchmark-Industrial-Migration>`__
+- `Forecasting refactor plans <https://github.com/aimclub/Fedot.Industrial/wiki#forecasting-refactor-plans>`__
+- `Forecasting prerelease overview <https://github.com/aimclub/Fedot.Industrial/wiki/Forecasting-Prerelease-270426-Overview>`__
 
 
 .. list-table::

@@ -1,0 +1,139 @@
+{
+  "version": "industrial_current_api_examples@1",
+  "datasets": {
+    "toy_tsc": {
+      "benchmark": "in_memory_tsc",
+      "dataset_name": "toy_tsc_current_api",
+      "adapter_options": {
+        "record": {
+          "train_features": [
+            [0.0, 0.1],
+            [0.2, 0.0],
+            [1.0, 1.1],
+            [0.9, 1.0]
+          ],
+          "train_target": ["a", "a", "b", "b"],
+          "test_features": [
+            [0.1, 0.2],
+            [1.1, 0.9]
+          ],
+          "test_target": ["a", "b"]
+        }
+      }
+    },
+    "toy_tser": {
+      "benchmark": "in_memory_tser",
+      "dataset_name": "toy_tser_current_api",
+      "adapter_options": {
+        "record": {
+          "train_features": [
+            [0.0],
+            [1.0],
+            [2.0],
+            [3.0],
+            [4.0]
+          ],
+          "train_target": [1.0, 3.0, 5.0, 7.0, 9.0],
+          "test_features": [
+            [5.0],
+            [6.0]
+          ],
+          "test_target": [11.0, 13.0]
+        }
+      }
+    },
+    "toy_forecasting": {
+      "benchmark": "in_memory",
+      "dataset_name": "toy_forecasting_current_api",
+      "subset": "monthly",
+      "adapter_options": {
+        "frequency": "monthly",
+        "forecast_horizon": 4,
+        "seasonal_period": 4,
+        "records": [
+          {
+            "series_id": "toy_monthly_1",
+            "values": [1.0, 2.0, 3.0, 4.0, 4.5, 5.5, 6.0, 7.0, 7.5, 8.5, 9.0, 10.0],
+            "horizon": 4,
+            "frequency": "monthly",
+            "seasonal_period": 4
+          },
+          {
+            "series_id": "toy_monthly_2",
+            "values": [2.0, 2.5, 3.0, 3.7, 4.2, 4.8, 5.4, 6.1, 6.7, 7.2, 7.9, 8.4],
+            "horizon": 4,
+            "frequency": "monthly",
+            "seasonal_period": 4
+          }
+        ]
+      }
+    }
+  },
+  "models": {
+    "tsc_baselines": [
+      {
+        "adapter_name": "majority_class",
+        "display_name": "MajorityClass"
+      },
+      {
+        "adapter_name": "nearest_centroid",
+        "display_name": "NearestCentroid"
+      }
+    ],
+    "tser_baselines": [
+      {
+        "adapter_name": "mean_regressor",
+        "display_name": "MeanRegressor"
+      },
+      {
+        "adapter_name": "linear_regressor",
+        "display_name": "LinearRegressor"
+      }
+    ],
+    "forecasting_baselines": [
+      {
+        "adapter_name": "naive_last_value",
+        "display_name": "NaiveLastValue"
+      },
+      {
+        "adapter_name": "moving_average",
+        "display_name": "MovingAverage",
+        "params": {
+          "window_size": 3
+        }
+      }
+    ]
+  },
+  "suites": {
+    "tsc": {
+      "dataset": "toy_tsc",
+      "models": "tsc_baselines",
+      "metrics": ["accuracy", "balanced_accuracy", "f1_macro"],
+      "run_spec": {
+        "run_name": "current_api_toy_tsc",
+        "primary_metric": "accuracy",
+        "show_progress": false
+      }
+    },
+    "tser": {
+      "dataset": "toy_tser",
+      "models": "tser_baselines",
+      "metrics": ["rmse", "mae", "r2"],
+      "run_spec": {
+        "run_name": "current_api_toy_tser",
+        "primary_metric": "rmse",
+        "show_progress": false
+      }
+    },
+    "forecasting": {
+      "dataset": "toy_forecasting",
+      "models": "forecasting_baselines",
+      "metrics": ["rmse", "mae", "smape"],
+      "run_spec": {
+        "run_name": "current_api_toy_forecasting",
+        "primary_metric": "rmse",
+        "show_progress": false
+      }
+    }
+  }
+}

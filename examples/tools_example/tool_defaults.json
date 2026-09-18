@@ -1,0 +1,25 @@
+{
+  "version": "industrial_tools_examples@1",
+  "kernel_learning": {
+    "dataset_name": "Lightning7"
+  },
+  "anomaly_detection": {
+    "data_root": "examples/utils/data/anomaly_detection/liman/vibro",
+    "datasets": ["liman/vibro"],
+    "train_regime": "without_failure",
+    "regimes": ["without_failure", "bearing_failure", "rotor_failure", "stator_failure"],
+    "sampling_rate": 8192,
+    "prediction_window": 10,
+    "description": "Local LIMAN vibration data used by anomaly detection tool examples."
+  },
+  "local_data": {
+    "big_data": {
+      "data_root": "examples/tools_example/custom_strategy/big_data/big_dataset",
+      "description": "Optional local folds for big-data Industrial strategy tool examples."
+    },
+    "multimodal": {
+      "data_root": "examples/tools_example/custom_strategy/multimodal/data",
+      "description": "Optional local multimodal data used by the historical example."
+    }
+  }
+}

@@ -1,6 +1,15 @@
+import pytest
 import numpy as np
 
-from fedot_ind.core.kernel_learning import KernelEnsembleClassifier, KernelEnsembleForecaster, KernelEnsembleRegressor
+from fedot_ind.core.kernel_learning import (
+    KernelConfigValidationError,
+    KernelEnsembleClassifier,
+    KernelEnsembleForecaster,
+    KernelEnsembleRegressor,
+    KernelNormalization,
+    KernelTaskType,
+    PSDCorrectionPolicy,
+)
 from fedot_ind.core.kernel_learning.contracts import KernelBundle, KernelSelectionReport
 
 
@@ -26,6 +35,13 @@ def test_kernel_ensemble_classifier_predicts_and_returns_probabilities():
     assert model.selected_generators_ == ("identity",)
     assert model.important_generators_ == ("identity",)
     assert model.kernel_importance_.selected_generators == ("identity",)
+    assert model.fit_diagnostics_["weight_source"] == "selection_report"
+    assert model.fit_diagnostics_["kernel_cache"] == {
+        "enabled": True,
+        "namespace": "kernel_ensemble",
+        "size": 1,
+    }
+    assert model.kernel_bundles_[0].diagnostics["cache"]["enabled"] is True
 
 
 def test_kernel_ensemble_regressor_predicts_stable_shape():
@@ -98,3 +114,38 @@ def test_kernel_mixing_still_uses_selector_weights_not_importance_threshold():
     combined = model._combine_train_kernels()
 
     np.testing.assert_allclose(combined, np.array([[4.6, 0.6], [0.6, 4.6]]))
+
+
+def test_kernel_ensemble_runtime_config_normalizes_current_params_after_set_params():
+    model = KernelEnsembleClassifier(
+        generator_names=("identity",),
+        normalize=KernelNormalization.FROBENIUS,
+        psd_correction=PSDCorrectionPolicy.NONE,
+        selector_max_iter=7,
+    )
+
+    config = model._build_runtime_config()
+    assert config.generator_names == ("identity",)
+    assert config.kernel_policy.normalize is KernelNormalization.FROBENIUS
+    assert config.kernel_policy.psd_correction is None
+    assert config.selector_config.max_iter == 7
+
+    model.set_params(normalize="trace", psd_correction="clip")
+    updated = model._build_runtime_config()
+
+    assert updated.kernel_policy.normalize is KernelNormalization.TRACE
+    assert updated.kernel_policy.psd_correction is PSDCorrectionPolicy.CLIP
+
+
+def test_kernel_ensemble_rejects_empty_generator_set_with_domain_error():
+    model = KernelEnsembleClassifier(generator_names=())
+
+    with pytest.raises(KernelConfigValidationError, match="at least one feature generator"):
+        model._build_runtime_config()
+
+
+def test_kernel_ensemble_task_type_is_typed_but_keeps_string_comparison():
+    model = KernelEnsembleForecaster(generator_names=("identity",))
+
+    assert model.task_type is KernelTaskType.FORECASTING
+    assert model.task_type == "forecasting"

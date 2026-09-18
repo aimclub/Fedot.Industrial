@@ -417,7 +417,7 @@ class RiemannExtractor(BaseExtractor):
                 ).fit(views[view["name"]]).centroid_
                 for view in self.views
             }
-        
+
         if self.centroid_type == "median":
             packed = self._pack_product(views)
             reference = TorchSPDCentroid(

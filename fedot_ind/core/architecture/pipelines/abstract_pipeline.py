@@ -18,8 +18,8 @@ from fedot_ind.core.repository.industrial_implementations.abstract import build_
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
 from fedot_ind.tools.example_utils import load_monash_dataset
-from fedot_ind.tools.loader import DataLoader
-from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH, PATH_TO_DEFAULT_PARAMS
+from fedot_ind.tools.loader import DataLoader, resolve_skab_data_root
+from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
 
 BENCHMARK = 'M4'
 
@@ -249,11 +249,12 @@ class ApiTemplate:
 
     def _prepare_skab_data(self, dataset, benchmark_name, benchmark_dict):
         folder = benchmark_dict['metadata']['folder']
-        path_to_result = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{folder}/{dataset}.csv'
+        skab_root = resolve_skab_data_root()
+        path_to_result = skab_root / folder / f'{dataset}.csv'
         df = pd.read_csv(path_to_result, index_col='datetime', sep=';', parse_dates=True)
         train_idx = self.api_config['industrial_config']['strategy_params']['train_data_size']
         if isinstance(train_idx, str):
-            train_data = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{train_idx}/{train_idx}.csv'
+            train_data = skab_root / train_idx / f'{train_idx}.csv'
             train_data = pd.read_csv(train_data, index_col='datetime', sep=';', parse_dates=True)
             label = np.array([0 for x in range(len(train_data))])
             dataset_for_eval = {'train_data': (train_data.values, label),

@@ -1,6 +1,8 @@
 import logging
+import os
 import time
 import numpy as np
+import pytest
 import torch
 import pandas as pd
 
@@ -60,6 +62,10 @@ def test_recurrence_features():
     """
 
     """
+    if os.getenv("FEDOT_RUN_CUDA_BENCHMARKS") != "1":
+        pytest.skip("CUDA performance benchmark is opt-in; set FEDOT_RUN_CUDA_BENCHMARKS=1 to run it.")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA benchmark requires a CUDA-capable runner.")
     length = 30000
 
     # generate synthetic data

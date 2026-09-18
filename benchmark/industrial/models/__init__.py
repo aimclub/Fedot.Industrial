@@ -5,6 +5,7 @@ from benchmark.industrial.models.classification import (
     MajorityClassClassifier,
     NearestCentroidClassifier,
     OptionalExternalClassifier,
+    PDLClassifierAdapter,
     build_classification_model,
 )
 from benchmark.industrial.models.regression import (
@@ -12,6 +13,7 @@ from benchmark.industrial.models.regression import (
     LinearRegressor,
     MeanRegressor,
     OptionalExternalRegressor,
+    PDLRegressorAdapter,
     build_regression_model,
 )
 from benchmark.industrial.models.specs import ModelSpec
@@ -33,6 +35,8 @@ __all__ = [
     "NearestCentroidClassifier",
     "OptionalExternalClassifier",
     "OptionalExternalRegressor",
+    "PDLClassifierAdapter",
+    "PDLRegressorAdapter",
     "build_classification_model",
     "build_forecasting_model_adapter",
     "build_regression_model",

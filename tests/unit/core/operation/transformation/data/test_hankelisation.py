@@ -50,7 +50,7 @@ def test_hankelisation_transform_for_fit_matches_reference_contract():
     ).trajectory_matrix.T
     reference_target = HankelMatrix(
         time_series=np.ravel(input_data.features)[16:],
-        window_size=input_data.task.task_params.forecast_length,
+        window_size=input_data.task.task_params.forecast_length + 1,
         strides=2,
     ).trajectory_matrix.T
     reference_features = reference_features[:reference_target.shape[0], :]

@@ -195,7 +195,8 @@ class DetectionBoundaryAdapter:
             metadata: dict[str, Any] | None = None,
     ) -> DetectionWindowBatch:
         if InputData is None:  # pragma: no cover
-            raise ValueError('FEDOT InputData is unavailable in the current environment.')
+            raise ValueError(
+                'FEDOT InputData is unavailable in the current environment.')
         values = ensure_detection_array(input_data.features)
         resolved_window_size = resolve_detection_window_size(
             values.shape[0],
@@ -206,7 +207,8 @@ class DetectionBoundaryAdapter:
             values,
             window_size=resolved_window_size,
             stride=resolve_detection_stride(resolved_window_size, stride),
-            metadata={'idx': getattr(input_data, 'idx', None), **dict(metadata or {})},
+            metadata={'idx': getattr(
+                input_data, 'idx', None), **dict(metadata or {})},
         )
 
 
@@ -234,7 +236,8 @@ def resolve_detection_window_size(
     if window_size is not None:
         return max(2, min(int(window_size), int(series_length)))
     if window_size_percent is not None:
-        resolved = int(round(series_length * float(window_size_percent) / 100.0))
+        resolved = int(
+            round(series_length * float(window_size_percent) / 100.0))
         return max(2, min(resolved, int(series_length)))
     default_window = max(minimum_window_size, int(round(series_length * 0.1)))
     return min(default_window, int(series_length))
@@ -273,7 +276,8 @@ def build_detection_window_batch(
         original_length=int(series.shape[0]),
         window_size=int(window_size),
         stride=int(stride),
-        channel_names=tuple(channel_names or tuple(f'channel_{index}' for index in range(series.shape[1]))),
+        channel_names=tuple(channel_names or tuple(
+            f'channel_{index}' for index in range(series.shape[1]))),
         metadata=dict(metadata or {}),
     )
 
@@ -283,28 +287,105 @@ def split_detection_batch(
         split_spec: DetectionSplitSpec,
 ) -> tuple[DetectionWindowBatch, DetectionWindowBatch, DetectionWindowBatch | None]:
     n_windows = batch.n_windows
-    n_train = max(1, int(round(n_windows * split_spec.train_fraction)))
-    remaining = max(0, n_windows - n_train)
-    n_calibration = int(round(remaining * split_spec.calibration_fraction / max(1e-8, 1.0 - split_spec.train_fraction)))
-    n_calibration = min(remaining, max(0, n_calibration))
+    if n_windows <= 0:
+        raise ValueError('Detection split requires at least one window.')
 
-    def _slice(start: int, end: int) -> DetectionWindowBatch | None:
-        if end <= start:
+    def _metadata_for_indices(indices: np.ndarray, split_name: str) -> dict[str, Any]:
+        metadata = dict(batch.metadata)
+        for key, value in list(metadata.items()):
+            if isinstance(value, np.ndarray) and value.shape[:1] == (n_windows,):
+                metadata[key] = value[indices].tolist()
+            elif isinstance(value, (list, tuple)) and len(value) == n_windows:
+                metadata[key] = [value[int(index)] for index in indices]
+        metadata.update({
+            'split_kind': split_spec.kind.value,
+            'split_name': split_name,
+            'selected_window_ids': [int(index) for index in indices.tolist()],
+        })
+        return metadata
+
+    def _take(indices: Sequence[int], split_name: str) -> DetectionWindowBatch | None:
+        selected = np.asarray(list(indices), dtype=int)
+        if selected.size == 0:
             return None
+        selected_mask = batch.mask
+        if isinstance(batch.mask, np.ndarray) and batch.mask.shape[:1] == (n_windows,):
+            selected_mask = batch.mask[selected]
         return DetectionWindowBatch(
-            windows=batch.windows[start:end],
-            window_indices=batch.window_indices[start:end],
+            windows=batch.windows[selected],
+            window_indices=batch.window_indices[selected],
             original_length=batch.original_length,
             window_size=batch.window_size,
             stride=batch.stride,
             channel_names=batch.channel_names,
-            mask=batch.mask,
-            metadata=dict(batch.metadata),
+            mask=selected_mask,
+            metadata=_metadata_for_indices(selected, split_name),
         )
 
-    train_batch = _slice(0, n_train)
-    calibration_batch = _slice(n_train, n_train + n_calibration)
-    test_batch = _slice(n_train + n_calibration, n_windows)
+    if split_spec.kind is DetectionSplitKind.DOMAIN_HOLDOUT:
+        domains = batch.metadata.get('window_domains')
+        if domains is None:
+            raise ValueError(
+                'Domain holdout split requires window_domains metadata.')
+        if len(domains) != n_windows:
+            raise ValueError(
+                'window_domains metadata must match the number of detection windows.')
+        target_domain = split_spec.target_domain or str(domains[-1])
+        train_ids = [index for index, domain in enumerate(
+            domains) if str(domain) != str(target_domain)]
+        target_ids = [index for index, domain in enumerate(
+            domains) if str(domain) == str(target_domain)]
+        n_calibration = max(1, int(
+            round(len(target_ids) * split_spec.calibration_fraction))) if target_ids else 0
+        n_calibration = min(len(target_ids), n_calibration)
+        train_batch = _take(train_ids, 'train')
+        calibration_batch = _take(target_ids[:n_calibration], 'calibration')
+        test_batch = _take(target_ids[n_calibration:], 'test')
+        if train_batch is None:
+            raise ValueError(
+                'Detection domain holdout produced an empty train batch.')
+        return train_batch, calibration_batch or train_batch, test_batch
+
+    if split_spec.kind is DetectionSplitKind.TEMPORAL and split_spec.prevent_future_leakage:
+        train_boundary = int(
+            round(batch.original_length * split_spec.train_fraction))
+        calibration_boundary = int(round(
+            batch.original_length *
+            min(1.0, split_spec.train_fraction +
+                split_spec.calibration_fraction)
+        ))
+        train_ids = np.flatnonzero(
+            batch.window_indices[:, 1] <= train_boundary)
+        calibration_ids = np.flatnonzero(
+            (batch.window_indices[:, 0] >= train_boundary)
+            & (batch.window_indices[:, 1] <= calibration_boundary)
+        )
+        test_ids = np.flatnonzero(
+            batch.window_indices[:, 0] >= calibration_boundary)
+        train_batch = _take(train_ids, 'train')
+        calibration_batch = _take(calibration_ids, 'calibration')
+        test_batch = _take(test_ids, 'test')
+        if train_batch is None:
+            raise ValueError(
+                'Detection temporal split produced an empty train batch.')
+        return train_batch, calibration_batch or train_batch, test_batch
+
+    n_train = max(1, int(round(n_windows * split_spec.train_fraction)))
+    remaining = max(0, n_windows - n_train)
+    n_calibration = int(round(remaining * split_spec.calibration_fraction /
+                        max(1e-8, 1.0 - split_spec.train_fraction)))
+    n_calibration = min(remaining, max(0, n_calibration))
+    if split_spec.kind is DetectionSplitKind.HOLDOUT:
+        ordered_ids = np.random.default_rng(
+            split_spec.random_seed).permutation(n_windows)
+    else:
+        ordered_ids = np.arange(n_windows, dtype=int)
+
+    train_batch = _take(sorted(ordered_ids[:n_train].tolist()), 'train')
+    calibration_batch = _take(
+        sorted(ordered_ids[n_train:n_train + n_calibration].tolist()), 'calibration')
+    test_batch = _take(
+        sorted(ordered_ids[n_train + n_calibration:].tolist()), 'test')
     if train_batch is None:
         raise ValueError('Detection split produced an empty train batch.')
     return train_batch, calibration_batch or train_batch, test_batch
@@ -313,7 +394,8 @@ def split_detection_batch(
 def build_window_statistical_features(windows: np.ndarray) -> np.ndarray:
     array = np.asarray(windows, dtype=float)
     if array.ndim != 3:
-        raise ValueError('Detection windows must have shape [n_windows, window_size, n_channels].')
+        raise ValueError(
+            'Detection windows must have shape [n_windows, window_size, n_channels].')
     mean = np.mean(array, axis=1)
     std = np.std(array, axis=1)
     minimum = np.min(array, axis=1)
@@ -339,7 +421,8 @@ def infer_regime_segments(
         .to_numpy(dtype=float)
     )
     abs_slope = np.abs(slope)
-    transition_threshold = float(np.quantile(abs_slope, transition_quantile)) if len(abs_slope) else 0.0
+    transition_threshold = float(np.quantile(
+        abs_slope, transition_quantile)) if len(abs_slope) else 0.0
     high_level = float(np.quantile(regime_signal, 0.75))
     low_level = float(np.quantile(regime_signal, 0.25))
 
@@ -376,7 +459,8 @@ def align_window_scores_to_points(
 ) -> np.ndarray:
     scores = np.asarray(window_scores, dtype=float).reshape(-1)
     if scores.shape[0] != batch.n_windows:
-        raise ValueError('The number of window scores must match the number of detection windows.')
+        raise ValueError(
+            'The number of window scores must match the number of detection windows.')
     point_scores = np.zeros(batch.original_length, dtype=float)
     point_counts = np.zeros(batch.original_length, dtype=float)
     for score, (start, end) in zip(scores, batch.window_indices):
@@ -451,10 +535,12 @@ def detect_events_from_score_series(
             start = index
         elif label == 0 and start is not None:
             if index - start >= int(min_event_length):
-                events.append(_build_detection_event(start, index - 1, scores, regime_segments))
+                events.append(_build_detection_event(
+                    start, index - 1, scores, regime_segments))
             start = None
     if start is not None and len(labels) - start >= int(min_event_length):
-        events.append(_build_detection_event(start, len(labels) - 1, scores, regime_segments))
+        events.append(_build_detection_event(
+            start, len(labels) - 1, scores, regime_segments))
     return tuple(events)
 
 
@@ -488,7 +574,8 @@ def domain_invariant_scale(
         reference_values: Sequence[float] | np.ndarray | None = None,
 ) -> np.ndarray:
     series = ensure_detection_array(values)
-    reference = ensure_detection_array(reference_values) if reference_values is not None else series
+    reference = ensure_detection_array(
+        reference_values) if reference_values is not None else series
     median = np.median(reference, axis=0)
     mad = np.median(np.abs(reference - median), axis=0)
     mad = np.where(mad < 1e-8, 1.0, mad)
@@ -504,16 +591,22 @@ def coral_feature_align(
     source = np.asarray(source_features, dtype=float)
     target = np.asarray(target_features, dtype=float)
     if source.ndim != 2 or target.ndim != 2:
-        raise ValueError('CORAL feature alignment expects 2D feature matrices.')
+        raise ValueError(
+            'CORAL feature alignment expects 2D feature matrices.')
     source_centered = source - np.mean(source, axis=0, keepdims=True)
     target_centered = target - np.mean(target, axis=0, keepdims=True)
-    source_cov = np.cov(source_centered, rowvar=False) + epsilon * np.eye(source.shape[1])
-    target_cov = np.cov(target_centered, rowvar=False) + epsilon * np.eye(target.shape[1])
+    source_cov = np.cov(source_centered, rowvar=False) + \
+        epsilon * np.eye(source.shape[1])
+    target_cov = np.cov(target_centered, rowvar=False) + \
+        epsilon * np.eye(target.shape[1])
     source_values, source_vectors = np.linalg.eigh(source_cov)
     target_values, target_vectors = np.linalg.eigh(target_cov)
-    source_whitener = source_vectors @ np.diag(1.0 / np.sqrt(np.clip(source_values, epsilon, None))) @ source_vectors.T
-    target_colorer = target_vectors @ np.diag(np.sqrt(np.clip(target_values, epsilon, None))) @ target_vectors.T
-    aligned = source_centered @ source_whitener @ target_colorer + np.mean(target, axis=0, keepdims=True)
+    source_whitener = source_vectors @ np.diag(1.0 / np.sqrt(
+        np.clip(source_values, epsilon, None))) @ source_vectors.T
+    target_colorer = target_vectors @ np.diag(
+        np.sqrt(np.clip(target_values, epsilon, None))) @ target_vectors.T
+    aligned = source_centered @ source_whitener @ target_colorer + \
+        np.mean(target, axis=0, keepdims=True)
     return np.asarray(aligned, dtype=float)
 
 
@@ -535,9 +628,12 @@ def build_transfer_alignment_report(
         target_domain=target_domain,
         n_source=int(source.shape[0]),
         n_target=int(target.shape[0]),
-        source_channel_mean=tuple(float(value) for value in source_mean.tolist()),
-        target_channel_mean=tuple(float(value) for value in target_mean.tolist()),
-        mean_shift=tuple(float(value) for value in (target_mean - source_mean).tolist()),
+        source_channel_mean=tuple(float(value)
+                                  for value in source_mean.tolist()),
+        target_channel_mean=tuple(float(value)
+                                  for value in target_mean.tolist()),
+        mean_shift=tuple(float(value)
+                         for value in (target_mean - source_mean).tolist()),
         metadata={
             'source_channel_std': [float(value) for value in np.std(source, axis=0).tolist()],
             'target_channel_std': [float(value) for value in np.std(target, axis=0).tolist()],

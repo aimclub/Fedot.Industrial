@@ -221,7 +221,7 @@ class IndustrialStrategy:
             KernelEnsembleForecaster,
             KernelEnsembleRegressor,
         )
-        from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationBuilder
+        from fedot_ind.core.kernel_learning.integration import KernelInitialPopulationError, KernelInitialPopulationBuilder
 
         problem = self.config.get('problem', getattr(getattr(input_data, 'task', None), 'task_type', None))
         problem = getattr(problem, 'value', problem)
@@ -269,7 +269,11 @@ class IndustrialStrategy:
             include_feature_union=self.industrial_strategy_params.get('include_feature_union', True),
             max_union_size=self.industrial_strategy_params.get('max_union_size', 3),
         )
-        initial_population = initial_population_builder.build_pipelines(kernel_estimator.kernel_importance_)
+        try:
+            initial_population = initial_population_builder.build_pipelines(kernel_estimator.kernel_importance_)
+        except KernelInitialPopulationError as exc:
+            self.logger.warning('Kernel warm-start did not build any initial assumptions: %s', exc)
+            return self._legacy_kernel_strategy(input_data)
         if not initial_population:
             self.logger.warning(
                 'Kernel warm-start did not build any initial assumptions. Falling back to legacy strategy.')

@@ -1,20 +1,27 @@
-import torch
-import pandas as pd
-import numpy as np
-import time
 import itertools
 import logging
+import os
+import time
+
+import numpy as np
+import pandas as pd
+import pytest
+import torch
+from fedot.core.operations.operation_parameters import OperationParameters
+
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
-from fedot.core.operations.operation_parameters import OperationParameters
-from tests.unit.api.fixtures import warm_up_cuda_computations
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-
+from tests.unit.api.fixtures import warm_up_cuda_computations
 
 logger = logging.getLogger(__name__)
 
 
 def test_stat_extractor(length=10000, window_size=10, stride=2, add_global_features=True):
+    if os.getenv("FEDOT_RUN_CUDA_BENCHMARKS") != "1":
+        pytest.skip("CUDA performance benchmark is opt-in; set FEDOT_RUN_CUDA_BENCHMARKS=1 to run it.")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA benchmark requires a CUDA-capable runner.")
     """ Function of measuring time of statictical features extracting for previous realisation (numpy)
     and new realisation (torch) on CPU and GPU. First, create random time series with shape shape_array,
     then extract features and measure time. Time for GPU is measured 10 times, then average value is taking.
@@ -119,6 +126,23 @@ def run_stat_extractor_tests() -> pd.DataFrame:
         results.append(res)
     logger.info(f"Successful test.")
     return pd.DataFrame(results)
+
+
+def test_torch_quantile_extractor_accepts_numpy_sample():
+    params = OperationParameters(
+        window_size=10,
+        stride=2,
+        add_global_features=True
+    )
+    extractor = TorchQuantileExtractor(params)
+    sample = np.arange(30, dtype=np.float32)
+
+    features = extractor.generate_features_from_ts(sample)
+
+    assert isinstance(features, torch.Tensor)
+    assert features.ndim == 2
+    assert features.shape[0] == 1
+    assert torch.isfinite(features).all()
 
 
 if __name__ == "__main__":

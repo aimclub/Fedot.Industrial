@@ -1,0 +1,179 @@
+name: Conventional PR Title and Description
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - name: Check if PR title or description changed
+        id: check-changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.payload.action === 'edited') {
+              const changes = context.payload.changes;
+              
+              const titleChanged = changes && changes.title;
+              const bodyChanged = changes && changes.body;
+              const isCommitPush = changes && !titleChanged && !bodyChanged;
+              
+              if (isCommitPush) {
+                console.log('New commits pushed - skipping validation');
+                core.setOutput('should_validate', 'false');
+              } else if (titleChanged || bodyChanged) {
+                console.log(`PR title or description was changed. Title: ${titleChanged}, Body: ${bodyChanged}`);
+                core.setOutput('should_validate', 'true');
+              } else {
+                console.log('PR was edited but title/description not changed - skipping');
+                core.setOutput('should_validate', 'false');
+              }
+            } else {
+              console.log('PR opened - validating');
+              core.setOutput('should_validate', 'true');
+            }
+          
+      - name: Validate PR Title and Description
+        if: steps.check-changes.outputs.should_validate == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const COMMENT_IDENTIFIER = 'PR Title Validation';
+            const CHECK = ':white_check_mark:';
+            const CROSS = ':x:';
+            
+            const prTitle = context.payload.pull_request.title;
+            const prBody = context.payload.pull_request.body || '';
+            const prNumber = context.payload.pull_request.number;
+            
+            const validTypes = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'chore', 'build', 'ci', 'revert', 'release'];
+            
+            // Check if title follows conventional commit format
+            const isTitleValid = new RegExp('^(' + validTypes.join('|') + ')(\\([a-zA-Z0-9\\-]+\\))?: .+$').test(prTitle.trim());
+            
+            // Check if first word after colon starts with lowercase
+            const colonIndex = prTitle.indexOf(':');
+            let firstWordLowerCase = true;
+            if (colonIndex !== -1) {
+              const afterColon = prTitle.substring(colonIndex + 1).trim();
+              const firstWord = afterColon.split(' ')[0];
+              if (firstWord && firstWord.length > 0) {
+                firstWordLowerCase = firstWord[0] === firstWord[0].toLowerCase();
+              }
+            }
+            
+            const isTitleLongEnough = prTitle.trim().length >= 30;
+            const hasDescription = prBody.trim().length > 0;
+            const isValid = isTitleValid && isTitleLongEnough && hasDescription && firstWordLowerCase;
+            
+            let commentBody = '';
+            
+            if (isValid) {
+              commentBody = `
+              ## ${CHECK} ${COMMENT_IDENTIFIER} Passed
+
+              Thank you for following Conventional Commits! 🎉
+
+              **Current Title:** \`${prTitle}\`
+              **Title Length:** ${CHECK} ${prTitle.trim().length} characters
+              **Description:** ${CHECK} Provided
+              **Status:** ${CHECK} Passed
+              **Last Updated:** ${new Date().toUTCString()}
+              `;
+            } else {
+              const issues = [];
+              if (!isTitleValid) issues.push('Invalid conventional commit format');
+              if (!isTitleLongEnough) issues.push(`Title too short (${prTitle.trim().length}/30 characters)`);
+              if (!firstWordLowerCase) issues.push('First word after colon must start with lowercase');
+              if (!hasDescription) issues.push('Description missing');
+              
+              commentBody = `
+              ## ${CROSS} ${COMMENT_IDENTIFIER} Failed
+
+              **Issues:**
+              ${issues.map(i => `- ${i}`).join('\n')}
+
+              **Current Title:** \`${prTitle}\`
+              **Title Length:** ${prTitle.trim().length}/30 characters ${!isTitleLongEnough ? CROSS : CHECK}
+              **First Word After Colon:** ${!firstWordLowerCase ? `${CROSS} Must start with lowercase` : CHECK}
+              **Required Format:** \`<type>(<scope>): <subject>\`
+              **Valid Types:** ${validTypes.join(', ')}
+
+              **Examples (note lowercase first word):**
+              - \`feat(automl): add neural architecture search for tabular data\`
+              - \`fix(model): resolve data leakage in cross-validation strategy\`
+              - \`perf(inference): optimize model serving with ONNX runtime\`
+              - \`docs(mlops): add comprehensive deployment documentation\`
+
+              **Description:** ${hasDescription ? `${CHECK} Provided` : `${CROSS} Missing`}
+              Please provide a description of your ML/AutoML changes.
+
+              **Status:** ${CROSS} Failed
+              **Last Updated:** ${new Date().toUTCString()}
+              `;
+            }
+            
+            // Find existing comment using the constant
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            
+            const botComment = comments.find(c => 
+              c.user.type === 'Bot' && c.body.includes(COMMENT_IDENTIFIER)
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+              console.log(`Updated existing ${COMMENT_IDENTIFIER} comment`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+              console.log(`Created new ${COMMENT_IDENTIFIER} comment`);
+            }
+            
+            // Manage labels
+            if (!isValid) {
+              for (const label of ['needs-fix', !isTitleValid ? 'needs-title-fix' : '', !isTitleLongEnough ? 'needs-title-length' : '', !firstWordLowerCase ? 'needs-title-case' : '', !hasDescription ? 'needs-description' : '']) {
+                if (label) {
+                  try {
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prNumber,
+                      labels: [label]
+                    });
+                  } catch (e) {}
+                }
+              }
+              core.setFailed(`PR validation failed: ${issues.join(', ')}`);
+            } else {
+              for (const label of ['needs-fix', 'needs-title-fix', 'needs-title-length', 'needs-title-case', 'needs-description']) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    name: label
+                  });
+                } catch (e) {}
+              }
+            }

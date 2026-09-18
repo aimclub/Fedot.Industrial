@@ -6,6 +6,7 @@ from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrat
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.operation.interfaces.detection_runtime_strategy import IndustrialDetectionModelRuntimeStrategy
+from fedot_ind.core.operation.interfaces.neural_forecasting_strategy import FedotNNTimeSeriesStrategy  # noqa: F401
 from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
     IndustrialForecastingModelRuntimeStrategy,
     LegacyForecastingModelRedirectMixin,

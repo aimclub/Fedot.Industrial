@@ -18,7 +18,7 @@ def build_lagged_table_contract(time_series,
         strides=stride).trajectory_matrix.T
     lagged_target = HankelMatrix(
         time_series=np.ravel(np.asarray(time_series))[window_size:],
-        window_size=forecast_length,
+        window_size=forecast_length + 1,
         strides=stride).trajectory_matrix.T
     lagged_features = lagged_features[:lagged_target.shape[0], :]
     return lagged_features, lagged_target
@@ -73,7 +73,8 @@ def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputDa
     forecast_length = train_data.task.task_params.forecast_length
     # Correct window size parameter
     if self.window_size == 0:
-        self._check_and_correct_window_size(train_data.features, forecast_length)
+        self._check_and_correct_window_size(
+            train_data.features, forecast_length)
     else:
         self.log.info(("Window size dont change"))
     lagged_features, lagged_target = build_lagged_table_contract(
@@ -119,7 +120,8 @@ def _check_and_correct_window_size_industrial(
 
         """
     max_ws = round(len(time_series) / 2)  # half of all ts
-    min_ws = max(round(len(time_series) * 0.05), 2)  # 5 percent of all ts or 2 elements
+    # 5 percent of all ts or 2 elements
+    min_ws = max(round(len(time_series) * 0.05), 2)
     max_allowed_window_size = max(min_ws, max_ws)
     step = round(1.5 * forecast_length)
     range_ws = max_allowed_window_size - min_ws

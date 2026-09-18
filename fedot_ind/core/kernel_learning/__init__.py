@@ -2,13 +2,17 @@ from .cache import InMemoryKernelCache, KernelCacheKey, KernelCachePolicy, finge
 from .contracts import (
     FeatureBundle,
     FeatureGeneratorProtocol,
+    FeatureInput,
+    KernelApproximation,
     KernelBundle,
+    KernelConfigValidationError,
     KernelMatrixPolicy,
     KernelGeneratorProtocol,
     KernelSelectionReport,
     KernelNormalization,
     KernelTaskType,
     PSDCorrectionPolicy,
+    TargetInput,
 )
 from .estimators import KernelEnsembleClassifier, KernelEnsembleForecaster, KernelEnsembleRegressor
 from .generators import (
@@ -17,6 +21,7 @@ from .generators import (
     DEFAULT_GENERATOR_NAMES,
     GeneratorBudgetPolicy,
     IdentityFeatureGenerator,
+    KernelFeatureGeneratorMixin,
     OperationSpec,
     PipelineFeatureGeneratorAdapter,
     RandomProjectionEmbeddingFeatureGenerator,
@@ -28,7 +33,14 @@ from .generators import (
     resolve_generator_operation_specs,
     resolve_torch_device,
 )
-from .integration import KernelInitialPipelineSpec, KernelInitialPopulationBuilder
+from .integration import (
+    KernelInitialPipelineSpec,
+    KernelInitialPopulationBuilder,
+    KernelInitialPopulationError,
+    KernelWarmStartTaskSpec,
+    resolve_warm_start_task,
+    task_head_candidates,
+)
 from .kernels import (
     KernelMatrixBuilder,
     NystromApproximationPolicy,
@@ -37,6 +49,7 @@ from .kernels import (
 )
 from .reports import KernelLearningReport, TEXT2IMAGE_PROMPTS, build_kernel_learning_report
 from .selection import (
+    AdaptiveKernelWeightSelector,
     ForecastTargetSpec,
     KernelImportanceConfig,
     KernelImportanceItem,
@@ -49,24 +62,31 @@ from .selection import (
 )
 
 __all__ = [
+    "AdaptiveKernelWeightSelector",
     "BASIS_ONLY_GENERATORS",
     "BudgetedRepositoryFeatureGeneratorAdapter",
     "DEFAULT_GENERATOR_NAMES",
     "FeatureBundle",
     "FeatureGeneratorProtocol",
+    "FeatureInput",
     "ForecastTargetSpec",
     "GeneratorBudgetPolicy",
     "IdentityFeatureGenerator",
     "InMemoryKernelCache",
+    "KernelApproximation",
     "KernelCacheKey",
     "KernelCachePolicy",
     "KernelBundle",
+    "KernelConfigValidationError",
     "KernelEnsembleClassifier",
     "KernelEnsembleForecaster",
     "KernelEnsembleRegressor",
+    "KernelFeatureGeneratorMixin",
     "KernelGeneratorProtocol",
     "KernelInitialPipelineSpec",
     "KernelInitialPopulationBuilder",
+    "KernelInitialPopulationError",
+    "KernelWarmStartTaskSpec",
     "KernelImportanceConfig",
     "KernelImportanceItem",
     "KernelImportanceReport",
@@ -90,6 +110,7 @@ __all__ = [
     "SummaryFeatureGenerator",
     "TEXT2IMAGE_PROMPTS",
     "TargetKernelBuilder",
+    "TargetInput",
     "build_generator_registry",
     "build_kernel_learning_report",
     "create_feature_generator",
@@ -97,6 +118,8 @@ __all__ = [
     "fingerprint_mapping",
     "kernel_complexity",
     "resolve_generator_operation_specs",
+    "resolve_warm_start_task",
     "resolve_torch_device",
     "select_significant_generators",
+    "task_head_candidates",
 ]

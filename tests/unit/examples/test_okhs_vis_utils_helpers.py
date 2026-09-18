@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from examples.rkhs_okhs.forecasting.okhs_forecasting_utils import (
+from examples.real_world_examples.benchmark_example.rkhs_okhs.forecasting.okhs_forecasting_utils import (
     build_forecaster_params,
     extract_training_history,
 )

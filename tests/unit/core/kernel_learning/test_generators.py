@@ -1,7 +1,9 @@
+import importlib
 import json
 import sys
 import types
 from types import SimpleNamespace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -9,6 +11,7 @@ import pytest
 from fedot_ind.core.kernel_learning import (
     BudgetedRepositoryFeatureGeneratorAdapter,
     GeneratorBudgetPolicy,
+    KernelFeatureGeneratorMixin,
     OperationSpec,
     RepositoryFeatureGeneratorAdapter,
     ShapeletFeatureGenerator,
@@ -17,7 +20,9 @@ from fedot_ind.core.kernel_learning import (
     create_feature_generator,
     resolve_torch_device,
 )
+from fedot_ind.core.kernel_learning.contracts import FeatureBundle
 from fedot_ind.core.kernel_learning.generators import adapters
+from fedot_ind.core.kernel_learning.generators import repository as repository_module
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.tuning.search_space import industrial_search_space
 from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
@@ -59,6 +64,19 @@ def test_statistical_summary_handles_single_timestamp_batches():
     assert np.all(np.isfinite(test_features))
 
 
+def test_generator_adapters_facade_stays_thin():
+    source = Path(adapters.__file__).read_text(encoding="utf-8")
+
+    for module_name in ("base", "lightweight", "registry", "repository", "specs"):
+        assert importlib.import_module(
+            f"fedot_ind.core.kernel_learning.generators.{module_name}")
+
+    assert adapters.RepositoryFeatureGeneratorAdapter is RepositoryFeatureGeneratorAdapter
+    assert adapters.SummaryFeatureGenerator is SummaryFeatureGenerator
+    assert "class RepositoryFeatureGeneratorAdapter" not in source
+    assert "def build_generator_registry" not in source
+
+
 def test_default_registry_exposes_repo_native_generators():
     registry = build_generator_registry()
 
@@ -77,9 +95,12 @@ def test_default_registry_exposes_repo_native_generators():
     ):
         assert name in registry
 
-    assert create_feature_generator("wavelet_extractor").operation_specs[0].module_path.endswith("basis.wavelet")
-    assert create_feature_generator("fourier_extractor").operation_specs[0].module_path.endswith("basis.fourier")
-    assert create_feature_generator("eigen_extractor").operation_specs[0].module_path.endswith("basis.eigen_basis")
+    assert create_feature_generator(
+        "wavelet_extractor").operation_specs[0].module_path.endswith("basis.wavelet")
+    assert create_feature_generator(
+        "fourier_extractor").operation_specs[0].module_path.endswith("basis.fourier")
+    assert create_feature_generator(
+        "eigen_extractor").operation_specs[0].module_path.endswith("basis.eigen_basis")
 
 
 def test_repository_feature_generator_adapter_is_deterministic_and_target_free(monkeypatch):
@@ -98,14 +119,15 @@ def test_repository_feature_generator_adapter_is_deterministic_and_target_free(m
 
         def transform(self, input_data, use_cache=False):
             del use_cache
-            features = np.asarray(input_data.features, dtype=float).reshape(input_data.features.shape[0], -1)
+            features = np.asarray(input_data.features, dtype=float).reshape(
+                input_data.features.shape[0], -1)
             return SimpleNamespace(predict=features * self.scale)
 
     fake_module = types.ModuleType("fake_kernel_learning_ops")
     fake_module.FakeOperation = FakeOperation
     monkeypatch.setitem(sys.modules, "fake_kernel_learning_ops", fake_module)
     monkeypatch.setattr(
-        adapters,
+        repository_module,
         "to_fedot_input_data",
         lambda X, y=None, task_type="classification", use_torch=False, torch_device="auto": SimpleNamespace(
             features=np.asarray(X),
@@ -202,8 +224,10 @@ def test_shapelet_generator_is_deterministic_and_target_free():
         ]
     )
 
-    left = ShapeletFeatureGenerator(n_shapelets=3, window_size=2).fit_transform(X, np.array([0, 1, 0])).features
-    right = ShapeletFeatureGenerator(n_shapelets=3, window_size=2).fit_transform(X, np.array([1, 0, 1])).features
+    left = ShapeletFeatureGenerator(n_shapelets=3, window_size=2).fit_transform(
+        X, np.array([0, 1, 0])).features
+    right = ShapeletFeatureGenerator(n_shapelets=3, window_size=2).fit_transform(
+        X, np.array([1, 0, 1])).features
 
     assert left.shape == (3, 3)
     assert np.allclose(left, right)
@@ -213,11 +237,58 @@ def test_shapelet_generator_is_deterministic_and_target_free():
 def test_embedding_generator_is_deterministic_under_seed():
     X = np.arange(12, dtype=float).reshape(3, 4)
 
-    left = create_feature_generator("embedding_extractor").fit_transform(X).features
-    right = create_feature_generator("embedding_extractor").fit_transform(X).features
+    left = create_feature_generator(
+        "embedding_extractor").fit_transform(X).features
+    right = create_feature_generator(
+        "embedding_extractor").fit_transform(X).features
 
     assert left.shape == (3, 16)
     assert np.allclose(left, right)
+
+
+def test_feature_generators_implement_kernel_contract_with_optional_cross_kernel():
+    train = np.array([[0.0], [1.0], [2.0]])
+    test = np.array([[1.5], [3.0]])
+    generator = create_feature_generator("identity")
+
+    train_bundle = generator.kernel(train)
+    cross_bundle = generator.kernel(train, test)
+
+    assert train_bundle.name == "identity"
+    assert train_bundle.train_kernel.shape == (3, 3)
+    assert train_bundle.test_kernel is None
+    assert cross_bundle.train_kernel.shape == (3, 3)
+    assert cross_bundle.test_kernel.shape == (2, 3)
+    assert cross_bundle.train_features.shape == (3, 1)
+    assert cross_bundle.test_features.shape == (2, 1)
+
+
+class _RecordingKernelGenerator(KernelFeatureGeneratorMixin):
+    name = "recording"
+
+    def __init__(self):
+        self.received_task_type = None
+
+    def fit(self, X, y=None, *, task_type="classification"):
+        self.received_task_type = task_type
+        return self
+
+    def transform(self, X):
+        features = np.asarray(X, dtype=float).reshape(len(X), -1)
+        return FeatureBundle(name=self.name, features=features)
+
+    def fit_transform(self, X, y=None, *, task_type="classification"):
+        self.fit(X, y, task_type=task_type)
+        return self.transform(X)
+
+
+def test_kernel_contract_forwards_explicit_task_type_to_feature_builder():
+    generator = _RecordingKernelGenerator()
+
+    bundle = generator.kernel(np.array([[0.0], [1.0]]), task_type="regression")
+
+    assert generator.received_task_type == "regression"
+    assert bundle.train_kernel.shape == (2, 2)
 
 
 def test_budgeted_topology_adapter_falls_back_without_importing_heavy_operation():
@@ -230,7 +301,8 @@ def test_budgeted_topology_adapter_falls_back_without_importing_heavy_operation(
                 class_name="MissingTopology",
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="identity"),
+        budget_policy=GeneratorBudgetPolicy(
+            max_cells=1, fallback_generator="identity"),
     )
     X = np.zeros((2, 3))
 
@@ -263,7 +335,8 @@ def test_budgeted_adapter_can_use_statistical_summary_fallback():
                 class_name="MissingTabular",
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+        budget_policy=GeneratorBudgetPolicy(
+            max_cells=1, fallback_generator="statistical_summary"),
     )
     X = np.arange(12, dtype=float).reshape(3, 4)
 
@@ -377,7 +450,8 @@ def test_riemann_extractor_adapter_passes_multi_view_params():
                 fit_transform_on_fit=True,
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=100, fallback_generator="identity"),
+        budget_policy=GeneratorBudgetPolicy(
+            max_cells=100, fallback_generator="identity"),
     )
     X = np.array(
         [
@@ -409,7 +483,7 @@ def test_riemann_default_configs_use_multi_view_contract():
 
 
 def test_topological_extractor_fit_transform_and_transform_are_target_free():
-    
+
     pytest.importorskip("fedot")
     pytest.importorskip("torch")
 
@@ -436,7 +510,7 @@ def test_topological_extractor_fit_transform_and_transform_are_target_free():
 
 def test_riemann_extractor_output_is_finite_and_has_expected_shape():
     """Default class MDM must run through the primary registry operation."""
-    pytest.importorskip("fedot")    
+    pytest.importorskip("fedot")
     pytest.importorskip("torch")
 
     X = np.random.default_rng(42).normal(size=(4, 2, 16))
@@ -461,7 +535,7 @@ def test_default_riemann_class_mdm_without_target_uses_budgeted_fallback():
 
 def test_topological_extractor_output_is_finite_and_has_expected_shape():
     """Default topology must return H0/H1 statistics from the primary operation."""
-    pytest.importorskip("fedot")    
+    pytest.importorskip("fedot")
     pytest.importorskip("torch")
 
     X = np.array(
@@ -503,7 +577,8 @@ def test_budgeted_riemann_adapter_falls_back_on_budget_exceeded():
                 class_name="MissingRiemann",
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+        budget_policy=GeneratorBudgetPolicy(
+            max_cells=1, fallback_generator="statistical_summary"),
     )
     X = np.array(
         [
@@ -530,7 +605,8 @@ def test_budgeted_topological_adapter_falls_back_on_budget_exceeded():
                 class_name="TopologicalExtractor",
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=1, fallback_generator="statistical_summary"),
+        budget_policy=GeneratorBudgetPolicy(
+            max_cells=1, fallback_generator="statistical_summary"),
     )
     X = np.array(
         [
@@ -597,7 +673,8 @@ def test_budgeted_riemann_adapter_diagnostics_include_operation_params():
                 fit_transform_on_fit=True,
             ),
         ),
-        budget_policy=GeneratorBudgetPolicy(max_cells=1_000, fallback_generator="statistical_summary"),
+        budget_policy=GeneratorBudgetPolicy(
+            max_cells=1_000, fallback_generator="statistical_summary"),
     )
     X = np.random.default_rng(42).normal(size=(4, 2, 16))
     y = np.array([0, 0, 1, 1])
@@ -611,24 +688,3 @@ def test_budgeted_riemann_adapter_diagnostics_include_operation_params():
     assert bundle.diagnostics["mdm_metric"] == "logeuclid"
     assert bundle.diagnostics["tangent_metric"] == "euclid"
     assert bundle.diagnostics["feature_mode"] == "both"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

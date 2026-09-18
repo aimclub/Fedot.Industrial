@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fedot_ind.tools.loader import DataLoader
+from fedot_ind.tools.loader import DataLoader, resolve_dataset_parent_path
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 
 MOCK_LOADER = DataLoader(dataset_name='mock')
@@ -70,6 +70,9 @@ def test_predict_encoding():
 ])
 def test_read_train_test_files(func, dataset_name):
     data_path = EXAMPLES_DATA_PATH
+    resolved_data_path = resolve_dataset_parent_path(data_path, dataset_name)
+
+    assert resolved_data_path.endswith(os.path.join('examples', 'utils', 'data', 'ts_classification'))
     assert np.all(
         [attr is not None for attr in func(dataset_name=dataset_name, data_path=data_path)]
     )

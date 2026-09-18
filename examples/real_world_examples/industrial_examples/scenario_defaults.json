@@ -1,0 +1,188 @@
+{
+  "version": "industrial_domain_scenarios@1",
+  "artifact_root": "examples/artifacts/cloud_bundle/domain_showcase/industrial_examples",
+  "feature_generators": [
+    "quantile_extractor_torch",
+    "wavelet_extractor",
+    "fourier_extractor",
+    "eigen_extractor",
+    "minirocket_extractor"
+  ],
+  "scenarios": {
+    "anomaly_detection_normal_behavior": {
+      "domain": "anomaly_detection",
+      "task_type": "anomaly_detection",
+      "entrypoint": "anomaly_detection/current_api.py",
+      "data_path": "examples/utils/data/anomaly_detection",
+      "metric_name": "f1",
+      "metric_direction": "higher",
+      "models": [
+        {"adapter_name": "kernel_ensemble_classifier", "display_name": "KernelEnsembleClassifier", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "nearest_centroid", "display_name": "NearestCentroid", "tags": ["baseline"]}
+      ]
+    },
+    "bitcoin_regression": {
+      "domain": "criptocurrency_analysis",
+      "task_type": "ts_regression",
+      "entrypoint": "criptocurrency_analysis/current_api.py",
+      "data_path": "examples/utils/data/ts_regression/crypto",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_regressor", "display_name": "KernelEnsembleRegressor", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_regressor", "display_name": "PDLRegressor", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "linear_regressor", "display_name": "LinearRegressor", "tags": ["baseline"]}
+      ]
+    },
+    "ethereum_regression": {
+      "domain": "criptocurrency_analysis",
+      "task_type": "ts_regression",
+      "entrypoint": "criptocurrency_analysis/current_api.py",
+      "data_path": "examples/utils/data/ts_regression/crypto",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_regressor", "display_name": "KernelEnsembleRegressor", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_regressor", "display_name": "PDLRegressor", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "linear_regressor", "display_name": "LinearRegressor", "tags": ["baseline"]}
+      ]
+    },
+    "bitcoin_forecasting": {
+      "domain": "criptocurrency_analysis",
+      "task_type": "forecasting",
+      "entrypoint": "criptocurrency_analysis/current_api.py",
+      "data_path": "examples/utils/data/forecasting/crypto",
+      "metric_name": "smape",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_forecaster", "display_name": "KernelEnsembleForecaster", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "naive_last_value", "display_name": "NaiveLastValue", "tags": ["baseline"]}
+      ]
+    },
+    "economic_regression": {
+      "domain": "economic_analysis",
+      "task_type": "ts_regression",
+      "entrypoint": "economic_analysis/current_api.py",
+      "data_path": "examples/utils/data/ts_regression/economic",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_regressor", "display_name": "KernelEnsembleRegressor", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_regressor", "display_name": "PDLRegressor", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "linear_regressor", "display_name": "LinearRegressor", "tags": ["baseline"]}
+      ]
+    },
+    "economic_forecasting": {
+      "domain": "economic_analysis",
+      "task_type": "forecasting",
+      "entrypoint": "economic_analysis/current_api.py",
+      "data_path": "examples/utils/data/forecasting/economic",
+      "metric_name": "smape",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_forecaster", "display_name": "KernelEnsembleForecaster", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "naive_last_value", "display_name": "NaiveLastValue", "tags": ["baseline"]}
+      ]
+    },
+    "economic_scoring_classification": {
+      "domain": "economic_analysis",
+      "task_type": "ts_classification",
+      "entrypoint": "economic_analysis/current_api.py",
+      "data_path": "examples/utils/data/ts_classification/economic_scoring",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "models": [
+        {"adapter_name": "kernel_ensemble_classifier", "display_name": "KernelEnsembleClassifier", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_classifier", "display_name": "PDLClassifier", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "nearest_centroid", "display_name": "NearestCentroid", "tags": ["baseline"]}
+      ]
+    },
+    "eeg_classification": {
+      "domain": "eeg",
+      "task_type": "ts_classification",
+      "entrypoint": "eeg/current_api.py",
+      "data_path": "examples/utils/data/ts_classification/eeg",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "models": [
+        {"adapter_name": "kernel_ensemble_classifier", "display_name": "KernelEnsembleClassifier", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_classifier", "display_name": "PDLClassifier", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "nearest_centroid", "display_name": "NearestCentroid", "tags": ["baseline"]}
+      ]
+    },
+    "energy_regression": {
+      "domain": "energy_monitoring",
+      "task_type": "ts_regression",
+      "entrypoint": "energy_monitoring/current_api.py",
+      "data_path": "examples/utils/data/ts_regression/energy",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_regressor", "display_name": "KernelEnsembleRegressor", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_regressor", "display_name": "PDLRegressor", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "linear_regressor", "display_name": "LinearRegressor", "tags": ["baseline"]}
+      ]
+    },
+    "environment_forecasting": {
+      "domain": "enviroment_monitoring",
+      "task_type": "forecasting",
+      "entrypoint": "enviroment_monitoring/current_api.py",
+      "data_path": "examples/utils/data/forecasting/ice_forecasting/ices_areas_ts.csv",
+      "metric_name": "smape",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_forecaster", "display_name": "KernelEnsembleForecaster", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "naive_last_value", "display_name": "NaiveLastValue", "tags": ["baseline"]}
+      ]
+    },
+    "environment_regression": {
+      "domain": "enviroment_monitoring",
+      "task_type": "ts_regression",
+      "entrypoint": "enviroment_monitoring/current_api.py",
+      "data_path": "examples/utils/data/ts_regression/MadridPM10Quality-no-missing",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_regressor", "display_name": "KernelEnsembleRegressor", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "linear_regressor", "display_name": "LinearRegressor", "tags": ["baseline"]}
+      ]
+    },
+    "equipment_classification": {
+      "domain": "equipment_monitoring",
+      "task_type": "ts_classification",
+      "entrypoint": "equipment_monitoring/current_api.py",
+      "data_path": "examples/utils/data/ts_classification/equipment",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "models": [
+        {"adapter_name": "kernel_ensemble_classifier", "display_name": "KernelEnsembleClassifier", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "pdl_classifier", "display_name": "PDLClassifier", "optional": true, "tags": ["industrial", "pdl"]},
+        {"adapter_name": "nearest_centroid", "display_name": "NearestCentroid", "tags": ["baseline"]}
+      ]
+    },
+    "health_monitoring": {
+      "domain": "health_monitoring",
+      "task_type": "forecasting",
+      "entrypoint": "health_monitoring/current_api.py",
+      "data_path": "examples/utils/data/forecasting/health",
+      "metric_name": "smape",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_forecaster", "display_name": "KernelEnsembleForecaster", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "naive_last_value", "display_name": "NaiveLastValue", "tags": ["baseline"]}
+      ]
+    },
+    "debet_forecasting": {
+      "domain": "debet_forecasting",
+      "task_type": "forecasting",
+      "entrypoint": "debet_forecasting/main.py",
+      "data_path": "examples/utils/data/forecasting/debet",
+      "metric_name": "smape",
+      "metric_direction": "lower",
+      "models": [
+        {"adapter_name": "kernel_ensemble_forecaster", "display_name": "KernelEnsembleForecaster", "tags": ["industrial", "kernel_learning"]},
+        {"adapter_name": "naive_last_value", "display_name": "NaiveLastValue", "tags": ["baseline"]}
+      ]
+    }
+  }
+}

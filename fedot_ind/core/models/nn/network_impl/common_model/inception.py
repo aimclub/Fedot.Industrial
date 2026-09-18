@@ -96,6 +96,7 @@ class InceptionTimeModel(BaseNeuralModel):
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        x_test = Tensor(x_test).to(default_device('cpu'))
+        model_device = next(self.model.parameters()).device
+        x_test = Tensor(x_test).to(model_device)
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)

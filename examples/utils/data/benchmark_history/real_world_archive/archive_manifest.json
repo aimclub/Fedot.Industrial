@@ -1,0 +1,23 @@
+{
+  "version": "industrial_real_world_archive@1",
+  "sources": [
+    {
+      "key": "composition_results",
+      "path": "composition_results",
+      "task_type": "mixed",
+      "kind": "fedot_industrial_evolution_history",
+      "metric_direction": "higher",
+      "consumer": "analysis_of_results/pipeline_population.ipynb",
+      "external_data_key": "real_world_archive_composition_results"
+    },
+    {
+      "key": "m3_m4_data",
+      "path": "data",
+      "task_type": "forecasting",
+      "kind": "raw_forecasting_benchmark_data",
+      "metric_direction": "lower",
+      "consumer": "analysis_of_results/m4_analysis.ipynb",
+      "external_data_key": "real_world_archive_m3_m4_data"
+    }
+  ]
+}

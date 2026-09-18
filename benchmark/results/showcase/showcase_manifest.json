@@ -1,0 +1,253 @@
+{
+  "version": "benchmark_results_showcase@1",
+  "title": "IndustrialTS Benchmark Results Showcase",
+  "description": "Canonical benchmark/results view for current Industrial, legacy Industrial, and SoTA reference tables.",
+  "groups": [
+    {
+      "key": "ucr_classification",
+      "title": "UCR/UEA Univariate Classification",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_source_labels": [
+        "industrial_kernel_learning_ucr_full",
+        "industrial_kernel_learning_ucr_020626"
+      ],
+      "reference_source_labels": [
+        "sota_ucr_reference_2024"
+      ],
+      "notes": "Compares current and v2 Kernel Learning UCR runs against the SoTA reference table.",
+      "sources": [
+        {
+          "key": "sota_ucr_2024",
+          "kind": "table",
+          "path": "benchmark/results/time_series_uni_clf_comparasion_2024.csv",
+          "source_label": "sota_ucr_reference_2024",
+          "role": "sota_reference",
+          "notes": "Legacy wide SoTA comparison table stored at benchmark/results root.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        },
+        {
+          "key": "industrial_ucr_full",
+          "kind": "aggregate_metrics",
+          "path": "benchmark/results/kernel_learning/ucr_full",
+          "source_label": "industrial_kernel_learning_ucr_full",
+          "role": "current_industrial",
+          "include_diagnostics": true,
+          "notes": "Current resumable Kernel Learning UCR full-run artifacts.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        },
+        {
+          "key": "industrial_ucr_020626",
+          "kind": "aggregate_metrics",
+          "path": "benchmark/results/v2_kernel_learning/ucr_suite_020626",
+          "source_label": "industrial_kernel_learning_ucr_020626",
+          "role": "legacy_industrial",
+          "include_diagnostics": true,
+          "notes": "Reference v2 Kernel Learning UCR suite requested as the first comparison source.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        }
+      ],
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "public_reference_comparison"
+    },
+    {
+      "key": "multivariate_classification",
+      "title": "Multivariate Classification",
+      "task_type": "ts_classification",
+      "metric_name": "accuracy",
+      "metric_direction": "higher",
+      "target_model": "Fedot_Industrial",
+      "target_source_labels": [],
+      "reference_source_labels": [
+        "historical_multivariate_reference_2023"
+      ],
+      "notes": "Indexes the existing multivariate classification comparison table; no new Kernel Learning full-run source is present yet.",
+      "sources": [
+        {
+          "key": "sota_multivariate_2023",
+          "kind": "table",
+          "path": "benchmark/results/time_series_multI_clf_comparasion_241223.csv",
+          "source_label": "historical_multivariate_reference_2023",
+          "role": "sota_reference",
+          "notes": "Historical multivariate SoTA table with Fedot_Industrial column included.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        }
+      ],
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "public_reference_comparison"
+    },
+    {
+      "key": "tser_regression",
+      "title": "TSER Regression",
+      "task_type": "ts_regression",
+      "metric_name": "rmse",
+      "metric_direction": "lower",
+      "target_source_labels": [
+        "industrial_kernel_learning_tser_full",
+        "industrial_kernel_learning_tser_140526"
+      ],
+      "reference_source_labels": [
+        "sota_tser_reference_2024"
+      ],
+      "notes": "Compares current and v2 Kernel Learning TSER runs against the cleaned average rows from the SoTA/legacy Industrial table.",
+      "sources": [
+        {
+          "key": "sota_tser_2024_average",
+          "kind": "table",
+          "path": "benchmark/results/time_series_multi_reg_comparasion_2024.csv",
+          "source_label": "sota_tser_reference_2024",
+          "role": "sota_reference",
+          "dataset_column": "ds/type",
+          "filters": {
+            "algorithm": "average"
+          },
+          "model_aliases": {
+            "Industrial_baseline_model": "Fedot_Industrial_legacy_baseline",
+            "Industrial_baseline features": "Fedot_Industrial_legacy_baseline_features",
+            "Industrial_advanced features": "Fedot_Industrial_legacy_advanced_features"
+          },
+          "notes": "Only average rows are used; min/max rows stay out of the canonical comparison.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        },
+        {
+          "key": "industrial_tser_full",
+          "kind": "aggregate_metrics",
+          "path": "benchmark/results/kernel_learning/tser_full",
+          "source_label": "industrial_kernel_learning_tser_full",
+          "role": "current_industrial",
+          "include_diagnostics": true,
+          "notes": "Current resumable Kernel Learning TSER full-run artifacts.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        },
+        {
+          "key": "industrial_tser_140526",
+          "kind": "aggregate_metrics",
+          "path": "benchmark/results/v2_kernel_learning/tser_suite_140526",
+          "source_label": "industrial_kernel_learning_tser_140526",
+          "role": "legacy_industrial",
+          "include_diagnostics": true,
+          "notes": "Reference v2 Kernel Learning TSER suite.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        }
+      ],
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "public_reference_comparison"
+    },
+    {
+      "key": "m4_forecasting",
+      "title": "M4 Monthly Forecasting",
+      "task_type": "forecasting",
+      "metric_name": "mae",
+      "metric_direction": "lower",
+      "target_source_labels": [
+        "industrial_kernel_learning_m4_full",
+        "industrial_kernel_learning_forecasting_140526"
+      ],
+      "reference_source_labels": [],
+      "notes": "Indexes current and v2 Kernel Learning forecasting leaderboards as an internal Industrial comparison; SoTA forecasting reference tables are not present in benchmark/results yet.",
+      "sources": [
+        {
+          "key": "industrial_m4_full_leaderboard",
+          "kind": "table",
+          "path": "benchmark/results/kernel_learning/m4_full/kernel_learning_m4_full_5f2912e104/aggregate/leaderboard.csv",
+          "source_label": "industrial_kernel_learning_m4_full",
+          "role": "current_industrial",
+          "model_column": "model_name",
+          "dataset_column": "dataset_name",
+          "value_column": "mae",
+          "notes": "Current M4 Monthly full-run aggregate leaderboard.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        },
+        {
+          "key": "industrial_forecasting_140526_leaderboard",
+          "kind": "table",
+          "path": "benchmark/results/v2_kernel_learning/forecasting_suite_140526/kernel_learning_forecasting_suite_f184092168/aggregate/leaderboard.csv",
+          "source_label": "industrial_kernel_learning_forecasting_140526",
+          "role": "legacy_industrial",
+          "model_column": "model_name",
+          "dataset_column": "dataset_name",
+          "value_column": "mae",
+          "notes": "Reference v2 forecasting suite aggregate leaderboard.",
+          "owner": "IndustrialTS benchmark maintainers",
+          "last_refreshed": "2026-07-14"
+        }
+      ],
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-07-14",
+      "refresh_command": "python -m benchmark.results.showcase",
+      "comparison_scope": "industrial_internal_comparison"
+    }
+  ],
+  "archive_candidates": [
+    {
+      "path": "benchmark/results/server_results",
+      "reason": "historical raw run artifacts; keep as archive input, not canonical comparison table",
+      "recommended_action": "move to external archive or DVC when raw history is published"
+    },
+    {
+      "path": "benchmark/results/ts_uni_classification",
+      "reason": "legacy per-dataset fitted pipelines and logs",
+      "recommended_action": "keep out of showcase; describe through archive manifest"
+    },
+    {
+      "path": "benchmark/results/ts_multi_classification",
+      "reason": "legacy per-dataset fitted pipelines and logs",
+      "recommended_action": "keep out of showcase; describe through archive manifest"
+    },
+    {
+      "path": "benchmark/results/ts_regression",
+      "reason": "legacy per-dataset fitted pipelines and logs",
+      "recommended_action": "keep out of showcase; describe through archive manifest"
+    },
+    {
+      "path": "benchmark/results/benchmark_results/archive",
+      "reason": "large historical forecasting archive with raw metrics and pipeline outputs",
+      "recommended_action": "publish through DVC/cloud and keep only manifests in git"
+    },
+    {
+      "path": "benchmark/results/time_series_multi_reg_comparasion_09022024.csv",
+      "reason": "superseded by time_series_multi_reg_comparasion_2024.csv",
+      "recommended_action": "archive after confirming no unique model columns are needed"
+    },
+    {
+      "path": "benchmark/results/time_series_multi_reg_comparasion_261222.csv",
+      "reason": "superseded regression comparison table",
+      "recommended_action": "archive after confirming no unique model columns are needed"
+    },
+    {
+      "path": "benchmark/results/time_series_uni_clf_09022024.csv",
+      "reason": "superseded by time_series_uni_clf_comparasion_2024.csv",
+      "recommended_action": "archive after confirming no unique dataset rows are needed"
+    },
+    {
+      "path": "benchmark/results/time_series_uni_clf_25122003.csv",
+      "reason": "old univariate classification table with unclear date/version",
+      "recommended_action": "archive after confirming no unique dataset rows are needed"
+    }
+  ],
+  "owner": "IndustrialTS benchmark maintainers",
+  "last_refreshed": "2026-07-14",
+  "refresh_command": "python -m benchmark.results.showcase",
+  "post_merge_checklist": [
+    "run python -m benchmark.results.showcase after changing benchmark/result sources",
+    "run python -m examples.artifacts after changing example artifacts or cloud bundle contents",
+    "check benchmark/results/showcase/tables/source_inventory.csv for missing files",
+    "check benchmark/results/showcase/tables/benchmark_overview.csv for unexpected coverage drops"
+  ],
+  "forecasting_sota_policy": "M4 forecasting is published as an internal Industrial comparison until a public SoTA/Monash reference table is added to this manifest."
+}

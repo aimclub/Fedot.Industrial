@@ -25,4 +25,4 @@ def canonical_forecasting_model_name(name: str | None) -> str:
 def forecasting_aliases_for(model_name: str) -> tuple[str, ...]:
     canonical = canonical_forecasting_model_name(model_name)
     aliases = [alias for alias, target in FORECASTING_MODEL_ALIASES.items() if target == canonical]
-    return tuple(sorted(dict.fromkeys([canonical, *aliases])))
+    return tuple(dict.fromkeys([canonical, *sorted(aliases)]))
