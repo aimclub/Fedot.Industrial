@@ -50,8 +50,8 @@ def _decode_json(text: str) -> object:
     return json.loads(text, object_pairs_hook=unique_object)
 
 
-def load_requirements(root: Path) -> ParseResult[str]:
+def load_requirements(root: Path, filename: str = "requirements.txt") -> ParseResult[str]:
     try:
-        return ParseResult((root / "requirements.txt").read_text(encoding="utf-8"), ())
+        return ParseResult((root / filename).read_text(encoding="utf-8"), ())
     except (OSError, UnicodeError) as error:
-        return ParseResult(None, (Issue("requirements.txt", "read", str(error)),))
+        return ParseResult(None, (Issue(filename, "read", str(error)),))

@@ -1,4 +1,4 @@
-# Установка и совместимость: PLT-01
+# Установка и совместимость: PLT-01 и INT-01
 
 Этот документ описывает инструменты разработки и сборки, а не новый API
 моделей. Ветка `industrial_release_1.0` готовит будущий выпуск; текущая версия
@@ -10,14 +10,15 @@
 | Файл | Назначение | Как обновлять |
 | --- | --- | --- |
 | `pyproject.toml` | Имя, версия, Python, зависимости, дополнительные группы и настройки сборки | Менять вручную и проверять тестами |
-| `requirements.txt` | Совместимый с pip список основных зависимостей | `python -m tools.platform_support export` |
+| `requirements.txt` | Зависимости профиля `fedot-legacy` | `python -m tools.platform_support export --profile legacy` |
+| `requirements-tensor.txt` | Зависимости профиля `fedot-tensor` | `python -m tools.platform_support export --profile tensor` |
 | `uv.lock` | Точные версии, источники и контрольные суммы разрешённых зависимостей | `uv lock`, затем проверить установку |
 | `tools/platform_support/compatibility.json` | Закреплённый FEDOT, будущая цель миграции и матрица Python | Обновлять только вместе с доказательствами совместимости |
 | `setup.py` | Обёртка для инструментов, ожидающих этот файл | Не добавлять второй набор метаданных |
 
 Проверка `check` не заменяет разрешение зависимостей и запуск кода. Она
 проверяет структуру настроек, обязательные явно записанные ограничения,
-неизменный FEDOT SHA, диапазон Python и актуальность `requirements.txt`.
+неизменные FEDOT SHA, диапазон Python и актуальность обоих файлов требований.
 Ослабление ограничения из матрицы должно сопровождаться её пересмотром;
 добавление более строгого ограничения разрешено, если обязательные границы
 сохранены. Для проверки всего дерева зависимостей используются `uv lock
@@ -37,17 +38,16 @@
 проверку установки. Issue #125 нельзя закрывать только на основании успешного
 запуска чистых тестов на 3.12.
 
-Текущий FEDOT закреплён на
-`42f3ba490407a1106e898e94232f2afd0a78f73f`. Этот снимок уже был указан в прежнем
-`uv.lock` и сохраняет используемые Industrial пути API. Плавающая Git-ветка
-и отдельный выбор `fedot==0.7.5` больше не являются альтернативными
-источниками установки.
+Профиль `legacy` закреплён на
+`42f3ba490407a1106e898e94232f2afd0a78f73f`. Этот снимок сохраняет прежние пути
+API Industrial и остаётся основным профилем до завершения миграции.
 
-Будущая цель: `refactor/fedot_1.0.0`,
-`567eb8a958a66fd5e0efc3715c99bfae5e791e01`. Она обозначена как `planned`,
-a не как поддерживаемая замена. Цикл FED-01–03 подготовлен в Pull Request
-FEDOT #1462; переключение зависимости и проверка совместимости выполняются
-отдельно в INT-01/02.
+Профиль `tensor` закреплён на ветке `refactor/fedot_1.0.0`, снимок
+`567eb8a958a66fd5e0efc3715c99bfae5e791e01`. Он предназначен для проверки
+нового контракта `TensorData`, имеет статус экспериментального и устанавливается
+только в отдельное окружение. Профили взаимоисключающие; автоматический откат
+с `tensor` на `legacy` запрещён. Цикл FED-01–03 подготовлен в Pull Request
+FEDOT #1462, а граница интеграции Industrial реализована в INT-01.
 Равенство номера версии установленного FEDOT не доказывает равенство исходного
 кода: команда `environment` проверяет запись происхождения `direct_url.json`
 по PEP 610 и отдельно сообщает непроверенный источник.
@@ -99,24 +99,35 @@ source .venv/bin/activate
 # Windows PowerShell вместо предыдущей строки:
 # .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,fedot-legacy]"
 python -m tools.platform_support check --json
-python -m tools.platform_support environment --json
+python -m tools.platform_support environment --profile legacy --json
 python -m pip check
 ```
 
 Для Jupyter добавить `python -m pip install -e ".[notebooks]"`.
-Для стандартной установки точных версий: `uv sync --frozen --extra dev`.
+Для стандартной установки точных версий: `uv sync --frozen --extra dev
+--extra fedot-legacy`.
 Нужен uv 0.8.17; Poetry больше не является средством установки этого проекта.
 На Linux стандартный источник PyTorch может загружать большие CUDA-библиотеки.
 Это не служит подтверждением работоспособности GPU.
+
+Для проверки нового API следует создать второе окружение и выполнить:
+
+```bash
+python -m pip install -e ".[dev,fedot-tensor]"
+python -m tools.platform_support environment --profile tensor --json
+FEDOT_INTEGRATION_PROFILE=tensor python -m pytest tests/integration/fedot/test_regression_runtime.py -q
+```
+
+Не устанавливайте `fedot-legacy` и `fedot-tensor` в одно окружение.
 
 Для лёгкого CPU-окружения используется тот же способ, что и в CI:
 
 ```bash
 python -m pip install "uv==0.8.17"
 python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
-uv export --frozen --extra dev --no-hashes --no-emit-project --output-file .local/industrial-locked.txt
+uv export --frozen --extra dev --extra fedot-legacy --no-hashes --no-emit-project --output-file .local/industrial-locked.txt
 python -m pip install -r .local/industrial-locked.txt
 python -m pip install --no-deps -e .
 python -m pip check
@@ -132,7 +143,7 @@ python -m pip check
 ```bash
 python -m tools.platform_support export --check
 uv lock --check
-python -m pytest tests/unit/platform_support -q
+python -m pytest tests/unit/platform_support tests/unit/integration/fedot -q
 python -m build
 python -m tools.distribution_check --json
 ```
@@ -148,13 +159,14 @@ python -m tools.distribution_check --json
 (в PowerShell подставить найденный путь wheel). Из корня исходного репозитория:
 
 ```bash
-python -I tools/runtime_smoke.py --json
+python -I tools/runtime_smoke.py --profile legacy --json
 ```
 
 Режим `-I` не позволяет каталогу исходников скрыть дефекты wheel.
 Команда проверяет расположение и версию установленного пакета, ресурсы
-реестра, CPU-вычисление, текущие API Industrial/PDL/Kernel Learning, Arrow-набор
-и основной OKHS без дополнительных исследовательских пакетов. Сообщения
+реестра, CPU-вычисление, API выбранного профиля, настоящий сценарий обучения
+и прогноза, а для `legacy` также текущие API Industrial/PDL/Kernel Learning,
+Arrow-набор и основной OKHS без дополнительных исследовательских пакетов. Сообщения
 о ходе проверки идут в stderr, итоговый JSON остаётся пригодным для обработки.
 Это короткая проверка установки, а не оценка качества обученных моделей.
 
@@ -162,7 +174,8 @@ python -I tools/runtime_smoke.py --json
 
 - `package_build.yml`: одна процедура сборки для проверок и публикации.
 - `platform_checks.yml`: чистые проверки на 3.10/3.11/3.12, установка wheel
-  на Linux/Windows с 3.10/3.11 и отдельная проверка отказа установки на 3.12.
+  с профилем `legacy` на Linux/Windows, сквозная проверка профиля `tensor`
+  на Linux 3.10/3.11 и отдельная проверка отказа установки на 3.12.
 - `poetry_unit_test.yml`: прежнее имя файла сохранено для ссылок и статуса
   проверки; выполнение переведено на pip и точные версии из `uv.lock`.
 - `integration_tests.yml`: тот же зафиксированный набор зависимостей.
@@ -181,7 +194,7 @@ PyPI не принимает зависимости с прямыми Git URL. �
 ## Приёмка PLT-01
 
 - Тесты новых средств разработки и проверки составов проходят.
-- Экспорт `requirements.txt` совпадает с `pyproject.toml`, lock-файл актуален.
+- Экспорт обоих файлов требований совпадает с `pyproject.toml`, lock-файл актуален.
 - Wheel и sdist собираются без установки ML-библиотек.
 - Новая установка на 3.10/3.11 проходит проверку зависимостей и импортов.
 - Результаты локальной проверки и ограничения CI записаны в отчёте изменений.
@@ -190,3 +203,12 @@ PyPI не принимает зависимости с прямыми Git URL. �
 
 PLT-01 не утверждает готовность всей ветки к выпуску 1.0 и не меняет состояние
 GitHub issues автоматически.
+
+## Приёмка INT-01
+
+- Базовые зависимости не выбирают FEDOT неявно.
+- `legacy` и `tensor` устанавливаются как взаимоисключающие дополнительные группы.
+- Общий чистый слой не импортирует FEDOT; конкретный адаптер загружается лениво.
+- Оба профиля выполняют один контракт регрессии `fit` → `predict` без отката.
+- Карта прежних импортов воспроизводима и проверяется тестом.
+- Профиль `tensor` проверяется в CI на Python 3.10 и 3.11 по точному SHA.

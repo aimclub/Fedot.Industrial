@@ -5,6 +5,10 @@ resolution-markers = [
     "python_full_version >= '3.11'",
     "python_full_version < '3.11'",
 ]
+conflicts = [[
+    { package = "fedot-ind", extra = "fedot-legacy" },
+    { package = "fedot-ind", extra = "fedot-tensor" },
+]]
 
 [[package]]
 name = "adagio"
@@ -34,7 +38,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohappyeyeballs" },
     { name = "aiosignal" },
-    { name = "async-timeout", marker = "python_full_version < '3.11'" },
+    { name = "async-timeout", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "attrs" },
     { name = "frozenlist" },
     { name = "multidict" },
@@ -108,7 +112,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mako" },
     { name = "sqlalchemy" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6e/b6/2a81d7724c0c124edc5ec7a167e85858b6fd31b9611c6fb8ecf617b7e2d3/alembic-1.17.1.tar.gz", hash = "sha256:8a289f6778262df31571d29cca4c7fbacd2f0f582ea0816f4c399b6da7528486", size = 1981285, upload-time = "2025-10-29T00:23:16.667Z" }
@@ -121,7 +125,7 @@ name = "anyio"
 version = "4.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "idna" },
     { name = "sniffio" },
     { name = "typing-extensions" },
@@ -217,7 +221,7 @@ name = "async-lru"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e8/1f/989ecfef8e64109a489fff357450cb73fa73a865a92bd8c272170a6922c2/async_lru-2.3.0.tar.gz", hash = "sha256:89bdb258a0140d7313cf8f4031d816a042202faa61d0ab310a0a538baa1c24b6", size = 16332, upload-time = "2026-03-19T01:04:32.413Z" }
 wheels = [
@@ -256,8 +260,8 @@ name = "autodocsumm"
 version = "0.2.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/03/96/92afe8a7912b327c01f0a8b6408c9556ee13b1aba5b98d587ac7327ff32d/autodocsumm-0.2.14.tar.gz", hash = "sha256:2839a9d4facc3c4eccd306c08695540911042b46eeafcdc3203e6d0bab40bc77", size = 46357, upload-time = "2024-10-23T18:51:47.369Z" }
 wheels = [
@@ -329,11 +333,11 @@ name = "build"
 version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "os_name == 'nt'" },
-    { name = "importlib-metadata", marker = "python_full_version < '3.10.2'" },
+    { name = "colorama", marker = "os_name == 'nt' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "importlib-metadata", marker = "python_full_version < '3.10.2' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "packaging" },
     { name = "pyproject-hooks" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bd/67/4898a44ea4f3f8e213b0954ec0aa0a16971d62a6212d6ea3931e97115b99/build-1.6.1.tar.gz", hash = "sha256:51cc11666391ab6f092070437ac747002ff46f3e4113a3622177ee6b488bfc53", size = 113427, upload-time = "2026-09-10T07:56:00.417Z" }
 wheels = [
@@ -388,7 +392,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -474,7 +478,7 @@ name = "click"
 version = "8.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/46/61/de6cd827efad202d7057d93e0fed9294b96952e188f7384832791c7b2254/click-8.3.0.tar.gz", hash = "sha256:e7b8232224eba16f4ebe410c25ced9f7875cb5f3263ffc93cc3e8da705e229c4", size = 276943, upload-time = "2025-09-18T17:32:23.696Z" }
 wheels = [
@@ -504,7 +508,7 @@ name = "colorlog"
 version = "6.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a2/61/f083b5ac52e505dfc1c624eafbf8c7589a0d7f32daa398d2e7590efa5fda/colorlog-6.10.1.tar.gz", hash = "sha256:eb4ae5cb65fe7fec7773c2306061a8e63e02efc2c72eba9d27b0fa23c94f1321", size = 17162, upload-time = "2025-10-16T16:14:11.978Z" }
 wheels = [
@@ -541,7 +545,7 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version < '3.11'" },
+    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/54/eb9bfc647b19f2009dd5c7f5ec51c4e6ca831725f1aea7a993034f483147/contourpy-1.3.2.tar.gz", hash = "sha256:b6945942715a034c671b7fc54f9588126b0b8bf23db2696e3ca8328f3ff0ab54", size = 13466130, upload-time = "2025-04-15T17:47:53.79Z" }
 wheels = [
@@ -581,7 +585,7 @@ resolution-markers = [
     "python_full_version >= '3.11'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version >= '3.11'" },
+    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/01/1253e6698a07380cd31a736d248a3f2a50a7c88779a1813da27503cadc2a/contourpy-1.3.3.tar.gz", hash = "sha256:083e12155b210502d0bca491432bb04d56dc3432f95a979b429f2848c3dbe880", size = 13466174, upload-time = "2025-07-26T12:03:12.549Z" }
 wheels = [
@@ -639,7 +643,7 @@ wheels = [
 
 [package.optional-dependencies]
 toml = [
-    { name = "tomli", marker = "python_full_version <= '3.11'" },
+    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 
 [[package]]
@@ -971,7 +975,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749, upload-time = "2025-05-10T17:42:51.123Z" }
 wheels = [
@@ -1060,6 +1064,10 @@ wheels = [
 name = "fedot"
 version = "0.7.5"
 source = { git = "https://github.com/aimclub/FEDOT.git?rev=42f3ba490407a1106e898e94232f2afd0a78f73f#42f3ba490407a1106e898e94232f2afd0a78f73f" }
+resolution-markers = [
+    "python_full_version >= '3.11'",
+    "python_full_version < '3.11'",
+]
 dependencies = [
     { name = "anytree" },
     { name = "catboost" },
@@ -1086,10 +1094,56 @@ dependencies = [
     { name = "seaborn" },
     { name = "sktime" },
     { name = "statsmodels" },
-    { name = "testfixtures", version = "8.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "testfixtures", version = "10.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "thegolem" },
+    { name = "testfixtures", version = "8.3.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "testfixtures", version = "10.0.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "thegolem", version = "0.4.1", source = { registry = "https://pypi.org/simple" } },
     { name = "typing" },
+    { name = "xgboost" },
+]
+
+[[package]]
+name = "fedot"
+version = "0.7.5"
+source = { git = "https://github.com/aimclub/FEDOT.git?rev=567eb8a958a66fd5e0efc3715c99bfae5e791e01#567eb8a958a66fd5e0efc3715c99bfae5e791e01" }
+resolution-markers = [
+    "python_full_version >= '3.11'",
+    "python_full_version < '3.11'",
+]
+dependencies = [
+    { name = "anytree" },
+    { name = "catboost" },
+    { name = "cloudpickle" },
+    { name = "dask" },
+    { name = "dask-ml" },
+    { name = "ete3" },
+    { name = "fsspec" },
+    { name = "func-timeout" },
+    { name = "hyperopt" },
+    { name = "joblib" },
+    { name = "lightgbm" },
+    { name = "marshmallow" },
+    { name = "matplotlib" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "optuna" },
+    { name = "pandas" },
+    { name = "psutil" },
+    { name = "pymonad" },
+    { name = "pytest" },
+    { name = "python-dotenv" },
+    { name = "pyvis" },
+    { name = "requests" },
+    { name = "salib" },
+    { name = "sampling-zoo" },
+    { name = "scikit-learn" },
+    { name = "scikit-optimize" },
+    { name = "scipy" },
+    { name = "seaborn" },
+    { name = "setuptools" },
+    { name = "sktime" },
+    { name = "statsmodels" },
+    { name = "testfixtures", version = "8.3.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "thegolem", version = "0.5.0", source = { registry = "https://pypi.org/simple" } },
     { name = "xgboost" },
 ]
 
@@ -1105,7 +1159,6 @@ dependencies = [
     { name = "datasetsforecast" },
     { name = "distributed" },
     { name = "fastai" },
-    { name = "fedot" },
     { name = "giotto-tda" },
     { name = "librosa" },
     { name = "mklpy" },
@@ -1136,8 +1189,14 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pyyaml" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "uv" },
+]
+fedot-legacy = [
+    { name = "fedot", version = "0.7.5", source = { git = "https://github.com/aimclub/FEDOT.git?rev=42f3ba490407a1106e898e94232f2afd0a78f73f#42f3ba490407a1106e898e94232f2afd0a78f73f" } },
+]
+fedot-tensor = [
+    { name = "fedot", version = "0.7.5", source = { git = "https://github.com/aimclub/FEDOT.git?rev=567eb8a958a66fd5e0efc3715c99bfae5e791e01#567eb8a958a66fd5e0efc3715c99bfae5e791e01" } },
 ]
 notebooks = [
     { name = "ipykernel" },
@@ -1155,7 +1214,8 @@ requires-dist = [
     { name = "datasetsforecast", specifier = ">=0.0.8,<0.1" },
     { name = "distributed", specifier = "==2024.4.2" },
     { name = "fastai", specifier = "==2.7.18" },
-    { name = "fedot", git = "https://github.com/aimclub/FEDOT.git?rev=42f3ba490407a1106e898e94232f2afd0a78f73f" },
+    { name = "fedot", marker = "extra == 'fedot-legacy'", git = "https://github.com/aimclub/FEDOT.git?rev=42f3ba490407a1106e898e94232f2afd0a78f73f" },
+    { name = "fedot", marker = "extra == 'fedot-tensor'", git = "https://github.com/aimclub/FEDOT.git?rev=567eb8a958a66fd5e0efc3715c99bfae5e791e01" },
     { name = "giotto-tda", specifier = "==0.6.2" },
     { name = "ipykernel", marker = "extra == 'notebooks'", specifier = ">=6,<7" },
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = ">=1,<2" },
@@ -1187,7 +1247,7 @@ requires-dist = [
     { name = "typing", specifier = "==3.7.4.3" },
     { name = "uv", marker = "extra == 'dev'", specifier = "==0.8.17" },
 ]
-provides-extras = ["dev", "notebooks"]
+provides-extras = ["fedot-legacy", "fedot-tensor", "dev", "notebooks"]
 
 [[package]]
 name = "filelock"
@@ -1407,6 +1467,28 @@ wheels = [
 ]
 
 [[package]]
+name = "hdbscan"
+version = "0.8.40"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c1/84/6b010387b795f774e1ec695df3c8660c15abd041783647d5e7e4076bfc6b/hdbscan-0.8.40.tar.gz", hash = "sha256:c9e383ff17beee0591075ff65d524bda5b5a35dfb01d218245a7ba30c8d48a17", size = 6904096, upload-time = "2024-11-18T16:14:05.384Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2c/ce/489bb941c77e67f6bdc7b47f28318780fd478db655113a073cf7c89cd8f5/hdbscan-0.8.40-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:811a248e57353a4aa815019176879fd16bace55ed633583a6b47734edcb5397c", size = 813672, upload-time = "2024-11-18T16:14:59.129Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/5b/5fb2f22a3b4dd77ae6115e2530c01712b7a00c62bc24bbae743c060a80f0/hdbscan-0.8.40-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:0a1b062cdee7f847c1a49e343b1cf0d0c7d570f60aca961c7f5ff3bdd6fe4be7", size = 4219260, upload-time = "2025-10-11T11:47:02.481Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/d9/11564d3ebfe7429fb2e54356b07b2e44ac3dca668c47401d98170809a2f6/hdbscan-0.8.40-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cda06a6f4e65c6c34bed083bb8cdf29fdb1ffcb15580829d79b2906c7bdc6dbc", size = 4244270, upload-time = "2024-11-18T16:14:10.512Z" },
+    { url = "https://files.pythonhosted.org/packages/97/eb/fd2093176b439d6741e92996f6d1d7273ddb0819de59934bc64fe2b1c308/hdbscan-0.8.40-cp310-cp310-win_amd64.whl", hash = "sha256:9ba82e510508921e0b30a234b639f5d84a7d475746e7db814517c5c4d1589016", size = 730887, upload-time = "2024-11-18T16:18:28.006Z" },
+    { url = "https://files.pythonhosted.org/packages/26/6b/88b8c8023c0c0b27589ad83c82084a1b751917a3e09bdf7fcacf7e6bd523/hdbscan-0.8.40-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:5e958f0d7a33cd2b5e8e927b47f7360bf8a3e7d72355dd65a701e8aabe407b27", size = 1491349, upload-time = "2024-11-18T16:16:10.666Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/72/84bc7b6ea9eb59ca6c5e4d3f32313cdfa8f4ab5cfece6fb6dfef4c9149fc/hdbscan-0.8.40-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:b95447c9c2cf6c95f98210c0edee3dc463d0a237e5531076855d9776495c96fc", size = 4459927, upload-time = "2025-10-11T11:55:49.958Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/ef/32c8a0b3dc6e6c4e433b85b30c3723d8eb48d115c0185b82ab89e1a0ef89/hdbscan-0.8.40-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6e0d6197ee045b173e1f16e6884386f335a56091e373a839dd24f7331a8fa9ed", size = 4576215, upload-time = "2024-11-18T16:14:11.241Z" },
+    { url = "https://files.pythonhosted.org/packages/64/b1/96c347c7740efa1ac803be64155159284f92fafcff88c1077344e64eead5/hdbscan-0.8.40-cp311-cp311-win_amd64.whl", hash = "sha256:127cbe8c858dc77adfde33a3e1ce4f3bea810f78b01d2bd47b1147d4b5a50472", size = 732173, upload-time = "2024-11-18T16:18:40.361Z" },
+]
+
+[[package]]
 name = "hf-xet"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1462,7 +1544,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -1552,6 +1634,23 @@ wheels = [
 ]
 
 [[package]]
+name = "imbalanced-learn"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "sklearn-compat" },
+    { name = "threadpoolctl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/61/3c121d506fe3d40a9117ef9b685fb94ffdf7b40d7ba6e1516afa11e4aa45/imbalanced_learn-0.13.0.tar.gz", hash = "sha256:d4a8d6372086982350d6de1c7e5b1ed5ece9e41bf93043b4d0e9ea1c422a6606", size = 531907, upload-time = "2024-12-20T16:50:23.477Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/41/721fec82606242a2072ee909086ff918dfad7d0199a9dfd4928df9c72494/imbalanced_learn-0.13.0-py3-none-any.whl", hash = "sha256:7eb5859f7827cb3babfa5789978c22fe36e56527d9c9768df2d864d98d9b40fe", size = 238383, upload-time = "2024-12-20T16:50:20.234Z" },
+]
+
+[[package]]
 name = "importlib-metadata"
 version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1599,11 +1698,11 @@ name = "ipykernel"
 version = "6.31.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "appnope", marker = "sys_platform == 'darwin'" },
+    { name = "appnope", marker = "sys_platform == 'darwin' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "comm" },
     { name = "debugpy" },
-    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "jupyter-client" },
     { name = "jupyter-core" },
     { name = "matplotlib-inline" },
@@ -1627,17 +1726,17 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version < '3.11' and sys_platform == 'win32'" },
-    { name = "decorator", marker = "python_full_version < '3.11'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
-    { name = "jedi", marker = "python_full_version < '3.11'" },
-    { name = "matplotlib-inline", marker = "python_full_version < '3.11'" },
-    { name = "pexpect", marker = "python_full_version < '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "prompt-toolkit", marker = "python_full_version < '3.11'" },
-    { name = "pygments", marker = "python_full_version < '3.11'" },
-    { name = "stack-data", marker = "python_full_version < '3.11'" },
-    { name = "traitlets", marker = "python_full_version < '3.11'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "colorama", marker = "(python_full_version < '3.11' and sys_platform == 'win32') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'win32' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "decorator", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "jedi", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "matplotlib-inline", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "pexpect", marker = "(python_full_version < '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform == 'emscripten' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform == 'win32' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "prompt-toolkit", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "pygments", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "stack-data", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "traitlets", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/31/10ac88f3357fc276dc8a64e8880c82e80e7459326ae1d0a211b40abf6665/ipython-8.37.0.tar.gz", hash = "sha256:ca815841e1a41a1e6b73a0b08f3038af9b2252564d01fc405356d34033012216", size = 5606088, upload-time = "2025-05-31T16:39:09.613Z" }
 wheels = [
@@ -1652,17 +1751,17 @@ resolution-markers = [
     "python_full_version >= '3.11'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version >= '3.11' and sys_platform == 'win32'" },
-    { name = "decorator", marker = "python_full_version >= '3.11'" },
-    { name = "ipython-pygments-lexers", marker = "python_full_version >= '3.11'" },
-    { name = "jedi", marker = "python_full_version >= '3.11'" },
-    { name = "matplotlib-inline", marker = "python_full_version >= '3.11'" },
-    { name = "pexpect", marker = "python_full_version >= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "prompt-toolkit", marker = "python_full_version >= '3.11'" },
-    { name = "pygments", marker = "python_full_version >= '3.11'" },
-    { name = "stack-data", marker = "python_full_version >= '3.11'" },
-    { name = "traitlets", marker = "python_full_version >= '3.11'" },
-    { name = "typing-extensions", marker = "python_full_version >= '3.11'" },
+    { name = "colorama", marker = "(python_full_version >= '3.11' and sys_platform == 'win32') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'win32' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "decorator", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "ipython-pygments-lexers", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "jedi", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "matplotlib-inline", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "pexpect", marker = "(python_full_version >= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform == 'emscripten' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform == 'win32' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "prompt-toolkit", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "pygments", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "stack-data", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "traitlets", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/29/e6/48c74d54039241a456add616464ea28c6ebf782e4110d419411b83dae06f/ipython-9.7.0.tar.gz", hash = "sha256:5f6de88c905a566c6a9d6c400a8fed54a638e1f7543d17aae2551133216b1e4e", size = 4422115, upload-time = "2025-11-05T12:18:54.646Z" }
 wheels = [
@@ -1674,7 +1773,7 @@ name = "ipython-pygments-lexers"
 version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pygments", marker = "python_full_version >= '3.11'" },
+    { name = "pygments", marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ef/4c/5dd1d8af08107f88c7f741ead7a40854b8ac24ddf9ae850afbcf698aa552/ipython_pygments_lexers-1.1.1.tar.gz", hash = "sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81", size = 8393, upload-time = "2025-01-17T11:24:34.505Z" }
 wheels = [
@@ -1687,8 +1786,8 @@ version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "comm" },
-    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "jupyterlab-widgets" },
     { name = "traitlets" },
     { name = "widgetsnbextension" },
@@ -1708,6 +1807,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7c/1a/3c8edc664e06e6bd06cce40c6b22da5f1429aa4224d0c590f3be21c91ead/isoduration-20.11.0.tar.gz", hash = "sha256:ac2f9015137935279eac671f94f89eb00584f940f5dc49462a0c4ee692ba1bd9", size = 11649, upload-time = "2020-11-01T11:00:00.312Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/55/e5326141505c5d5e34c5e0935d2908a74e4561eca44108fbfb9c13d2911a/isoduration-20.11.0-py3-none-any.whl", hash = "sha256:b2904c2a4228c3d44f409c8ae8e2370eb21a26f7ac2ec5446df141dde3452042", size = 11321, upload-time = "2020-11-01T10:59:58.02Z" },
+]
+
+[[package]]
+name = "iterative-stratification"
+version = "0.1.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/7b/6a0a8b31a1206befbe6d8104ca45b24666ce736f90326bf35c2a2ca00324/iterative_stratification-0.1.9.tar.gz", hash = "sha256:e7e299a3b28909fd0867d50ae6fc512def3bd482f71666ebaf0a3480b84cec42", size = 8400, upload-time = "2024-10-12T16:41:55.89Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/01/d8d8d138713356ab4fecc5e69626c528e682c4ec2a596c707c2eb2d6351e/iterative_stratification-0.1.9-py3-none-any.whl", hash = "sha256:476f8deff6753fb1725612fe41e59cc2058f8f2524ae5d1ccee88eb8c8d3de80", size = 8515, upload-time = "2024-10-12T16:41:54.62Z" },
 ]
 
 [[package]]
@@ -1778,8 +1891,8 @@ dependencies = [
     { name = "attrs" },
     { name = "jsonschema-specifications" },
     { name = "referencing" },
-    { name = "rpds-py", version = "0.30.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "rpds-py", version = "2026.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "rpds-py", version = "0.30.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "rpds-py", version = "2026.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b3/fc/e067678238fa451312d4c62bf6e6cf5ec56375422aee02f9cb5f909b3047/jsonschema-4.26.0.tar.gz", hash = "sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326", size = 366583, upload-time = "2026-01-07T13:41:07.246Z" }
 wheels = [
@@ -1834,7 +1947,7 @@ version = "1.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-core" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "traitlets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/75/3e/56f593e6a664cd14d441724654ce8243f3cac7d3e45867cf084749c8bc75/jupyter_builder-1.2.3.tar.gz", hash = "sha256:01aba6794eb9b19e0e29ae21137ca60ba4135c70347d4b9f664a586822b8c809", size = 1024218, upload-time = "2026-09-04T18:54:09.411Z" }
@@ -1865,8 +1978,8 @@ version = "6.6.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipykernel" },
-    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "jupyter-client" },
     { name = "jupyter-core" },
     { name = "prompt-toolkit" },
@@ -1940,7 +2053,7 @@ dependencies = [
     { name = "overrides" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -1958,7 +2071,7 @@ name = "jupyter-server-terminals"
 version = "0.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f4/a7/bcd0a9b0cbba88986fe944aaaf91bfda603e5a50bda8ed15123f381a3b2f/jupyter_server_terminals-0.5.4.tar.gz", hash = "sha256:bbda128ed41d0be9020349f9f1f2a4ab9952a73ed5f5ac9f1419794761fb87f5", size = 31770, upload-time = "2026-01-14T16:53:20.213Z" }
@@ -1982,7 +2095,7 @@ dependencies = [
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "packaging" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "tornado" },
     { name = "traitlets" },
     { name = "typing-extensions" },
@@ -2296,12 +2409,24 @@ wheels = [
 ]
 
 [[package]]
+name = "marshmallow"
+version = "3.26.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
+]
+
+[[package]]
 name = "matplotlib"
 version = "3.10.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "contourpy", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "contourpy", version = "1.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "contourpy", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "contourpy", version = "1.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "cycler" },
     { name = "fonttools" },
     { name = "kiwisolver" },
@@ -2351,7 +2476,7 @@ name = "mistune"
 version = "3.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7b/92/328a294a6de83bacb95bed01f04e0eaff4e3616ee359fc821a5dfc539b02/mistune-3.3.4.tar.gz", hash = "sha256:58b5c96d6fcb61190dfe5fae498d2b2065f99cf61e9649418fd54cf1ada86dfe", size = 121426, upload-time = "2026-07-22T05:22:30.89Z" }
 wheels = [
@@ -2409,7 +2534,7 @@ name = "multidict"
 version = "6.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/1e/5492c365f222f907de1039b91f922b93fa4f764c713ee858d235495d8f50/multidict-6.7.0.tar.gz", hash = "sha256:c6e99d9a65ca282e578dfea819cfa9c0a62b2499d8677392e09feaf305e9e6f5", size = 101834, upload-time = "2025-10-06T14:52:30.657Z" }
 wheels = [
@@ -2662,7 +2787,9 @@ name = "nvidia-cublas-cu12"
 version = "12.4.5.8"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/7f/7fbae15a3982dc9595e49ce0f19332423b260045d0a6afe93cdbe2f1f624/nvidia_cublas_cu12-12.4.5.8-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0f8aa1706812e00b9f19dfe0cdb3999b092ccb8ca168c0db5b8ea712456fd9b3", size = 363333771, upload-time = "2024-06-18T19:28:09.881Z" },
     { url = "https://files.pythonhosted.org/packages/ae/71/1c91302526c45ab494c23f61c7a84aa568b8c1f9d196efa5993957faf906/nvidia_cublas_cu12-12.4.5.8-py3-none-manylinux2014_x86_64.whl", hash = "sha256:2fc8da60df463fdefa81e323eef2e36489e1c94335b5358bcb38360adf75ac9b", size = 363438805, upload-time = "2024-04-03T20:57:06.025Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/2a/4f27ca96232e8b5269074a72e03b4e0d43aa68c9b965058b1684d07c6ff8/nvidia_cublas_cu12-12.4.5.8-py3-none-win_amd64.whl", hash = "sha256:5a796786da89203a0657eda402bcdcec6180254a8ac22d72213abc42069522dc", size = 396895858, upload-time = "2024-04-03T21:03:31.996Z" },
 ]
 
 [[package]]
@@ -2670,7 +2797,9 @@ name = "nvidia-cuda-cupti-cu12"
 version = "12.4.127"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/b5/9fb3d00386d3361b03874246190dfec7b206fd74e6e287b26a8fcb359d95/nvidia_cuda_cupti_cu12-12.4.127-py3-none-manylinux2014_aarch64.whl", hash = "sha256:79279b35cf6f91da114182a5ce1864997fd52294a87a16179ce275773799458a", size = 12354556, upload-time = "2024-06-18T19:30:40.546Z" },
     { url = "https://files.pythonhosted.org/packages/67/42/f4f60238e8194a3106d06a058d494b18e006c10bb2b915655bd9f6ea4cb1/nvidia_cuda_cupti_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:9dec60f5ac126f7bb551c055072b69d85392b13311fcc1bcda2202d172df30fb", size = 13813957, upload-time = "2024-04-03T20:55:01.564Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/79/8cf313ec17c58ccebc965568e5bcb265cdab0a1df99c4e674bb7a3b99bfe/nvidia_cuda_cupti_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:5688d203301ab051449a2b1cb6690fbe90d2b372f411521c86018b950f3d7922", size = 9938035, upload-time = "2024-04-03T21:01:01.109Z" },
 ]
 
 [[package]]
@@ -2678,7 +2807,9 @@ name = "nvidia-cuda-nvrtc-cu12"
 version = "12.4.127"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/77/aa/083b01c427e963ad0b314040565ea396f914349914c298556484f799e61b/nvidia_cuda_nvrtc_cu12-12.4.127-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0eedf14185e04b76aa05b1fea04133e59f465b6f960c0cbf4e37c3cb6b0ea198", size = 24133372, upload-time = "2024-06-18T19:32:00.576Z" },
     { url = "https://files.pythonhosted.org/packages/2c/14/91ae57cd4db3f9ef7aa99f4019cfa8d54cb4caa7e00975df6467e9725a9f/nvidia_cuda_nvrtc_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:a178759ebb095827bd30ef56598ec182b85547f1508941a3d560eb7ea1fbf338", size = 24640306, upload-time = "2024-04-03T20:56:01.463Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/30/8c844bfb770f045bcd8b2c83455c5afb45983e1a8abf0c4e5297b481b6a5/nvidia_cuda_nvrtc_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:a961b2f1d5f17b14867c619ceb99ef6fcec12e46612711bcec78eb05068a60ec", size = 19751955, upload-time = "2024-04-03T21:01:51.133Z" },
 ]
 
 [[package]]
@@ -2686,7 +2817,9 @@ name = "nvidia-cuda-runtime-cu12"
 version = "12.4.127"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/aa/b656d755f474e2084971e9a297def515938d56b466ab39624012070cb773/nvidia_cuda_runtime_cu12-12.4.127-py3-none-manylinux2014_aarch64.whl", hash = "sha256:961fe0e2e716a2a1d967aab7caee97512f71767f852f67432d572e36cb3a11f3", size = 894177, upload-time = "2024-06-18T19:32:52.877Z" },
     { url = "https://files.pythonhosted.org/packages/ea/27/1795d86fe88ef397885f2e580ac37628ed058a92ed2c39dc8eac3adf0619/nvidia_cuda_runtime_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:64403288fa2136ee8e467cdc9c9427e0434110899d07c779f25b5c068934faa5", size = 883737, upload-time = "2024-04-03T20:54:51.355Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/8b/450e93fab75d85a69b50ea2d5fdd4ff44541e0138db16f9cd90123ef4de4/nvidia_cuda_runtime_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:09c2e35f48359752dfa822c09918211844a3d93c100a715d79b59591130c5e1e", size = 878808, upload-time = "2024-04-03T21:00:49.77Z" },
 ]
 
 [[package]]
@@ -2698,6 +2831,7 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/fd/713452cd72343f682b1c7b9321e23829f00b842ceaedcda96e742ea0b0b3/nvidia_cudnn_cu12-9.1.0.70-py3-none-manylinux2014_x86_64.whl", hash = "sha256:165764f44ef8c61fcdfdfdbe769d687e06374059fbb388b6c89ecb0e28793a6f", size = 664752741, upload-time = "2024-04-22T15:24:15.253Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/d0/f90ee6956a628f9f04bf467932c0a25e5a7e706a684b896593c06c82f460/nvidia_cudnn_cu12-9.1.0.70-py3-none-win_amd64.whl", hash = "sha256:6278562929433d68365a07a4a1546c237ba2849852c0d4b2262a486e805b977a", size = 679925892, upload-time = "2024-04-22T15:24:53.333Z" },
 ]
 
 [[package]]
@@ -2708,7 +2842,9 @@ dependencies = [
     { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/7a/8a/0e728f749baca3fbeffad762738276e5df60851958be7783af121a7221e7/nvidia_cufft_cu12-11.2.1.3-py3-none-manylinux2014_aarch64.whl", hash = "sha256:5dad8008fc7f92f5ddfa2101430917ce2ffacd86824914c82e28990ad7f00399", size = 211422548, upload-time = "2024-06-18T19:33:39.396Z" },
     { url = "https://files.pythonhosted.org/packages/27/94/3266821f65b92b3138631e9c8e7fe1fb513804ac934485a8d05776e1dd43/nvidia_cufft_cu12-11.2.1.3-py3-none-manylinux2014_x86_64.whl", hash = "sha256:f083fc24912aa410be21fa16d157fed2055dab1cc4b6934a0e03cba69eb242b9", size = 211459117, upload-time = "2024-04-03T20:57:40.402Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/ee/3f3f8e9874f0be5bbba8fb4b62b3de050156d159f8b6edc42d6f1074113b/nvidia_cufft_cu12-11.2.1.3-py3-none-win_amd64.whl", hash = "sha256:d802f4954291101186078ccbe22fc285a902136f974d369540fd4a5333d1440b", size = 210576476, upload-time = "2024-04-03T21:04:06.422Z" },
 ]
 
 [[package]]
@@ -2716,7 +2852,9 @@ name = "nvidia-curand-cu12"
 version = "10.3.5.147"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/9c/a79180e4d70995fdf030c6946991d0171555c6edf95c265c6b2bf7011112/nvidia_curand_cu12-10.3.5.147-py3-none-manylinux2014_aarch64.whl", hash = "sha256:1f173f09e3e3c76ab084aba0de819c49e56614feae5c12f69883f4ae9bb5fad9", size = 56314811, upload-time = "2024-06-18T19:34:48.575Z" },
     { url = "https://files.pythonhosted.org/packages/8a/6d/44ad094874c6f1b9c654f8ed939590bdc408349f137f9b98a3a23ccec411/nvidia_curand_cu12-10.3.5.147-py3-none-manylinux2014_x86_64.whl", hash = "sha256:a88f583d4e0bb643c49743469964103aa59f7f708d862c3ddb0fc07f851e3b8b", size = 56305206, upload-time = "2024-04-03T20:58:08.722Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/22/2573503d0d4e45673c263a313f79410e110eb562636b0617856fdb2ff5f6/nvidia_curand_cu12-10.3.5.147-py3-none-win_amd64.whl", hash = "sha256:f307cc191f96efe9e8f05a87096abc20d08845a841889ef78cb06924437f6771", size = 55799918, upload-time = "2024-04-03T21:04:34.45Z" },
 ]
 
 [[package]]
@@ -2729,7 +2867,9 @@ dependencies = [
     { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/6b/a5c33cf16af09166845345275c34ad2190944bcc6026797a39f8e0a282e0/nvidia_cusolver_cu12-11.6.1.9-py3-none-manylinux2014_aarch64.whl", hash = "sha256:d338f155f174f90724bbde3758b7ac375a70ce8e706d70b018dd3375545fc84e", size = 127634111, upload-time = "2024-06-18T19:35:01.793Z" },
     { url = "https://files.pythonhosted.org/packages/3a/e1/5b9089a4b2a4790dfdea8b3a006052cfecff58139d5a4e34cb1a51df8d6f/nvidia_cusolver_cu12-11.6.1.9-py3-none-manylinux2014_x86_64.whl", hash = "sha256:19e33fa442bcfd085b3086c4ebf7e8debc07cfe01e11513cc6d332fd918ac260", size = 127936057, upload-time = "2024-04-03T20:58:28.735Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/be/d435b7b020e854d5d5a682eb5de4328fd62f6182507406f2818280e206e2/nvidia_cusolver_cu12-11.6.1.9-py3-none-win_amd64.whl", hash = "sha256:e77314c9d7b694fcebc84f58989f3aa4fb4cb442f12ca1a9bde50f5e8f6d1b9c", size = 125224015, upload-time = "2024-04-03T21:04:53.339Z" },
 ]
 
 [[package]]
@@ -2740,7 +2880,9 @@ dependencies = [
     { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/a9/c0d2f83a53d40a4a41be14cea6a0bf9e668ffcf8b004bd65633f433050c0/nvidia_cusparse_cu12-12.3.1.170-py3-none-manylinux2014_aarch64.whl", hash = "sha256:9d32f62896231ebe0480efd8a7f702e143c98cfaa0e8a76df3386c1ba2b54df3", size = 207381987, upload-time = "2024-06-18T19:35:32.989Z" },
     { url = "https://files.pythonhosted.org/packages/db/f7/97a9ea26ed4bbbfc2d470994b8b4f338ef663be97b8f677519ac195e113d/nvidia_cusparse_cu12-12.3.1.170-py3-none-manylinux2014_x86_64.whl", hash = "sha256:ea4f11a2904e2a8dc4b1833cc1b5181cde564edd0d5cd33e3c168eff2d1863f1", size = 207454763, upload-time = "2024-04-03T20:58:59.995Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/e0/3155ca539760a8118ec94cc279b34293309bcd14011fc724f87f31988843/nvidia_cusparse_cu12-12.3.1.170-py3-none-win_amd64.whl", hash = "sha256:9bc90fb087bc7b4c15641521f31c0371e9a612fc2ba12c338d3ae032e6b6797f", size = 204684315, upload-time = "2024-04-03T21:05:26.031Z" },
 ]
 
 [[package]]
@@ -2756,7 +2898,9 @@ name = "nvidia-nvjitlink-cu12"
 version = "12.4.127"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/45/239d52c05074898a80a900f49b1615d81c07fceadd5ad6c4f86a987c0bc4/nvidia_nvjitlink_cu12-12.4.127-py3-none-manylinux2014_aarch64.whl", hash = "sha256:4abe7fef64914ccfa909bc2ba39739670ecc9e820c83ccc7a6ed414122599b83", size = 20552510, upload-time = "2024-06-18T20:20:13.871Z" },
     { url = "https://files.pythonhosted.org/packages/ff/ff/847841bacfbefc97a00036e0fce5a0f086b640756dc38caea5e1bb002655/nvidia_nvjitlink_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:06b3b9b25bf3f8af351d664978ca26a16d2c5127dbd53c0497e28d1fb9611d57", size = 21066810, upload-time = "2024-04-03T20:59:46.957Z" },
+    { url = "https://files.pythonhosted.org/packages/81/19/0babc919031bee42620257b9a911c528f05fb2688520dcd9ca59159ffea8/nvidia_nvjitlink_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:fd9020c501d27d135f983c6d3e244b197a7ccad769e34df53a42e276b0e25fa1", size = 95336325, upload-time = "2024-04-03T21:06:25.073Z" },
 ]
 
 [[package]]
@@ -2764,7 +2908,9 @@ name = "nvidia-nvtx-cu12"
 version = "12.4.127"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/06/39/471f581edbb7804b39e8063d92fc8305bdc7a80ae5c07dbe6ea5c50d14a5/nvidia_nvtx_cu12-12.4.127-py3-none-manylinux2014_aarch64.whl", hash = "sha256:7959ad635db13edf4fc65c06a6e9f9e55fc2f92596db928d169c0bb031e88ef3", size = 100417, upload-time = "2024-06-18T20:16:22.484Z" },
     { url = "https://files.pythonhosted.org/packages/87/20/199b8713428322a2f22b722c62b8cc278cc53dffa9705d744484b5035ee9/nvidia_nvtx_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:781e950d9b9f60d8241ccea575b32f5105a5baf4c2351cab5256a24869f12a1a", size = 99144, upload-time = "2024-04-03T20:56:12.406Z" },
+    { url = "https://files.pythonhosted.org/packages/54/1b/f77674fbb73af98843be25803bbd3b9a4f0a96c75b8d33a2854a5c7d2d77/nvidia_nvtx_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:641dccaaa1139f3ffb0d3164b4b84f9d253397e38246a4f2f36728b48566d485", size = 66307, upload-time = "2024-04-03T21:02:01.959Z" },
 ]
 
 [[package]]
@@ -3336,13 +3482,13 @@ name = "pytest"
 version = "8.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
     { name = "pygments" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
 wheels = [
@@ -3376,6 +3522,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dotenv"
+version = "1.2.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz", hash = "sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35", size = 58945, upload-time = "2026-08-16T16:54:54.067Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/17/c5c6b53ddc18f297992099b3d9ec16c855c0ccc83263a21fe4d1c625ec6c/python_dotenv-1.2.3-py3-none-any.whl", hash = "sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9", size = 22780, upload-time = "2026-08-16T16:54:52.473Z" },
+]
+
+[[package]]
 name = "python-json-logger"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3398,8 +3553,8 @@ name = "pyvis"
 version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "ipython", version = "9.7.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "jinja2" },
     { name = "jsonpickle" },
     { name = "networkx" },
@@ -3476,7 +3631,7 @@ name = "pyzmq"
 version = "27.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "implementation_name == 'pypy'" },
+    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e7/8d/5b3d5631c2f4b4b8862f64cd0c9eb777b5710eeb5125b4be8dd0a200a4c0/pyzmq-27.2.0.tar.gz", hash = "sha256:54d4259d1bfae24ecdb5ca79f7acc2eac6c286a02d6a0ae617797cb45f0726d3", size = 292316, upload-time = "2026-08-20T19:08:21.19Z" }
 wheels = [
@@ -3540,8 +3695,8 @@ version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
-    { name = "rpds-py", version = "0.30.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "rpds-py", version = "2026.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "rpds-py", version = "0.30.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "rpds-py", version = "2026.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
@@ -3744,6 +3899,25 @@ wheels = [
 ]
 
 [[package]]
+name = "sampling-zoo"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "hdbscan" },
+    { name = "imbalanced-learn" },
+    { name = "iterative-stratification" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/84/82/0bda600af894463abcf12d9d1a68360d4f5d94d2f1cb14d1831504ef3e55/sampling_zoo-0.1.1.tar.gz", hash = "sha256:2afb2c8616b7c4c4cbd56ab9e2e4b99fc2ba64af9de4579f6c6bb074bf31e47d", size = 99807, upload-time = "2026-06-05T09:50:04.013Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/a8/4aa14ad7727d12370e78869563b931e5b9eb77a40480c6dc279082d61c22/sampling_zoo-0.1.1-py3-none-any.whl", hash = "sha256:aa277a0a3999e265a941163f688db71498faf3e67f5741d12de4b9561b2a7dc2", size = 109513, upload-time = "2026-06-05T09:50:02.786Z" },
+]
+
+[[package]]
 name = "scikit-base"
 version = "0.8.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3885,6 +4059,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "sklearn-compat"
+version = "0.1.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scikit-learn" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/7e/302cb51f8735bad67f5ce088d027a1e299789d8555967c9642656fa36da0/sklearn_compat-0.1.6.tar.gz", hash = "sha256:8fd4731b4f709b66641b8f49c954dafec7e3b60afc48f2cfd298356c713277c6", size = 178018, upload-time = "2026-06-07T19:00:28.409Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/20/47a7e947757008be1b77f1c6a6861d26a84ef4b4ea3e6ebf4eff24f24d5d/sklearn_compat-0.1.6-py3-none-any.whl", hash = "sha256:b555db6c09d21eb50ee4a767dc08478a865f33f0e42b3ff8fc33f33c616bd7c1", size = 22868, upload-time = "2026-06-07T19:00:27.242Z" },
 ]
 
 [[package]]
@@ -4146,8 +4332,8 @@ version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docutils" },
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "sphinxcontrib-jquery" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/91/44/c97faec644d29a5ceddd3020ae2edffa69e7d00054a8c7a6021e82f20335/sphinx_rtd_theme-3.0.2.tar.gz", hash = "sha256:b7457bc25dda723b20b086a670b9953c859eab60a2a03ee8eb2bb23e176e5f85", size = 7620463, upload-time = "2024-11-13T11:06:04.545Z" }
@@ -4169,8 +4355,8 @@ name = "sphinxcontrib-details-directive"
 version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/62/0a/2de87a4f6e0e33415692ed4b03e0b7dfde7d91a691d1486c1577191f875c/sphinxcontrib-details-directive-0.1.0.tar.gz", hash = "sha256:78bd6a67f786a21868abf0e6a5973340d7e7a6fd71b1890de9c856f92877b38b", size = 7969, upload-time = "2019-09-22T13:24:27.707Z" }
 wheels = [
@@ -4200,8 +4386,8 @@ name = "sphinxcontrib-jquery"
 version = "4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-tensor') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/f3/aa67467e051df70a6330fe7770894b3e4f09436dea6881ae0b4f3d87cad8/sphinxcontrib-jquery-4.1.tar.gz", hash = "sha256:1620739f04e36a2c779f1a131a2dfd49b2fd07351bf1968ced074365933abc7a", size = 122331, upload-time = "2023-03-14T15:01:01.944Z" }
 wheels = [
@@ -4240,7 +4426,7 @@ name = "sqlalchemy"
 version = "2.0.44"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'" },
+    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f0/f2/840d7b9496825333f532d2e3976b8eadbf52034178aac53630d09fe6e1ef/sqlalchemy-2.0.44.tar.gz", hash = "sha256:0ae7454e1ab1d780aee69fd2aae7d6b8670a581d8847f2d1e0f7ddfbf47e5a22", size = 9819830, upload-time = "2025-10-10T14:39:12.935Z" }
@@ -4382,8 +4568,8 @@ name = "terminado"
 version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "os_name != 'nt'" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "ptyprocess", marker = "os_name != 'nt' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "pywinpty", marker = "os_name == 'nt' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }
@@ -4396,6 +4582,7 @@ name = "testfixtures"
 version = "8.3.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
+    "python_full_version >= '3.11'",
     "python_full_version < '3.11'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3b/25/d7e9d05f87e2ab84657a0dfb1f24fc295d542ac2eb221531d976ea4aa1ff/testfixtures-8.3.0.tar.gz", hash = "sha256:d4c0b84af2f267610f908009b50d6f983a4e58ade22c67bab6787b5a402d59c0", size = 137420, upload-time = "2024-06-07T18:12:27.484Z" }
@@ -4428,6 +4615,10 @@ wheels = [
 name = "thegolem"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.11'",
+    "python_full_version < '3.11'",
+]
 dependencies = [
     { name = "func-timeout" },
     { name = "hyperopt" },
@@ -4448,8 +4639,8 @@ dependencies = [
     { name = "requests" },
     { name = "scipy" },
     { name = "seaborn" },
-    { name = "testfixtures", version = "8.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "testfixtures", version = "10.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "testfixtures", version = "8.3.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "testfixtures", version = "10.0.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-9-fedot-ind-fedot-legacy') or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "tqdm" },
     { name = "typing" },
     { name = "zss" },
@@ -4457,6 +4648,43 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f4/24/a7b93e05627a97a53a5c2ef00aa5b9c82dfc8bccdb36c40e474d96b12097/thegolem-0.4.1.tar.gz", hash = "sha256:de0a11ea82a858767431683ef63a3fa238e83eec2d906cca450fab36112aeee4", size = 216505, upload-time = "2025-01-21T17:08:36.566Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/be/9d2bf45ff44a860af23cf413d6feee4e72b28016e6d7b828a3c66b706a51/thegolem-0.4.1-py3-none-any.whl", hash = "sha256:176c4b7792d7b994b5ad34d98101aa2a0a0818531d19977e725bedf45bc99769", size = 296234, upload-time = "2025-01-21T17:08:33.966Z" },
+]
+
+[[package]]
+name = "thegolem"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.11'",
+    "python_full_version < '3.11'",
+]
+dependencies = [
+    { name = "func-timeout" },
+    { name = "hyperopt" },
+    { name = "imageio" },
+    { name = "iopt" },
+    { name = "joblib" },
+    { name = "mabwiser" },
+    { name = "markupsafe" },
+    { name = "matplotlib" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "optuna" },
+    { name = "pandas" },
+    { name = "pillow" },
+    { name = "psutil" },
+    { name = "pytest" },
+    { name = "pyvis" },
+    { name = "requests" },
+    { name = "scipy" },
+    { name = "seaborn" },
+    { name = "testfixtures", version = "8.3.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "tqdm" },
+    { name = "zss" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7b/87/aa0eb4e1dadc5ba6b2a78b60916c493b18d9eba53ff1fca90bb7fcc43fab/thegolem-0.5.0.tar.gz", hash = "sha256:5241a7d0223fa1e30ceb5930ad87688855379af289d03361963551454fb4049c", size = 177337, upload-time = "2026-09-07T21:14:31.304Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/ab/9b3a884ce6e3705394a450d6f585d84dc0396625f34564721608b628e373/thegolem-0.5.0-py3-none-any.whl", hash = "sha256:9ab685a30d12e7d4fdb6a932b9cfa31c0dc2d9f9e75e5c34043e2842303ffd5b", size = 235685, upload-time = "2026-09-07T21:14:29.959Z" },
 ]
 
 [[package]]
@@ -4547,20 +4775,20 @@ dependencies = [
     { name = "fsspec" },
     { name = "jinja2" },
     { name = "networkx" },
-    { name = "nvidia-cublas-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-cupti-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-nvrtc-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-runtime-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cudnn-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cufft-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-curand-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cusolver-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cusparse-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-nvtx-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
+    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "sympy" },
-    { name = "triton", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor') or (sys_platform != 'linux' and extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
     { name = "typing-extensions" },
 ]
 wheels = [
@@ -4618,7 +4846,7 @@ name = "tqdm"
 version = "4.66.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e9/34/bef135b27fe1864993a5284ad001157ee9b5538e859ac90f5b0e8cc8c9ec/tqdm-4.66.6.tar.gz", hash = "sha256:4bdd694238bef1485ce839d67967ab50af8f9272aab687c0d7702a01da0be090", size = 169533, upload-time = "2024-10-28T12:49:58.611Z" }
 wheels = [
@@ -4761,7 +4989,7 @@ name = "wasabi"
 version = "1.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-fedot-ind-fedot-legacy' and extra == 'extra-9-fedot-ind-fedot-tensor')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ac/f9/054e6e2f1071e963b5e746b48d1e3727470b2a490834d18ad92364929db3/wasabi-1.1.3.tar.gz", hash = "sha256:4bb3008f003809db0c3e28b4daf20906ea871a2bb43f9914197d540f4f2e0878", size = 30391, upload-time = "2024-05-31T16:56:18.99Z" }
 wheels = [

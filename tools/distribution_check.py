@@ -146,7 +146,14 @@ def inspect_sdist(
         if stream is None:
             return (ArchiveIssue(path.name, "PKG-INFO", "Source distribution metadata is unreadable"),)
         issues = list(inspect_metadata(path.name, stream.read(), project, pypi=pypi))
-        missing = sorted((set(resources) | {"pyproject.toml", "setup.py", "README_en.rst"}) - names)
+        source_inputs = {
+            "pyproject.toml",
+            "setup.py",
+            "README_en.rst",
+            "requirements.txt",
+            "requirements-tensor.txt",
+        }
+        missing = sorted((set(resources) | source_inputs) - names)
         if missing:
             issues.append(ArchiveIssue(path.name, "package-data", f"Missing source inputs: {missing}"))
         forbidden_roots = {"examples", "benchmark", "tests", "tools", ".codex", ".local", ".git"}

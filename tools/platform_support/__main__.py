@@ -20,6 +20,8 @@ def _emit(result: dict, as_json: bool) -> int:
         print(json.dumps(result, indent=2))
     else:
         print("OK" if result["ok"] else "FAILED")
+        if "profile" in result:
+            print(f"FEDOT profile: {result['profile']}")
         if "python" in result:
             python = result["python"]
             print(f"Python {python['version']}: {python['status']} ({python['reason']})")
@@ -38,40 +40,67 @@ def main(argv: list[str] | None = None) -> int:
         subparser.add_argument("--root", type=Path, default=default_root())
         if command == "export":
             subparser.add_argument("--check", action="store_true")
+            subparser.add_argument("--profile")
         else:
             subparser.add_argument("--json", action="store_true")
+            if command == "environment":
+                subparser.add_argument("--profile")
     args = parser.parse_args(argv)
     project = load_project(args.root)
-    issues = list(project.issues)
-    if args.command == "export":
-        if project.ok:
-            expected = render_requirements(project.value)
-            if args.check:
-                existing = load_requirements(args.root)
-                issues.extend(existing.issues)
-                if existing.ok and existing.value != expected:
-                    issues.append(Issue("requirements.txt", "export", "Requirements are stale; regenerate explicitly."))
-            else:
-                try:
-                    with (args.root / "requirements.txt").open("w", encoding="utf-8", newline="\n") as stream:
-                        stream.write(expected)
-                except (OSError, UnicodeError) as error:
-                    issues.append(Issue("requirements.txt", "write", str(error)))
-        return _emit(_report(issues), False)
     compatibility = load_compatibility()
+    issues = list(project.issues)
     issues.extend(compatibility.issues)
+    if args.command == "export":
+        profiles = ()
+        if compatibility.ok:
+            if args.profile is None:
+                profiles = compatibility.value.profiles
+            else:
+                selected = compatibility.value.profile(args.profile)
+                if selected is None:
+                    issues.append(Issue("profile", "unknown", f"Unknown FEDOT profile: {args.profile!r}."))
+                else:
+                    profiles = (selected,)
+        if project.ok:
+            for profile in profiles:
+                expected = render_requirements(project.value, profile)
+                path = args.root / profile.requirements_file
+                if args.check:
+                    existing = load_requirements(args.root, profile.requirements_file)
+                    issues.extend(existing.issues)
+                    if existing.ok and existing.value != expected:
+                        issues.append(Issue(profile.requirements_file, "export",
+                                            "Requirements are stale; regenerate explicitly."))
+                else:
+                    try:
+                        with path.open("w", encoding="utf-8", newline="\n") as stream:
+                            stream.write(expected)
+                    except (OSError, UnicodeError) as error:
+                        issues.append(Issue(profile.requirements_file, "write", str(error)))
+        return _emit(_report(issues), False)
     if args.command == "check":
-        requirements = load_requirements(args.root)
-        issues.extend(requirements.issues)
-        if project.ok and compatibility.ok and requirements.ok:
-            issues.extend(verify_project(project.value, compatibility.value, requirements.value))
+        requirements = {}
+        if compatibility.ok:
+            for profile in compatibility.value.profiles:
+                loaded = load_requirements(args.root, profile.requirements_file)
+                issues.extend(loaded.issues)
+                if loaded.ok:
+                    requirements[profile.name] = loaded.value
+        if project.ok and compatibility.ok:
+            issues.extend(verify_project(project.value, compatibility.value, requirements))
         return _emit(_report(issues), args.json)
     if issues:
         return _emit(_report(issues), args.json)
-    issues.extend(verify_project(project.value, compatibility.value, render_requirements(project.value)))
+    selected = compatibility.value.profile(args.profile or compatibility.value.default_profile)
+    if selected is None:
+        issues.append(Issue("profile", "unknown", f"Unknown FEDOT profile: {args.profile!r}."))
+        return _emit(_report(issues), args.json)
+    generated = {profile.name: render_requirements(project.value, profile)
+                 for profile in compatibility.value.profiles}
+    issues.extend(verify_project(project.value, compatibility.value, generated))
     if issues:
         return _emit(_report(issues), args.json)
-    return _emit(current_environment(project.value, compatibility.value), args.json)
+    return _emit(current_environment(project.value, compatibility.value, selected), args.json)
 
 
 if __name__ == "__main__":

@@ -29,9 +29,13 @@ def test_repository_metadata_export_and_policy_are_coherent():
     parsed = parse_project(project_metadata())
     policy = load_compatibility()
     assert parsed.ok and policy.ok
-    text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-    assert text == render_requirements(parsed.value)
-    assert verify_project(parsed.value, policy.value, text) == ()
+    texts = {
+        profile.name: (ROOT / profile.requirements_file).read_text(encoding="utf-8")
+        for profile in policy.value.profiles
+    }
+    assert all(texts[profile.name] == render_requirements(parsed.value, profile)
+               for profile in policy.value.profiles)
+    assert verify_project(parsed.value, policy.value, texts) == ()
 
 
 def test_build_metadata_has_no_second_source():
@@ -76,14 +80,18 @@ def test_lock_pins_same_fedot_sha_and_python_range():
     project = project_metadata()["project"]
     policy = load_compatibility().value
     fedot = [package for package in lock["package"] if package["name"] == "fedot"]
-    assert len(fedot) == 1
-    source = urlsplit(fedot[0]["source"]["git"])
-    assert source._replace(query="", fragment="").geturl() == policy.current.repository
-    assert source.fragment == policy.current.sha
-    assert parse_qs(source.query) in ({}, {"rev": [policy.current.sha]})
+    assert len(fedot) == len(policy.profiles)
+    sources = {urlsplit(package["source"]["git"]).fragment: urlsplit(package["source"]["git"])
+               for package in fedot}
+    assert set(sources) == {profile.sha for profile in policy.profiles}
+    for profile in policy.profiles:
+        source = sources[profile.sha]
+        assert source._replace(query="", fragment="").geturl() == profile.repository
+        assert parse_qs(source.query) in ({}, {"rev": [profile.sha]})
     assert SpecifierSet(lock["requires-python"]) == SpecifierSet(project["requires-python"])
     local_project = next(package for package in lock["package"] if package["name"] == project["name"])
     assert local_project["version"] == project["version"]
+    assert set(local_project["optional-dependencies"]) >= {profile.extra for profile in policy.profiles}
 
 
 def test_install_matrix_and_python312_audit_are_distinct():
@@ -95,15 +103,22 @@ def test_install_matrix_and_python312_audit_are_distinct():
     assert jobs["python312-audit"]["needs"] == "build"
     install_commands = "\n".join(step.get("run", "") for step in jobs["install"]["steps"])
     assert "--frozen" in install_commands and "pip check" in install_commands
-    assert "python -I tools/runtime_smoke.py" in install_commands
+    assert "--extra fedot-legacy" in install_commands
+    assert "python -I tools/runtime_smoke.py --profile legacy" in install_commands
     assert "poetry" not in install_commands
+    tensor = jobs["tensor-integration"]
+    assert tensor["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
+    tensor_commands = "\n".join(step.get("run", "") for step in tensor["steps"])
+    assert "--extra fedot-tensor" in tensor_commands
+    assert "environment --profile tensor" in tensor_commands
+    assert "tests/unit/integration/fedot" in tensor_commands
 
 
 def test_unit_and_integration_install_same_locked_profile():
     for name in ("poetry_unit_test.yml", "integration_tests.yml"):
         steps = workflow(name)["jobs"]["test"]["steps"]
         commands = "\n".join(step.get("run", "") for step in steps)
-        assert "uv export --frozen --extra dev" in commands
+        assert "uv export --frozen --extra fedot-legacy --extra dev" in commands
         assert "pip install --no-deps -e ." in commands
         assert "poetry " not in commands and "pip check" in commands
 

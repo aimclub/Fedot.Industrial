@@ -1,0 +1,838 @@
+{
+  "schema_version": 1,
+  "owner": "fedot_ind.integration.fedot",
+  "removal_stage": "IND-FEDOT-05",
+  "replacements": [
+    {
+      "legacy": "fedot.core.data.array_utilities",
+      "target": "fedot.core.data.common.array_utils"
+    },
+    {
+      "legacy": "fedot.core.data.cv_folds",
+      "target": "fedot.core.data.split.cv_folds"
+    },
+    {
+      "legacy": "fedot.core.data.data",
+      "target": "fedot.core.data.input_data.data"
+    },
+    {
+      "legacy": "fedot.core.data.data_split",
+      "target": "fedot.core.data.split.data_split"
+    },
+    {
+      "legacy": "fedot.core.data.multi_modal",
+      "target": "fedot.core.data.multimodal.multi_modal"
+    }
+  ],
+  "imports": [
+    {
+      "path": "benchmark/industrial/forecasting.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "benchmark/industrial/models/classification.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "benchmark/industrial/models/classification.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "benchmark/industrial/models/regression.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "benchmark/industrial/models/regression.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/api/main.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/api/services/prediction.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/api/utils/checkers_collections.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/api/utils/industrial_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/api/utils/industrial_strategy.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "fedot_ind/api/utils/industrial_strategy.py",
+      "module": "fedot.core.data.multi_modal",
+      "names": [
+        "MultiModalData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/architecture/abstraction/decorators.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/architecture/pipelines/abstract_pipeline.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/architecture/preprocessing/data_convertor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/architecture/preprocessing/data_convertor.py",
+      "module": "fedot.core.data.multi_modal",
+      "names": [
+        "MultiModalData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/ensemble/kernel_ensemble.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/ensemble/random_automl_forest.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/ensemble/random_automl_forest.py",
+      "module": "fedot.core.data.multi_modal",
+      "names": [
+        "MultiModalData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/kernel_learning/generators/base.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/kernel_learning/generators/base.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/metrics/metrics_implementation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/metrics/pipeline.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/automl/fedot_implementation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/base_extractor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/classification/stat_domain_clf.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/detection/anomaly/algorithms/autoencoder_detector.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/detection/anomaly_detector.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/detection/custom/stat_detector.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/detection/modern_detectors.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/detection/runtime.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/detection/subspaces/sst.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/kernel/okhs_forecasting_torch.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/base_nn_model.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/base_nn_model.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/common_model/inception.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/feature_extraction/mini_rocket.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/forecasting_model/deep_tcn.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/forecasting_model/deep_tcn.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/forecasting_model/deepar.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/forecasting_model/nbeats.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/forecasting_model/patch_tst.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/forecasting_model/patch_tst.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/nn/network_impl/lora_nn.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/pdl/pairwise_model.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/dmd_models/havok_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/dmd_models/okhs_fdmd_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/ensemble_models/hybrid_ensemble_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/forecasting_runtime.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/glm.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/lagged_model/lagged_ridge_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/lagged_model/low_rank_lagged_ridge_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/lagged_model/mssa_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/lagged_model/ssa_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/lagged_model/topo_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/lagged_strategy/lagged_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/neural_models/neural_forecast_head.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/models/ts_forecasting/neural_models/neural_forecast_head.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/IndustrialCachableOperation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/decomposition/matrix_decomposition/method_impl/column_sampling_decomposition.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/dummy/dummy_operation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/filtration/channel_filtration.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/interfaces/detection_runtime_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/interfaces/fedot_automl_evaluation_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/interfaces/forecasting_runtime_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/interfaces/industrial_model_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/interfaces/industrial_preprocessing_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/interfaces/neural_forecasting_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/basis/abstract_basis.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/basis/eigen_basis.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/data/bagging.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/data/forecasting_primitives.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/data/hankelisation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/data/park_transformation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/representation/manifold/riemann_embeding.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/representation/recurrence/recurrence_extractor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/representation/statistical/quantile_extractor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/representation/tabular/tabular_extractor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/representation/topological/topological_extractor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/operation/transformation/torch_backend/statistical/quantile_extractor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/abstract.py",
+      "module": "fedot.core.data.array_utilities",
+      "names": [
+        "atleast_4d"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/abstract.py",
+      "module": "fedot.core.data.cv_folds",
+      "names": [
+        "cv_generator"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/abstract.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/abstract.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "_split_input_data_by_indexes"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/abstract.py",
+      "module": "fedot.core.data.multi_modal",
+      "names": [
+        "MultiModalData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/data_transformation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/metric.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/industrial_implementations/ml_optimisation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/core/repository/initializer_industrial_models.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "fedot.core.data.data_split"
+      ]
+    },
+    {
+      "path": "fedot_ind/integration/fedot/legacy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/tools/example_utils.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/tools/example_utils.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "tests/unit/core/architecture/preprocessing/test_data_convertor.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_deepar.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_nbeats.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_nbeats.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_patch_tst.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_patch_tst.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_tcn.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/model_impl/test_tcn.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "train_test_data_setup"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/test_lagged_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/test_pairwise_difference_models.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/test_ssa.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/models/test_topo_forecaster.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/interfaces/test_fedot_automl_evaluation_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/interfaces/test_industrial_model_strategy.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/transformation/basis/test_fourier_basis.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "OutputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/transformation/basis/test_wavelet_basis.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/transformation/data/test_forecasting_primitives.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/transformation/data/test_hankelisation.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    },
+    {
+      "path": "tests/unit/core/operation/transformation/representation/test_riemann_embeding.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData"
+      ]
+    }
+  ]
+}

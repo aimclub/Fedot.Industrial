@@ -2,15 +2,19 @@
 
 import re
 from dataclasses import dataclass
+from typing import Mapping
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
-from .schema import Compatibility, Issue, ParseResult
+from .schema import Compatibility, FedotProfile, Issue, ParseResult
 
 
-EXPORT_HEADER = "# Generated from pyproject.toml; run python -m tools.platform_support export."
+EXPORT_HEADER = (
+    "# Generated from pyproject.toml for FEDOT profile {profile}; "
+    "run python -m tools.platform_support export."
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +22,9 @@ class Project:
     requires_python: str
     dependencies: tuple[str, ...]
     optional_dependencies: tuple[tuple[str, tuple[str, ...]], ...]
+
+    def extra(self, name: str) -> tuple[str, ...] | None:
+        return next((values for extra_name, values in self.optional_dependencies if extra_name == name), None)
 
 
 def parse_requirements(raw: object, path: str) -> ParseResult[tuple[str, ...]]:
@@ -114,21 +121,52 @@ def parse_project(raw: object) -> ParseResult[Project]:
     return ParseResult(Project(requires, dependencies.value, tuple(optional)), ())
 
 
-def render_requirements(project: Project) -> str:
-    return "\n".join((EXPORT_HEADER, *project.dependencies)) + "\n"
+def profile_dependencies(project: Project, profile: FedotProfile) -> tuple[str, ...]:
+    return project.dependencies + (project.extra(profile.extra) or ())
 
 
-def verify_project(project: Project, compatibility: Compatibility, requirements_text: str) -> tuple[Issue, ...]:
+def render_requirements(project: Project, profile: FedotProfile) -> str:
+    header = EXPORT_HEADER.format(profile=profile.name)
+    return "\n".join((header, *profile_dependencies(project, profile))) + "\n"
+
+
+def verify_project(
+        project: Project,
+        compatibility: Compatibility,
+        requirements_texts: Mapping[str, str],
+) -> tuple[Issue, ...]:
     issues: list[Issue] = []
     if SpecifierSet(project.requires_python) != SpecifierSet(compatibility.requires_python):
         issues.append(Issue("project.requires-python", "matrix", "Python range differs from the compatibility policy."))
-    fedot = [Requirement(item) for item in project.dependencies if canonicalize_name(Requirement(item).name) == "fedot"]
-    if len(fedot) != 1 or fedot[0].url != compatibility.current.requirement_url or fedot[0].marker or fedot[0].extras:
+    base_fedot = [item for item in project.dependencies if canonicalize_name(Requirement(item).name) == "fedot"]
+    if base_fedot:
         issues.append(
             Issue(
                 "project.dependencies.fedot",
-                "sha",
-                "FEDOT must be an unconditional dependency pinned to the current policy repository and full immutable SHA."))
+                "profile",
+                "FEDOT must be selected through exactly one explicit installation profile."))
+    profile_extras = {profile.extra for profile in compatibility.profiles}
+    for profile in compatibility.profiles:
+        values = project.extra(profile.extra)
+        if values is None:
+            issues.append(Issue(f"project.optional-dependencies.{profile.extra}", "missing",
+                                f"FEDOT profile {profile.name!r} is not declared."))
+            continue
+        fedot = [Requirement(item) for item in values
+                 if canonicalize_name(Requirement(item).name) == "fedot"]
+        if (len(values) != 1 or len(fedot) != 1 or fedot[0].url != profile.requirement_url
+                or fedot[0].marker or fedot[0].extras):
+            issues.append(
+                Issue(
+                    f"project.optional-dependencies.{profile.extra}",
+                    "sha",
+                    "A FEDOT profile must contain only one unconditional direct dependency pinned to its full SHA."))
+    for extra_name, values in project.optional_dependencies:
+        if extra_name in profile_extras:
+            continue
+        if any(canonicalize_name(Requirement(item).name) == "fedot" for item in values):
+            issues.append(Issue(f"project.optional-dependencies.{extra_name}", "profile",
+                                "FEDOT may only be declared in compatibility profile extras."))
     # Required bounds are explicit policy, not a second dependency resolver.
     for constraint in compatibility.known_constraints:
         required = Requirement(constraint.requirement)
@@ -138,13 +176,18 @@ def verify_project(project: Project, compatibility: Compatibility, requirements_
                 or not set(required.specifier).issubset(set(declared[0].specifier))):
             issues.append(Issue(f"project.dependencies.{canonicalize_name(required.name)}", "constraint",
                                 f"Required profile bounds are missing: {constraint.requirement}. {constraint.reason}"))
-    lines = [line.strip() for line in requirements_text.splitlines()
-             if line.strip() and not line.lstrip().startswith("#")]
-    issues.extend(parse_requirements(lines, "requirements.txt").issues)
-    if requirements_text != render_requirements(project):
-        issues.append(
-            Issue(
-                "requirements.txt",
-                "export",
-                "Requirements differ from the exact generated project.dependencies export."))
+    for profile in compatibility.profiles:
+        requirements_text = requirements_texts.get(profile.name)
+        if requirements_text is None:
+            issues.append(Issue(profile.requirements_file, "read", "Profile requirements were not loaded."))
+            continue
+        lines = [line.strip() for line in requirements_text.splitlines()
+                 if line.strip() and not line.lstrip().startswith("#")]
+        issues.extend(parse_requirements(lines, profile.requirements_file).issues)
+        if requirements_text != render_requirements(project, profile):
+            issues.append(
+                Issue(
+                    profile.requirements_file,
+                    "export",
+                    f"Requirements differ from the exact generated {profile.name!r} profile export."))
     return tuple(issues)

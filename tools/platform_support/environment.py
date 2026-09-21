@@ -12,8 +12,8 @@ from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-from .schema import Compatibility, Issue, PythonStatus
-from .verification import Project
+from .schema import Compatibility, FedotProfile, Issue, PythonStatus
+from .verification import Project, profile_dependencies
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ def _source_matches(requirement: Requirement, direct_url: object) -> bool:
     return direct_url["url"] == url
 
 
-def inspect_environment(project: Project, compatibility: Compatibility, python_version: str,
+def inspect_environment(project: Project, compatibility: Compatibility, profile: FedotProfile, python_version: str,
                         marker_environment: Mapping[str, str], installed: Mapping[str, InstalledDistribution]) -> dict:
     """Interpret an explicit environment snapshot deterministically."""
     decision = python_decision(python_version, compatibility)
@@ -76,7 +76,7 @@ def inspect_environment(project: Project, compatibility: Compatibility, python_v
                 "Running Python does not satisfy project metadata."))
     dependencies = []
     markers = dict(marker_environment, extra="")
-    for value in project.dependencies:
+    for value in profile_dependencies(project, profile):
         requirement = Requirement(value)
         name = canonicalize_name(requirement.name)
         record = {"name": name, "requirement": value}
@@ -112,16 +112,17 @@ def inspect_environment(project: Project, compatibility: Compatibility, python_v
                     Issue(
                         f"dependencies.{name}.source",
                         "source-unverified",
-                        "PEP 610 metadata does not prove the declared repository and commit; installed version alone cannot verify a SHA."))
+                        "PEP 610 metadata does not prove the declared repository and commit; "
+                        "installed version alone cannot verify a SHA."))
         dependencies.append(record)
-    return {"ok": not issues, "python": decision, "dependencies": dependencies,
+    return {"ok": not issues, "profile": profile.name, "python": decision, "dependencies": dependencies,
             "optional_extras": [name for name, _ in project.optional_dependencies],
             "issues": [asdict(issue) for issue in issues]}
 
 
-def collect_installed(project: Project) -> dict[str, InstalledDistribution]:
+def collect_installed(project: Project, profile: FedotProfile) -> dict[str, InstalledDistribution]:
     installed = {}
-    for value in project.dependencies:
+    for value in profile_dependencies(project, profile):
         name = canonicalize_name(Requirement(value).name)
         if name in installed:
             continue
@@ -146,10 +147,11 @@ def collect_installed(project: Project) -> dict[str, InstalledDistribution]:
     return installed
 
 
-def current_environment(project: Project, compatibility: Compatibility) -> dict:
+def current_environment(project: Project, compatibility: Compatibility, profile: FedotProfile) -> dict:
     return inspect_environment(
         project,
         compatibility,
+        profile,
         platform.python_version(),
         default_environment(),
-        collect_installed(project))
+        collect_installed(project, profile))

@@ -29,7 +29,7 @@ jobs:
       - name: Install resolver
         run: python -m pip install "uv==0.8.17"
       - name: Export frozen dependencies
-        run: uv export --frozen --extra dev --no-hashes --no-emit-project --output-file /tmp/industrial-requirements.txt
+        run: uv export --frozen --extra fedot-legacy --extra dev --no-hashes --no-emit-project --output-file /tmp/industrial-requirements.txt
       - name: Install CPU runtime
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
       - name: Install locked dependencies and project
@@ -38,7 +38,7 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
           python -m tools.platform_support check --json
-          python -m tools.platform_support environment --json
+          python -m tools.platform_support environment --profile legacy --json
       - name: Run tests with pytest
         run: python -m pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit -vv
       - name: Codecov coverage

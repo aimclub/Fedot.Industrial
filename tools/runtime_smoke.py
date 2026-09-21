@@ -68,7 +68,7 @@ def stdlib_typing() -> str:
     return str(path)
 
 
-def runtime_imports() -> str:
+def legacy_runtime_imports() -> str:
     from fedot.core.data.data import InputData
     from fedot_ind.api.main import FedotIndustrial
     from fedot_ind.core.models.pdl import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
@@ -78,6 +78,51 @@ def runtime_imports() -> str:
         InputData, FedotIndustrial, PairwiseDifferenceClassifier, PairwiseDifferenceRegressor,
         KernelEnsembleClassifier, KernelEnsembleRegressor,
     ))
+
+
+def tensor_runtime_imports() -> str:
+    import numpy as np
+    from fedot import TensorData, create_data
+    from fedot_ind.integration.fedot import (
+        DataProfile, DataStage, IntegrationTask, build_data_plan, normalize_input_data,
+    )
+
+    features = np.arange(12, dtype=float).reshape(6, 2)
+    target = features[:, 0] * 2 + 1
+    plan = build_data_plan(
+        features,
+        profile=DataProfile.TENSOR,
+        task=IntegrationTask.REGRESSION,
+        stage=DataStage.TRAIN,
+    )
+    prepared = normalize_input_data(features, plan)
+    train = create_data(prepared.values, target=target, task="regression")
+    predicted = create_data(prepared.values.copy(), from_data=train)
+    if not isinstance(train, TensorData) or not isinstance(predicted, TensorData):
+        raise TypeError("FEDOT create_data did not return TensorData")
+    if tuple(train.features.shape) != (6, 2) or tuple(predicted.features.shape) != (6, 2):
+        raise ValueError("TensorData shape changed across train/predict preparation")
+    return f"{TensorData.__name__}, profile={DataProfile.TENSOR.value}"
+
+
+def regression_runtime(profile: str) -> str:
+    import numpy as np
+    from fedot_ind.integration.fedot import create_regression_runtime
+
+    first = np.linspace(0.0, 29.0, 30)
+    train = np.column_stack((first, np.square(first + 1) / 10.0))
+    target = 3 * train[:, 0] - 2 * train[:, 1] + 1
+    predict = np.array([[6.0, 2.0], [7.0, 5.0]])
+    expected = 3 * predict[:, 0] - 2 * predict[:, 1] + 1
+    runtime = create_regression_runtime(profile)
+    try:
+        runtime.fit(train, target)
+        result = runtime.predict(predict)
+    finally:
+        runtime.close()
+    np.testing.assert_allclose(np.asarray(result.values).reshape(-1), expected, rtol=1e-6, atol=1e-5)
+    np.testing.assert_array_equal(result.idx, np.arange(2))
+    return f"profile={profile}, predictions={result.values.shape[0]}"
 
 
 def cpu_tensor() -> str:
@@ -107,20 +152,28 @@ def optional_research_absence() -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--profile", choices=("legacy", "tensor"), default="legacy")
     args = parser.parse_args(argv)
-    probes = (
+    common_probes = (
         ("installed-wheel", installed_package),
         ("stdlib-typing", stdlib_typing),
-        ("repository-resources", repository_resources),
         ("cpu-tensor", cpu_tensor),
-        ("current-runtime", runtime_imports),
+    )
+    legacy_probes = (
+        ("repository-resources", repository_resources),
+        ("current-runtime", legacy_runtime_imports),
         ("arrow-dataset", dataset_import),
         ("okhs-without-research-dependencies", optional_research_absence),
     )
+    tensor_probes = (("tensor-runtime", tensor_runtime_imports),)
+    probes = (common_probes
+              + (legacy_probes if args.profile == "legacy" else tensor_probes)
+              + (("integration-regression", lambda: regression_runtime(args.profile)),))
     results = [run_probe(name, action) for name, action in probes]
     ok = all(result.ok for result in results)
     if args.json:
-        print(json.dumps({"ok": ok, "probes": [asdict(result) for result in results]}, indent=2))
+        print(json.dumps({"ok": ok, "profile": args.profile,
+                          "probes": [asdict(result) for result in results]}, indent=2))
     else:
         for result in results:
             print(f"{result.name}: {'OK' if result.ok else 'FAILED'}: {result.detail}")

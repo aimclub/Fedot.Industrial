@@ -66,6 +66,8 @@ def sdist_file(tmp_path, raw, *, omit=(), additional=()):
         "pyproject.toml": b"[project]",
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "README_en.rst": b"README",
+        "requirements.txt": b"numpy<2\n",
+        "requirements-tensor.txt": b"numpy<2\n",
         "fedot_ind/data/defaults.json": b"{}",
     }
     content.update({name: b"" for name in additional})
@@ -157,6 +159,8 @@ def test_sdist_is_complete_without_external_data(project, tmp_path):
     ("PKG-INFO", "PKG-INFO"),
     ("setup.py", "package-data"),
     ("README_en.rst", "package-data"),
+    ("requirements.txt", "package-data"),
+    ("requirements-tensor.txt", "package-data"),
     ("fedot_ind/data/defaults.json", "package-data"),
 ])
 def test_sdist_missing_inputs(project, tmp_path, omit, field):

@@ -1,18 +1,25 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "requires_python": ">=3.10,<3.12",
-  "source": "PLT-01 release compatibility policy; current uv.lock snapshot",
-  "current": {
-    "repository": "https://github.com/aimclub/FEDOT.git",
-    "reference": "current uv.lock compatible snapshot",
-    "sha": "42f3ba490407a1106e898e94232f2afd0a78f73f",
-    "status": "current"
-  },
-  "planned": {
-    "repository": "https://github.com/aimclub/FEDOT.git",
-    "reference": "refactor/fedot_1.0.0",
-    "sha": "567eb8a958a66fd5e0efc3715c99bfae5e791e01",
-    "status": "planned"
+  "source": "INT-01 FEDOT installation profiles and PLT-01 compatibility policy",
+  "default_profile": "legacy",
+  "profiles": {
+    "legacy": {
+      "repository": "https://github.com/aimclub/FEDOT.git",
+      "reference": "current compatible snapshot",
+      "sha": "42f3ba490407a1106e898e94232f2afd0a78f73f",
+      "status": "supported",
+      "extra": "fedot-legacy",
+      "requirements_file": "requirements.txt"
+    },
+    "tensor": {
+      "repository": "https://github.com/aimclub/FEDOT.git",
+      "reference": "refactor/fedot_1.0.0",
+      "sha": "567eb8a958a66fd5e0efc3715c99bfae5e791e01",
+      "status": "experimental",
+      "extra": "fedot-tensor",
+      "requirements_file": "requirements-tensor.txt"
+    }
   },
   "python": [
     {"version": "3.10", "status": "supported", "reason": "Current compatible dependency profile."},
@@ -20,7 +27,7 @@
     {"version": "3.12", "status": "audit-only", "reason": "Blocked by spaCy 3.5 and the current compatible dependency profile; not a supported install target."}
   ],
   "known_constraints": [
-    {"requirement": "typing==3.7.4.3", "reason": "FEDOT/GOLEM still require the legacy distribution; 3.10.0.0 declares Python <3.5. The runtime must use stdlib typing, not this backport."},
+    {"requirement": "typing==3.7.4.3", "reason": "The legacy FEDOT/GOLEM profile still declares the backport; the runtime must use stdlib typing."},
     {"requirement": "dask-ml==2024.4.4", "reason": "Current compatible DaskML profile; resolution is verified separately."},
     {"requirement": "giotto-tda==0.6.2", "reason": "Compatible giottoTDA profile requires scikit-learn 1.3.2."},
     {"requirement": "scikit-learn==1.3.2", "reason": "Required by giottoTDA 0.6.2."},
