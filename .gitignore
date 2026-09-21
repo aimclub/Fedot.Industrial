@@ -25,6 +25,7 @@ __pycache__/
 *.hdf5
 *.json
 poetry.lock
+!tools/platform_support/compatibility.json
 !benchmark/industrial/examples/kernel_learning_tser_manifest.json
 !benchmark/industrial/examples/kernel_learning_ucr_manifest.json
 !benchmark/experiments/kernel_learning/defaults.json

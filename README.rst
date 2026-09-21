@@ -13,7 +13,7 @@
    * - Код
      - | |version| |python|
    * - CI/CD
-     - |  |coverage| |mirror| |integration|
+     - |  |coverage| |integration|
    * - Документация и примеры
      - |docs| |binder|
    * - Статистика загрузок
@@ -43,10 +43,6 @@
 
 .. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
-
-.. |mirror| image:: https://img.shields.io/badge/mirror-GitLab-orange
-   :alt: GitLab mirror for this repository
-   :target: https://gitlab.actcognitive.org/itmo-nss-team/Fedot.Industrial
 
 .. |docs| image:: https://img.shields.io/badge/docs-WIKI-blue.svg
     :target: https://github.com/aimclub/Fedot.Industrial/wiki
@@ -88,19 +84,32 @@ Fedot.Ind - это автоматизированный фреймворк ма�
 Установка
 ============
 
-Fedot.Ind доступен на PyPI и может быть установлен с помощью pip:
+Последний опубликованный выпуск доступен на PyPI:
 
 .. code-block:: bash
 
-    pip install fedot_ind
+    python -m pip install fedot-ind
 
-Для установки последней версии из `main branch`_:
+Для разработки используется Python 3.10 или 3.11. Python 3.12 пока не
+поддерживается. Установка исходного кода из `main branch`_:
 
 .. code-block:: bash
 
     git clone https://github.com/aimclub/Fedot.Industrial.git
-    cd FEDOT.Industrial
-    poetry install
+    cd Fedot.Industrial
+    python -m venv .venv
+    # Linux/macOS: source .venv/bin/activate
+    # Windows PowerShell: .venv\Scripts\Activate.ps1
+    python -m pip install --upgrade pip
+    python -m pip install -e ".[dev]"
+    python -m tools.platform_support check --json
+
+Настройки зависимостей хранятся только в ``pyproject.toml``. ``requirements.txt``
+создаётся из них автоматически, ``uv.lock`` фиксирует разрешённые версии.
+Для воспроизводимой установки используйте ``uv sync --frozen --extra dev``.
+Не следует заменять закреплённый FEDOT на новую ветку до завершения миграции API.
+Матрица совместимости и порядок проверки сборки описаны в
+`инструкции разработчика <docs/dev_guide/platform_support.md>`_.
 
 Как пользоваться
 ================

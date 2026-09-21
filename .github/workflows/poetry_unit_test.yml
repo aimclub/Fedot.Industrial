@@ -2,59 +2,48 @@ name: Unit Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    strategy:
-      matrix:
-        python-version: ['3.10']
-
     steps:
       - name: Free disk space
         run: |
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
-
-      - name: Checkout branch
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/poetry/virtualenvs/  # Cache Poetry virtualenvs
-          key: ${{ runner.os }}-poetry-${{ hashFiles('pyproject.toml') }}  # Cache key based on project dependencies
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.8.2  # Specify your desired Poetry version (pin it for stability)
-          virtualenvs-create: true
-          virtualenvs-in-project: true  # Create venv within project directory
-
-      - name: Install dependencies
-        run: poetry install
-
-      - name: Install runtime compatibility dependencies
-        run: poetry run python -m pip install "setuptools>=70,<81"
-
+          python-version: '3.10'
+          cache: pip
+          cache-dependency-path: uv.lock
+      - name: Install resolver
+        run: python -m pip install "uv==0.8.17"
+      - name: Export frozen dependencies
+        run: uv export --frozen --extra dev --no-hashes --no-emit-project --output-file /tmp/industrial-requirements.txt
+      - name: Install CPU runtime
+        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
+      - name: Install locked dependencies and project
+        run: |
+          python -m pip install -r /tmp/industrial-requirements.txt
+          python -m pip install --no-deps -e .
+          python -m pip check
+          python -m tools.platform_support check --json
+          python -m tools.platform_support environment --json
       - name: Run tests with pytest
-        run: poetry run pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit -vvv
-
-      - name: Codecov-coverage
+        run: python -m pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit -vv
+      - name: Codecov coverage
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests

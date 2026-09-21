@@ -14,7 +14,7 @@
    * - Code
      - | |version| |python|
    * - CI/CD
-     - | |coverage| |mirror| |integration|
+     - | |coverage| |integration|
    * - Docs & Examples
      - |docs| |binder|
    * - Downloads
@@ -44,10 +44,6 @@
 
 .. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
-
-.. |mirror| image:: https://img.shields.io/badge/mirror-GitLab-orange
-   :alt: GitLab mirror for this repository
-   :target: https://gitlab.actcognitive.org/itmo-nss-team/Fedot.Industrial
 
 .. |docs| image:: https://img.shields.io/badge/docs-WIKI-blue.svg
     :target: https://github.com/aimclub/Fedot.Industrial/wiki
@@ -88,19 +84,32 @@ the `AutoML framework FEDOT`_ and utilizes its functionality to build and tune p
 Installation
 ============
 
-Fedot.Ind is available on PyPI and can be installed via pip:
+The last published release is available on PyPI:
 
 .. code-block:: bash
 
-    pip install fedot_ind
+    python -m pip install fedot-ind
 
-To install the latest version from the `main branch`_:
+Development requires Python 3.10 or 3.11. Python 3.12 is not yet supported.
+To install the source from the `main branch`_:
 
 .. code-block:: bash
 
     git clone https://github.com/aimclub/Fedot.Industrial.git
-    cd FEDOT.Industrial
-    poetry install
+    cd Fedot.Industrial
+    python -m venv .venv
+    # Linux/macOS: source .venv/bin/activate
+    # Windows PowerShell: .venv\Scripts\Activate.ps1
+    python -m pip install --upgrade pip
+    python -m pip install -e ".[dev]"
+    python -m tools.platform_support check --json
+
+``pyproject.toml`` is the only dependency metadata source. ``requirements.txt``
+is generated from it; ``uv.lock`` locks the resolved versions. Use
+``uv sync --frozen --extra dev`` for a locked install. Do not replace the pinned
+FEDOT snapshot with the future API branch before the adapter migration.
+See the `developer installation guide <docs/dev_guide/platform_support.md>`_
+for the compatibility matrix and build checks.
 
 How to Use
 ==========

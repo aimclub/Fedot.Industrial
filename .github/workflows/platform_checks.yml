@@ -1,0 +1,96 @@
+name: Platform contracts
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/package_build.yml
+  contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install contract test tools only
+        run: python -m pip install "pytest>=7,<9" "packaging>=24,<26" "tomli>=2,<3" "PyYAML>=6,<7" "uv==0.8.17"
+      - name: Check project metadata and frozen resolution
+        run: |
+          python -m tools.platform_support check --json
+          python -m tools.platform_support export --check
+      - name: Check lock against project using supported Python
+        if: matrix.python != '3.12'
+        run: uv lock --check --python ${{ matrix.python }}
+      - name: Run pure contract tests
+        run: python -m pytest tests/unit/platform_support -q
+  install:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.11']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: uv.lock
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Install resolver and CPU PyTorch
+        run: |
+          python -m pip install "uv==0.8.17"
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
+      - name: Install locked dependencies and built wheel
+        run: |
+          uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
+          python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
+          python -m pip install --no-deps dist/*.whl
+          python -m pip check
+          python -m tools.platform_support environment --json
+      - name: Probe installed runtime, not source checkout
+        run: python -I tools/runtime_smoke.py --json
+  python312-audit:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Verify Python 3.12 is explicitly rejected by wheel metadata
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          wheel = next(Path("dist").glob("*.whl"))
+          result = subprocess.run([sys.executable, "-m", "pip", "install", "--no-deps", str(wheel)], capture_output=True, text=True)
+          output = result.stdout + result.stderr
+          print(output)
+          assert result.returncode != 0 and "requires a different Python" in output, output
+          PY
