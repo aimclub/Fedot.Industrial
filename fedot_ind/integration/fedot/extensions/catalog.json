@@ -54,6 +54,17 @@
       "defaults_key": "pdl_clf"
     },
     {
+      "name": "kernel_ensemble_clf",
+      "kind": "model",
+      "factory": "fedot_ind.core.kernel_learning.estimators.classifier:KernelEnsembleClassifier",
+      "tasks": ["classification"],
+      "data_types": ["tabular", "image"],
+      "output_data_type": "tabular",
+      "tags": ["automl", "kernel_learning", "ensemble"],
+      "problems": ["classification"],
+      "defaults_key": "kernel_ensemble_clf"
+    },
+    {
       "name": "industrial_stat_reg",
       "kind": "model",
       "factory": "fedot_ind.core.models.regression.stat_domain_regressor:StatRegressor",
@@ -99,6 +110,17 @@
       "tags": ["automl", "pairwise", "tree"],
       "problems": ["regression"],
       "defaults_key": "pdl_reg"
+    },
+    {
+      "name": "kernel_ensemble_reg",
+      "kind": "model",
+      "factory": "fedot_ind.core.kernel_learning.estimators.regressor:KernelEnsembleRegressor",
+      "tasks": ["regression"],
+      "data_types": ["tabular", "image"],
+      "output_data_type": "tabular",
+      "tags": ["automl", "kernel_learning", "ensemble"],
+      "problems": ["regression"],
+      "defaults_key": "kernel_ensemble_reg"
     },
     {
       "name": "inception_model",

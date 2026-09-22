@@ -103,32 +103,10 @@
       ]
     },
     {
-      "path": "fedot_ind/core/architecture/abstraction/decorators.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
       "path": "fedot_ind/core/architecture/pipelines/abstract_pipeline.py",
       "module": "fedot.core.data.data",
       "names": [
         "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/architecture/preprocessing/data_convertor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/architecture/preprocessing/data_convertor.py",
-      "module": "fedot.core.data.multi_modal",
-      "names": [
-        "MultiModalData"
       ]
     },
     {
@@ -153,27 +131,6 @@
       ]
     },
     {
-      "path": "fedot_ind/core/kernel_learning/generators/base.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/kernel_learning/generators/base.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/metrics/metrics_implementation.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
       "path": "fedot_ind/core/metrics/pipeline.py",
       "module": "fedot.core.data.data",
       "names": [
@@ -186,13 +143,6 @@
       "names": [
         "InputData",
         "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/models/base_extractor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
       ]
     },
     {
@@ -336,13 +286,6 @@
       ]
     },
     {
-      "path": "fedot_ind/core/models/pdl/pairwise_model.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
       "path": "fedot_ind/core/models/ts_forecasting/dmd_models/havok_forecaster.py",
       "module": "fedot.core.data.data",
       "names": [
@@ -446,23 +389,7 @@
       ]
     },
     {
-      "path": "fedot_ind/core/operation/IndustrialCachableOperation.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
       "path": "fedot_ind/core/operation/decomposition/matrix_decomposition/method_impl/column_sampling_decomposition.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/dummy/dummy_operation.py",
       "module": "fedot.core.data.data",
       "names": [
         "InputData",
@@ -525,21 +452,6 @@
       ]
     },
     {
-      "path": "fedot_ind/core/operation/transformation/basis/abstract_basis.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/basis/eigen_basis.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
       "path": "fedot_ind/core/operation/transformation/data/bagging.py",
       "module": "fedot.core.data.data",
       "names": [
@@ -565,49 +477,6 @@
     },
     {
       "path": "fedot_ind/core/operation/transformation/data/park_transformation.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/representation/manifold/riemann_embeding.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/representation/recurrence/recurrence_extractor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/representation/statistical/quantile_extractor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/representation/tabular/tabular_extractor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/representation/topological/topological_extractor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/transformation/torch_backend/statistical/quantile_extractor.py",
       "module": "fedot.core.data.data",
       "names": [
         "InputData"
@@ -673,6 +542,21 @@
       ]
     },
     {
+      "path": "fedot_ind/integration/fedot/compatibility.py",
+      "module": "fedot.core.data.data",
+      "names": [
+        "InputData",
+        "OutputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/integration/fedot/compatibility.py",
+      "module": "fedot.core.data.multi_modal",
+      "names": [
+        "MultiModalData"
+      ]
+    },
+    {
       "path": "fedot_ind/integration/fedot/legacy.py",
       "module": "fedot.core.data.data",
       "names": [
@@ -698,13 +582,6 @@
       "module": "fedot.core.data.data_split",
       "names": [
         "train_test_data_setup"
-      ]
-    },
-    {
-      "path": "tests/unit/core/architecture/preprocessing/test_data_convertor.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
       ]
     },
     {
@@ -758,13 +635,6 @@
     },
     {
       "path": "tests/unit/core/models/test_lagged_forecaster.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "tests/unit/core/models/test_pairwise_difference_models.py",
       "module": "fedot.core.data.data",
       "names": [
         "InputData"

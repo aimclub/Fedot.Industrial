@@ -8,11 +8,10 @@ legacy helper (``PairwiseDifferenceEstimator``) kept for backward compatibility.
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.preprocessing import LabelEncoder
 
@@ -26,7 +25,12 @@ from .pairwise_core import (
     predict_similarity_by_chunks,
     resolve_pdl_strategies,
 )
-from fedot_ind.core.repository.constanst_repository import SKLEARN_CLF_IMP, SKLEARN_REG_IMP
+from .base_models import create_pdl_base_model
+
+if TYPE_CHECKING:
+    from fedot_ind.integration.fedot.compatibility import InputData
+else:
+    InputData = Any
 
 __all__ = [
     "PairwiseDifferenceClassifier",
@@ -186,8 +190,9 @@ class PairwiseDifferenceClassifier:
             self.config, task="classification")
         self.model_name = raw_params.pop("model", "rf")
         self.base_model_params = dict(raw_params)
-        self.base_model = SKLEARN_CLF_IMP[self.model_name](
-            **self.base_model_params)
+        self.base_model = create_pdl_base_model(
+            "classification", self.model_name, self.base_model_params
+        )
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
         self.diagnostics_: dict[str, Any] = {}
@@ -361,8 +366,9 @@ class PairwiseDifferenceRegressor:
             self.config, task="regression")
         self.model_name = raw_params.pop("model", "treg")
         self.base_model_params = dict(raw_params)
-        self.base_model = SKLEARN_REG_IMP[self.model_name](
-            **self.base_model_params)
+        self.base_model = create_pdl_base_model(
+            "regression", self.model_name, self.base_model_params
+        )
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
         self.diagnostics_: dict[str, Any] = {}
@@ -516,16 +522,21 @@ def _extract_features_target(
     input_data: InputData | np.ndarray, target: Any | None = None
 ) -> tuple[Any, Any, Any]:
     """Return ``(features, target, task)`` from ``InputData`` or raw inputs."""
-    if isinstance(input_data, InputData):
+    if _is_fedot_input_data(input_data):
         return input_data.features, input_data.target, input_data.task
     return input_data, target, None
 
 
 def _extract_features(input_data: InputData | np.ndarray) -> Any:
     """Return the feature matrix from ``InputData`` or pass the input through."""
-    if isinstance(input_data, InputData):
+    if _is_fedot_input_data(input_data):
         return input_data.features
     return input_data
+
+
+def _is_fedot_input_data(value: Any) -> bool:
+    """Recognize both legacy and Tensor-era input containers by protocol."""
+    return all(hasattr(value, attribute) for attribute in ("features", "target", "task"))
 
 
 def _operation_params_to_dict(params: Optional[OperationParameters]) -> dict[str, Any]:

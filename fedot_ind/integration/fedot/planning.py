@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, Mapping, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -17,11 +17,13 @@ from fedot_ind.integration.fedot.contracts import (
     IntegrationContractError,
     IntegrationErrorCode,
     IntegrationTask,
+    MultimodalPreparationPlan,
 )
 
 
 EnumType = TypeVar("EnumType", bound=Enum)
 SupportedData = np.ndarray | pd.Series | pd.DataFrame
+SupportedMultimodalData = Mapping[str, SupportedData]
 
 
 def build_data_plan(
@@ -86,6 +88,86 @@ def validate_prediction_plan(train_plan: DataPreparationPlan, predict_plan: Data
         )
 
 
+def build_multimodal_plan(
+        data: SupportedMultimodalData,
+        *,
+        task: IntegrationTask | str,
+        stage: DataStage | str,
+) -> MultimodalPreparationPlan:
+    """Build deterministic TensorData plans for named modalities."""
+    if not isinstance(data, Mapping) or not data:
+        raise IntegrationContractError(
+            IntegrationErrorCode.INVALID_DATA,
+            "Multimodal input must be a non-empty mapping.",
+            context={"type": type(data).__name__},
+        )
+    normalized_task = _parse_enum(
+        task, IntegrationTask, IntegrationErrorCode.UNKNOWN_TASK, "task"
+    )
+    normalized_stage = _parse_enum(
+        stage, DataStage, IntegrationErrorCode.UNKNOWN_STAGE, "stage"
+    )
+    plans: dict[str, DataPreparationPlan] = {}
+    sample_counts: dict[str, int] = {}
+    for raw_name, values in data.items():
+        if (
+                not isinstance(raw_name, str)
+                or not raw_name.strip()
+                or raw_name != raw_name.strip()
+        ):
+            raise IntegrationContractError(
+                IntegrationErrorCode.INVALID_DATA,
+                "Modality names must be non-empty trimmed strings.",
+                context={"modality": raw_name},
+            )
+        name = raw_name
+        if name in plans:
+            raise IntegrationContractError(
+                IntegrationErrorCode.MODALITY_MISMATCH,
+                "Normalized modality names must be unique.",
+                context={"modality": name},
+            )
+        plans[name] = build_data_plan(
+            values,
+            profile=DataProfile.TENSOR,
+            task=normalized_task,
+            stage=normalized_stage,
+        )
+        sample_counts[name] = _sample_count(values, plans[name].axes)
+    if len(set(sample_counts.values())) != 1:
+        raise IntegrationContractError(
+            IntegrationErrorCode.LENGTH_MISMATCH,
+            "All modalities must contain the same number of samples.",
+            context={"sample_counts": sample_counts},
+        )
+    return MultimodalPreparationPlan(
+        profile=DataProfile.TENSOR,
+        task=normalized_task,
+        stage=normalized_stage,
+        modalities=plans,
+    )
+
+
+def validate_multimodal_prediction_plan(
+        train_plan: MultimodalPreparationPlan,
+        predict_plan: MultimodalPreparationPlan,
+) -> None:
+    """Require the same modality set and feature schemas at prediction time."""
+    train_names = tuple(train_plan.modalities)
+    predict_names = tuple(predict_plan.modalities)
+    if train_names != predict_names:
+        raise IntegrationContractError(
+            IntegrationErrorCode.MODALITY_MISMATCH,
+            "Prediction modalities must match the training modalities.",
+            context={"train": list(train_names), "predict": list(predict_names)},
+        )
+    for name in train_names:
+        validate_prediction_plan(
+            train_plan.modalities[name],
+            predict_plan.modalities[name],
+        )
+
+
 def _parse_enum(value: Any, enum_type: type[EnumType], code: IntegrationErrorCode, field: str) -> EnumType:
     if isinstance(value, enum_type):
         return value
@@ -114,6 +196,10 @@ def _source_shape(data: SupportedData) -> tuple[int, ...]:
             context={"shape": shape},
         )
     return shape
+
+
+def _sample_count(data: SupportedData, axes: AxisLayout) -> int:
+    return int(data.shape[axes.sample])
 
 
 def _default_axes(profile: DataProfile, rank: int) -> AxisLayout:

@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from pymonad.either import Either

@@ -145,14 +145,37 @@ def test_deferred_factory_does_not_import_runtime_target():
     assert getattr(error.value, "code", None) is IndustrialExtensionErrorCode.RUNTIME_TARGET_UNAVAILABLE
 
 
+def test_deferred_factory_uses_keyword_parameters_for_sklearn_style_target():
+    declaration = IndustrialOperationDeclaration(
+        name="kernel",
+        kind=IndustrialOperationKind.MODEL,
+        factory="fedot_ind.core.kernel_learning.estimators.classifier:KernelEnsembleClassifier",
+        tasks=("classification",),
+        data_types=("tabular",),
+        output_data_type="tabular",
+        tags=("industrial",),
+        problems=("classification",),
+    )
+
+    instance = make_deferred_factory(declaration)(
+        {"generator_names": ["identity"], "kernel": "linear"}
+    ).implementation
+
+    assert instance.generator_names == ["identity"]
+    assert instance.kernel == "linear"
+
+
 @pytest.mark.parametrize(
     ("operation_name", "expected_parameters"),
     [
-        ("pdl_clf", {"model", "criterion", "max_features"}),
-        ("pdl_reg", {"model", "max_features", "min_samples_split"}),
+        ("pdl_clf", {"model", "criterion", "max_depth", "max_pairs", "pairing_policy"}),
+        ("pdl_reg", {"model", "alpha", "max_depth", "max_pairs", "pairing_policy"}),
     ],
 )
-def test_pdl_schema_accepts_inherited_search_parameters(operation_name, expected_parameters):
+def test_pdl_schema_accepts_all_downstream_and_pairwise_parameters(
+        operation_name,
+        expected_parameters,
+):
     manifest = build_industrial_extension_manifest()
     specs = {spec.name: spec for spec in manifest.models}
 

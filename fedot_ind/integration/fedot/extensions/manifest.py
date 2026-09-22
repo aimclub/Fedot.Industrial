@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
 from functools import lru_cache
 from importlib.resources import files
 import json
@@ -99,8 +100,31 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
     defaults = dict(defaults_by_operation.get(declaration.defaults_key or declaration.name, {}))
     optional = set(defaults)
     optional.update(search_parameters.get(declaration.name, {}))
+    optional.update(_pdl_parameter_names(declaration.name, search_parameters))
     optional.difference_update({"model_fit", "model_predict"})
     return ModelHyperparamsSchema(optional=tuple(sorted(optional)), defaults=defaults)
+
+
+def _pdl_parameter_names(
+        operation_name: str,
+        search_parameters: Mapping[str, Mapping[str, Any]],
+) -> set[str]:
+    task_by_operation = {
+        "pdl_clf": "classification",
+        "pdl_reg": "regression",
+    }
+    task = task_by_operation.get(operation_name)
+    if task is None:
+        return set()
+
+    from fedot_ind.core.models.pdl.base_models import available_pdl_base_models
+    from fedot_ind.core.models.pdl.config import PairwiseLearningConfig
+
+    names = {field.name for field in fields(PairwiseLearningConfig)}
+    names.add("model")
+    for model_name in available_pdl_base_models(task):
+        names.update(search_parameters.get(model_name, {}))
+    return names
 
 
 def _load_search_parameters() -> Mapping[str, Mapping[str, Any]]:

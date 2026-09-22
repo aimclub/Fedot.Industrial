@@ -115,7 +115,6 @@ def build_generator_registry() -> dict[str, Callable[[], Any]]:
             ),
         ),
     }
-    extend_with_legacy_pipeline_generators(registry)
     return registry
 
 

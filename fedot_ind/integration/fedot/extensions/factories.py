@@ -114,13 +114,6 @@ def _instantiate_target(declaration: IndustrialOperationDeclaration,
             context={"operation": declaration.name, "target": declaration.factory},
         )
 
-    operation_params = _operation_parameters(params)
-    candidates = (
-        ((operation_params,), {}),
-        ((), {"params": operation_params}),
-        ((), dict(params)),
-        ((), {}),
-    )
     try:
         signature = inspect.signature(target)
     except (TypeError, ValueError) as error:
@@ -130,6 +123,7 @@ def _instantiate_target(declaration: IndustrialOperationDeclaration,
             context={"operation": declaration.name, "target": declaration.factory},
             cause=error,
         ) from error
+    candidates = _constructor_candidates(signature, params)
     for args, kwargs in candidates:
         try:
             signature.bind(*args, **kwargs)
@@ -149,6 +143,23 @@ def _instantiate_target(declaration: IndustrialOperationDeclaration,
         "Industrial runtime target constructor has no supported call shape.",
         context={"operation": declaration.name, "target": declaration.factory,
                  "signature": str(signature)},
+    )
+
+
+def _constructor_candidates(
+        signature: inspect.Signature,
+        params: Mapping[str, Any],
+) -> tuple[tuple[tuple[Any, ...], dict[str, Any]], ...]:
+    """Choose constructor forms without binding a parameter object to an unrelated first argument."""
+    keyword_params = dict(params)
+    if "params" not in signature.parameters:
+        return (((), keyword_params), ((), {}))
+    operation_params = _operation_parameters(params)
+    return (
+        ((operation_params,), {}),
+        ((), {"params": operation_params}),
+        ((), keyword_params),
+        ((), {}),
     )
 
 

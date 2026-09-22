@@ -30,11 +30,18 @@ def test_profile_specific_imports_stay_in_their_adapters():
             elif isinstance(node, ast.Import):
                 modules.update(alias.name for alias in node.names)
         observed[path.name] = modules
-    profile_modules = {"legacy.py", "legacy_repository.py", "tensor.py"}
+    profile_modules = {
+        "compatibility.py",
+        "legacy.py",
+        "legacy_repository.py",
+        "tensor.py",
+    }
     assert all(not any(module.startswith("fedot.") for module in modules)
                for name, modules in observed.items() if name not in profile_modules)
     assert any(module in LEGACY_MODULES for module in observed["legacy.py"])
     assert any(module in LEGACY_MODULES for module in observed["legacy_repository.py"])
+    assert "fedot.core.data.data" in observed["compatibility.py"]
+    assert "fedot.core.data.input_data.data" in observed["compatibility.py"]
     assert "fedot.extensions" in observed["tensor.py"]
 
 

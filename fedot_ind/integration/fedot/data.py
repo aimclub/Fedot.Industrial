@@ -9,9 +9,16 @@ from fedot_ind.integration.fedot.contracts import (
     DataPreparationPlan,
     IntegrationContractError,
     IntegrationErrorCode,
+    MultimodalPreparationPlan,
     PreparedData,
+    PreparedMultimodalData,
 )
-from fedot_ind.integration.fedot.planning import SupportedData, build_data_plan
+from fedot_ind.integration.fedot.planning import (
+    SupportedData,
+    SupportedMultimodalData,
+    build_data_plan,
+    build_multimodal_plan,
+)
 
 
 def normalize_input_data(data: SupportedData, plan: DataPreparationPlan) -> PreparedData:
@@ -40,6 +47,32 @@ def normalize_input_data(data: SupportedData, plan: DataPreparationPlan) -> Prep
     )
     normalized = _canonical_values(values, plan)
     return PreparedData(values=normalized, idx=idx, schema=plan.feature_schema)
+
+
+def normalize_multimodal_input(
+        data: SupportedMultimodalData,
+        plan: MultimodalPreparationPlan,
+) -> PreparedMultimodalData:
+    """Apply modality plans and require exact index alignment."""
+    observed = build_multimodal_plan(
+        data,
+        task=plan.task,
+        stage=plan.stage,
+    )
+    if tuple(observed.modalities) != tuple(plan.modalities):
+        raise IntegrationContractError(
+            IntegrationErrorCode.MODALITY_MISMATCH,
+            "Input modalities no longer match the preparation plan.",
+            context={
+                "planned": list(plan.modalities),
+                "observed": list(observed.modalities),
+            },
+        )
+    prepared = {
+        name: normalize_input_data(data[name], modality_plan)
+        for name, modality_plan in plan.modalities.items()
+    }
+    return PreparedMultimodalData(prepared)
 
 
 def _canonical_values(values: np.ndarray, plan: DataPreparationPlan) -> np.ndarray:
