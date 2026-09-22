@@ -11,8 +11,8 @@ def test_fit_orchestrates_processing_repository_solver_and_fit_in_order():
     industrial.manager = SimpleNamespace()
     industrial.shutdown = lambda: calls.append("shutdown")
 
-    def process(input_data):
-        calls.append(("process", input_data))
+    def process(input_data, *, fit_stage):
+        calls.append(("process", input_data, fit_stage))
         return "processed"
 
     def init_backend(data):
@@ -35,7 +35,7 @@ def test_fit_orchestrates_processing_repository_solver_and_fit_in_order():
     industrial.fit("raw")
 
     assert calls == [
-        ("process", "raw"),
+        ("process", "raw", True),
         ("repository", "processed"),
         ("solver", "repository_ready"),
         ("fit", industrial.manager, "solver_ready"),
@@ -55,7 +55,9 @@ def test_predict_orchestrates_repository_processing_and_prediction():
             return "repo"
 
     industrial.repository_initializer = FakeRepositoryInitializer()
-    industrial._process_input_data = lambda data: calls.append(("process", data)) or "processed"
+    industrial._process_input_data = (
+        lambda data, *, fit_stage: calls.append(("process", data, fit_stage)) or "processed"
+    )
     industrial._FedotIndustrial__abstract_predict = (
         lambda data, mode: calls.append(("predict", data, mode)) or "labels"
     )
@@ -68,7 +70,7 @@ def test_predict_orchestrates_repository_processing_and_prediction():
     assert industrial.manager.predicted_labels == "labels"
     assert calls == [
         ("repository", "cpu"),
-        ("process", "raw"),
+        ("process", "raw", False),
         ("predict", "processed", "labels"),
     ]
 
@@ -87,7 +89,9 @@ def test_predict_proba_for_regression_uses_label_mode():
             return "repo"
 
     industrial.repository_initializer = FakeRepositoryInitializer()
-    industrial._process_input_data = lambda data: calls.append(("process", data)) or "processed"
+    industrial._process_input_data = (
+        lambda data, *, fit_stage: calls.append(("process", data, fit_stage)) or "processed"
+    )
     industrial._FedotIndustrial__abstract_predict = (
         lambda data, mode: calls.append(("predict", data, mode)) or "predicted"
     )
@@ -98,6 +102,6 @@ def test_predict_proba_for_regression_uses_label_mode():
     assert industrial.manager.predicted_probs == "predicted"
     assert calls == [
         ("repository", "cpu"),
-        ("process", "raw"),
+        ("process", "raw", False),
         ("predict", "processed", "labels"),
     ]

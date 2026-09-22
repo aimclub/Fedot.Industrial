@@ -6,13 +6,10 @@ from typing import Optional
 import numpy as np
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
-    from fedot.core.data.data import InputData, OutputData
     from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
-    InputData = OutputData = None
-
     class ModelImplementation:  # type: ignore[override]
         def __init__(self, params=None):
             self.params = params or {}
@@ -27,6 +24,8 @@ except Exception:  # pragma: no cover
 
     class DataTypesEnum:  # pragma: no cover - only used in full FEDOT runtime
         table = 'table'
+
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 
 from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     ForecastTensorBatch,

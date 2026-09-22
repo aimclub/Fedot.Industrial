@@ -5,7 +5,6 @@ from typing import Union, Optional
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
@@ -26,6 +25,7 @@ from fedot_ind.core.architecture.abstraction.decorators import exception_handler
 from fedot_ind.core.architecture.pipelines.classification import (
     SklearnCompatibleClassifier,
 )
+from fedot_ind.integration.fedot.compatibility import InputData
 
 warnings.filterwarnings("ignore")
 
@@ -121,12 +121,12 @@ class FedotIndustrial(Fedot):
         self.manager.solver = self.solver_factory.create(build_solver_init_plan(self.manager))
         return input_data
 
-    def _process_input_data(self, input_data):
+    def _process_input_data(self, input_data, *, fit_stage: bool = True):
         bundle = self.input_processor.process(
             input_data,
             task=self.manager.automl_config.config['task'],
             task_params=self.manager.automl_config.config['task_params'],
-            fit_stage=True,
+            fit_stage=fit_stage,
             industrial_task_params=self.manager.industrial_config.strategy_params,
             default_fedot_context=self.manager.industrial_config.is_default_fedot_context,
         )
@@ -200,7 +200,7 @@ class FedotIndustrial(Fedot):
 
         """
         with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
-            train_data = self._process_input_data(input_data)
+            train_data = self._process_input_data(input_data, fit_stage=True)
             train_data = self.__init_industrial_backend(train_data)
             train_data = self.__init_solver(train_data)
             self.fit_service.fit(self.manager, train_data)
@@ -221,7 +221,7 @@ class FedotIndustrial(Fedot):
 
         """
         self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
-        processed_input = self._process_input_data(predict_data)
+        processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predict_data = processed_input
         self.manager.predicted_labels = self.__abstract_predict(processed_input, predict_mode)
 
@@ -246,7 +246,7 @@ class FedotIndustrial(Fedot):
         """
         self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
         predict_mode = predict_mode if not self.manager.industrial_config.is_regression_task_context else 'labels'
-        processed_input = self._process_input_data(predict_data)
+        processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predicted_probs = self.__abstract_predict(processed_input, predict_mode)
 
         return self.manager.predicted_probs

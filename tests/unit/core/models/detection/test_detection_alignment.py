@@ -568,3 +568,94 @@ def test_prepare_detection_series_resample_forward_fill_no_nans(valve):
     assert len(gap_mask) == aligned_values.shape[0]
     assert gap_mask.sum() >= 1
     assert quality_report.metadata['alignment_report']['resampling_method'] == 'forward_fill'
+
+
+def test_alignment_preserves_external_gap_mask_through_sort_and_resample():
+    values = np.array([[3.0], [1.0], [4.0]])
+    timestamps = np.array([2.0, 0.0, 3.0])
+    external_gap_mask = np.array([True, False, False])
+
+    aligned, aligned_time, gap_mask, _ = align_timestamps(
+        values,
+        timestamps,
+        target_sample_rate_hz=1.0,
+        external_gap_mask=external_gap_mask,
+        causal=True,
+    )
+
+    assert aligned.shape == (4, 1)
+    assert aligned_time.tolist() == [0.0, 1.0, 2.0, 3.0]
+    assert gap_mask.tolist() == [False, True, True, False]
+
+
+def test_causal_forward_fill_does_not_backfill_from_future_observation():
+    values = np.array([[np.nan], [np.nan], [5.0], [7.0]])
+
+    aligned, _, gap_mask, _ = align_timestamps(
+        values,
+        np.arange(4, dtype=float),
+        target_sample_rate_hz=1.0,
+        gap_policy='forward_fill',
+        causal=True,
+    )
+
+    assert np.isnan(aligned[:2]).all()
+    assert gap_mask.tolist() == [True, True, False, False]
+
+
+def test_causal_resampling_does_not_round_future_observation_into_past_grid_point():
+    prefix_values = np.array([[0.0], [10.0]])
+    prefix_time = np.array([0.0, 1.0])
+    extended_values = np.array([[0.0], [10.0], [99.0]])
+    extended_time = np.array([0.0, 1.0, 1.4])
+
+    prefix, prefix_grid, _, _ = align_timestamps(
+        prefix_values,
+        prefix_time,
+        target_sample_rate_hz=1.0,
+        causal=True,
+    )
+    extended, extended_grid, _, _ = align_timestamps(
+        extended_values,
+        extended_time,
+        target_sample_rate_hz=1.0,
+        causal=True,
+    )
+
+    np.testing.assert_array_equal(extended_grid[:len(prefix_grid)], prefix_grid)
+    np.testing.assert_allclose(extended[:len(prefix)], prefix)
+    assert extended_grid.tolist() == [0.0, 1.0]
+    assert extended[:, 0].tolist() == [0.0, 10.0]
+
+
+def test_causal_resampling_holds_incomplete_interval_until_right_boundary():
+    first_values = np.array([[0.0], [10.0], [20.0]])
+    first_time = np.array([0.0, 1.0, 1.4])
+    updated_values = np.array([[0.0], [10.0], [20.0], [99.0]])
+    updated_time = np.array([0.0, 1.0, 1.4, 1.8])
+    completed_values = np.array([[0.0], [10.0], [20.0], [99.0], [30.0]])
+    completed_time = np.array([0.0, 1.0, 1.4, 1.8, 2.0])
+
+    first, first_grid, _, _ = align_timestamps(
+        first_values,
+        first_time,
+        target_sample_rate_hz=1.0,
+        causal=True,
+    )
+    updated, updated_grid, _, _ = align_timestamps(
+        updated_values,
+        updated_time,
+        target_sample_rate_hz=1.0,
+        causal=True,
+    )
+    completed, completed_grid, _, _ = align_timestamps(
+        completed_values,
+        completed_time,
+        target_sample_rate_hz=1.0,
+        causal=True,
+    )
+
+    assert first_grid.tolist() == updated_grid.tolist() == [0.0, 1.0]
+    np.testing.assert_allclose(first, updated)
+    assert completed_grid.tolist() == [0.0, 1.0, 2.0]
+    assert completed[:, 0].tolist() == [0.0, 10.0, 30.0]

@@ -18,6 +18,8 @@ def align_timestamps(
         target_sample_rate_hz: float | None = None,
         duplicate_policy: str = 'keep_last',   # 'keep_last' | 'mean' | 'drop'
         gap_policy: str = 'mark_only',          # 'mark_only' | 'forward_fill' | 'interpolate_linear'
+        external_gap_mask: Sequence[bool] | np.ndarray | None = None,
+        causal: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
     """Выравнивает ряд по временной оси (равномерные интервалы между отсчётами): сортировка,
     дедупликация, диагностика/заполнение пропусков.
@@ -36,10 +38,15 @@ def align_timestamps(
     # вход стал (n_samples, n_channels)
     series = ensure_detection_array(values)
     original_n = int(series.shape[0])  # фиктивная регулярная ось
+    supplied_mask = _validate_external_gap_mask(external_gap_mask, original_n)
+    if causal and str(gap_policy).lower() == 'interpolate_linear':
+        raise ValueError(
+            'interpolate_linear is not available for causal anomaly detection.'
+        )
 
     if timestamps is None:
         # временных меток нет -> регулярный целочисленный индекс; маскируем только NaN
-        gap_mask = np.isnan(series).any(axis=1)
+        gap_mask = np.isnan(series).any(axis=1) | supplied_mask
         report = {
             'n_duplicates': 0,
             'n_gaps': 0,
@@ -59,7 +66,13 @@ def align_timestamps(
     order = np.argsort(seconds, kind='stable')
     seconds = seconds[order]
     series = series[order]
+    supplied_mask = supplied_mask[order]
     # дедупликация
+    supplied_mask = _resolve_duplicate_mask(
+        supplied_mask,
+        seconds,
+        duplicate_policy,
+    )
     series, seconds, n_duplicates = _resolve_duplicates(series, seconds, duplicate_policy)
 
     diffs = np.diff(seconds)
@@ -82,12 +95,20 @@ def align_timestamps(
 
     if target_sample_rate_hz is not None and nominal_dt > 0 and seconds.size >= 2:
         aligned_values, aligned_seconds, gap_mask, method = _resample_to_grid(
-            series, seconds, nominal_dt, gap_policy,
+            series, seconds, nominal_dt, gap_policy, causal=causal,
+        )
+        supplied_mask = _resample_gap_mask_to_grid(
+            supplied_mask,
+            seconds,
+            aligned_seconds,
+            nominal_dt,
+            causal=causal,
         )
     else:
         aligned_values, aligned_seconds = series, seconds
         gap_mask = np.isnan(series).any(axis=1)
         method = 'none'
+    gap_mask = np.asarray(gap_mask, dtype=bool) | supplied_mask
 
     report = {
         'n_duplicates': int(n_duplicates),
@@ -102,9 +123,52 @@ def align_timestamps(
     return aligned_values, aligned_seconds, gap_mask, report
 
 
+def _validate_external_gap_mask(
+        gap_mask: Sequence[bool] | np.ndarray | None,
+        expected_length: int,
+) -> np.ndarray:
+    if gap_mask is None:
+        return np.zeros(expected_length, dtype=bool)
+    resolved = np.asarray(gap_mask, dtype=bool).reshape(-1)
+    if resolved.shape[0] != expected_length:
+        raise ValueError(
+            'external_gap_mask length must match the number of samples in values.'
+        )
+    return resolved
+
+
+def _resolve_duplicate_mask(
+        gap_mask: np.ndarray,
+        seconds: np.ndarray,
+        policy: str,
+) -> np.ndarray:
+    """Apply the timestamp duplicate policy to an aligned point mask."""
+    if seconds.size == 0:
+        return gap_mask
+    unique_t, inverse, counts = np.unique(
+        seconds,
+        return_inverse=True,
+        return_counts=True,
+    )
+    if unique_t.size == seconds.size:
+        return gap_mask
+    normalized = str(policy).lower()
+    if normalized == 'drop':
+        return gap_mask[counts[inverse] == 1]
+    if normalized == 'mean':
+        aggregated = np.zeros(unique_t.size, dtype=bool)
+        np.logical_or.at(aggregated, inverse, gap_mask)
+        return aggregated
+    last_index = np.empty(unique_t.size, dtype=int)
+    last_index[inverse] = np.arange(inverse.size)
+    return gap_mask[last_index]
+
+
 def _timestamps_to_seconds(timestamps: Sequence[str | float]) -> np.ndarray:
     """Приводит метки времени к секундам"""
     array = np.asarray(list(timestamps))
+    if array.dtype.kind == 'M':
+        return array.astype('datetime64[ns]').astype(np.int64).astype(float) / 1e9
     if array.dtype.kind in {'i', 'u', 'f'}:
         return array.astype(float)
     try:
@@ -117,6 +181,31 @@ def _timestamps_to_seconds(timestamps: Sequence[str | float]) -> np.ndarray:
                 'Could not parse some timestamps; pass numeric seconds or ISO datetime strings.'
             )
         return parsed.astype('int64').to_numpy(dtype=float) / 1e9
+
+
+def _timestamp_kind(timestamps: Sequence[str | float] | None) -> str:
+    if timestamps is None:
+        return 'generated'
+    array = np.asarray(list(timestamps))
+    if array.dtype.kind == 'M':
+        return 'datetime'
+    if array.dtype.kind in {'i', 'u', 'f'}:
+        return 'numeric'
+    try:
+        array.astype(float)
+    except (ValueError, TypeError):
+        return 'datetime'
+    return 'numeric'
+
+
+def _serialize_aligned_timestamps(
+        aligned_timestamps: np.ndarray,
+        timestamp_kind: str,
+) -> list[Any]:
+    if timestamp_kind == 'datetime':
+        converted = pd.to_datetime(aligned_timestamps, unit='s')
+        return [value.isoformat() for value in converted]
+    return np.asarray(aligned_timestamps).tolist()
 
 
 def _resolve_duplicates(
@@ -151,21 +240,41 @@ def _resample_to_grid(
         seconds: np.ndarray,
         nominal_dt: float,
         gap_policy: str,
+        *,
+        causal: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, str]:
     """Перенос наблюдения на регулярную сетку и заполняет пропуски по gap_policy."""
-    grid = np.arange(seconds[0], seconds[-1] + 0.5 * nominal_dt, nominal_dt)
+    if causal:
+        completed_steps = (seconds[-1] - seconds[0]) / nominal_dt
+        tolerance = np.finfo(float).eps * max(1.0, abs(completed_steps)) * 8.0
+        step_count = int(np.floor(completed_steps + tolerance))
+        grid = seconds[0] + np.arange(step_count + 1) * nominal_dt
+    else:
+        grid = np.arange(
+            seconds[0],
+            seconds[-1] + 0.5 * nominal_dt,
+            nominal_dt,
+        )
     if grid.size == 0:
         grid = seconds.copy()
     aligned = np.full((grid.size, series.shape[1]), np.nan, dtype=float)
-    position = np.clip(np.round((seconds - seconds[0]) / nominal_dt).astype(int), 0, grid.size - 1)
-    aligned[position] = series
+    position = _grid_positions(
+        seconds,
+        origin=seconds[0],
+        nominal_dt=nominal_dt,
+        grid_size=grid.size,
+        causal=causal,
+    )
     observed = np.zeros(grid.size, dtype=bool)
-    observed[position] = True
+    valid_position = (position >= 0) & (position < grid.size)
+    for point, row in zip(position[valid_position], series[valid_position]):
+        aligned[point] = row
+        observed[point] = True
     gap_mask = ~observed
 
     normalized = str(gap_policy).lower()
     if normalized == 'forward_fill':
-        aligned = _forward_fill(aligned)
+        aligned = _forward_fill(aligned, causal=causal)
         method = 'forward_fill'
     elif normalized == 'interpolate_linear':
         aligned = _interpolate_linear(aligned)
@@ -177,7 +286,50 @@ def _resample_to_grid(
     return aligned, grid, gap_mask, method
 
 
-def _forward_fill(values: np.ndarray) -> np.ndarray:
+def _resample_gap_mask_to_grid(
+        gap_mask: np.ndarray,
+        seconds: np.ndarray,
+        grid: np.ndarray,
+        nominal_dt: float,
+        *,
+        causal: bool = False,
+) -> np.ndarray:
+    aligned = np.zeros(grid.size, dtype=bool)
+    if grid.size == 0 or seconds.size == 0:
+        return aligned
+    positions = _grid_positions(
+        seconds,
+        origin=seconds[0],
+        nominal_dt=nominal_dt,
+        grid_size=grid.size,
+        causal=causal,
+    )
+    valid_position = (positions >= 0) & (positions < grid.size)
+    np.logical_or.at(
+        aligned,
+        positions[valid_position],
+        gap_mask[valid_position],
+    )
+    return aligned
+
+
+def _grid_positions(
+        seconds: np.ndarray,
+        *,
+        origin: float,
+        nominal_dt: float,
+        grid_size: int,
+        causal: bool,
+) -> np.ndarray:
+    offsets = (seconds - origin) / nominal_dt
+    if causal:
+        tolerance = np.finfo(float).eps * np.maximum(1.0, np.abs(offsets)) * 8.0
+        return np.ceil(offsets - tolerance).astype(int)
+    positions = np.round(offsets).astype(int)
+    return np.clip(positions, 0, grid_size - 1)
+
+
+def _forward_fill(values: np.ndarray, *, causal: bool = False) -> np.ndarray:
     filled = values.copy()
     for channel in range(filled.shape[1]):
         column = filled[:, channel]
@@ -187,8 +339,9 @@ def _forward_fill(values: np.ndarray) -> np.ndarray:
         carry = np.where(valid, np.arange(column.size), 0)
         np.maximum.accumulate(carry, out=carry)
         column = column[carry]
-        first_valid = int(np.argmax(valid))
-        column[:first_valid] = column[first_valid]  # backfill ведущих NaN
+        if not causal:
+            first_valid = int(np.argmax(valid))
+            column[:first_valid] = column[first_valid]
         filled[:, channel] = column
     return filled
 
@@ -373,6 +526,8 @@ def prepare_detection_series(
         dead_var_eps: float = 1e-10,
         saturation_quantile: float = 0.99,
         min_saturation_length: int = 10,
+        external_gap_mask: Sequence[bool] | np.ndarray | None = None,
+        causal: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, DataQualityReport]:
     """alignment + gap_mask + (опц.) channel-quality.
     Raw data
@@ -387,12 +542,15 @@ def prepare_detection_series(
     ↓
     Return everything together
 """
-    aligned_values, _aligned_ts, gap_mask, alignment_report = align_timestamps(
+    timestamp_kind = _timestamp_kind(timestamps)
+    aligned_values, aligned_ts, gap_mask, alignment_report = align_timestamps(
         values,
         timestamps,
         target_sample_rate_hz=target_sample_rate_hz,
         duplicate_policy=duplicate_policy,
         gap_policy=gap_policy,
+        external_gap_mask=external_gap_mask,
+        causal=causal,
     )
     gap_mask = np.asarray(gap_mask, dtype=bool).reshape(-1)
 
@@ -423,6 +581,8 @@ def prepare_detection_series(
         metadata={
             **dict(quality_report.metadata),
             'alignment_report': alignment_report,
+            'aligned_timestamps': _serialize_aligned_timestamps(aligned_ts, timestamp_kind),
+            'timestamp_kind': timestamp_kind,
             'duplicate_policy': str(duplicate_policy),
             'gap_policy': str(gap_policy),
             'target_sample_rate_hz': target_sample_rate_hz,

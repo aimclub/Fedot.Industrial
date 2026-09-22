@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import Union
 
 import pandas as pd
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 from pymonad.either import Either
 from sklearn.preprocessing import LabelEncoder
@@ -93,8 +93,8 @@ class DataCheck:
             features_array = self.data_convertor.numpy_data
 
         if self.fit_stage:
-            features_array = features_array[:-self.task_params['forecast_length']]
             target = features_array[-self.task_params['forecast_length']:]
+            features_array = features_array[:-self.task_params['forecast_length']]
         else:
             features_array = features_array
             target = features_array

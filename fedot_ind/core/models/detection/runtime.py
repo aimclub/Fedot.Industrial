@@ -8,12 +8,11 @@ import numpy as np
 import pandas as pd
 
 try:  # pragma: no cover
-    from fedot.core.data.data import InputData, OutputData
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
-    InputData = None
-    OutputData = None
     DataTypesEnum = None
+
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 
 
 class DetectionSplitKind(str, Enum):
@@ -568,6 +567,20 @@ def _batch_by_window_ids(
     )
 
 
+def _purge_windows_after_training(
+        window_indices: np.ndarray,
+        train_ids: np.ndarray,
+        candidate_ids: np.ndarray,
+) -> np.ndarray:
+    """Remove windows that reuse any source point from the training partition."""
+    train = np.asarray(train_ids, dtype=int).reshape(-1)
+    candidates = np.asarray(candidate_ids, dtype=int).reshape(-1)
+    if train.size == 0 or candidates.size == 0:
+        return candidates
+    train_end = int(np.max(window_indices[train, 1]))
+    return candidates[window_indices[candidates, 0] >= train_end]
+
+
 def split_detection_batch(
         batch: DetectionWindowBatch,
         split_spec: DetectionSplitSpec,
@@ -646,7 +659,14 @@ def split_detection_batch(
     if split_spec.kind == DetectionSplitKind.TEMPORAL:
         ordered_ids = np.arange(n_windows, dtype=int)
         n_train = _train_count_from_pool(n_windows, split_spec)
+        train_ids = ordered_ids[:n_train]
         remaining_ids = ordered_ids[n_train:]
+        if split_spec.prevent_future_leakage:
+            remaining_ids = _purge_windows_after_training(
+                batch.window_indices,
+                train_ids,
+                remaining_ids,
+            )
         n_calibration = _calibration_count_from_remaining(int(remaining_ids.size), split_spec)
         calib_ids, test_ids = _split_temporal_window_ids(
             batch.window_indices,
@@ -655,7 +675,7 @@ def split_detection_batch(
             prevent_future_leakage=split_spec.prevent_future_leakage,
         )
         train_batch = _batch_by_window_ids(
-            batch, ordered_ids[:n_train], split_spec=split_spec, split_name='train',
+            batch, train_ids, split_spec=split_spec, split_name='train',
         )
         calibration_batch = _batch_by_window_ids(
             batch, calib_ids, split_spec=split_spec, split_name='calibration',
@@ -672,7 +692,11 @@ def split_detection_batch(
         if split_spec.prevent_future_leakage:
             ordered_ids = np.arange(n_windows, dtype=int)
             train_ids = ordered_ids[:n_train]
-            tail_ids = ordered_ids[n_train:]
+            tail_ids = _purge_windows_after_training(
+                batch.window_indices,
+                train_ids,
+                ordered_ids[n_train:],
+            )
             calib_ids, test_ids = _split_temporal_window_ids(
                 batch.window_indices,
                 tail_ids,
@@ -896,12 +920,16 @@ def infer_regime_segments(
 def align_window_scores_to_points(
         window_scores: Sequence[float] | np.ndarray,
         batch: DetectionWindowBatch,
+        *,
+        causal: bool = False,
 ) -> np.ndarray:
     """
     Преобразует оценки (аномалий), вычисленные для каждого окна, в поточечный ряд.
 
-    Для каждой точки временного ряда усредняет оценки всех окон, которые покрывают эту точку.
-    Точки без покрытия получают значение 0 (деление на 1 предотвращает разрыв).
+    В обычном режиме для каждой точки усредняет оценки всех покрывающих её
+    окон. В причинном режиме относит оценку окна только к его последней точке,
+    чтобы более поздние наблюдения не меняли уже рассчитанный результат.
+    Точки без оценки получают значение 0.
 
     Параметры:
         window_scores : Sequence[float] или np.ndarray
@@ -923,8 +951,12 @@ def align_window_scores_to_points(
     point_scores = np.zeros(batch.original_length, dtype=float)
     point_counts = np.zeros(batch.original_length, dtype=float)
     for score, (start, end) in zip(scores, batch.window_indices):
-        point_scores[start:end] += float(score)
-        point_counts[start:end] += 1.0
+        if causal:
+            point_scores[end - 1] += float(score)
+            point_counts[end - 1] += 1.0
+        else:
+            point_scores[start:end] += float(score)
+            point_counts[start:end] += 1.0
     point_counts = np.where(point_counts == 0.0, 1.0, point_counts)
     return point_scores / point_counts
 

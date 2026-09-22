@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fedot.core.data.data import OutputData
+from fedot_ind.integration.fedot.compatibility import OutputData
 
 
 class PredictionService:
@@ -43,7 +43,7 @@ class PredictionService:
         if output_is_data:
             prediction = prediction.predict
         if self._is_forecasting_data(predict_data):
-            prediction = prediction[-predict_data.task.task_params.forecast_length:]
+            self._validate_forecast_length(prediction, predict_data)
         return prediction
 
     @staticmethod
@@ -67,3 +67,20 @@ class PredictionService:
         task_type = getattr(task, "task_type", None)
         task_value = getattr(task_type, "value", "")
         return "forecasting" in str(task_value)
+
+    @staticmethod
+    def _validate_forecast_length(prediction: Any, predict_data: Any) -> None:
+        horizon = int(predict_data.task.task_params.forecast_length)
+        shape = getattr(prediction, "shape", None)
+        if shape is None:
+            observed = len(prediction)
+        elif len(shape) == 0:
+            observed = 0
+        elif len(shape) == 1:
+            observed = shape[0]
+        else:
+            observed = shape[-1] if shape[-1] == horizon else shape[0]
+        if observed != horizon:
+            raise ValueError(
+                f"Forecast output must contain exactly {horizon} steps, got {observed}."
+            )

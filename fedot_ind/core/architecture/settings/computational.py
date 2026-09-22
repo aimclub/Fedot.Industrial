@@ -1,5 +1,11 @@
 import torch
-from fastcore.basics import defaults
+
+
+class _RuntimeDefaults:
+    use_cuda = False
+
+
+defaults = _RuntimeDefaults()
 
 
 class BackendMethods:

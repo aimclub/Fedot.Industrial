@@ -34,6 +34,7 @@ def test_profile_specific_imports_stay_in_their_adapters():
         "compatibility.py",
         "legacy.py",
         "legacy_repository.py",
+        "temporal_tensor.py",
         "tensor.py",
     }
     assert all(not any(module.startswith("fedot.") for module in modules)

@@ -299,6 +299,24 @@ def create_multimodal_tensor_data(*args, **kwargs):
         raise _runtime_failure(DataProfile.TENSOR, "multimodal_bridge", error) from error
 
 
+def create_forecasting_runtime(*args, **kwargs):
+    """Load the TensorData forecasting runtime only when requested."""
+    runtime_factory = getattr(
+        import_module("fedot_ind.integration.fedot.forecasting"),
+        "create_forecasting_runtime",
+    )
+    return runtime_factory(*args, **kwargs)
+
+
+def create_detection_runtime(*args, **kwargs):
+    """Load the TensorData detection runtime only when requested."""
+    runtime_factory = getattr(
+        import_module("fedot_ind.integration.fedot.detection"),
+        "create_detection_runtime",
+    )
+    return runtime_factory(*args, **kwargs)
+
+
 def _validate_supervised_operation(plan: ModelExecutionPlan) -> None:
     from fedot_ind.integration.fedot.extensions.catalog import (
         load_industrial_extension_catalog,

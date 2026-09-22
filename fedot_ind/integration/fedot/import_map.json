@@ -61,27 +61,6 @@
       ]
     },
     {
-      "path": "fedot_ind/api/main.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/api/services/prediction.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/api/utils/checkers_collections.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
       "path": "fedot_ind/api/utils/industrial_strategy.py",
       "module": "fedot.core.data.data",
       "names": [
@@ -172,21 +151,6 @@
       "module": "fedot.core.data.data",
       "names": [
         "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/models/detection/modern_detectors.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/models/detection/runtime.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
       ]
     },
     {
@@ -310,23 +274,7 @@
       ]
     },
     {
-      "path": "fedot_ind/core/models/ts_forecasting/forecasting_runtime.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
       "path": "fedot_ind/core/models/ts_forecasting/glm.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/models/ts_forecasting/lagged_model/lagged_ridge_forecaster.py",
       "module": "fedot.core.data.data",
       "names": [
         "InputData",
@@ -401,54 +349,6 @@
       "module": "fedot.core.data.data",
       "names": [
         "InputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/interfaces/detection_runtime_strategy.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/interfaces/fedot_automl_evaluation_strategy.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/interfaces/forecasting_runtime_strategy.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/interfaces/industrial_model_strategy.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/interfaces/industrial_preprocessing_strategy.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
-      ]
-    },
-    {
-      "path": "fedot_ind/core/operation/interfaces/neural_forecasting_strategy.py",
-      "module": "fedot.core.data.data",
-      "names": [
-        "InputData",
-        "OutputData"
       ]
     },
     {

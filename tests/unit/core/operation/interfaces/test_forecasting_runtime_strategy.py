@@ -24,9 +24,8 @@ from fedot_ind.core.operation.interfaces.forecasting_runtime_strategy import (
 import numpy as np
 import pytest
 
-fedot_data = pytest.importorskip('fedot.core.data.data')
-InputData = fedot_data.InputData
-OutputData = fedot_data.OutputData
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
+
 OperationParameters = pytest.importorskip('fedot.core.operations.operation_parameters').OperationParameters
 DataTypesEnum = pytest.importorskip('fedot.core.repository.dataset_types').DataTypesEnum
 tasks_module = pytest.importorskip('fedot.core.repository.tasks')

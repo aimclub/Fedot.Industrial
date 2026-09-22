@@ -59,6 +59,11 @@ class IntegrationErrorCode(str, Enum):
     UNSUPPORTED_OPERATION = "unsupported_operation"
     UNSUPPORTED_OUTPUT_MODE = "unsupported_output_mode"
     RUNTIME_FAILURE = "runtime_failure"
+    INVALID_HORIZON = "invalid_horizon"
+    INVALID_TEMPORAL_ORDER = "invalid_temporal_order"
+    TEMPORAL_INDEX_MISMATCH = "temporal_index_mismatch"
+    FUTURE_LEAKAGE = "future_leakage"
+    INVALID_INTERVAL = "invalid_interval"
 
 
 class RuntimeState(str, Enum):
