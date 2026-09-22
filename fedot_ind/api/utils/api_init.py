@@ -12,7 +12,7 @@ from fedot_ind.core.optimizer.FedotEvoOptimizer import FedotEvoOptimizer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
     fedot_init_assumptions, FEDOT_INDUSTRIAL_STRATEGY
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
+from fedot_ind.integration.fedot.extensions.discovery import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer, RecurrenceExplainer
 from fedot_ind.tools.serialisation.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
 

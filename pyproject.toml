@@ -48,7 +48,7 @@ fedot-legacy = [
     "fedot @ git+https://github.com/aimclub/FEDOT.git@42f3ba490407a1106e898e94232f2afd0a78f73f",
 ]
 fedot-tensor = [
-    "fedot @ git+https://github.com/aimclub/FEDOT.git@567eb8a958a66fd5e0efc3715c99bfae5e791e01",
+    "fedot @ git+https://github.com/aimclub/FEDOT.git@c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231",
 ]
 dev = [
     "pytest>=7,<9",
@@ -91,6 +91,7 @@ fedot_ind = [
     "core/repository/data/ts_benchmark_metadata.csv",
     "core/architecture/postprocessing/ucr_datasets.json",
     "integration/fedot/import_map.json",
+    "integration/fedot/extensions/catalog.json",
 ]
 
 [tool.coverage.report]

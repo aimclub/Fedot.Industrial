@@ -88,7 +88,7 @@ def test_valid_policy_is_typed_and_preserves_current_planned_distinction(policy)
     assert policy.schema_version == 2
     assert policy.default_profile == "legacy"
     assert policy.current.sha == "42f3ba490407a1106e898e94232f2afd0a78f73f"
-    assert policy.planned.sha == "567eb8a958a66fd5e0efc3715c99bfae5e791e01"
+    assert policy.planned.sha == "c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231"
     assert policy.planned.reference == "refactor/fedot_1.0.0"
     assert policy.current.status.value == "supported" and policy.planned.status.value == "experimental"
     assert {profile.extra for profile in policy.profiles} == {"fedot-legacy", "fedot-tensor"}

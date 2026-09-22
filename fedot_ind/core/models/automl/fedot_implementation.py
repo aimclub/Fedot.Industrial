@@ -6,7 +6,7 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.architecture.abstraction.client import use_default_fedot_client
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
+from fedot_ind.integration.fedot.extensions.discovery import default_industrial_availiable_operation
 
 
 class FedotAutomlImplementation(ModelImplementation):

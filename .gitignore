@@ -24,6 +24,7 @@ __pycache__/
 *.feather
 *.hdf5
 *.json
+!fedot_ind/integration/fedot/extensions/catalog.json
 poetry.lock
 !tools/platform_support/compatibility.json
 !benchmark/industrial/examples/kernel_learning_tser_manifest.json

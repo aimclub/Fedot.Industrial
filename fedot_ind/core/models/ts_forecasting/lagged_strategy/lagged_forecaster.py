@@ -8,7 +8,6 @@ import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
@@ -16,7 +15,7 @@ from fedot.core.repository.tasks import TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.core.repository.industrial_implementations.data_transformation import prepare_lagged_table_data
-from fedot_ind.core.tuning.search_space import get_industrial_search_space
+from fedot_ind.core.tuning.search_space import build_industrial_pipeline_search_space
 
 
 def resolve_lagged_window_size(time_series_length: int, window_size_percent: float) -> int:
@@ -105,11 +104,7 @@ class LaggedAR:
             initializer.setup_default_repository()
 
     def build_tuner(self, model_to_tune, tuning_params, train_data):
-        custom_search_space = get_industrial_search_space(self)
-        search_space = PipelineSearchSpace(
-            custom_search_space=custom_search_space,
-            replace_default_search_space=True,
-        )
+        search_space = build_industrial_pipeline_search_space(self)
         pipeline_tuner = (
             TunerBuilder(train_data.task)
             .with_search_space(search_space)
@@ -125,11 +120,7 @@ class LaggedAR:
         return model_to_tune
 
     def _build_forecasting_tuner(self, model_to_tune, tuning_params, train_data):
-        custom_search_space = get_industrial_search_space(self)
-        search_space = PipelineSearchSpace(
-            custom_search_space=custom_search_space,
-            replace_default_search_space=True,
-        )
+        search_space = build_industrial_pipeline_search_space(self)
         pipeline_tuner = (
             TunerBuilder(train_data.task)
             .with_search_space(search_space)

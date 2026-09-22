@@ -673,17 +673,17 @@
       ]
     },
     {
-      "path": "fedot_ind/core/repository/initializer_industrial_models.py",
-      "module": "fedot.core.data.data_split",
-      "names": [
-        "fedot.core.data.data_split"
-      ]
-    },
-    {
       "path": "fedot_ind/integration/fedot/legacy.py",
       "module": "fedot.core.data.data",
       "names": [
         "InputData"
+      ]
+    },
+    {
+      "path": "fedot_ind/integration/fedot/legacy_repository.py",
+      "module": "fedot.core.data.data_split",
+      "names": [
+        "fedot.core.data.data_split"
       ]
     },
     {
