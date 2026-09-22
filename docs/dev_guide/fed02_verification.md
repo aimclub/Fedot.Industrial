@@ -6,7 +6,7 @@
 не создавая второй реестр операций. Изменения вошли в Pull Request
 [`aimclub/FEDOT#1462`](https://github.com/aimclub/FEDOT/pull/1462); версия всего
 цикла, использованная в INT-01:
-`567eb8a958a66fd5e0efc3715c99bfae5e791e01`.
+`d1875e7a1ba49c94d13c51d97ec78829bf459ca8`.
 
 Основные цели этапа:
 

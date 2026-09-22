@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+from dataclasses import dataclass, replace
 from importlib import import_module
 import os
 from typing import Any
@@ -14,9 +16,20 @@ from fedot_ind.integration.fedot.extensions.contracts import (
 
 
 PROFILE_ENVIRONMENT_VARIABLE = "FEDOT_INTEGRATION_PROFILE"
-_ACTIVE_EXTENSION_SCOPE: Any | None = None
-_ACTIVE_SCOPE_OWNER: Any | None = None
-_ACTIVE_SCOPE_RESULT: Any | None = None
+
+
+@dataclass(frozen=True)
+class _ExtensionActivation:
+    scope: Any
+    result: Any
+    manual_active: bool = False
+    context_depth: int = 0
+
+
+_ACTIVE_EXTENSION_STATE: ContextVar[_ExtensionActivation | None] = ContextVar(
+    "fedot_industrial_extension_activation",
+    default=None,
+)
 
 
 class IndustrialModels:
@@ -33,37 +46,33 @@ class IndustrialModels:
             )
         self._legacy: Any | None = None
         self.last_result: Any | None = None
-        self._owns_context_scope = False
 
     def setup_repository(self, backend: str = "default"):
         """Activate Industrial operations without replacing FEDOT repositories."""
         if self.profile == "legacy":
             return self._legacy_repository().setup_repository(backend)
-        self.last_result = _open_extension_scope(self)
+        self.last_result = _open_extension_scope(manual=True)
         return _operation_repository()
 
     def setup_default_repository(self, backend: str = "default"):
         """Restore the state that preceded this facade activation."""
         if self.profile == "legacy":
             return self._legacy_repository().setup_default_repository(backend)
-        _close_extension_scope(None, None, None)
+        _close_extension_scope(None, None, None, manual=True)
         return _operation_repository()
 
     def __enter__(self):
         if self.profile == "legacy":
             self._legacy_repository().__enter__()
             return self
-        self._owns_context_scope = _ACTIVE_EXTENSION_SCOPE is None
-        self.last_result = _open_extension_scope(self)
+        self.last_result = _open_extension_scope(context=True)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.profile == "legacy":
             self._legacy_repository().__exit__(exc_type, exc_val, exc_tb)
             return
-        if self._owns_context_scope:
-            _close_extension_scope(exc_type, exc_val, exc_tb)
-        self._owns_context_scope = False
+        _close_extension_scope(exc_type, exc_val, exc_tb, context=True)
 
     def _legacy_repository(self):
         if self._legacy is None:
@@ -86,27 +95,35 @@ def _operation_repository():
     return OperationTypesRepository
 
 
-def _open_extension_scope(owner: IndustrialModels):
-    global _ACTIVE_EXTENSION_SCOPE, _ACTIVE_SCOPE_OWNER, _ACTIVE_SCOPE_RESULT
-
-    if _ACTIVE_EXTENSION_SCOPE is None:
+def _open_extension_scope(*, manual: bool = False, context: bool = False):
+    state = _ACTIVE_EXTENSION_STATE.get()
+    if state is None:
         from fedot_ind.integration.fedot.extensions.bootstrap import industrial_extension_scope
 
         scope = industrial_extension_scope()
         result = scope.__enter__()
-        _ACTIVE_EXTENSION_SCOPE = scope
-        _ACTIVE_SCOPE_OWNER = owner
-        _ACTIVE_SCOPE_RESULT = result
-    return _ACTIVE_SCOPE_RESULT
+        state = _ExtensionActivation(scope=scope, result=result)
+    state = replace(
+        state,
+        manual_active=state.manual_active or manual,
+        context_depth=state.context_depth + int(context),
+    )
+    _ACTIVE_EXTENSION_STATE.set(state)
+    return state.result
 
 
-def _close_extension_scope(exc_type, exc_val, exc_tb) -> None:
-    global _ACTIVE_EXTENSION_SCOPE, _ACTIVE_SCOPE_OWNER, _ACTIVE_SCOPE_RESULT
-
-    if _ACTIVE_EXTENSION_SCOPE is None:
+def _close_extension_scope(exc_type, exc_val, exc_tb, *,
+                           manual: bool = False, context: bool = False) -> None:
+    state = _ACTIVE_EXTENSION_STATE.get()
+    if state is None:
         return
-    scope = _ACTIVE_EXTENSION_SCOPE
-    _ACTIVE_EXTENSION_SCOPE = None
-    _ACTIVE_SCOPE_OWNER = None
-    _ACTIVE_SCOPE_RESULT = None
-    scope.__exit__(exc_type, exc_val, exc_tb)
+    next_state = replace(
+        state,
+        manual_active=False if manual else state.manual_active,
+        context_depth=max(0, state.context_depth - int(context)),
+    )
+    if next_state.manual_active or next_state.context_depth:
+        _ACTIVE_EXTENSION_STATE.set(next_state)
+        return
+    _ACTIVE_EXTENSION_STATE.set(None)
+    state.scope.__exit__(exc_type, exc_val, exc_tb)

@@ -1104,7 +1104,7 @@ dependencies = [
 [[package]]
 name = "fedot"
 version = "0.7.5"
-source = { git = "https://github.com/aimclub/FEDOT.git?rev=c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231#c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231" }
+source = { git = "https://github.com/aimclub/FEDOT.git?rev=d1875e7a1ba49c94d13c51d97ec78829bf459ca8#d1875e7a1ba49c94d13c51d97ec78829bf459ca8" }
 resolution-markers = [
     "python_full_version >= '3.11'",
     "python_full_version < '3.11'",
@@ -1196,7 +1196,7 @@ fedot-legacy = [
     { name = "fedot", version = "0.7.5", source = { git = "https://github.com/aimclub/FEDOT.git?rev=42f3ba490407a1106e898e94232f2afd0a78f73f#42f3ba490407a1106e898e94232f2afd0a78f73f" } },
 ]
 fedot-tensor = [
-    { name = "fedot", version = "0.7.5", source = { git = "https://github.com/aimclub/FEDOT.git?rev=c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231#c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231" } },
+    { name = "fedot", version = "0.7.5", source = { git = "https://github.com/aimclub/FEDOT.git?rev=d1875e7a1ba49c94d13c51d97ec78829bf459ca8#d1875e7a1ba49c94d13c51d97ec78829bf459ca8" } },
 ]
 notebooks = [
     { name = "ipykernel" },
@@ -1215,7 +1215,7 @@ requires-dist = [
     { name = "distributed", specifier = "==2024.4.2" },
     { name = "fastai", specifier = "==2.7.18" },
     { name = "fedot", marker = "extra == 'fedot-legacy'", git = "https://github.com/aimclub/FEDOT.git?rev=42f3ba490407a1106e898e94232f2afd0a78f73f" },
-    { name = "fedot", marker = "extra == 'fedot-tensor'", git = "https://github.com/aimclub/FEDOT.git?rev=c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231" },
+    { name = "fedot", marker = "extra == 'fedot-tensor'", git = "https://github.com/aimclub/FEDOT.git?rev=d1875e7a1ba49c94d13c51d97ec78829bf459ca8" },
     { name = "giotto-tda", specifier = "==0.6.2" },
     { name = "ipykernel", marker = "extra == 'notebooks'", specifier = ">=6,<7" },
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = ">=1,<2" },

@@ -48,7 +48,7 @@ fedot-legacy = [
     "fedot @ git+https://github.com/aimclub/FEDOT.git@42f3ba490407a1106e898e94232f2afd0a78f73f",
 ]
 fedot-tensor = [
-    "fedot @ git+https://github.com/aimclub/FEDOT.git@c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231",
+    "fedot @ git+https://github.com/aimclub/FEDOT.git@d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
 ]
 dev = [
     "pytest>=7,<9",

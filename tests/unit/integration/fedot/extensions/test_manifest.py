@@ -70,6 +70,39 @@ def test_registration_reports_manifest_conflict():
     assert result.error_code == IndustrialExtensionErrorCode.REGISTRATION_CONFLICT.value
 
 
+def test_dry_run_reports_operation_name_conflict():
+    manifest = build_industrial_extension_manifest()
+    competitor = replace(
+        manifest,
+        name="competing_extension",
+        models=(manifest.models[0],),
+        transforms=(),
+    )
+    assert register_extension(competitor).is_right()
+
+    result = register_industrial_extension(dry_run=True)
+
+    assert result.status is IndustrialExtensionStatus.REJECTED
+    assert result.error_code == IndustrialExtensionErrorCode.REGISTRATION_REJECTED.value
+    assert result.error_context["fedot_error_code"] == "operation_name_conflict"
+
+
+def test_registration_detects_factory_target_change_without_version_change():
+    manifest = build_industrial_extension_manifest()
+
+    def replacement_factory(params=None):
+        return object()
+
+    changed_model = replace(manifest.models[0], factory=replacement_factory)
+    changed_manifest = replace(manifest, models=(changed_model,) + manifest.models[1:])
+    assert register_extension(changed_manifest).is_right()
+
+    result = register_industrial_extension()
+
+    assert result.status is IndustrialExtensionStatus.REJECTED
+    assert result.error_code == IndustrialExtensionErrorCode.REGISTRATION_CONFLICT.value
+
+
 def test_extension_scope_restores_registry_and_exposes_operations():
     with industrial_extension_scope() as result:
         names = OperationTypesRepository("model").suitable_operation(
@@ -110,3 +143,17 @@ def test_deferred_factory_does_not_import_runtime_target():
     with pytest.raises(Exception) as error:
         _ = instance.implementation
     assert getattr(error.value, "code", None) is IndustrialExtensionErrorCode.RUNTIME_TARGET_UNAVAILABLE
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "expected_parameters"),
+    [
+        ("pdl_clf", {"model", "criterion", "max_features"}),
+        ("pdl_reg", {"model", "max_features", "min_samples_split"}),
+    ],
+)
+def test_pdl_schema_accepts_inherited_search_parameters(operation_name, expected_parameters):
+    manifest = build_industrial_extension_manifest()
+    specs = {spec.name: spec for spec in manifest.models}
+
+    assert expected_parameters.issubset(specs[operation_name].hyperparams_schema.optional)

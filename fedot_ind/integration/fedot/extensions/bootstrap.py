@@ -38,7 +38,7 @@ def register_industrial_extension(*, dry_run: bool = False) -> IndustrialExtensi
             "The active FEDOT installation has no extension contract.",
         )
 
-    from fedot.extensions import get_registered_extensions, register_extension
+    from fedot.extensions import get_registered_extensions, register_extension, register_extensions
     from fedot_ind.integration.fedot.extensions.manifest import build_industrial_extension_manifest
 
     manifest = build_industrial_extension_manifest()
@@ -53,10 +53,8 @@ def register_industrial_extension(*, dry_run: bool = False) -> IndustrialExtensi
             "A different Industrial extension manifest is already registered.",
             registered_versions=[item.version for item in current],
         )
-    if dry_run:
-        return IndustrialExtensionResult(IndustrialExtensionStatus.PLANNED, plan)
-
-    result = register_extension(manifest)
+    result = (register_extensions((manifest,), dry_run=True)
+              if dry_run else register_extension(manifest))
     if result.is_left():
         error = result.monoid[0]
         return _rejected(
@@ -66,7 +64,8 @@ def register_industrial_extension(*, dry_run: bool = False) -> IndustrialExtensi
             fedot_error_code=error.code,
             **error.details,
         )
-    return IndustrialExtensionResult(IndustrialExtensionStatus.REGISTERED, plan)
+    status = IndustrialExtensionStatus.PLANNED if dry_run else IndustrialExtensionStatus.REGISTERED
+    return IndustrialExtensionResult(status, plan)
 
 
 def resolve_industrial_operation(operation_name: str):
@@ -112,6 +111,9 @@ def _manifest_signature(manifest: object) -> tuple[object, ...]:
         return (
             spec.name,
             type(spec).__name__,
+            getattr(spec.factory, "__industrial_factory_target__", None),
+            getattr(spec.factory, "__module__", None),
+            getattr(spec.factory, "__qualname__", None),
             capabilities,
             schema.required,
             schema.optional,

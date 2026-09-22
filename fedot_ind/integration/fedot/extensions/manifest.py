@@ -36,10 +36,11 @@ def build_industrial_extension_manifest() -> ExtensionManifest:
     """Build one immutable manifest from validated packaged resources."""
     catalog = load_industrial_extension_catalog()
     defaults = _load_default_parameters()
+    search_parameters = _load_search_parameters()
     models = []
     transforms = []
     for declaration in catalog.operations:
-        schema = _hyperparams_schema(declaration, defaults)
+        schema = _hyperparams_schema(declaration, defaults, search_parameters)
         factory = make_deferred_factory(declaration)
         if declaration.kind is IndustrialOperationKind.MODEL:
             models.append(ExternalModelSpec(
@@ -93,18 +94,22 @@ def _load_default_parameters() -> Mapping[str, Mapping[str, Any]]:
 
 
 def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
-                        defaults_by_operation: Mapping[str, Mapping[str, Any]]) -> ModelHyperparamsSchema:
+                        defaults_by_operation: Mapping[str, Mapping[str, Any]],
+                        search_parameters: Mapping[str, Mapping[str, Any]]) -> ModelHyperparamsSchema:
     defaults = dict(defaults_by_operation.get(declaration.defaults_key or declaration.name, {}))
     optional = set(defaults)
-    try:
-        from fedot_ind.core.tuning.search_space import industrial_search_space
-
-        optional.update(industrial_search_space.get(declaration.name, {}))
-    except ImportError:
-        # Search-space dependencies are optional for manifest discovery.
-        pass
+    optional.update(search_parameters.get(declaration.name, {}))
     optional.difference_update({"model_fit", "model_predict"})
     return ModelHyperparamsSchema(optional=tuple(sorted(optional)), defaults=defaults)
+
+
+def _load_search_parameters() -> Mapping[str, Mapping[str, Any]]:
+    try:
+        from fedot_ind.core.tuning.search_space import get_industrial_search_space
+    except ImportError:
+        # Search-space dependencies are optional for manifest discovery.
+        return {}
+    return get_industrial_search_space()
 
 
 def _task_types(declaration: IndustrialOperationDeclaration) -> tuple[TaskTypesEnum, ...]:

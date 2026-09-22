@@ -24,6 +24,7 @@ def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callab
     factory.__name__ = f"create_{declaration.name}"
     factory.__qualname__ = factory.__name__
     factory.__module__ = __name__
+    factory.__industrial_factory_target__ = declaration.factory
     return factory
 
 

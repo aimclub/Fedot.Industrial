@@ -15,7 +15,7 @@
     "tensor": {
       "repository": "https://github.com/aimclub/FEDOT.git",
       "reference": "refactor/fedot_1.0.0",
-      "sha": "c3caa4ee87bd9c7f0bd83b3bc67b5b895bc7b231",
+      "sha": "d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
       "status": "experimental",
       "extra": "fedot-tensor",
       "requirements_file": "requirements-tensor.txt"

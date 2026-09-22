@@ -1,4 +1,5 @@
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -71,6 +72,46 @@ def test_nested_context_does_not_close_outer_activation():
             assert len(get_registered_extensions()) == 1
         assert len(get_registered_extensions()) == 1
     assert get_registered_extensions() == ()
+
+
+def test_same_facade_supports_nested_contexts():
+    from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+    clear_extension_registry()
+    facade = IndustrialModels(profile="tensor")
+    with facade:
+        with facade:
+            assert len(get_registered_extensions()) == 1
+        assert len(get_registered_extensions()) == 1
+    assert get_registered_extensions() == ()
+
+
+def test_manual_activation_survives_nested_context_until_explicit_restore():
+    from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+    clear_extension_registry()
+    facade = IndustrialModels(profile="tensor")
+    facade.setup_repository()
+    with facade:
+        assert len(get_registered_extensions()) == 1
+    assert len(get_registered_extensions()) == 1
+    facade.setup_default_repository()
+    assert get_registered_extensions() == ()
+
+
+def test_extension_activation_is_isolated_between_threads():
+    from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+    def registry_size_inside_and_after_scope():
+        clear_extension_registry()
+        with IndustrialModels(profile="tensor"):
+            inside = len(get_registered_extensions())
+        return inside, len(get_registered_extensions())
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = tuple(executor.map(lambda _: registry_size_inside_and_after_scope(), range(2)))
+
+    assert results == ((1, 0), (1, 0))
 
 
 def test_facade_uses_shared_integration_profile_variable(monkeypatch):
