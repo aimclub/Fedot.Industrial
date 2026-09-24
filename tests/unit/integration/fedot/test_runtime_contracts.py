@@ -17,7 +17,7 @@ from fedot_ind.integration.fedot.contracts import PreparedData
 
 
 class RecordingRuntime(RegressionRuntime):
-    profile = DataProfile.LEGACY
+    profile = DataProfile.TENSOR
 
     def __init__(self, *, fail_phase=None):
         super().__init__()
@@ -107,21 +107,21 @@ def test_prediction_schema_is_checked_before_runtime_call():
     assert error.value.code is IntegrationErrorCode.SCHEMA_MISMATCH
 
 
-def test_factory_imports_only_the_selected_profile(monkeypatch):
+def test_factory_imports_only_tensor_runtime(monkeypatch):
     from fedot_ind.integration.fedot import runtime as runtime_module
 
     imported = []
 
-    class Legacy(RecordingRuntime):
+    class Tensor(RecordingRuntime):
         pass
 
     def fake_import(name):
         imported.append(name)
-        return SimpleNamespace(LegacyRegressionRuntime=Legacy)
+        return SimpleNamespace(TensorRegressionRuntime=Tensor)
 
     monkeypatch.setattr(runtime_module, "import_module", fake_import)
-    assert isinstance(create_regression_runtime("legacy"), Legacy)
-    assert imported == ["fedot_ind.integration.fedot.legacy"]
+    assert isinstance(create_regression_runtime("tensor"), Tensor)
+    assert imported == ["fedot_ind.integration.fedot.tensor"]
 
 
 def test_factory_rejects_unknown_profile_without_importing_runtime(monkeypatch):

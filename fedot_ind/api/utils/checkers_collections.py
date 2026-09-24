@@ -16,7 +16,7 @@ from fedot_ind.core.operation.dummy.dummy_operation import check_multivariate_da
 from fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor import TabularExtractor
 from fedot_ind.core.repository.config_repository import TASK_MAPPING
 from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.integration.fedot.extensions import require_industrial_extension
 
 
 class DataCheck:
@@ -198,7 +198,7 @@ class DataCheck:
 
     def _check_fedot_context(self):
         if self.strategy_params is not None:
-            IndustrialModels().setup_repository()
+            require_industrial_extension()
             strategy = self.strategy_params.get('learning_strategy')
             is_big_data = strategy.__contains__('big') if strategy else False
             is_default_fedot = strategy.__contains__('tabular') if strategy else False

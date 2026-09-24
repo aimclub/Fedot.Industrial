@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
-    from fedot.core.data.data import InputData, OutputData
+    from fedot.core.data.input_data.data import InputData, OutputData
     from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
@@ -74,7 +74,8 @@ class HybridEnsembleForecaster:
     """Named composite forecaster that ensembles lagged, low-rank and complex branches."""
 
     forecast_horizon: int
-    complex_branch: str = 'okhs'
+    complex_branch: str = 'havok'
+    branch_failure_policy: str = 'raise'
     calibration_horizon: int | None = None
     device: str = 'auto'
     lagged_params: dict[str, Any] = field(default_factory=dict)
@@ -82,7 +83,33 @@ class HybridEnsembleForecaster:
     complex_params: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
+        if self.branch_failure_policy not in {'raise', 'last_value'}:
+            raise ValueError(
+                "branch_failure_policy must be either 'raise' or 'last_value'."
+            )
         self.device_policy_ = TensorDevicePolicy(device=self.device)
+
+    def _recover_branch_failure(
+            self,
+            *,
+            branch_name: str,
+            error: Exception,
+            source_series: np.ndarray,
+            horizon: int,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        if self.branch_failure_policy == 'raise':
+            raise RuntimeError(
+                f"Hybrid ensemble branch {branch_name!r} failed."
+            ) from error
+        return (
+            np.full(horizon, source_series[-1], dtype=float),
+            {
+                'status': 'degraded',
+                'policy': self.branch_failure_policy,
+                'message': str(error),
+                'exception_type': type(error).__name__,
+            },
+        )
 
     def _build_branch_models(self):
         return {
@@ -136,10 +163,15 @@ class HybridEnsembleForecaster:
                     forecast,
                     metric_name='rmse',
                 ).to_dict()
-            except Exception as exc:  # pragma: no cover - fallback is deterministic but branch failures are rare
-                fallback = np.full(requested_horizon, calibration_series[-1], dtype=float)
+            except Exception as exc:
+                fallback, diagnostics = self._recover_branch_failure(
+                    branch_name=branch_name,
+                    error=exc,
+                    source_series=calibration_series,
+                    horizon=requested_horizon,
+                )
                 branch_forecasts.append(fallback)
-                branch_diagnostics[branch_name] = {'status': 'fallback', 'message': str(exc)}
+                branch_diagnostics[branch_name] = diagnostics
                 branch_metrics[branch_name] = evaluate_forecast(
                     validation_target.detach().cpu().numpy(),
                     fallback,
@@ -165,10 +197,16 @@ class HybridEnsembleForecaster:
         if len(series) > minimum_length:
             try:
                 self.branch_calibration_ = self._fit_calibration_head(series)
-            except Exception as exc:  # pragma: no cover - deterministic fallback for short/noisy histories
+            except Exception as exc:
+                if self.branch_failure_policy == 'raise':
+                    raise
                 self.branch_calibration_ = {
                     'calibration_horizon': self.forecast_horizon,
-                    'branch_diagnostics': {'status': 'fallback', 'message': str(exc)},
+                    'branch_diagnostics': {
+                        'status': 'degraded',
+                        'policy': self.branch_failure_policy,
+                        'message': str(exc),
+                    },
                     'branch_metrics': {},
                     'ensemble_head': {'weights': [1 / 3, 1 / 3, 1 / 3]},
                 }
@@ -181,9 +219,25 @@ class HybridEnsembleForecaster:
             }
         self.branch_models_ = self._build_branch_models()
         self.training_history_ = series
-        for model in self.branch_models_.values():
-            model.fit(series)
-        if not hasattr(self, 'ensemble_head_'):
+        self.branch_fit_failures_ = {}
+        for branch_name, model in self.branch_models_.items():
+            try:
+                model.fit(series)
+            except Exception as exc:
+                if self.branch_failure_policy == 'raise':
+                    raise RuntimeError(
+                        f"Hybrid ensemble branch {branch_name!r} failed during fit."
+                    ) from exc
+                self.branch_fit_failures_[branch_name] = {
+                    'status': 'degraded',
+                    'policy': self.branch_failure_policy,
+                    'message': str(exc),
+                    'exception_type': type(exc).__name__,
+                }
+        if (
+                not hasattr(self, 'ensemble_head_')
+                or self.ensemble_head_.weights_ is None
+        ):
             self.ensemble_head_ = WeightedAverageHead(device_policy=self.device_policy_)
             self.ensemble_head_.weights_ = torch.as_tensor(
                 self.branch_calibration_['ensemble_head']['weights'],
@@ -192,6 +246,8 @@ class HybridEnsembleForecaster:
         self.diagnostics_ = {
             'model_family': 'hybrid_ensemble',
             'branch_names': tuple(self.branch_models_.keys()),
+            'branch_failure_policy': self.branch_failure_policy,
+            'branch_fit_failures': self.branch_fit_failures_,
             'branch_calibration': self.branch_calibration_,
             'ensemble_head': self.ensemble_head_.get_diagnostics(),
         }
@@ -207,8 +263,22 @@ class HybridEnsembleForecaster:
         source_series = self.training_history_ if time_series is None else np.asarray(time_series, dtype=float).reshape(
             -1)
         branch_predictions = {}
+        branch_diagnostics = {}
         for branch_name, model in self.branch_models_.items():
-            forecast, _ = _safe_forecast(model, source_series, horizon)
+            try:
+                forecast, diagnostics = _safe_forecast(model, source_series, horizon)
+                if forecast.size < horizon:
+                    raise ValueError(
+                        f"Branch returned {forecast.size} values for horizon={horizon}."
+                    )
+                branch_diagnostics[branch_name] = diagnostics
+            except Exception as exc:
+                forecast, branch_diagnostics[branch_name] = self._recover_branch_failure(
+                    branch_name=branch_name,
+                    error=exc,
+                    source_series=source_series,
+                    horizon=horizon,
+                )
             branch_predictions[branch_name] = forecast
         stacked = torch.as_tensor(
             np.vstack([branch_predictions[name] for name in self.branch_models_.keys()]),
@@ -217,7 +287,12 @@ class HybridEnsembleForecaster:
         ensemble_forecast = self.ensemble_head_.predict(stacked).detach().cpu().numpy().reshape(-1)
         self.last_prediction_diagnostics_ = {
             'branch_predictions': {name: values.tolist() for name, values in branch_predictions.items()},
+            'branch_diagnostics': branch_diagnostics,
             'ensemble_weights': self.ensemble_head_.get_diagnostics().get('weights', []),
+            'degraded': any(
+                diagnostics.get('status') == 'degraded'
+                for diagnostics in branch_diagnostics.values()
+            ),
         }
         return ensemble_forecast[:horizon]
 
@@ -236,7 +311,8 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         """Read ensemble branch and calibration parameters from operation params."""
         params = params or OperationParameters()
         super().__init__(params)
-        self.complex_branch = str(self.params.get('complex_branch', 'okhs'))
+        self.complex_branch = str(self.params.get('complex_branch', 'havok'))
+        self.branch_failure_policy = str(self.params.get('branch_failure_policy', 'raise'))
         self.calibration_horizon = self.params.get('calibration_horizon')
         self.device = str(self.params.get('device', 'auto'))
         self.lagged_params = dict(self.params.get('lagged_params', {}))
@@ -249,6 +325,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
         self.model_ = HybridEnsembleForecaster(
             forecast_horizon=input_data.task.task_params.forecast_length,
             complex_branch=self.complex_branch,
+            branch_failure_policy=self.branch_failure_policy,
             calibration_horizon=self.calibration_horizon,
             device=self.device,
             lagged_params=self.lagged_params,
@@ -285,6 +362,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
             'hybrid_ensemble_forecaster',
             {
                 'complex_branch': self.complex_branch,
+                'branch_failure_policy': self.branch_failure_policy,
                 'calibration_horizon': self.calibration_horizon,
                 'lagged_params': self.lagged_params,
                 'low_rank_params': self.low_rank_params,
@@ -299,6 +377,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
                 'hybrid_ensemble_forecaster',
                 {
                     'complex_branch': self.complex_branch,
+                    'branch_failure_policy': self.branch_failure_policy,
                     'calibration_horizon': self.calibration_horizon,
                     'lagged_params': self.lagged_params,
                     'low_rank_params': self.low_rank_params,
@@ -313,6 +392,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
             'hybrid_ensemble_forecaster',
             base_params={
                 'complex_branch': self.complex_branch,
+                'branch_failure_policy': self.branch_failure_policy,
                 'calibration_horizon': self.calibration_horizon,
                 'lagged_params': self.lagged_params,
                 'low_rank_params': self.low_rank_params,
@@ -340,6 +420,7 @@ class HybridEnsembleForecasterImplementation(ModelImplementation):
             forecast_horizon=int(forecast_horizon),
             base_params={
                 'complex_branch': self.complex_branch,
+                'branch_failure_policy': self.branch_failure_policy,
                 'calibration_horizon': self.calibration_horizon,
                 'device': self.device,
                 'lagged_params': self.lagged_params,

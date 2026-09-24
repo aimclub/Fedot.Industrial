@@ -2,7 +2,12 @@
 
 from typing import Any
 
-from fedot_ind.integration.fedot.compatibility import OutputData
+from fedot_ind.integration.fedot.compatibility import (
+    OutputData,
+    TensorData,
+    as_numpy,
+    ensure_fedot_tensor_data,
+)
 
 
 class PredictionService:
@@ -25,26 +30,33 @@ class PredictionService:
         ])
 
         if custom_predict:
+            runtime_data = predict_data
             prediction = solver.predict(predict_data)
         else:
+            runtime_data = ensure_fedot_tensor_data(
+                predict_data,
+                fit_stage=False,
+                reference_data=getattr(manager, "fedot_train_data", None),
+            )
             prediction = self._predict_with_solver(
                 manager=manager,
-                predict_data=predict_data,
+                predict_data=runtime_data,
                 predict_mode=predict_mode,
             )
 
-        output_is_data = isinstance(prediction, OutputData)
+        output_is_data = isinstance(prediction, (OutputData, TensorData))
+        prediction_value = prediction.predict if output_is_data else prediction
         if have_encoder:
-            prediction = self._inverse_encoder_transform(
-                prediction=prediction,
+            prediction_value = self._inverse_encoder_transform(
+                prediction=prediction_value,
                 target_encoder=target_encoder,
-                predict_data=predict_data,
+                predict_data=runtime_data,
             )
         if output_is_data:
-            prediction = prediction.predict
-        if self._is_forecasting_data(predict_data):
-            self._validate_forecast_length(prediction, predict_data)
-        return prediction
+            prediction_value = as_numpy(prediction_value)
+        if self._is_forecasting_data(runtime_data):
+            self._validate_forecast_length(prediction_value, runtime_data)
+        return prediction_value
 
     @staticmethod
     def _predict_with_solver(*, manager: Any, predict_data: Any, predict_mode: str) -> Any:
@@ -53,12 +65,16 @@ class PredictionService:
             return solver.predict(predict_data, predict_mode)
         if predict_mode in ["labels"]:
             return solver.predict(predict_data)
+        current_pipeline = getattr(solver, "current_pipeline", None)
+        if current_pipeline is not None:
+            return current_pipeline.predict(predict_data, output_mode=predict_mode)
         return solver.predict_proba(predict_data)
 
     @staticmethod
     def _inverse_encoder_transform(*, prediction: Any, target_encoder: Any, predict_data: Any) -> Any:
-        predicted_labels = target_encoder.inverse_transform(prediction)
-        predict_data.target = target_encoder.inverse_transform(predict_data.target)
+        predicted_labels = target_encoder.inverse_transform(as_numpy(prediction))
+        if getattr(predict_data, "target", None) is not None:
+            predict_data.target = target_encoder.inverse_transform(as_numpy(predict_data.target))
         return predicted_labels
 
     @staticmethod

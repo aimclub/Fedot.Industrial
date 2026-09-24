@@ -1,17 +1,10 @@
-import os
-
 import numpy as np
 import pandas as pd
-import pytest
 
 from fedot_ind.integration.fedot import RuntimeState, create_regression_runtime
 
 
-PROFILE = os.getenv("FEDOT_INTEGRATION_PROFILE")
-
-
-@pytest.mark.skipif(PROFILE not in {"legacy", "tensor"}, reason="Select one FEDOT_INTEGRATION_PROFILE.")
-def test_profile_regression_runtime_fit_predict_and_close():
+def test_tensor_regression_runtime_fit_predict_and_close():
     first = np.linspace(0.0, 29.0, 30)
     second = np.square(first + 1) / 10.0
     train = pd.DataFrame(
@@ -29,7 +22,7 @@ def test_profile_regression_runtime_fit_predict_and_close():
     train_before = train.copy(deep=True)
     predict_before = predict.copy(deep=True)
 
-    runtime = create_regression_runtime(PROFILE)
+    runtime = create_regression_runtime("tensor")
     runtime.fit(train, target)
     result = runtime.predict(predict)
 

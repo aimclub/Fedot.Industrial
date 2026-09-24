@@ -5,7 +5,7 @@ from fedot_ind.core.models.ts_forecasting.lagged_model.topo_forecaster import (
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 import numpy as np
 import pytest
 

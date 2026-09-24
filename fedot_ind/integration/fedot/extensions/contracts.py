@@ -14,6 +14,13 @@ class IndustrialOperationKind(str, Enum):
     TRANSFORM = "transform"
 
 
+class IndustrialRuntimeInterface(str, Enum):
+    """Input convention implemented by an Industrial runtime target."""
+
+    ARRAY = "array"
+    INPUT_DATA = "input_data"
+
+
 class IndustrialExtensionStatus(str, Enum):
     """Observable outcomes of the idempotent bootstrap operation."""
 
@@ -21,6 +28,14 @@ class IndustrialExtensionStatus(str, Enum):
     REGISTERED = "registered"
     ALREADY_REGISTERED = "already_registered"
     REJECTED = "rejected"
+
+
+class IndustrialExtensionSessionState(str, Enum):
+    """Lifecycle of an owned FEDOT extension scope."""
+
+    CREATED = "created"
+    ACTIVE = "active"
+    CLOSED = "closed"
 
 
 class IndustrialExtensionErrorCode(str, Enum):
@@ -37,6 +52,8 @@ class IndustrialExtensionErrorCode(str, Enum):
     OPERATION_NOT_FOUND = "operation_not_found"
     RUNTIME_TARGET_UNAVAILABLE = "runtime_target_unavailable"
     RUNTIME_TARGET_INVALID = "runtime_target_invalid"
+    RUNTIME_TASK_REQUIRED = "runtime_task_required"
+    INVALID_SESSION_STATE = "invalid_session_state"
 
 
 class IndustrialExtensionContractError(ValueError):
@@ -80,8 +97,18 @@ class IndustrialOperationDeclaration:
     supports_multimodal: bool = False
     requires_target: bool = True
     requires_fit: bool = True
+    requires_task_type: bool = False
     backend: str = "numpy"
     description: str = ""
+    runtime_interface: IndustrialRuntimeInterface = IndustrialRuntimeInterface.INPUT_DATA
+
+    @property
+    def needs_explicit_task_type(self) -> bool:
+        return self.requires_task_type or (
+            self.kind is IndustrialOperationKind.MODEL
+            and self.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
+            and len(self.tasks) > 1
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -97,8 +124,10 @@ class IndustrialOperationDeclaration:
             "supports_multimodal": self.supports_multimodal,
             "requires_target": self.requires_target,
             "requires_fit": self.requires_fit,
+            "requires_task_type": self.requires_task_type,
             "backend": self.backend,
             "description": self.description,
+            "runtime_interface": self.runtime_interface.value,
         }
 
 

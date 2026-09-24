@@ -4,7 +4,6 @@ from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.architecture.abstraction.client import use_default_fedot_client
 from fedot_ind.core.models.automl.fedot_implementation import FedotClassificationImplementation, \
     FedotRegressionImplementation, FedotForecastingImplementation
 
@@ -32,7 +31,7 @@ class FedotAutoMLStrategy(EvaluationStrategy):
 
     def predict(self, trained_operation, predict_data: InputData,
                 output_mode: str = 'labels') -> OutputData:
-        prediction = trained_operation.model.predict(predict_data, output_mode)
+        prediction = trained_operation.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
         return converted
@@ -42,7 +41,7 @@ class FedotAutoMLStrategy(EvaluationStrategy):
             trained_operation,
             predict_data: InputData,
             output_mode: str = 'labels') -> OutputData:
-        prediction = trained_operation.model.predict(predict_data, output_mode)
+        prediction = trained_operation.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
         return converted
@@ -77,21 +76,19 @@ class FedotAutoMLForecastingStrategy(FedotAutoMLStrategy):
         self.operations_by_types = {'fedot_forecast': FedotForecastingImplementation}
         super().__init__(operation_type, params)
 
-    @use_default_fedot_client
     def predict(self, trained_operation, predict_data: InputData,
                 output_mode: str = 'labels') -> OutputData:
-        prediction = trained_operation.model.predict(predict_data, output_mode)
+        prediction = trained_operation.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
         return converted
 
-    @use_default_fedot_client
     def predict_for_fit(
             self,
             trained_operation,
             predict_data: InputData,
             output_mode: str = 'labels') -> OutputData:
-        prediction = trained_operation.model.predict(predict_data, output_mode)
+        prediction = trained_operation.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
         return converted

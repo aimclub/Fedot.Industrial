@@ -81,7 +81,7 @@ def test_lock_pins_same_fedot_sha_and_python_range():
     project = project_metadata()["project"]
     policy = load_compatibility().value
     fedot = [package for package in lock["package"] if package["name"] == "fedot"]
-    assert len(fedot) == len(policy.profiles)
+    assert len(fedot) == 1
     sources = {urlsplit(package["source"]["git"]).fragment: urlsplit(package["source"]["git"])
                for package in fedot}
     assert set(sources) == {profile.sha for profile in policy.profiles}
@@ -92,7 +92,7 @@ def test_lock_pins_same_fedot_sha_and_python_range():
     assert SpecifierSet(lock["requires-python"]) == SpecifierSet(project["requires-python"])
     local_project = next(package for package in lock["package"] if package["name"] == project["name"])
     assert local_project["version"] == project["version"]
-    assert set(local_project["optional-dependencies"]) >= {profile.extra for profile in policy.profiles}
+    assert any(item["name"] == "fedot" for item in local_project["dependencies"])
 
 
 def test_install_matrix_and_python312_audit_are_distinct():
@@ -104,22 +104,22 @@ def test_install_matrix_and_python312_audit_are_distinct():
     assert jobs["python312-audit"]["needs"] == "build"
     install_commands = "\n".join(step.get("run", "") for step in jobs["install"]["steps"])
     assert "--frozen" in install_commands and "pip check" in install_commands
-    assert "--extra fedot-legacy" in install_commands
-    assert "python -I tools/runtime_smoke.py --profile legacy" in install_commands
+    assert "uv export --frozen --extra dev" in install_commands
+    assert "python -I tools/runtime_smoke.py --json" in install_commands
     assert "poetry" not in install_commands
-    tensor = jobs["tensor-integration"]
-    assert tensor["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
-    tensor_commands = "\n".join(step.get("run", "") for step in tensor["steps"])
-    assert "--extra fedot-tensor" in tensor_commands
-    assert "environment --profile tensor" in tensor_commands
-    assert "tests/unit/integration/fedot" in tensor_commands
+    integration = jobs["fedot-integration"]
+    assert integration["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
+    integration_commands = "\n".join(step.get("run", "") for step in integration["steps"])
+    assert "uv export --frozen --extra dev" in integration_commands
+    assert "environment --json" in integration_commands
+    assert "tests/unit/integration/fedot" in integration_commands
 
 
 def test_unit_and_integration_install_same_locked_profile():
     for name in ("poetry_unit_test.yml", "integration_tests.yml"):
         steps = workflow(name)["jobs"]["test"]["steps"]
         commands = "\n".join(step.get("run", "") for step in steps)
-        assert "uv export --frozen --extra fedot-legacy --extra dev" in commands
+        assert "uv export --frozen --extra dev" in commands
         assert "pip install --no-deps -e ." in commands
         assert "poetry " not in commands and "pip check" in commands
 

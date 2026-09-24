@@ -10,7 +10,7 @@ from importlib.util import find_spec
 import numpy as np
 import pytest
 
-pytest.importorskip('fedot.core.data.data')
+pytest.importorskip('fedot.core.data.input_data.data')
 
 
 def _series(length: int = 96) -> np.ndarray:

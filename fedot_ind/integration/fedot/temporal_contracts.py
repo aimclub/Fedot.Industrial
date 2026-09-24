@@ -49,6 +49,17 @@ class IntervalBoundary(str, Enum):
     HALF_OPEN = "half_open"
 
 
+def _normalize_profile(value: object) -> DataProfile:
+    try:
+        return value if isinstance(value, DataProfile) else DataProfile(value)
+    except (TypeError, ValueError) as error:
+        raise IntegrationContractError(
+            IntegrationErrorCode.UNKNOWN_PROFILE,
+            "Unsupported FEDOT integration profile.",
+            context={"profile": str(value)},
+        ) from error
+
+
 @dataclass(frozen=True)
 class ForecastingExecutionPlan:
     """Immutable forecasting model selection and horizon contract."""
@@ -59,11 +70,13 @@ class ForecastingExecutionPlan:
     parameters: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.profile is not DataProfile.TENSOR:
+        profile = _normalize_profile(self.profile)
+        object.__setattr__(self, "profile", profile)
+        if profile is not DataProfile.TENSOR:
             raise IntegrationContractError(
                 IntegrationErrorCode.UNKNOWN_PROFILE,
                 "Forecasting execution requires the TensorData profile.",
-                context={"profile": self.profile.value},
+                context={"profile": profile.value},
             )
         name = self.operation_name.strip()
         if not name:
@@ -104,11 +117,13 @@ class DetectionExecutionPlan:
     parameters: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.profile is not DataProfile.TENSOR:
+        profile = _normalize_profile(self.profile)
+        object.__setattr__(self, "profile", profile)
+        if profile is not DataProfile.TENSOR:
             raise IntegrationContractError(
                 IntegrationErrorCode.UNKNOWN_PROFILE,
                 "Detection execution requires the TensorData profile.",
-                context={"profile": self.profile.value},
+                context={"profile": profile.value},
             )
         name = self.operation_name.strip()
         if not name:

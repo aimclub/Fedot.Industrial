@@ -59,7 +59,7 @@ def test_supervised_runtime_rejects_legacy_and_unsupported_prediction_modes():
             task="classification",
             operation_name="pdl_clf",
         )
-    assert profile_error.value.code is IntegrationErrorCode.UNSUPPORTED_OPERATION
+    assert profile_error.value.code is IntegrationErrorCode.UNKNOWN_PROFILE
 
     with pytest.raises(IntegrationContractError) as operation_error:
         create_supervised_runtime(

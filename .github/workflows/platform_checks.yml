@@ -64,14 +64,14 @@ jobs:
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
       - name: Install locked dependencies and built wheel
         run: |
-          uv export --frozen --extra fedot-legacy --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
+          uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install --no-deps dist/*.whl
           python -m pip check
-          python -m tools.platform_support environment --profile legacy --json
+          python -m tools.platform_support environment --json
       - name: Probe installed runtime, not source checkout
-        run: python -I tools/runtime_smoke.py --profile legacy --json
-  tensor-integration:
+        run: python -I tools/runtime_smoke.py --json
+  fedot-integration:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -90,20 +90,20 @@ jobs:
         with:
           name: python-distributions
           path: dist
-      - name: Install tensor profile and built wheel
+      - name: Install current FEDOT and built wheel
         run: |
           python -m pip install "uv==0.8.17"
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
-          uv export --frozen --extra fedot-tensor --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
+          uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install --no-deps dist/*.whl
           python -m pip check
-          python -m tools.platform_support environment --profile tensor --json
-      - name: Verify the TensorData compatibility boundary
+          python -m tools.platform_support environment --json
+      - name: Verify the FEDOT integration boundary
         run: |
           python -m pytest tests/unit/integration/fedot -q
-          FEDOT_INTEGRATION_PROFILE=tensor python -m pytest tests/integration/fedot/test_regression_runtime.py -q
-          python -I tools/runtime_smoke.py --profile tensor --json
+          python -m pytest tests/integration/fedot/test_regression_runtime.py -q
+          python -I tools/runtime_smoke.py --json
   python312-audit:
     needs: build
     runs-on: ubuntu-latest

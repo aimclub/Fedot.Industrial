@@ -32,10 +32,6 @@ def policy(policy_raw):
 
 @pytest.fixture
 def metadata(policy):
-    profile_extras = {
-        profile.extra: [f"fedot @ {profile.requirement_url}"]
-        for profile in policy.profiles
-    }
     return {
         "project": {
             "name": "fixture-project", "version": "1.0.0",
@@ -47,9 +43,10 @@ def metadata(policy):
                     for item in policy.known_constraints
                     if Requirement(item.requirement).name != "numpy"
                 ],
+                f"fedot @ {policy.current.requirement_url}",
                 "sample[feature]>=1; python_version < '3.11'",
             ],
-            "optional-dependencies": {**profile_extras, "test": ["pytest>=7"]},
+            "optional-dependencies": {"test": ["pytest>=7"]},
         },
         "build-system": {"requires": ["setuptools"], "build-backend": "setuptools.build_meta"},
     }
@@ -84,14 +81,13 @@ def requirements_map(project, policy):
     return {profile.name: render_requirements(project, profile) for profile in policy.profiles}
 
 
-def test_valid_policy_is_typed_and_preserves_current_planned_distinction(policy):
-    assert policy.schema_version == 2
-    assert policy.default_profile == "legacy"
-    assert policy.current.sha == "42f3ba490407a1106e898e94232f2afd0a78f73f"
-    assert policy.planned.sha == "d1875e7a1ba49c94d13c51d97ec78829bf459ca8"
-    assert policy.planned.reference == "refactor/fedot_1.0.0"
-    assert policy.current.status.value == "supported" and policy.planned.status.value == "experimental"
-    assert {profile.extra for profile in policy.profiles} == {"fedot-legacy", "fedot-tensor"}
+def test_valid_policy_defines_one_supported_current_fedot(policy):
+    assert policy.schema_version == 3
+    assert policy.default_profile == "current"
+    assert policy.current.sha == "d1875e7a1ba49c94d13c51d97ec78829bf459ca8"
+    assert policy.current.reference == "FEDOT PR #1462 merged integration contract"
+    assert policy.current.status.value == "supported"
+    assert [profile.name for profile in policy.profiles] == ["current"]
     assert {item.requirement for item in policy.known_constraints} >= {
         "numpy<2", "dask-ml==2024.4.4", "giotto-tda==0.6.2", "scikit-learn==1.3.2",
     }
@@ -100,8 +96,8 @@ def test_valid_policy_is_typed_and_preserves_current_planned_distinction(policy)
 def test_policy_accumulates_independent_field_issues(policy_raw):
     policy_raw["surprise"] = 1
     policy_raw["schema_version"] = True
-    policy_raw["profiles"]["legacy"]["sha"] = "branch"
-    policy_raw["profiles"]["tensor"]["status"] = "current"
+    policy_raw["profiles"]["current"]["sha"] = "branch"
+    policy_raw["profiles"]["current"]["status"] = "current"
     policy_raw["python"][0]["reason"] = None
     policy_raw["python"][1]["status"] = []
     policy_raw["known_constraints"][0]["requirement"] = "bad requirement !!!"
@@ -118,8 +114,8 @@ def test_bad_policy_shape_returns_issues_not_exceptions(raw):
 
 @pytest.mark.parametrize("sha", ["main", "a" * 39, "a" * 41, "G" * 40, "A" * 40, 1, None])
 def test_sha_validation(policy_raw, sha):
-    policy_raw["profiles"]["legacy"]["sha"] = sha
-    assert any(issue.field == "compatibility.profiles.legacy.sha" for issue in parse_compatibility(policy_raw).issues)
+    policy_raw["profiles"]["current"]["sha"] = sha
+    assert any(issue.field == "compatibility.profiles.current.sha" for issue in parse_compatibility(policy_raw).issues)
 
 
 @pytest.mark.parametrize("repository",
@@ -128,7 +124,7 @@ def test_sha_validation(policy_raw, sha):
                           "https://host/repo.git#main",
                           "https://["])
 def test_repository_validation(policy_raw, repository):
-    policy_raw["profiles"]["legacy"]["repository"] = repository
+    policy_raw["profiles"]["current"]["repository"] = repository
     assert any(issue.code == "repository" for issue in parse_compatibility(policy_raw).issues)
 
 
@@ -149,7 +145,7 @@ def test_policy_requires_bounded_coherent_range(policy_raw, specifier):
 def test_unknown_nested_schema_fields_rejected(policy_raw):
     policy_raw["python"][0]["unknown"] = True
     policy_raw["known_constraints"][0]["unknown"] = True
-    policy_raw["profiles"]["legacy"]["unknown"] = True
+    policy_raw["profiles"]["current"]["unknown"] = True
     result = parse_compatibility(policy_raw)
     assert len([issue for issue in result.issues if issue.code == "unknown"]) == 3
 
@@ -184,20 +180,16 @@ def test_distinct_markers_and_extras_are_not_guessed_or_collapsed():
     assert parse_requirements(requirements, "deps").value == tuple(requirements)
 
 
-@pytest.mark.parametrize("profile_name", ["legacy", "tensor"])
-def test_generated_export_roundtrip_and_order(project, metadata, policy, profile_name):
-    profile = policy.profile(profile_name)
+def test_generated_export_roundtrip_and_order(project, metadata, policy):
+    profile = policy.current
     text = render_requirements(project, profile)
-    assert text.startswith(EXPORT_HEADER.format(profile=profile_name) + "\n")
+    assert text.startswith(EXPORT_HEADER.format(profile="current") + "\n")
     assert text.endswith("\n")
-    assert text.splitlines()[1:] == [
-        *metadata["project"]["dependencies"],
-        *metadata["project"]["optional-dependencies"][profile.extra],
-    ]
+    assert text.splitlines()[1:] == metadata["project"]["dependencies"]
     parsed = parse_requirements(text.splitlines()[1:], "requirements")
     assert parsed.ok
     assert [str(Requirement(value)) for value in parsed.value] == [
-        str(Requirement(value)) for value in project.dependencies + project.extra(profile.extra)]
+        str(Requirement(value)) for value in project.dependencies]
 
 
 def test_valid_project_check(project, policy):
@@ -222,17 +214,24 @@ def test_required_profile_bounds_cannot_disappear(project, policy, replacement):
     "42f3ba490407a1106e898e94232f2afd0a78f73f ; python_version < '3.11'",
 ])
 def test_project_rejects_noncurrent_or_conditional_fedot(project, policy, dependency):
-    changed = replace(project, optional_dependencies=tuple(
-        (name, (dependency,)) if name == policy.current.extra else (name, values)
-        for name, values in project.optional_dependencies
-    ))
+    changed = replace(
+        project,
+        dependencies=tuple(
+            dependency if Requirement(value).name == "fedot" else value
+            for value in project.dependencies
+        ),
+    )
     assert any(issue.code == "sha" for issue in verify_project(
         changed, policy, requirements_map(changed, policy)))
 
 
-def test_project_rejects_fedot_in_base_dependencies(project, policy):
-    changed = replace(project, dependencies=project.dependencies + (
-        f"fedot @ {policy.current.requirement_url}",))
+def test_project_rejects_fedot_in_optional_dependencies(project, policy):
+    changed = replace(
+        project,
+        optional_dependencies=project.optional_dependencies + (
+            ("alternate", (f"fedot @ {policy.current.requirement_url}",)),
+        ),
+    )
     assert any(issue.code == "profile" for issue in verify_project(
         changed, policy, requirements_map(changed, policy)))
 
@@ -283,8 +282,8 @@ def test_environment_metadata_only_success_with_marker_skipped(project, policy):
     rows = {row["name"]: row for row in result["dependencies"]}
     assert rows["fedot"]["source"] == "verified"
     assert rows["sample"]["status"] == "marker-skipped"
-    assert result["profile"] == "legacy"
-    assert result["optional_extras"] == ["fedot-legacy", "fedot-tensor", "test"]
+    assert result["profile"] == "current"
+    assert result["optional_extras"] == ["test"]
 
 
 def test_environment_missing_incompatible_and_unverified_accumulate(project, policy):
@@ -362,7 +361,7 @@ def test_cli_json_success_and_failure(fixture_root, capsys):
 def test_cli_check_accumulates_missing_files(tmp_path, capsys):
     assert main(["check", "--root", str(tmp_path), "--json"]) == 1
     result = json.loads(capsys.readouterr().out)
-    assert len(result["issues"]) == 3
+    assert len(result["issues"]) == 2
     assert all(issue["code"] == "read" for issue in result["issues"])
 
 
@@ -390,20 +389,16 @@ def test_environment_invalid_python_is_structured(project, policy):
 
 def test_export_idempotence_and_check_never_writes(fixture_root, capsys):
     path = fixture_root / "requirements.txt"
-    tensor_path = fixture_root / "requirements-tensor.txt"
     original = path.read_bytes()
-    tensor_original = tensor_path.read_bytes()
     original_stat = path.stat().st_mtime_ns
     assert main(["export", "--root", str(fixture_root), "--check"]) == 0
     assert path.read_bytes() == original and path.stat().st_mtime_ns == original_stat
-    assert tensor_path.read_bytes() == tensor_original
     path.write_bytes(b"stale\n")
     stale_stat = path.stat().st_mtime_ns
     assert main(["export", "--root", str(fixture_root), "--check"]) == 1
     assert path.read_bytes() == b"stale\n" and path.stat().st_mtime_ns == stale_stat
     assert main(["export", "--root", str(fixture_root)]) == 0
     assert path.read_bytes() == original
-    assert tensor_path.read_bytes() == tensor_original
     assert main(["export", "--root", str(fixture_root)]) == 0
     assert path.read_bytes() == original
     path.unlink()
@@ -446,7 +441,7 @@ def test_module_cli_exit_and_json(fixture_root):
 
 def test_environment_rejects_changed_fedot_policy_before_inspecting_packages(fixture_root, capsys):
     path = fixture_root / "pyproject.toml"
-    path.write_text(path.read_text().replace("42f3ba490407a1106e898e94232f2afd0a78f73f", "a" * 40))
+    path.write_text(path.read_text().replace("d1875e7a1ba49c94d13c51d97ec78829bf459ca8", "a" * 40))
     assert main(["environment", "--root", str(fixture_root), "--json"]) == 1
     result = json.loads(capsys.readouterr().out)
     assert any(issue["code"] == "sha" for issue in result["issues"])

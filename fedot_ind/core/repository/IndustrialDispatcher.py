@@ -16,10 +16,7 @@ from golem.core.optimisers.timer import Timer
 from golem.utilities.memory import MemoryAnalytics
 from golem.utilities.utilities import determine_n_jobs
 from joblib import wrap_non_picklable_objects
-from pymonad.either import Either
-from pymonad.maybe import Maybe
-
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
 
 class IndustrialDispatcher(MultiprocessingDispatcher):
@@ -43,17 +40,22 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return evaluation_results
 
     def _eval_at_least_one(self, individuals):
-        successful_evals = None
+        successful_evals = []
         for single_ind in individuals:
             try:
-                evaluation_result = self.industrial_evaluate_single(
-                    self, graph=single_ind.graph, uid_of_individual=single_ind.uid, with_time_limit=False)
+                delayed_result = self.industrial_evaluate_single(
+                    self,
+                    graph=single_ind.graph,
+                    uid_of_individual=single_ind.uid,
+                    with_time_limit=False,
+                )
+                evaluation_result = dask.compute(delayed_result)[0]
                 successful_evals = self.apply_evaluation_results(
                     [single_ind], [evaluation_result])
                 if successful_evals:
                     break
             except Exception:
-                successful_evals = None
+                successful_evals = []
         return successful_evals
 
     def evaluate_population(self, individuals: PopulationT) -> PopulationT:
@@ -63,29 +65,43 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         # Evaluate individuals without valid fitness in parallel.
         self.n_jobs = determine_n_jobs(self._n_jobs, self.logger)
 
-        individuals_evaluated = Maybe(individuals,
-                                      monoid=[individuals, True]).then(
-            lambda generation: self._multithread_eval(generation)). \
-            then(lambda eval_res: self.apply_evaluation_results(individuals_to_evaluate, eval_res)).value
+        evaluation_results = (
+            self._multithread_eval(individuals_to_evaluate)
+            if individuals_to_evaluate
+            else []
+        )
+        individuals_evaluated = self.apply_evaluation_results(
+            individuals_to_evaluate,
+            evaluation_results,
+        )
 
         successful_evals = individuals_evaluated + individuals_to_skip
         self.population_evaluation_info(evaluated_pop_size=len(successful_evals), pop_size=len(individuals))
-        successful_evals = Either(successful_evals,
-                                  monoid=[individuals_evaluated, not successful_evals]).either(
-            left_function=lambda x: x,
-            right_function=lambda y: self._eval_at_least_one(y))
+        if not successful_evals:
+            self._log_evaluation_failures(evaluation_results)
+            successful_evals = self._eval_at_least_one(individuals)
 
         MemoryAnalytics.log(self.logger, additional_info='parallel evaluation of population',
                             logging_level=logging.INFO)
         return successful_evals
 
+    def _log_evaluation_failures(self, evaluation_results) -> None:
+        failures = [
+            result.metadata.get('evaluation_error')
+            for result in evaluation_results
+            if result is not None and result.metadata.get('evaluation_error')
+        ]
+        for message in tuple(dict.fromkeys(failures))[:3]:
+            self.logger.warning('Industrial graph evaluation failed: %s', message)
+
     @dask.delayed
     def eval_ind(self, graph, uid_of_individual):
-        adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
         start_time = timeit.default_timer()
         evaluation_error = None
         try:
-            fitness, graph = adapted_evaluate(graph)
+            with industrial_extension_scope():
+                adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
+                fitness, graph = adapted_evaluate(graph)
         except Exception as ex:
             self.logger.info(f'Graph evaluation failed. Assigning null fitness. Exception - {ex}')
             fitness = null_fitness()
@@ -112,9 +128,6 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                                    cache_key: Optional[str] = None,
                                    logs_initializer: Optional[Tuple[int,
                                                                     pathlib.Path]] = None) -> GraphEvalResult:
-        if self._n_jobs != 1:
-            IndustrialModels().setup_repository()
-
         graph = self.evaluation_cache.get(cache_key, graph)
         #
         # if with_time_limit and self.timer.is_time_limit_reached():

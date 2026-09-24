@@ -42,19 +42,13 @@ def test_fit_orchestrates_processing_repository_solver_and_fit_in_order():
     ]
 
 
-def test_predict_orchestrates_repository_processing_and_prediction():
+def test_predict_orchestrates_processing_and_prediction_without_repository_setup():
     industrial = FedotIndustrial.__new__(FedotIndustrial)
     calls = []
     industrial.manager = SimpleNamespace(
         compute_config=SimpleNamespace(backend="cpu"),
     )
 
-    class FakeRepositoryInitializer:
-        def setup_repository(self, backend):
-            calls.append(("repository", backend))
-            return "repo"
-
-    industrial.repository_initializer = FakeRepositoryInitializer()
     industrial._process_input_data = (
         lambda data, *, fit_stage: calls.append(("process", data, fit_stage)) or "processed"
     )
@@ -65,11 +59,9 @@ def test_predict_orchestrates_repository_processing_and_prediction():
     result = industrial.predict("raw", predict_mode="labels")
 
     assert result == "labels"
-    assert industrial.repo == "repo"
     assert industrial.manager.predict_data == "processed"
     assert industrial.manager.predicted_labels == "labels"
     assert calls == [
-        ("repository", "cpu"),
         ("process", "raw", False),
         ("predict", "processed", "labels"),
     ]
@@ -83,12 +75,6 @@ def test_predict_proba_for_regression_uses_label_mode():
         industrial_config=SimpleNamespace(is_regression_task_context=True),
     )
 
-    class FakeRepositoryInitializer:
-        def setup_repository(self, backend):
-            calls.append(("repository", backend))
-            return "repo"
-
-    industrial.repository_initializer = FakeRepositoryInitializer()
     industrial._process_input_data = (
         lambda data, *, fit_stage: calls.append(("process", data, fit_stage)) or "processed"
     )
@@ -101,7 +87,6 @@ def test_predict_proba_for_regression_uses_label_mode():
     assert result == "predicted"
     assert industrial.manager.predicted_probs == "predicted"
     assert calls == [
-        ("repository", "cpu"),
         ("process", "raw", False),
         ("predict", "processed", "labels"),
     ]

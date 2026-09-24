@@ -5,7 +5,7 @@ from copy import deepcopy
 from typing import Optional
 
 import numpy as np
-from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.input_data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
@@ -16,6 +16,7 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.core.repository.industrial_implementations.data_transformation import prepare_lagged_table_data
 from fedot_ind.core.tuning.search_space import build_industrial_pipeline_search_space
+from fedot_ind.integration.fedot.compatibility import ensure_fedot_tensor_data
 
 
 def resolve_lagged_window_size(time_series_length: int, window_size_percent: float) -> int:
@@ -47,6 +48,7 @@ class LaggedAR:
             'tuning_iterations': 10,
         }
         self.tuned_model = None
+        self._fedot_train_data = None
         self.resolved_window_size_ = None
         self.resolved_hankel_stride_ = None
         self.ts_patch_len = None
@@ -85,54 +87,51 @@ class LaggedAR:
         tuning_data.task.task_type = TaskTypesEnum.regression
         return tuning_data
 
-    def _is_industrial_repository_active(self) -> bool:
-        return False
-
     @contextmanager
     def _industrial_repository_scope(self):
-        from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+        from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
-        if self._is_industrial_repository_active():
+        with industrial_extension_scope():
             yield
-            return
-
-        initializer = IndustrialModels()
-        initializer.setup_repository()
-        try:
-            yield
-        finally:
-            initializer.setup_default_repository()
 
     def build_tuner(self, model_to_tune, tuning_params, train_data):
         search_space = build_industrial_pipeline_search_space(self)
+        tuning_data = ensure_fedot_tensor_data(
+            self._define_tuning_data(train_data),
+            fit_stage=True,
+        )
+        tensor_train_data = ensure_fedot_tensor_data(train_data, fit_stage=True)
+        self._fedot_train_data = tensor_train_data
         pipeline_tuner = (
-            TunerBuilder(train_data.task)
+            TunerBuilder(tensor_train_data.task)
             .with_search_space(search_space)
             .with_tuner(tuning_params['tuner'])
             .with_cv_folds(tuning_params.get('cv_folds', None))
             .with_n_jobs(tuning_params.get('n_jobs', 1))
             .with_metric(tuning_params['metric'])
             .with_iterations(tuning_params.get('tuning_iterations', 50))
-            .build(self._define_tuning_data(train_data))
+            .build(tuning_data)
         )
         model_to_tune = pipeline_tuner.tune(model_to_tune)
-        model_to_tune.fit(train_data)
+        model_to_tune.fit(tensor_train_data)
         return model_to_tune
 
     def _build_forecasting_tuner(self, model_to_tune, tuning_params, train_data):
         search_space = build_industrial_pipeline_search_space(self)
+        tensor_train_data = ensure_fedot_tensor_data(train_data, fit_stage=True)
+        self._fedot_train_data = tensor_train_data
         pipeline_tuner = (
-            TunerBuilder(train_data.task)
+            TunerBuilder(tensor_train_data.task)
             .with_search_space(search_space)
             .with_tuner(tuning_params['tuner'])
             .with_cv_folds(tuning_params.get('cv_folds', None))
             .with_n_jobs(tuning_params.get('n_jobs', 1))
             .with_metric(tuning_params['metric'])
             .with_iterations(tuning_params.get('tuning_iterations', 50))
-            .build(train_data)
+            .build(tensor_train_data)
         )
         model_to_tune = pipeline_tuner.tune(model_to_tune)
-        model_to_tune.fit(train_data)
+        model_to_tune.fit(tensor_train_data)
         return model_to_tune
 
     def _fit_hankel_pipeline(self, input_data: InputData):
@@ -154,7 +153,12 @@ class LaggedAR:
     def predict(self, input_data: InputData) -> OutputData:
         if self.tuned_model is None:
             raise ValueError('LaggedAR is not fitted.')
-        return self.tuned_model.predict(input_data)
+        tensor_data = ensure_fedot_tensor_data(
+            input_data,
+            fit_stage=False,
+            reference_data=self._fedot_train_data,
+        )
+        return self.tuned_model.predict(tensor_data)
 
     def predict_for_fit(self, input_data: InputData):
         return self.predict(input_data)

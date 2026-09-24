@@ -71,6 +71,17 @@ def test_catalog_rejects_unknown_fields():
     assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
 
 
+def test_catalog_rejects_unknown_runtime_interface():
+    payload = _payload()
+    payload["operations"][0]["runtime_interface"] = "dataframe"
+
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        parse_industrial_extension_catalog(payload)
+
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
+    assert error.value.context["runtime_interface"] == "dataframe"
+
+
 def test_catalog_rejects_unknown_root_fields_and_duplicate_values():
     unknown = _payload()
     unknown["implicit_defaults"] = {}
@@ -97,3 +108,13 @@ def test_packaged_runtime_targets_exist_without_importing_them():
         declarations = {node.name for node in ast.walk(tree)
                         if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))}
         assert attribute_name in declarations, operation.factory
+
+
+def test_basis_transforms_accept_legacy_table_series_as_tabular_data():
+    operations = {
+        operation.name: operation
+        for operation in load_industrial_extension_catalog().operations
+    }
+
+    for operation_name in ("eigen_basis", "wavelet_basis", "fourier_basis"):
+        assert "tabular" in operations[operation_name].data_types

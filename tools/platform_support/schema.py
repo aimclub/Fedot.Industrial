@@ -48,7 +48,6 @@ class FedotProfile:
     reference: str
     sha: str
     status: ProfileStatus
-    extra: str
     requirements_file: str
 
     @property
@@ -89,13 +88,6 @@ class Compatibility:
             raise ValueError(f"Unknown default FEDOT profile: {self.default_profile!r}.")
         return profile
 
-    @property
-    def planned(self) -> FedotProfile:
-        profile = self.profile("tensor")
-        if profile is None:
-            raise ValueError("The tensor FEDOT profile is not declared.")
-        return profile
-
 
 def _object(raw: object, fields: set[str], path: str, issues: list[Issue]) -> dict:
     if not isinstance(raw, dict):
@@ -119,13 +111,13 @@ def _string(raw: dict, key: str, path: str, issues: list[Issue]) -> str:
 def _profile(name: str, raw: object, path: str, issues: list[Issue]) -> FedotProfile:
     obj = _object(
         raw,
-        {"repository", "reference", "sha", "status", "extra", "requirements_file"},
+        {"repository", "reference", "sha", "status", "requirements_file"},
         path,
         issues,
     )
     values = {
         key: _string(obj, key, path, issues)
-        for key in ("repository", "reference", "sha", "status", "extra", "requirements_file")
+        for key in ("repository", "reference", "sha", "status", "requirements_file")
     }
     repository = values["repository"]
     try:
@@ -147,8 +139,6 @@ def _profile(name: str, raw: object, path: str, issues: list[Issue]) -> FedotPro
         status = ProfileStatus.EXPERIMENTAL
     else:
         status = ProfileStatus(values["status"])
-    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", values["extra"]):
-        issues.append(Issue(f"{path}.extra", "extra", "Expected a normalized optional-dependency name."))
     requirements_file = values["requirements_file"]
     if not re.fullmatch(r"requirements(?:-[a-z0-9]+)*\.txt", requirements_file):
         issues.append(Issue(f"{path}.requirements_file", "path", "Expected a repository-root requirements file name."))
@@ -158,7 +148,6 @@ def _profile(name: str, raw: object, path: str, issues: list[Issue]) -> FedotPro
         reference=values["reference"],
         sha=values["sha"],
         status=status,
-        extra=values["extra"],
         requirements_file=requirements_file,
     )
 
@@ -167,8 +156,8 @@ def parse_compatibility(raw: object) -> ParseResult[Compatibility]:
     issues: list[Issue] = []
     obj = _object(raw, {"schema_version", "requires_python", "source", "default_profile",
                   "profiles", "python", "known_constraints"}, "compatibility", issues)
-    if type(obj.get("schema_version")) is not int or obj.get("schema_version") != 2:
-        issues.append(Issue("compatibility.schema_version", "version", "Only schema version 2 is supported."))
+    if type(obj.get("schema_version")) is not int or obj.get("schema_version") != 3:
+        issues.append(Issue("compatibility.schema_version", "version", "Only schema version 3 is supported."))
     source = _string(obj, "source", "compatibility", issues)
     requires = _string(obj, "requires_python", "compatibility", issues)
     default_profile = _string(obj, "default_profile", "compatibility", issues)
@@ -180,14 +169,14 @@ def parse_compatibility(raw: object) -> ParseResult[Compatibility]:
     profiles: list[FedotProfile] = []
     raw_profiles = obj.get("profiles")
     if not isinstance(raw_profiles, dict):
-        issues.append(Issue("compatibility.profiles", "type", "Expected an object with legacy and tensor profiles."))
+        issues.append(Issue("compatibility.profiles", "type", "Expected an object with the current FEDOT profile."))
     else:
-        expected_profiles = {"legacy", "tensor"}
+        expected_profiles = {"current"}
         for name in sorted(expected_profiles - raw_profiles.keys()):
             issues.append(Issue(f"compatibility.profiles.{name}", "missing", "Required profile is missing."))
         for name in sorted(raw_profiles.keys() - expected_profiles, key=str):
             issues.append(Issue(f"compatibility.profiles.{name}", "unknown", "Unknown FEDOT profile."))
-        for name in ("legacy", "tensor"):
+        for name in ("current",):
             if name in raw_profiles:
                 profiles.append(_profile(name, raw_profiles[name], f"compatibility.profiles.{name}", issues))
     profile_names = {profile.name for profile in profiles}
@@ -198,8 +187,6 @@ def parse_compatibility(raw: object) -> ParseResult[Compatibility]:
             "Default profile must name a declared profile."))
     elif next(profile for profile in profiles if profile.name == default_profile).status is not ProfileStatus.SUPPORTED:
         issues.append(Issue("compatibility.default_profile", "profile", "Default profile must be supported."))
-    if len({profile.extra for profile in profiles}) != len(profiles):
-        issues.append(Issue("compatibility.profiles", "duplicate", "Profile extras must be unique."))
     if len({profile.requirements_file for profile in profiles}) != len(profiles):
         issues.append(Issue("compatibility.profiles", "duplicate", "Profile requirements files must be unique."))
     rows: list[PythonRow] = []
@@ -271,6 +258,6 @@ def parse_compatibility(raw: object) -> ParseResult[Compatibility]:
     if issues:
         return ParseResult(None, tuple(issues))
     return ParseResult(
-        Compatibility(2, requires, source, default_profile, tuple(profiles), tuple(rows), tuple(constraints)),
+        Compatibility(3, requires, source, default_profile, tuple(profiles), tuple(rows), tuple(constraints)),
         (),
     )

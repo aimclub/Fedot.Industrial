@@ -1,28 +1,21 @@
-# Platform Support
+# Platform support checks
 
-Developer-only metadata verification, not part of the library runtime. Run from
-the checkout with Python 3.10 or 3.11, `packaging`, and `tomli` (Python 3.10 only).
+These developer tools validate the single supported FEDOT integration contract.
+Run them from the repository checkout with Python 3.10 or 3.11:
 
-```
+```text
 python -m tools.platform_support check --json
 python -m tools.platform_support export --check
-python -m tools.platform_support export --profile legacy
-python -m tools.platform_support export --profile tensor
-python -m tools.platform_support environment --profile legacy --json
-python -m tools.platform_support environment --profile tensor --json
+python -m tools.platform_support export
+python -m tools.platform_support environment --json
 ```
 
-`--root PATH` selects a fixture or checkout; the default is the checkout containing
-this package. Compatibility policy always comes from the package-local versioned
-`compatibility.json`. Requirements are exported in the exact declared order and
-spelling, including markers. `export --check` never writes.
+`compatibility.json` is the versioned policy. It declares one `current` FEDOT
+profile pinned to a full commit SHA, the Python support matrix, and known
+dependency constraints. FEDOT must appear once as an unconditional base
+dependency and must not be repeated in an optional dependency group.
 
-Environment inspection reads distribution metadata only. Optional extras are
-listed but not inferred. Select exactly one FEDOT profile for each environment:
-``legacy`` uses the established InputData API, while ``tensor`` verifies the
-TensorData integration target. The corresponding extras are mutually exclusive.
-Missing packages, incompatible versions, unsupported Python, and unverified
-direct sources produce a nonzero exit. FEDOT source verification requires PEP
-610 repository and commit metadata, not a version match. Python 3.12 is
-audit-only. Known constraints document each profile; dependency resolution is
-checked separately.
+`requirements.txt` is generated from the base dependencies in their declared
+order. `export --check` is read-only. Environment inspection uses distribution
+metadata and PEP 610 source information; an installed version number alone does
+not prove the expected FEDOT revision. Python 3.12 remains audit-only.

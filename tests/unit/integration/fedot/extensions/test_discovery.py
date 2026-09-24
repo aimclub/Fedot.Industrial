@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pytest
 
 try:
@@ -8,14 +6,12 @@ except ModuleNotFoundError:
     pytest.skip("The active FEDOT profile has no extension contract.", allow_module_level=True)
 
 
-def test_tabular_data_type_supports_legacy_and_tensor_names(monkeypatch):
-    legacy_table = object()
-    monkeypatch.setattr(discovery, "DataTypesEnum", SimpleNamespace(table=legacy_table))
-    assert discovery._tabular_data_type() is legacy_table
+def test_tabular_problem_is_a_filtered_view_of_task_catalog():
+    classification = set(discovery.catalog_operation_names("classification"))
+    tabular = set(discovery.catalog_operation_names("classification_tabular"))
 
-    tensor_table = object()
-    monkeypatch.setattr(discovery, "DataTypesEnum", SimpleNamespace(tabular=tensor_table))
-    assert discovery._tabular_data_type() is tensor_table
+    assert tabular
+    assert tabular.issubset(classification)
 
 
 @pytest.mark.parametrize(
@@ -29,3 +25,25 @@ def test_tabular_data_type_supports_legacy_and_tensor_names(monkeypatch):
 )
 def test_catalog_discovery_preserves_operation_exclusions(problem, excluded):
     assert excluded.isdisjoint(discovery.catalog_operation_names(problem))
+
+
+@pytest.mark.parametrize(
+    "problem",
+    ["classification", "regression", "ts_forecasting", "anomaly_detection"],
+)
+def test_automatic_discovery_excludes_operations_that_need_explicit_task_type(problem):
+    explicit_task_operations = {
+        "inception_model",
+        "resnet_model",
+        "xcm_model",
+        "lora_model",
+        "sst",
+        "stat_detector",
+        "arima_detector",
+        "iforest_detector",
+        "conv_ae_detector",
+        "lstm_ae_detector",
+        "channel_filtration",
+    }
+
+    assert explicit_task_operations.isdisjoint(discovery.catalog_operation_names(problem))

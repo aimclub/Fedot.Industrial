@@ -4,8 +4,8 @@ from typing import Optional, Union
 
 import torch
 import torch.nn.functional as F
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.data.input_data.data import InputData, OutputData
+from fedot.core.data.split.data_split import train_test_data_setup
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import Tensor
@@ -29,10 +29,10 @@ class BaseNeuralModel:
         To use this operation you can create pipeline as follows::
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from fedot_ind.tools.loader import DataLoader
-            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+            from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
-            with IndustrialModels():
+            with industrial_extension_scope():
                 pipeline = PipelineBuilder().add_node('resnet_model').add_node('rf').build()
                 pipeline.fit(input_data)
                 features = pipeline.predict(input_data)

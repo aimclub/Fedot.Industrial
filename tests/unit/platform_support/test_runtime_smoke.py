@@ -77,10 +77,9 @@ def test_installed_version_must_match_metadata(monkeypatch, tmp_path):
     assert runtime_smoke.installed_package() == str(tmp_path / "__init__.py")
 
 
-@pytest.mark.parametrize("profile,expected_count", [("legacy", 8), ("tensor", 5)])
 @pytest.mark.parametrize("failure", [False, True])
 def test_runtime_cli_keeps_json_separate_from_progress(
-        monkeypatch, capsys, failure, profile, expected_count):
+        monkeypatch, capsys, failure):
     import json
 
     names = (
@@ -88,23 +87,21 @@ def test_runtime_cli_keeps_json_separate_from_progress(
         "stdlib_typing",
         "repository_resources",
         "cpu_tensor",
-        "legacy_runtime_imports",
+        "current_runtime_imports",
         "tensor_runtime_imports",
         "regression_runtime",
         "dataset_import",
         "optional_research_absence")
     for name in names:
         monkeypatch.setattr(runtime_smoke, name, lambda: "verified")
-    monkeypatch.setattr(runtime_smoke, "regression_runtime", lambda selected: f"verified:{selected}")
     if failure:
         def bad_import():
             raise ImportError("runtime unavailable")
-        failed_probe = "legacy_runtime_imports" if profile == "legacy" else "tensor_runtime_imports"
-        monkeypatch.setattr(runtime_smoke, failed_probe, bad_import)
-    assert runtime_smoke.main(["--profile", profile, "--json"]) == int(failure)
+        monkeypatch.setattr(runtime_smoke, "current_runtime_imports", bad_import)
+    assert runtime_smoke.main(["--json"]) == int(failure)
     output = capsys.readouterr()
     result = json.loads(output.out)
-    assert result["ok"] is not failure and len(result["probes"]) == expected_count
-    assert result["profile"] == profile
-    assert output.err.count("Checking ") == expected_count
+    assert result["ok"] is not failure and len(result["probes"]) == 9
+    assert result["profile"] == "current"
+    assert output.err.count("Checking ") == 9
     assert sum(not probe["ok"] for probe in result["probes"]) == int(failure)

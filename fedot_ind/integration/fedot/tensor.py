@@ -1,4 +1,4 @@
-"""TensorData FEDOT adapter; imported only in the ``fedot-tensor`` profile."""
+"""TensorData adapter for the current FEDOT integration contract."""
 
 from dataclasses import dataclass
 from types import MappingProxyType

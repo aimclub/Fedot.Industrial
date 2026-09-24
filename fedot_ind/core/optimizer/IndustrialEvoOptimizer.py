@@ -21,6 +21,14 @@ from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
 from fedot_ind.core.repository.constanst_repository import FEDOT_MUTATION_STRATEGY
 
 
+class IndustrialPopulationError(RuntimeError):
+    """Raised when no valid individual can seed Industrial optimisation."""
+
+    def __init__(self, message: str, *, timed_out: bool = False):
+        super().__init__(message)
+        self.timed_out = timed_out
+
+
 class IndustrialEvoOptimizer(EvoGraphOptimizer):
     def __init__(self,
                  objective: Objective,
@@ -28,8 +36,14 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  requirements: GraphRequirements,
                  graph_generation_params: GraphGenerationParams,
                  graph_optimizer_params: GPAlgorithmParameters,
-                 optimisation_params: dict = {'mutation_agent': 'random',
-                                              'mutation_strategy': 'params_mutation_strategy'}):
+                 optimisation_params: Optional[Dict[str, Any]] = None):
+        optimisation_params = dict(optimisation_params or {
+            'mutation_agent': 'random',
+            'mutation_strategy': 'params_mutation_strategy',
+        })
+        self.initial_graphs_prevalidated = bool(
+            optimisation_params.get('initial_graphs_prevalidated', False)
+        )
         graph_optimizer_params = self._init_industrial_optimizer_params(graph_optimizer_params, optimisation_params)
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
@@ -94,6 +108,17 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self.mutation.agent._probs = self.optimisation_mutation_probs
             label = 'extended_initial_assumptions'
         init_population = evaluator(initial_individuals)
+        if not init_population:
+            self.log.warning(
+                'Initial population was not evaluated within the shared time limit; '
+                'retrying once without the timer guard.'
+            )
+            init_population = self.eval_dispatcher.evaluate_population(initial_individuals)
+        if not init_population:
+            raise IndustrialPopulationError(
+                'Industrial optimisation cannot start because every initial graph failed evaluation.',
+                timed_out=self.timer.is_time_limit_reached(),
+            )
         self._update_population(next_population=init_population, evaluator=evaluator, label=label)
         return init_population, evaluator
 
@@ -202,17 +227,28 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         return evaluated_population
 
     def optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
-        with self.timer, self._progressbar as pbar:
-            population_to_eval, evaluator = Either.insert(objective). \
-                then(lambda objective: self.eval_dispatcher.dispatch(objective, self.timer)). \
-                then(lambda evaluator: self._initial_population(evaluator)).value
-            self.evaluated_population.append(population_to_eval)
-            while not self.stop_optimization():
-                population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
-                                                         evaluator=evaluator)
+        with self.timer:
+            pbar = self._progressbar
+            try:
+                evaluator = self.eval_dispatcher.dispatch(objective, self.timer)
+                try:
+                    population_to_eval, evaluator = self._initial_population(evaluator)
+                except IndustrialPopulationError as error:
+                    if error.timed_out and self.initial_graphs_prevalidated and self.initial_graphs:
+                        self.log.warning(
+                            'Industrial composition exhausted its time budget after FEDOT had '
+                            'prevalidated the initial assumption; returning that assumption.'
+                        )
+                        return list(self.initial_graphs[:1])
+                    raise
                 self.evaluated_population.append(population_to_eval)
-                pbar.update()
-            pbar.close()
+                while not self.stop_optimization():
+                    population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
+                                                             evaluator=evaluator)
+                    self.evaluated_population.append(population_to_eval)
+                    pbar.update()
+            finally:
+                pbar.close()
         self._update_population(self.best_individuals, None, 'final_choices')
         best_models = [ind.graph for ind in self.best_individuals]
         return best_models

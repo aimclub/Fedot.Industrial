@@ -102,7 +102,7 @@ class FedotIndustrial(Fedot):
             logger=self.logger,
             input_data=input_data,
         )
-        self.repo = result.repo
+        self.extension_registration = result.extension
         return result.input_data
 
     def __init_solver(self, input_data: Optional[Union[InputData, np.array]] = None):
@@ -122,6 +122,9 @@ class FedotIndustrial(Fedot):
         return input_data
 
     def _process_input_data(self, input_data, *, fit_stage: bool = True):
+        self.repository_initializer.ensure_active(
+            industrial_context=not self.manager.industrial_config.is_default_fedot_context,
+        )
         bundle = self.input_processor.process(
             input_data,
             task=self.manager.automl_config.config['task'],
@@ -220,7 +223,6 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
         processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predict_data = processed_input
         self.manager.predicted_labels = self.__abstract_predict(processed_input, predict_mode)
@@ -244,7 +246,6 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
         predict_mode = predict_mode if not self.manager.industrial_config.is_regression_task_context else 'labels'
         processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predicted_probs = self.__abstract_predict(processed_input, predict_mode)
@@ -278,6 +279,7 @@ class FedotIndustrial(Fedot):
                 process_input=self._process_input_data,
                 init_backend=self.__init_industrial_backend,
             )
+            self.manager.fedot_train_data = payload.train_data
             model_to_tune = self.finetune_service.run(
                 api=self,
                 payload=payload,
@@ -381,7 +383,9 @@ class FedotIndustrial(Fedot):
             path (str): path to the model
 
         """
-        self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
+        self.repository_initializer.ensure_active(
+            industrial_context=not self.manager.industrial_config.is_default_fedot_context,
+        )
         dir_list = os.listdir(path)
         if not path.__contains__('pipeline_saved'):
             saved_pipe = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
@@ -452,6 +456,7 @@ class FedotIndustrial(Fedot):
 
     def shutdown(self):
         """Shutdown Dask client"""
+        self.repository_initializer.close()
         if self.manager.dask_client is not None:
             self.manager.dask_client.close()
             del self.manager.dask_client

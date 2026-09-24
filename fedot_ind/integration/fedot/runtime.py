@@ -227,22 +227,13 @@ class SupervisedRuntime(ABC):
 
 
 def create_regression_runtime(profile: DataProfile | str) -> RegressionRuntime:
-    """Load exactly one FEDOT profile implementation without fallback."""
+    """Load the TensorData regression runtime without compatibility fallback."""
+    selected = _profile(profile)
     try:
-        selected = profile if isinstance(profile, DataProfile) else DataProfile(profile)
-    except (TypeError, ValueError) as error:
-        raise IntegrationContractError(
-            IntegrationErrorCode.UNKNOWN_PROFILE,
-            "Unsupported FEDOT integration profile.",
-            context={"profile": profile, "allowed": [item.value for item in DataProfile]},
-            cause=error,
-        ) from error
-    module_name, class_name = {
-        DataProfile.LEGACY: ("fedot_ind.integration.fedot.legacy", "LegacyRegressionRuntime"),
-        DataProfile.TENSOR: ("fedot_ind.integration.fedot.tensor", "TensorRegressionRuntime"),
-    }[selected]
-    try:
-        runtime_type = getattr(import_module(module_name), class_name)
+        runtime_type = getattr(
+            import_module("fedot_ind.integration.fedot.tensor"),
+            "TensorRegressionRuntime",
+        )
         return runtime_type()
     except IntegrationContractError:
         raise
@@ -267,12 +258,6 @@ def create_supervised_runtime(
         parameters=parameters or {},
     )
     _validate_supervised_operation(plan)
-    if selected_profile is not DataProfile.TENSOR:
-        raise IntegrationContractError(
-            IntegrationErrorCode.UNSUPPORTED_OPERATION,
-            "Industrial model runtimes require the FEDOT TensorData profile.",
-            context={"profile": selected_profile.value, "operation": operation_name},
-        )
     try:
         runtime_type = getattr(
             import_module("fedot_ind.integration.fedot.tensor"),

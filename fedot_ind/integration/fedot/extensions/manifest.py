@@ -98,11 +98,18 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
                         defaults_by_operation: Mapping[str, Mapping[str, Any]],
                         search_parameters: Mapping[str, Mapping[str, Any]]) -> ModelHyperparamsSchema:
     defaults = dict(defaults_by_operation.get(declaration.defaults_key or declaration.name, {}))
+    required = set()
     optional = set(defaults)
     optional.update(search_parameters.get(declaration.name, {}))
     optional.update(_pdl_parameter_names(declaration.name, search_parameters))
+    if declaration.needs_explicit_task_type:
+        required.add("task_type")
     optional.difference_update({"model_fit", "model_predict"})
-    return ModelHyperparamsSchema(optional=tuple(sorted(optional)), defaults=defaults)
+    return ModelHyperparamsSchema(
+        required=tuple(sorted(required)),
+        optional=tuple(sorted(optional - required)),
+        defaults=defaults,
+    )
 
 
 def _pdl_parameter_names(

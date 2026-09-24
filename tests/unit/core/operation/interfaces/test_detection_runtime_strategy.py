@@ -6,7 +6,7 @@ from fedot_ind.core.operation.interfaces.detection_runtime_strategy import (
 import numpy as np
 import pytest
 
-fedot_data = pytest.importorskip('fedot.core.data.data')
+fedot_data = pytest.importorskip('fedot.core.data.input_data.data')
 InputData = fedot_data.InputData
 OutputData = fedot_data.OutputData
 OperationParameters = pytest.importorskip('fedot.core.operations.operation_parameters').OperationParameters

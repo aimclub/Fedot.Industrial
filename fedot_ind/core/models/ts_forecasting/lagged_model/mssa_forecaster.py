@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 
 try:  # pragma: no cover - benchmark and lightweight environments may not have fedot installed
-    from fedot.core.data.data import InputData, OutputData
+    from fedot.core.data.input_data.data import InputData, OutputData
     from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
@@ -93,13 +93,23 @@ class MSSAForecaster:
     def _prepare_series(self, time_series: np.ndarray) -> tuple[np.ndarray, int, int, int]:
         normalized = normalize_multivariate_series(time_series)
         series_length, channel_count = normalized.shape
-        resolved_window = self.window_size or estimate_window(
+        proposed_window = self.window_size or estimate_window(
             series_length=series_length,
             forecast_horizon=self.forecast_horizon,
             min_ratio=0.10,
             max_ratio=0.25,
         )
-        resolved_window = int(max(self.forecast_horizon + 1, min(resolved_window, series_length)))
+        # Page embedding advances by a full window, so the window cannot exceed
+        # half of the available history when at least two blocks are required.
+        max_window_for_two_blocks = max(2, series_length // 2)
+        preferred_minimum = min(
+            max(2, self.forecast_horizon + 1),
+            max_window_for_two_blocks,
+        )
+        resolved_window = int(max(
+            preferred_minimum,
+            min(proposed_window, max_window_for_two_blocks),
+        ))
         return normalized, int(series_length), int(channel_count), int(resolved_window)
 
     def _build_page_results(self, normalized: np.ndarray, resolved_window: int) -> list[object]:

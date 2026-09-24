@@ -6,7 +6,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from pymonad.either import Either
 
@@ -15,7 +15,8 @@ from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.metrics.metrics_implementation import RMSE, Accuracy, F1, R2
 from fedot_ind.core.repository.constanst_repository import MONASH_FORECASTING_BENCH, M4_SEASONALITY
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.integration.fedot.compatibility import as_numpy, ensure_fedot_tensor_data
+from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
 from fedot_ind.tools.example_utils import load_monash_dataset
 from fedot_ind.tools.loader import DataLoader, resolve_skab_data_root
@@ -27,7 +28,6 @@ BENCHMARK = 'M4'
 class AbstractPipeline:
 
     def __init__(self, task, task_params={}, task_metric: str = None):
-        self.repo = IndustrialModels().setup_repository()
         self.task = task
         self.task_params = task_params
         _metric_dict = {'classification': Accuracy,
@@ -95,23 +95,33 @@ class AbstractPipeline:
         return input_train, input_test
 
     def evaluate_pipeline(self, node_list, dataset):
-        test_model = self.create_pipeline(node_list)
-        self.train_data, self.test_data = self.create_input_data(dataset)
-        test_model.fit(self.train_data)
-        if self.task == 'ts_forecasting':
-            predict = test_model.predict(self.train_data)
-            predict_proba = predict
-            target = self.train_data.features[-self.task_params['forecast_length']:].flatten()
-        else:
-            predict = test_model.predict(self.test_data, 'labels')
-            predict_proba = test_model.predict(self.test_data, 'probs')
-            target = self.test_data.target
+        with industrial_extension_scope():
+            test_model = self.create_pipeline(node_list)
+            self.train_data, self.test_data = self.create_input_data(dataset)
+            self.train_data = ensure_fedot_tensor_data(self.train_data, fit_stage=True)
+            if self.task != 'ts_forecasting':
+                self.test_data = ensure_fedot_tensor_data(
+                    self.test_data,
+                    fit_stage=False,
+                    reference_data=self.train_data,
+                )
+            test_model.fit(self.train_data)
+            if self.task == 'ts_forecasting':
+                predict = test_model.predict(self.train_data)
+                predict_proba = predict
+                target = as_numpy(self.train_data.target).flatten()
+            else:
+                predict = test_model.predict(self.test_data, 'labels')
+                predict_proba = test_model.predict(self.test_data, 'probs')
+                target = as_numpy(self.test_data.target)
+        predicted_labels = as_numpy(predict.predict)
+        predicted_probs = as_numpy(predict_proba.predict)
         metric = self.base_metric(target=target,
-                                  predicted_probs=predict_proba.predict,
-                                  predicted_labels=predict.predict).metric()
+                                  predicted_probs=predicted_probs,
+                                  predicted_labels=predicted_labels).metric()
         return dict(fitted_model=test_model,
-                    predict_labels=predict.predict,
-                    predict_probs=predict_proba.predict,
+                    predict_labels=predicted_labels,
+                    predict_probs=predicted_probs,
                     quality_metric=metric)
 
 

@@ -221,6 +221,7 @@ class ApiManager(ConfigTemplate):
         self.dask_client = None
         self.dask_cluster = None
         self.target_encoder = None
+        self.fedot_train_data = None
         self.is_finetuned = False
 
     def create_folder(self, output_folder):

@@ -26,10 +26,10 @@ class TopologicalExtractor(BaseExtractor):
 
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from fedot_ind.tools.loader import DataLoader
-            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+            from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
-            with IndustrialModels():
+            with industrial_extension_scope():
                 pipeline = PipelineBuilder().add_node('eigen_basis').add_node('topological_extractor').add_node(
                     'rf').build()
                 pipeline.fit(input_data)

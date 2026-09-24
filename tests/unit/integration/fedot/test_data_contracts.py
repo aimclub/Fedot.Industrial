@@ -4,6 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from fedot.core.data.input_data.data import InputData
+from fedot.core.data.tensor_data.tensor_data import TensorData
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+
 from fedot_ind.integration.fedot import (
     AxisLayout,
     DataProfile,
@@ -16,6 +21,7 @@ from fedot_ind.integration.fedot import (
     normalize_input_data,
     validate_prediction_plan,
 )
+from fedot_ind.integration.fedot.compatibility import ensure_fedot_tensor_data
 
 
 def test_unknown_profile_is_a_structured_error():
@@ -28,13 +34,13 @@ def test_unknown_profile_is_a_structured_error():
         )
 
     assert error.value.code is IntegrationErrorCode.UNKNOWN_PROFILE
-    assert error.value.to_dict()["context"]["allowed"] == ["legacy", "tensor"]
+    assert error.value.to_dict()["context"]["allowed"] == ["tensor"]
 
 
 @pytest.mark.parametrize(
     "profile, data, axes",
     [
-        (DataProfile.LEGACY, np.ones((2, 3)), AxisLayout(sample=0, feature=0)),
+        (DataProfile.TENSOR, np.ones((2, 3)), AxisLayout(sample=0, feature=0)),
         (DataProfile.TENSOR, np.ones((2, 3, 4)), AxisLayout(sample=0, feature=1)),
         (DataProfile.TENSOR, np.ones((2, 3)), AxisLayout(sample=2, feature=1)),
     ],
@@ -55,8 +61,6 @@ def test_invalid_axis_layout_is_rejected(profile, data, axes):
 @pytest.mark.parametrize(
     "profile, data, expected_shape",
     [
-        (DataProfile.LEGACY, np.array([[7.0, 8.0]]), (1, 2)),
-        (DataProfile.LEGACY, np.array([7.0]), (1, 1)),
         (DataProfile.TENSOR, np.array([[7.0, 8.0]]), (1, 2)),
         (DataProfile.TENSOR, np.array([7.0]), (1, 1)),
     ],
@@ -82,7 +86,7 @@ def test_pandas_index_and_column_schema_are_preserved():
     )
     plan = build_data_plan(
         frame,
-        profile=DataProfile.LEGACY,
+        profile=DataProfile.TENSOR,
         task=IntegrationTask.REGRESSION,
         stage=DataStage.TRAIN,
     )
@@ -99,13 +103,13 @@ def test_predict_columns_must_match_train_columns_and_order():
     predict = train[["right", "left"]]
     train_plan = build_data_plan(
         train,
-        profile=DataProfile.LEGACY,
+        profile=DataProfile.TENSOR,
         task=IntegrationTask.CLASSIFICATION,
         stage=DataStage.TRAIN,
     )
     predict_plan = build_data_plan(
         predict,
-        profile=DataProfile.LEGACY,
+        profile=DataProfile.TENSOR,
         task=IntegrationTask.CLASSIFICATION,
         stage=DataStage.PREDICT,
     )
@@ -122,13 +126,13 @@ def test_predict_schema_accepts_a_different_number_of_samples():
     predict = pd.DataFrame({"left": [5.0], "right": [6.0]}, index=["future"])
     train_plan = build_data_plan(
         train,
-        profile=DataProfile.LEGACY,
+        profile=DataProfile.TENSOR,
         task=IntegrationTask.CLASSIFICATION,
         stage=DataStage.TRAIN,
     )
     predict_plan = build_data_plan(
         predict,
-        profile=DataProfile.LEGACY,
+        profile=DataProfile.TENSOR,
         task=IntegrationTask.CLASSIFICATION,
         stage=DataStage.PREDICT,
     )
@@ -146,7 +150,7 @@ def test_pandas_axes_cannot_detach_values_from_the_row_index():
     with pytest.raises(IntegrationContractError) as error:
         build_data_plan(
             frame,
-            profile=DataProfile.LEGACY,
+            profile=DataProfile.TENSOR,
             task=IntegrationTask.REGRESSION,
             stage=DataStage.TRAIN,
             axes=AxisLayout(sample=1, feature=0),
@@ -169,7 +173,7 @@ def test_normalization_does_not_mutate_numpy_or_pandas_sources():
     )
     frame_plan = build_data_plan(
         frame,
-        profile=DataProfile.LEGACY,
+        profile=DataProfile.TENSOR,
         task=IntegrationTask.REGRESSION,
         stage=DataStage.TRAIN,
     )
@@ -187,7 +191,7 @@ def test_normalization_does_not_mutate_numpy_or_pandas_sources():
 def test_plan_is_deterministic_and_json_serializable():
     frame = pd.DataFrame({"first": [1, 2], "second": [3, 4]})
     kwargs = {
-        "profile": DataProfile.LEGACY,
+        "profile": DataProfile.TENSOR,
         "task": IntegrationTask.CLASSIFICATION,
         "stage": DataStage.TRAIN,
     }
@@ -213,3 +217,84 @@ def test_prediction_batch_copies_inputs_and_is_read_only():
     assert batch.classes.tolist() == ["negative", "positive"]
     assert not batch.values.flags.writeable
     assert json.loads(json.dumps(batch.to_dict())) == batch.to_dict()
+
+
+def test_legacy_supervised_data_is_converted_to_tensor_data():
+    source = InputData(
+        idx=np.arange(4),
+        features=np.arange(12, dtype=float).reshape(4, 3),
+        target=np.array([0, 1, 0, 1]),
+        task=Task(TaskTypesEnum.classification),
+        data_type=DataTypesEnum.table,
+    )
+
+    converted = ensure_fedot_tensor_data(source, fit_stage=True)
+
+    assert isinstance(converted, TensorData)
+    assert tuple(converted.features.shape) == (4, 3)
+    assert tuple(converted.target.shape) == (4, 1)
+
+
+def test_legacy_forecast_series_is_split_by_declared_horizon():
+    series = np.arange(12, dtype=float)
+    source = InputData(
+        idx=np.arange(len(series)),
+        features=series,
+        target=series,
+        task=Task(
+            TaskTypesEnum.ts_forecasting,
+            TsForecastingParams(forecast_length=3),
+        ),
+        data_type=DataTypesEnum.ts,
+    )
+
+    converted = ensure_fedot_tensor_data(source, fit_stage=True)
+
+    assert tuple(converted.features.shape) == (1, 9)
+    assert tuple(converted.target.shape) == (1, 3)
+
+
+def test_forecast_prediction_conversion_requires_fitted_reference_data():
+    series = np.arange(12, dtype=float)
+    source = InputData(
+        idx=np.arange(len(series)),
+        features=series,
+        target=None,
+        task=Task(
+            TaskTypesEnum.ts_forecasting,
+            TsForecastingParams(forecast_length=3),
+        ),
+        data_type=DataTypesEnum.ts,
+    )
+
+    with pytest.raises(ValueError, match="requires reference_data"):
+        ensure_fedot_tensor_data(source, fit_stage=False)
+
+
+def test_prediction_conversion_reuses_training_trace_and_schema():
+    task = Task(TaskTypesEnum.regression)
+    train_source = InputData(
+        idx=np.arange(4),
+        features=np.arange(8, dtype=float).reshape(4, 2),
+        target=np.arange(4, dtype=float),
+        task=task,
+        data_type=DataTypesEnum.table,
+    )
+    predict_source = InputData(
+        idx=np.array([10, 11]),
+        features=np.arange(4, dtype=float).reshape(2, 2),
+        target=None,
+        task=task,
+        data_type=DataTypesEnum.table,
+    )
+    train = ensure_fedot_tensor_data(train_source, fit_stage=True)
+
+    predict = ensure_fedot_tensor_data(
+        predict_source,
+        fit_stage=False,
+        reference_data=train,
+    )
+
+    assert predict.trace_uuid == train.trace_uuid
+    assert tuple(predict.features.shape) == (2, 2)
+    assert predict.target is None

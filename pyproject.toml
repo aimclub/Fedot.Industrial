@@ -13,6 +13,7 @@ classifiers = [
 ]
 keywords = ["automated machine learning", "time series", "anomaly detection"]
 dependencies = [
+    "fedot @ git+https://github.com/aimclub/FEDOT.git@d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
     "typing==3.7.4.3",
     "numpy>=1.24.4,<2",
     "scipy>=1.10,<1.15.2",
@@ -44,12 +45,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-fedot-legacy = [
-    "fedot @ git+https://github.com/aimclub/FEDOT.git@42f3ba490407a1106e898e94232f2afd0a78f73f",
-]
-fedot-tensor = [
-    "fedot @ git+https://github.com/aimclub/FEDOT.git@d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
-]
 dev = [
     "pytest>=7,<9",
     "pytest-cov>=6,<7",
@@ -63,14 +58,6 @@ notebooks = [
     "jupyter>=1,<2",
     "nbconvert>=7,<8",
     "ipykernel>=6,<7",
-]
-
-[tool.uv]
-conflicts = [
-    [
-        {extra = "fedot-legacy"},
-        {extra = "fedot-tensor"},
-    ],
 ]
 
 [project.urls]
@@ -90,7 +77,6 @@ fedot_ind = [
     "core/repository/data/*.json",
     "core/repository/data/ts_benchmark_metadata.csv",
     "core/architecture/postprocessing/ucr_datasets.json",
-    "integration/fedot/import_map.json",
     "integration/fedot/extensions/catalog.json",
 ]
 

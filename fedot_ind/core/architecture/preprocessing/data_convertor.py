@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from fedot import Fedot
-from fedot_ind.integration.fedot.compatibility import InputData, MultiModalData, OutputData
+from fedot_ind.integration.fedot.compatibility import InputData, MultiModalData, OutputData, TensorData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
@@ -23,10 +23,19 @@ from fedot_ind.core.operation.dummy.dummy_operation import check_multivariate_da
 
 class CustomDatasetTS:
     def __init__(self, ts):
-        self.x = torch.from_numpy(DataConverter(
-            data=ts.features).convert_to_torch_format()).float()
-        self.y = torch.from_numpy(DataConverter(
-            data=ts.target).convert_to_torch_format()).float()
+        self.x = torch.as_tensor(self._as_channel_tensor(ts.features), dtype=torch.float32)
+        self.y = torch.as_tensor(self._as_channel_tensor(ts.target), dtype=torch.float32)
+
+    @staticmethod
+    def _as_channel_tensor(values):
+        array = np.asarray(values)
+        if array.ndim == 1:
+            return array.reshape(array.shape[0], 1, 1)
+        if array.ndim == 2:
+            return array.reshape(array.shape[0], 1, array.shape[1])
+        if array.ndim == 3:
+            return array
+        return array.squeeze()
 
     def __getitem__(self, index):
         pass
@@ -572,7 +581,7 @@ class ApiConverter:
 
     @staticmethod
     def input_data_is_fedot_type(input_data):
-        return isinstance(input_data, (InputData, MultiModalData))
+        return isinstance(input_data, (InputData, MultiModalData, TensorData))
 
     @staticmethod
     def is_multiclf_with_labeling_problem(problem, target, predict):

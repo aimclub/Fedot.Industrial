@@ -83,7 +83,8 @@
     "device": "cpu"
   },
   "hybrid_ensemble_forecaster": {
-    "complex_branch": "okhs",
+    "complex_branch": "havok",
+    "branch_failure_policy": "raise",
     "device": "cpu",
     "lagged_params": {},
     "low_rank_params": {},

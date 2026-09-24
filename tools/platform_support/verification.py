@@ -122,7 +122,7 @@ def parse_project(raw: object) -> ParseResult[Project]:
 
 
 def profile_dependencies(project: Project, profile: FedotProfile) -> tuple[str, ...]:
-    return project.dependencies + (project.extra(profile.extra) or ())
+    return project.dependencies
 
 
 def render_requirements(project: Project, profile: FedotProfile) -> str:
@@ -138,35 +138,19 @@ def verify_project(
     issues: list[Issue] = []
     if SpecifierSet(project.requires_python) != SpecifierSet(compatibility.requires_python):
         issues.append(Issue("project.requires-python", "matrix", "Python range differs from the compatibility policy."))
-    base_fedot = [item for item in project.dependencies if canonicalize_name(Requirement(item).name) == "fedot"]
-    if base_fedot:
+    base_fedot = [Requirement(item) for item in project.dependencies
+                  if canonicalize_name(Requirement(item).name) == "fedot"]
+    if (len(base_fedot) != 1 or base_fedot[0].url != compatibility.current.requirement_url
+            or base_fedot[0].marker or base_fedot[0].extras):
         issues.append(
             Issue(
                 "project.dependencies.fedot",
-                "profile",
-                "FEDOT must be selected through exactly one explicit installation profile."))
-    profile_extras = {profile.extra for profile in compatibility.profiles}
-    for profile in compatibility.profiles:
-        values = project.extra(profile.extra)
-        if values is None:
-            issues.append(Issue(f"project.optional-dependencies.{profile.extra}", "missing",
-                                f"FEDOT profile {profile.name!r} is not declared."))
-            continue
-        fedot = [Requirement(item) for item in values
-                 if canonicalize_name(Requirement(item).name) == "fedot"]
-        if (len(values) != 1 or len(fedot) != 1 or fedot[0].url != profile.requirement_url
-                or fedot[0].marker or fedot[0].extras):
-            issues.append(
-                Issue(
-                    f"project.optional-dependencies.{profile.extra}",
-                    "sha",
-                    "A FEDOT profile must contain only one unconditional direct dependency pinned to its full SHA."))
+                "sha",
+                "FEDOT must be an unconditional runtime dependency pinned to the supported full SHA."))
     for extra_name, values in project.optional_dependencies:
-        if extra_name in profile_extras:
-            continue
         if any(canonicalize_name(Requirement(item).name) == "fedot" for item in values):
             issues.append(Issue(f"project.optional-dependencies.{extra_name}", "profile",
-                                "FEDOT may only be declared in compatibility profile extras."))
+                                "FEDOT must not be redeclared in optional dependency groups."))
     # Required bounds are explicit policy, not a second dependency resolver.
     for constraint in compatibility.known_constraints:
         required = Requirement(constraint.requirement)

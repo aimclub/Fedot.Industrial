@@ -12,9 +12,8 @@ import numpy as np
 
 
 class DataProfile(str, Enum):
-    """Supported representations at the Industrial/FEDOT boundary."""
+    """The single representation supported at the Industrial/FEDOT boundary."""
 
-    LEGACY = "legacy"
     TENSOR = "tensor"
 
 

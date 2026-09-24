@@ -40,11 +40,8 @@ def main(argv: list[str] | None = None) -> int:
         subparser.add_argument("--root", type=Path, default=default_root())
         if command == "export":
             subparser.add_argument("--check", action="store_true")
-            subparser.add_argument("--profile")
         else:
             subparser.add_argument("--json", action="store_true")
-            if command == "environment":
-                subparser.add_argument("--profile")
     args = parser.parse_args(argv)
     project = load_project(args.root)
     compatibility = load_compatibility()
@@ -53,14 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "export":
         profiles = ()
         if compatibility.ok:
-            if args.profile is None:
-                profiles = compatibility.value.profiles
-            else:
-                selected = compatibility.value.profile(args.profile)
-                if selected is None:
-                    issues.append(Issue("profile", "unknown", f"Unknown FEDOT profile: {args.profile!r}."))
-                else:
-                    profiles = (selected,)
+            profiles = compatibility.value.profiles
         if project.ok:
             for profile in profiles:
                 expected = render_requirements(project.value, profile)
@@ -91,10 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         return _emit(_report(issues), args.json)
     if issues:
         return _emit(_report(issues), args.json)
-    selected = compatibility.value.profile(args.profile or compatibility.value.default_profile)
-    if selected is None:
-        issues.append(Issue("profile", "unknown", f"Unknown FEDOT profile: {args.profile!r}."))
-        return _emit(_report(issues), args.json)
+    selected = compatibility.value.current
     generated = {profile.name: render_requirements(project.value, profile)
                  for profile in compatibility.value.profiles}
     issues.extend(verify_project(project.value, compatibility.value, generated))

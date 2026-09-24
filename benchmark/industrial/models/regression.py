@@ -104,7 +104,7 @@ class PDLRegressorAdapter:
 
     def availability(self) -> tuple[RunStatus, str]:
         try:
-            from fedot.core.data.data import InputData  # noqa: F401
+            from fedot.core.data.input_data.data import InputData  # noqa: F401
             from fedot.core.operations.operation_parameters import OperationParameters  # noqa: F401
             from fedot.core.repository.dataset_types import DataTypesEnum  # noqa: F401
             from fedot.core.repository.tasks import Task, TaskTypesEnum  # noqa: F401
@@ -170,7 +170,7 @@ def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
 
 
 def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: str):
-    from fedot.core.data.data import InputData
+    from fedot.core.data.input_data.data import InputData
     from fedot.core.repository.dataset_types import DataTypesEnum
     from fedot.core.repository.tasks import Task, TaskTypesEnum
 

@@ -151,7 +151,6 @@ def inspect_sdist(
             "setup.py",
             "README_en.rst",
             "requirements.txt",
-            "requirements-tensor.txt",
         }
         missing = sorted((set(resources) | source_inputs) - names)
         if missing:

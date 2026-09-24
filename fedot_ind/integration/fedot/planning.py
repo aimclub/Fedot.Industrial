@@ -203,12 +203,7 @@ def _sample_count(data: SupportedData, axes: AxisLayout) -> int:
 
 
 def _default_axes(profile: DataProfile, rank: int) -> AxisLayout:
-    if profile is DataProfile.LEGACY:
-        if rank == 1:
-            return AxisLayout(sample=0)
-        if rank == 2:
-            return AxisLayout(sample=0, feature=1)
-    elif rank == 1:
+    if rank == 1:
         return AxisLayout(sample=0)
     elif rank == 2:
         return AxisLayout(sample=0, feature=1)
@@ -223,7 +218,6 @@ def _default_axes(profile: DataProfile, rank: int) -> AxisLayout:
 
 def _validate_axes(profile: DataProfile, axes: AxisLayout, rank: int) -> None:
     expected_axes = {
-        DataProfile.LEGACY: {1: ("sample",), 2: ("sample", "feature")},
         DataProfile.TENSOR: {
             1: ("sample",),
             2: ("sample", "feature"),

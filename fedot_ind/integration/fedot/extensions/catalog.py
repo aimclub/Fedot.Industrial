@@ -16,6 +16,7 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialExtensionPlan,
     IndustrialOperationDeclaration,
     IndustrialOperationKind,
+    IndustrialRuntimeInterface,
 )
 
 
@@ -143,6 +144,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
     allowed = {
         "name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems",
         "defaults_key", "supports_multimodal", "requires_target", "requires_fit", "backend", "description",
+        "runtime_interface", "requires_task_type",
     }
     required = {"name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems"}
     _require_keys(value, required, f"operations[{index}]")
@@ -186,9 +188,25 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
     requires_target = _boolean(value.get("requires_target", kind is IndustrialOperationKind.MODEL),
                                "requires_target", index)
     requires_fit = _boolean(value.get("requires_fit", True), "requires_fit", index)
+    requires_task_type = _boolean(
+        value.get("requires_task_type", False),
+        "requires_task_type",
+        index,
+    )
     description_value = value.get("description", "")
     if not isinstance(description_value, str):
         _invalid("Operation description must be a string.", index=index)
+    try:
+        runtime_interface = IndustrialRuntimeInterface(
+            value.get("runtime_interface", IndustrialRuntimeInterface.INPUT_DATA.value)
+        )
+    except (TypeError, ValueError) as error:
+        _invalid(
+            "Operation runtime interface is unsupported.",
+            index=index,
+            runtime_interface=value.get("runtime_interface"),
+            cause=error,
+        )
 
     return IndustrialOperationDeclaration(
         name=name,
@@ -203,8 +221,10 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         supports_multimodal=supports_multimodal,
         requires_target=requires_target,
         requires_fit=requires_fit,
+        requires_task_type=requires_task_type,
         backend=backend,
         description=description_value,
+        runtime_interface=runtime_interface,
     )
 
 

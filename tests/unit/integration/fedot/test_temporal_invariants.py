@@ -57,7 +57,7 @@ def test_execution_plan_rejects_invalid_forecast_horizon(horizon):
 def test_execution_plans_reject_legacy_profile_and_empty_operation():
     with pytest.raises(IntegrationContractError) as profile_error:
         ForecastingExecutionPlan(
-            profile=DataProfile.LEGACY,
+            profile="legacy",
             operation_name="lagged_ridge_forecaster",
             horizon=2,
         )

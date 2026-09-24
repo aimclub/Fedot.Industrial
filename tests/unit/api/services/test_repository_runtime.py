@@ -15,9 +15,12 @@ class FakeLogger:
 
 
 def test_repository_initializer_activates_default_fedot_context():
-    class FakeIndustrialModels:
-        def setup_default_repository(self):
-            return "default_repo"
+    class FakeSession:
+        def activate(self):
+            raise AssertionError("Default FEDOT context must not register Industrial operations.")
+
+        def close(self):
+            pass
 
     manager = SimpleNamespace(
         industrial_config=SimpleNamespace(is_default_fedot_context=True),
@@ -25,21 +28,24 @@ def test_repository_initializer_activates_default_fedot_context():
         optimisation_agent={"Fedot": "fedot_optimizer"},
     )
 
-    result = IndustrialRepositoryInitializer(lambda: FakeIndustrialModels()).activate(
+    result = IndustrialRepositoryInitializer(FakeSession).activate(
         manager=manager,
         logger=FakeLogger(),
         input_data="input",
     )
 
-    assert result.repo == "default_repo"
+    assert result.extension is None
     assert result.input_data == "input"
     assert manager.automl_config.optimisation_strategy == "fedot_optimizer"
 
 
 def test_repository_initializer_activates_industrial_context_with_optimizer_partial():
-    class FakeIndustrialModels:
-        def setup_repository(self, backend):
-            return f"industrial_repo:{backend}"
+    class FakeSession:
+        def activate(self):
+            return "registered"
+
+        def close(self):
+            pass
 
     def fake_optimizer(**kwargs):
         return kwargs
@@ -56,26 +62,38 @@ def test_repository_initializer_activates_industrial_context_with_optimizer_part
         optimisation_agent={"Industrial": fake_optimizer},
     )
 
-    result = IndustrialRepositoryInitializer(lambda: FakeIndustrialModels()).activate(
+    result = IndustrialRepositoryInitializer(FakeSession).activate(
         manager=manager,
         logger=FakeLogger(),
     )
 
-    assert result.repo == "industrial_repo:cpu"
+    assert result.extension == "registered"
     assert manager.automl_config.optimisation_strategy.func is fake_optimizer
     assert manager.automl_config.optimisation_strategy.keywords == {
-        "optimisation_params": {"mutation_agent": "random"}
+        "optimisation_params": {
+            "mutation_agent": "random",
+            "initial_graphs_prevalidated": True,
+        }
     }
 
 
-def test_repository_initializer_can_setup_repository_without_optimizer_mutation():
-    class FakeIndustrialModels:
-        def setup_repository(self, backend):
-            return f"repo:{backend}"
+def test_repository_initializer_activation_is_idempotent_and_close_is_owned():
+    calls = []
 
-    repo = IndustrialRepositoryInitializer(lambda: FakeIndustrialModels()).setup_repository(backend="gpu")
+    class FakeSession:
+        def activate(self):
+            calls.append("activate")
+            return "registered"
 
-    assert repo == "repo:gpu"
+        def close(self):
+            calls.append("close")
+
+    initializer = IndustrialRepositoryInitializer(FakeSession)
+
+    assert initializer.ensure_active(industrial_context=False) is None
+    assert initializer.ensure_active(industrial_context=True) == "registered"
+    initializer.close()
+    assert calls == ["activate", "close"]
 
 
 def test_dask_runtime_initializer_returns_client_and_cluster_handles():

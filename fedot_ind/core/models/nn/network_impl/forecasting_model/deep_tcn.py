@@ -8,8 +8,8 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 import torch.utils.data as data
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.data.input_data.data import InputData, OutputData
+from fedot.core.data.split.data_split import train_test_data_setup
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -364,11 +364,12 @@ class TCNModel(BaseNeuralModel):
     def _predict_model(self,
                        test_data: np.ndarray,
                        test_idx: str = None):
-        y_pred = []
         self.forecast_mode = 'out_of_sample'
-        for model in self.model_list:
-            y_pred.append(self._predict_loop(model, test_data))
-        y_pred = np.array(y_pred).squeeze()
+        model_predictions = [
+            np.asarray(self._predict_loop(model, test_data), dtype=float).reshape(-1)
+            for model in self.model_list
+        ]
+        y_pred = np.mean(np.vstack(model_predictions), axis=0)
         # Workaround for prediction starting point shift
         # TODO: find out what triggers prediction starting point shift
         start_point = self.target[-1]

@@ -51,18 +51,14 @@ def test_initial_population_builder_can_return_lazy_pipeline_builders():
 
 def test_lazy_pipeline_builder_resolves_basis_as_data_operation_after_industrial_repo_init():
     from fedot.core.operations.data_operation import DataOperation
-    from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+    from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
     builder = KernelInitialPopulationBuilder(task_type="classification", head_model="rf")
     specs = builder.build_specs(_importance(("wavelet_basis",), (1.0,)))
     lazy_builder = builder.build_pipeline_builder_from_spec(specs[0])
 
-    repository = IndustrialModels()
-    repository.setup_repository()
-    try:
+    with industrial_extension_scope():
         pipeline = lazy_builder.build()
-    finally:
-        repository.setup_default_repository()
 
     operations_by_name = {node.name: node.operation for node in pipeline.nodes}
     assert isinstance(operations_by_name["wavelet_basis"], DataOperation)

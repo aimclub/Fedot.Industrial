@@ -68,8 +68,26 @@ def test_mssa_forecaster_supports_linear_head_fallback():
     assert diagnostics['forecast_head']['head_policy'] == 'linear'
 
 
+def test_mssa_forecaster_limits_window_to_preserve_two_page_blocks():
+    time = np.arange(30, dtype=float)
+    series = np.sin(2 * np.pi * time / 6.0)
+    model = MSSAForecaster(
+        forecast_horizon=14,
+        window_size=16,
+        rank=2,
+        coupled=False,
+        head_policy='linear',
+    )
+
+    model.fit(series)
+    diagnostics = model.get_diagnostics()
+
+    assert diagnostics['window_size'] == 15
+    assert diagnostics['page_block_count'] == 2
+
+
 def test_mssa_implementation_predict_for_fit_returns_transposed_denoised_series():
-    fedot = pytest.importorskip('fedot.core.data.data')
+    fedot = pytest.importorskip('fedot.core.data.input_data.data')
     InputData = fedot.InputData
     DataTypesEnum = pytest.importorskip('fedot.core.repository.dataset_types').DataTypesEnum
     tasks_module = pytest.importorskip('fedot.core.repository.tasks')
