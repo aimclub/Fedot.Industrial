@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable
 
+from fedot_ind.core.optimizer.configuration import normalize_evolution_config
 from fedot_ind.integration.fedot.extensions import (
     IndustrialExtensionResult,
     IndustrialExtensionSession,
@@ -47,10 +48,9 @@ class IndustrialRepositoryInitializer:
         logger.info('Initialising Industrial Evolutionary Optimisation params')
         extension = self.ensure_active(industrial_context=True)
         optimisation_agent = manager.automl_config.optimisation_strategy['optimisation_agent']
-        optimisation_params = {
-            **manager.automl_config.optimisation_strategy['optimisation_strategy'],
-            'initial_graphs_prevalidated': True,
-        }
+        optimisation_params = normalize_evolution_config(
+            manager.automl_config.optimisation_strategy['optimisation_strategy']
+        ).with_initial_graphs_prevalidated(True)
         manager.automl_config.optimisation_strategy = partial(
             manager.optimisation_agent[optimisation_agent],
             optimisation_params=optimisation_params,

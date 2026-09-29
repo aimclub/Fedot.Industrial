@@ -8,6 +8,8 @@ from fedot_ind.core.optimizer.IndustrialEvoOptimizer import (
     IndustrialPopulationError,
 )
 from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
+from fedot_ind.core.optimizer.domain import EvolutionPhase
+from fedot_ind.core.optimizer.configuration import EvolutionConfig, ResourceBudget
 
 
 class _Context:
@@ -43,6 +45,7 @@ def test_timeout_returns_initial_graph_only_when_fedot_prevalidated_it():
     result = optimizer.optimise(object())
 
     assert result == ["initial_graph"]
+    assert optimizer.evolution_state.phase is EvolutionPhase.COMPLETED
 
 
 def test_timeout_without_prevalidation_preserves_population_error():
@@ -50,6 +53,8 @@ def test_timeout_without_prevalidation_preserves_population_error():
 
     with pytest.raises(IndustrialPopulationError, match="evaluation failed"):
         optimizer.optimise(object())
+
+    assert optimizer.evolution_state.phase is EvolutionPhase.FAILED
 
 
 class _Graph:
@@ -81,6 +86,27 @@ def test_optimizer_returns_empty_diagnostics_when_collection_is_disabled():
     assert diagnostics.summary.mutation_attempts == 0
 
 
+def test_optimizer_uses_typed_resource_budget_for_internal_limits():
+    optimizer = IndustrialEvoOptimizer.__new__(IndustrialEvoOptimizer)
+    graph_optimizer_params = SimpleNamespace(
+        mutation_types=[],
+        adaptive_mutation_type=None,
+    )
+    config = EvolutionConfig(
+        resource_budget=ResourceBudget(
+            min_population_size=3,
+            mutation_attempts_per_candidate=5,
+            population_extension_attempts=7,
+        )
+    )
+
+    optimizer._init_industrial_optimizer_params(graph_optimizer_params, config)
+
+    assert optimizer.min_pop_size == 3
+    assert optimizer.min_reproduce_attempt == 5
+    assert optimizer.graph_generation_attempts == 7
+
+
 def test_population_extension_records_attempts_acceptance_and_duplicate_rejection():
     initial = Individual(_Graph("initial"))
     accepted = Individual(_Graph("accepted"))
@@ -110,6 +136,18 @@ def test_population_extension_records_verifier_rejection():
     assert population == [initial]
     assert optimizer.diagnostics.summary.rejection_counts == {
         "verifier_rejected": 1}
+
+
+def test_population_extension_records_missing_individual_without_string_sentinel():
+    initial = Individual(_Graph("initial"))
+    optimizer = _observable_optimizer((None,), verifier=lambda graph: True)
+
+    population = optimizer._extend_population([initial], target_pop_size=2)
+
+    assert population == [initial]
+    assert optimizer.diagnostics.summary.rejection_counts == {
+        "mutation_did_not_return_individual": 1,
+    }
 
 
 def test_population_extension_records_verifier_error_before_preserving_exception():

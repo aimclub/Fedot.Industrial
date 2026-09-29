@@ -1,8 +1,10 @@
 from types import SimpleNamespace
 
+import pytest
 from fedot.extensions import clear_extension_registry, get_registered_extensions
 from golem.core.optimisers.fitness import null_fitness
 
+from fedot_ind.core.optimizer.domain import EVALUATION_OUTCOME_SCHEMA
 from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
 from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
 
@@ -84,3 +86,41 @@ def test_null_fitness_is_recorded_as_structured_evaluation_failure():
 
     assert result.metadata["evaluation_error_type"] == "InvalidFitness"
     assert "invalid fitness" in result.metadata["evaluation_error"]
+    assert result.metadata["evaluation_schema"] == EVALUATION_OUTCOME_SCHEMA
+    assert result.metadata["evaluation_status"] == "failed"
+    assert result.metadata["evaluation_failure"]["code"] == "invalid_fitness"
+
+
+def test_expected_objective_error_is_preserved_as_typed_failure():
+    dispatcher = object.__new__(IndustrialDispatcher)
+    dispatcher._adapter = SimpleNamespace(adapt_func=lambda function: function)
+    dispatcher.logger = SimpleNamespace(info=lambda message: None)
+
+    def fail_evaluation(graph):
+        raise ValueError(f"cannot evaluate {graph}")
+
+    dispatcher._evaluate_graph = fail_evaluation
+
+    result = dispatcher.eval_ind(
+        "graph", "individual").compute(scheduler="synchronous")
+
+    assert not result.fitness.valid
+    assert result.metadata["evaluation_failure"] == {
+        "code": "objective_exception",
+        "error_type": "ValueError",
+        "message": "ValueError('cannot evaluate graph')",
+    }
+
+
+def test_unexpected_environment_error_is_not_silently_converted_to_null_fitness():
+    dispatcher = object.__new__(IndustrialDispatcher)
+    dispatcher._adapter = SimpleNamespace(adapt_func=lambda function: function)
+    dispatcher.logger = SimpleNamespace(info=lambda message: None)
+
+    def fail_evaluation(graph):
+        raise OSError(f"storage unavailable for {graph}")
+
+    dispatcher._evaluate_graph = fail_evaluation
+
+    with pytest.raises(OSError, match="storage unavailable"):
+        dispatcher.eval_ind("graph", "individual").compute(scheduler="synchronous")

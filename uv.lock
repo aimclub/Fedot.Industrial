@@ -1137,6 +1137,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "build" },
+    { name = "hypothesis" },
     { name = "packaging" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -1162,6 +1163,7 @@ requires-dist = [
     { name = "fastai", specifier = "==2.7.18" },
     { name = "fedot", git = "https://github.com/aimclub/FEDOT.git?rev=d1875e7a1ba49c94d13c51d97ec78829bf459ca8" },
     { name = "giotto-tda", specifier = "==0.6.2" },
+    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100,<6.113" },
     { name = "ipykernel", marker = "extra == 'notebooks'", specifier = ">=6,<7" },
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = ">=1,<2" },
     { name = "librosa", specifier = ">=0.10.2.post1,<0.11" },
@@ -1520,6 +1522,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/58/75/0c4712e3f3a21c910778b8f9f4622601a823cefcae24181467674a0352f9/hyperopt-0.2.7.tar.gz", hash = "sha256:1bf89ae58050bbd32c7307199046117feee245c2fd9ab6255c7308522b7ca149", size = 1308240, upload-time = "2021-11-17T10:05:51.386Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/cd/5b3334d39276067f54618ce0d0b48ed69d91352fbf137468c7095170d0e5/hyperopt-0.2.7-py2.py3-none-any.whl", hash = "sha256:f3046d91fe4167dbf104365016596856b2524a609d22f047a066fc1ac796427c", size = 1583421, upload-time = "2021-11-17T10:05:44.265Z" },
+]
+
+[[package]]
+name = "hypothesis"
+version = "6.112.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/82/44f94eed558a13f1996ec02a63613b32b6a67fe1fde2b8a427d79b06835f/hypothesis-6.112.5.tar.gz", hash = "sha256:e6b7c8ba1126e07cfbf76b8bb544cedd89cb7f7bcf6c315bd759cd2efc2063ff", size = 408021, upload-time = "2024-10-08T05:58:19.565Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/6e/e61d3baa25db8df5a489627c6b705a8d98bf885cd18e3cd26dc3c7d806b1/hypothesis-6.112.5-py3-none-any.whl", hash = "sha256:82fbd28a92c4d88743740e3ec05415ea25119d825d1fdac9ab7bf717fe56297b", size = 468926, upload-time = "2024-10-08T05:58:16.189Z" },
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 from random import choice
-from typing import Sequence, Optional, Dict, Any
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from golem.core.dag.graph import Graph
 from golem.core.optimisers.adaptive.mab_agents.contextual_mab_agent import ContextualMultiArmedBanditAgent
@@ -19,6 +19,21 @@ from pymonad.either import Either
 
 from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
 from fedot_ind.core.repository.constanst_repository import FEDOT_MUTATION_STRATEGY
+from fedot_ind.core.optimizer.configuration import (
+    EvolutionConfig,
+    MutationAgentType,
+    normalize_evolution_config,
+)
+from fedot_ind.core.optimizer.domain import (
+    CandidateFailure,
+    CandidateFailureCode,
+    EvolutionPhase,
+    EvolutionRuntimeError,
+    EvolutionState,
+    IndustrialPopulationError,
+    classify_candidate_failure,
+    transition_evolution_state,
+)
 from fedot_ind.core.optimizer.observability import (
     CandidateRejectionReason,
     CandidateStatus,
@@ -29,14 +44,16 @@ from fedot_ind.core.optimizer.observability import (
     graph_identity,
     write_evolution_diagnostics,
 )
+from fedot_ind.core.optimizer.mutation import without_resample_mutations
 
 
-class IndustrialPopulationError(RuntimeError):
-    """Raised when no valid individual can seed Industrial optimisation."""
-
-    def __init__(self, message: str, *, timed_out: bool = False):
-        super().__init__(message)
-        self.timed_out = timed_out
+EXPECTED_VERIFIER_EXCEPTIONS = (
+    AttributeError,
+    IndexError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
 
 
 class IndustrialEvoOptimizer(EvoGraphOptimizer):
@@ -46,22 +63,19 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  requirements: GraphRequirements,
                  graph_generation_params: GraphGenerationParams,
                  graph_optimizer_params: GPAlgorithmParameters,
-                 optimisation_params: Optional[Dict[str, Any]] = None,
+                 optimisation_params: Optional[Mapping[str, Any] | EvolutionConfig] = None,
                  diagnostics_recorder: Optional[EvolutionDiagnosticsRecorder] = None):
-        optimisation_params = dict(optimisation_params or {
-            'mutation_agent': 'random',
-            'mutation_strategy': 'params_mutation_strategy',
-        })
-        self.initial_graphs_prevalidated = bool(
-            optimisation_params.get('initial_graphs_prevalidated', False)
-        )
-        self.diagnostics_output_dir = optimisation_params.get(
-            'diagnostics_output_dir')
+        self.evolution_config = normalize_evolution_config(optimisation_params)
+        execution_policy = self.evolution_config.execution_policy
+        self.initial_graphs_prevalidated = execution_policy.initial_graphs_prevalidated
+        self.retry_initial_population_without_timer = execution_policy.retry_initial_population_without_timer
+        self.diagnostics_output_dir = execution_policy.diagnostics_output_dir
+        self.evolution_state = EvolutionState.created()
         self.diagnostics_recorder = diagnostics_recorder
         if self.diagnostics_recorder is None and self.diagnostics_output_dir:
             self.diagnostics_recorder = EvolutionDiagnosticsRecorder()
         graph_optimizer_params = self._init_industrial_optimizer_params(
-            graph_optimizer_params, optimisation_params)
+            graph_optimizer_params, self.evolution_config)
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
         # self.operators.remove(self.crossover)
@@ -101,26 +115,47 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         if recorder is not None:
             getattr(recorder, method_name)(**values)
 
-    def _init_industrial_optimizer_params(self, graph_optimizer_params, optimisation_params):
-        self.mutation_agent_dict = {'random': RandomAgent,
-                                    'bandit': MultiArmedBanditAgent,
-                                    'contextual_bandit': ContextualMultiArmedBanditAgent,
-                                    'neural_bandit': NeuralContextualMultiArmedBanditAgent}
+    def _transition_evolution(
+            self,
+            target: EvolutionPhase,
+            *,
+            generation: int | None = None,
+    ) -> EvolutionState:
+        current = getattr(self, 'evolution_state', EvolutionState.created())
+        self.evolution_state = transition_evolution_state(
+            current,
+            target,
+            generation=generation,
+        )
+        return self.evolution_state
+
+    def _init_industrial_optimizer_params(
+            self,
+            graph_optimizer_params,
+            config: EvolutionConfig,
+    ):
+        self.mutation_agent_dict = {
+            MutationAgentType.RANDOM: RandomAgent,
+            MutationAgentType.BANDIT: MultiArmedBanditAgent,
+            MutationAgentType.CONTEXTUAL_BANDIT: ContextualMultiArmedBanditAgent,
+            MutationAgentType.NEURAL_BANDIT: NeuralContextualMultiArmedBanditAgent,
+        }
+        resource_budget = config.resource_budget
         # Min pop size to avoid getting stuck in local maximum during optimization.
-        self.min_pop_size = 10
+        self.min_pop_size = resource_budget.min_population_size
         # Min reproduce attempt for evolve and mutation stage.
-        self.min_reproduce_attempt = 50
+        self.min_reproduce_attempt = resource_budget.mutation_attempts_per_candidate
         # Max number of evaluations attempts to create graph for next pop
-        self.graph_generation_attempts = 100
+        self.graph_generation_attempts = resource_budget.population_extension_attempts
         graph_optimizer_params = self._exclude_resample_from_mutations(graph_optimizer_params)
         graph_optimizer_params.adaptive_mutation_type = self._set_optimisation_strategy(graph_optimizer_params,
-                                                                                        optimisation_params)
+                                                                                        config)
         return graph_optimizer_params
 
-    def _set_optimisation_strategy(self, graph_optimizer_params, optimisation_params):
-        self.optimisation_mutation_probs = FEDOT_MUTATION_STRATEGY[optimisation_params['mutation_strategy']]
-        mutation_agent = self.mutation_agent_dict[optimisation_params['mutation_agent']]
-        if optimisation_params['mutation_agent'].__contains__('random'):
+    def _set_optimisation_strategy(self, graph_optimizer_params, config: EvolutionConfig):
+        self.optimisation_mutation_probs = FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value]
+        mutation_agent = self.mutation_agent_dict[config.mutation_agent]
+        if config.mutation_agent is MutationAgentType.RANDOM:
             mutation_agent = mutation_agent(actions=graph_optimizer_params.mutation_types,
                                             probs=self.optimisation_mutation_probs)
         else:
@@ -128,13 +163,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         return mutation_agent
 
     def _exclude_resample_from_mutations(self, graph_optimizer_params):
-        for mutation in graph_optimizer_params.mutation_types:
-            try:
-                is_invalid = mutation.__name__.__contains__('resample')
-            except Exception:
-                is_invalid = mutation.name.__contains__('resample')
-            if is_invalid:
-                graph_optimizer_params.mutation_types.remove(mutation)
+        graph_optimizer_params.mutation_types = without_resample_mutations(
+            graph_optimizer_params.mutation_types
+        )
         return graph_optimizer_params
 
     def _initial_population(self, evaluator: EvaluationOperator):
@@ -152,7 +183,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self.mutation.agent._probs = self.optimisation_mutation_probs
             label = 'extended_initial_assumptions'
         init_population = evaluator(initial_individuals)
-        if not init_population:
+        if not init_population and self.retry_initial_population_without_timer:
             self.log.warning(
                 'Initial population was not evaluated within the shared time limit; '
                 'retrying once without the timer guard.'
@@ -167,11 +198,12 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         return init_population, evaluator
 
     def _extend_population(self, pop: PopulationT, target_pop_size: int, mutation_prob: list = None) -> PopulationT:
-        verifier, new_population, new_ind = self.graph_generation_params.verifier, list(pop), 'empty'
+        del mutation_prob
+        verifier, new_population = self.graph_generation_params.verifier, list(pop)
         pop_graphs = [ind.graph for ind in new_population]
-        for iter_num in range(self.graph_generation_attempts):
-            new_ind = 'empty'
-            for repr_attempt in range(self.min_reproduce_attempt):
+        for _ in range(self.graph_generation_attempts):
+            new_ind = None
+            for _ in range(self.min_reproduce_attempt):
                 random_ind = choice(pop)
                 self._record_diagnostic(
                     'record_mutation_attempt',
@@ -181,60 +213,67 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 )
                 new_ind = self.mutation(random_ind)
                 if isinstance(new_ind, Individual):
-                    # self.log.message(f'Successful mutation at attempt number: {repr_attempt}. '
-                    #                  f'Obtain new pipeline - {new_ind.graph.descriptive_id}')
                     break
             if not isinstance(new_ind, Individual):
-                self._record_diagnostic(
-                    'record_candidate',
-                    generation=self._diagnostic_generation(),
-                    individual_id=None,
-                    graph_id=None,
-                    status=CandidateStatus.REJECTED,
-                    reason=CandidateRejectionReason.MUTATION_DID_NOT_RETURN_INDIVIDUAL,
+                failure = classify_candidate_failure(
+                    is_individual=False,
+                    is_valid_graph=None,
+                    is_duplicate_graph=None,
                 )
+                self._record_candidate_failure(failure)
+                continue
+
+            graph_id = graph_identity(new_ind.graph)
+            individual_id = str(new_ind.uid)
             try:
                 is_valid_graph = verifier(new_ind.graph)
-            except Exception as error:
-                self._record_diagnostic(
-                    'record_candidate',
-                    generation=self._diagnostic_generation(),
-                    individual_id=str(getattr(new_ind, 'uid', '')) or None,
-                    graph_id=graph_identity(
-                        getattr(new_ind, 'graph', new_ind)),
-                    status=CandidateStatus.REJECTED,
-                    reason=CandidateRejectionReason.VERIFIER_FAILED,
-                    error=error,
+            except EXPECTED_VERIFIER_EXCEPTIONS as error:
+                failure = CandidateFailure(
+                    code=CandidateFailureCode.VERIFIER_FAILED,
+                    message=str(error),
+                    individual_id=individual_id,
+                    graph_id=graph_id,
                 )
+                self._record_candidate_failure(failure, error=error)
                 raise
-            is_new_graph = new_ind.graph not in pop_graphs
-            if all([is_new_graph, is_valid_graph]):
+            failure = classify_candidate_failure(
+                is_individual=True,
+                is_valid_graph=is_valid_graph,
+                is_duplicate_graph=new_ind.graph in pop_graphs,
+                individual_id=individual_id,
+                graph_id=graph_id,
+            )
+            if failure is None:
                 new_population.append(new_ind)
                 pop_graphs.append(new_ind.graph)
                 self._record_diagnostic(
                     'record_candidate',
                     generation=self._diagnostic_generation(),
-                    individual_id=str(new_ind.uid),
-                    graph_id=graph_identity(new_ind.graph),
+                    individual_id=individual_id,
+                    graph_id=graph_id,
                     status=CandidateStatus.ACCEPTED,
                 )
             else:
-                reason = (
-                    CandidateRejectionReason.VERIFIER_REJECTED
-                    if not is_valid_graph
-                    else CandidateRejectionReason.DUPLICATE_GRAPH
-                )
-                self._record_diagnostic(
-                    'record_candidate',
-                    generation=self._diagnostic_generation(),
-                    individual_id=str(new_ind.uid),
-                    graph_id=graph_identity(new_ind.graph),
-                    status=CandidateStatus.REJECTED,
-                    reason=reason,
-                )
+                self._record_candidate_failure(failure)
             if len(new_population) == target_pop_size:
                 break
         return new_population
+
+    def _record_candidate_failure(
+            self,
+            failure: CandidateFailure,
+            *,
+            error: BaseException | None = None,
+    ) -> None:
+        self._record_diagnostic(
+            'record_candidate',
+            generation=self._diagnostic_generation(),
+            individual_id=failure.individual_id,
+            graph_id=failure.graph_id,
+            status=CandidateStatus.REJECTED,
+            reason=CandidateRejectionReason(failure.code.value),
+            error=error,
+        )
 
     def _update_population(self,
                            next_population: PopulationT,
@@ -263,6 +302,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             best_fitness=fitness_values[0] if fitness_values else None,
             label=label,
         )
+        state = getattr(self, 'evolution_state', EvolutionState.created())
+        generation = self._diagnostic_generation()
+        if state.phase is EvolutionPhase.EVOLVING and generation is not None:
+            self._transition_evolution(EvolutionPhase.EVOLVING, generation=generation)
         self.log.info(f'Generation num: {self.current_generation_num} size: {len(next_population)}')
         self.log.info(f'Best individuals: {str(self.generations)}')
         if self.generations.stagnation_iter_count > 0:
@@ -341,16 +384,23 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         """Optimise graphs and always persist diagnostics when configured."""
         try:
             return self._optimise(objective)
+        except EvolutionRuntimeError:
+            state = getattr(self, 'evolution_state', EvolutionState.created())
+            if state.phase not in (EvolutionPhase.COMPLETED, EvolutionPhase.FAILED):
+                self._transition_evolution(EvolutionPhase.FAILED)
+            raise
         finally:
             output_dir = getattr(self, 'diagnostics_output_dir', None)
             if output_dir:
                 self.export_diagnostics(output_dir)
 
     def _optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
+        self._transition_evolution(EvolutionPhase.INITIALISING)
         with self.timer:
             pbar = self._progressbar
             try:
                 evaluator = self.eval_dispatcher.dispatch(objective, self.timer)
+                self._transition_evolution(EvolutionPhase.EVALUATING_INITIAL)
                 try:
                     population_to_eval, evaluator = self._initial_population(evaluator)
                 except IndustrialPopulationError as error:
@@ -359,8 +409,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                             'Industrial composition exhausted its time budget after FEDOT had '
                             'prevalidated the initial assumption; returning that assumption.'
                         )
+                        self._transition_evolution(EvolutionPhase.COMPLETED)
                         return list(self.initial_graphs[:1])
                     raise
+                self._transition_evolution(EvolutionPhase.EVOLVING)
                 self.evaluated_population.append(population_to_eval)
                 while not self.stop_optimization():
                     population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
@@ -370,5 +422,6 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             finally:
                 pbar.close()
         self._update_population(self.best_individuals, None, 'final_choices')
+        self._transition_evolution(EvolutionPhase.COMPLETED)
         best_models = [ind.graph for ind in self.best_individuals]
         return best_models

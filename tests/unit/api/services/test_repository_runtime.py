@@ -4,6 +4,10 @@ from types import SimpleNamespace
 
 from fedot_ind.api.services.dask_runtime import DaskRuntimeInitializer
 from fedot_ind.api.services.repository import IndustrialRepositoryInitializer
+from fedot_ind.core.optimizer.configuration import (
+    EvolutionConfig,
+    MutationAgentType,
+)
 
 
 class FakeLogger:
@@ -69,12 +73,10 @@ def test_repository_initializer_activates_industrial_context_with_optimizer_part
 
     assert result.extension == "registered"
     assert manager.automl_config.optimisation_strategy.func is fake_optimizer
-    assert manager.automl_config.optimisation_strategy.keywords == {
-        "optimisation_params": {
-            "mutation_agent": "random",
-            "initial_graphs_prevalidated": True,
-        }
-    }
+    optimisation_params = manager.automl_config.optimisation_strategy.keywords["optimisation_params"]
+    assert isinstance(optimisation_params, EvolutionConfig)
+    assert optimisation_params.mutation_agent is MutationAgentType.RANDOM
+    assert optimisation_params.execution_policy.initial_graphs_prevalidated is True
 
 
 def test_repository_initializer_activation_is_idempotent_and_close_is_owned():
