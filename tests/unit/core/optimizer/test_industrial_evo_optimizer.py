@@ -10,6 +10,7 @@ from fedot_ind.core.optimizer.IndustrialEvoOptimizer import (
 from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
 from fedot_ind.core.optimizer.domain import EvolutionPhase
 from fedot_ind.core.optimizer.configuration import EvolutionConfig, ResourceBudget
+from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier
 
 
 class _Context:
@@ -136,6 +137,22 @@ def test_population_extension_records_verifier_rejection():
     assert population == [initial]
     assert optimizer.diagnostics.summary.rejection_counts == {
         "verifier_rejected": 1}
+
+
+def test_population_extension_retains_structured_graph_validation_reasons():
+    initial = Individual(_Graph("initial"))
+    rejected = Individual(_Graph("rejected"))
+    verifier = IndustrialGraphVerifier(adapter=None, task_type="classification")
+    optimizer = _observable_optimizer((rejected,), verifier=verifier)
+
+    population = optimizer._extend_population([initial], target_pop_size=2)
+
+    assert population == [initial]
+    assert optimizer.diagnostics.summary.validation_issue_counts == {
+        "empty_graph": 1,
+    }
+    candidate_event = optimizer.diagnostics.observations[-1]
+    assert candidate_event.validation_issue_codes == ("empty_graph",)
 
 
 def test_population_extension_records_missing_individual_without_string_sentinel():

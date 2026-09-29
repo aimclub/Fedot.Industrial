@@ -7,10 +7,11 @@ import math
 import threading
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from statistics import fmean
+from types import MappingProxyType
 from typing import Callable, Iterable, Mapping, Sequence
 
 
@@ -69,6 +70,7 @@ class EvolutionObservation:
     unique_graph_count: int | None = None
     best_fitness: float | None = None
     label: str | None = None
+    validation_issue_codes: tuple[str, ...] = ()
 
     def to_record(self) -> dict[str, object]:
         """Return a stable JSON-compatible representation."""
@@ -89,8 +91,10 @@ class EvolutionObservation:
             "unique_graph_count": self.unique_graph_count,
             "best_fitness": self.best_fitness,
             "label": self.label,
+            "validation_issue_codes": list(self.validation_issue_codes),
         }
-        return {key: value for key, value in values.items() if value is not None}
+        return {key: value for key, value in values.items()
+                if value is not None and value != []}
 
 
 @dataclass(frozen=True)
@@ -114,6 +118,8 @@ class EvolutionSummary:
     unique_graph_observations: int
     uniqueness_ratio: float
     elapsed_seconds: float
+    validation_issue_counts: Mapping[str, int] = field(
+        default_factory=lambda: MappingProxyType({}))
 
     def to_record(self) -> dict[str, object]:
         """Return a stable JSON-compatible summary."""
@@ -124,6 +130,7 @@ class EvolutionSummary:
             "candidates_rejected": self.candidates_rejected,
             "valid_offspring_ratio": self.valid_offspring_ratio,
             "rejection_counts": dict(self.rejection_counts),
+            "validation_issue_counts": dict(self.validation_issue_counts),
             "evaluations_succeeded": self.evaluations_succeeded,
             "evaluations_failed": self.evaluations_failed,
             "evaluations_reused": self.evaluations_reused,
@@ -167,6 +174,10 @@ def _safe_ratio(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
 
+def _immutable_counts(values: Mapping[str, int]) -> Mapping[str, int]:
+    return MappingProxyType(dict(sorted(values.items())))
+
+
 def build_evolution_summary(
         observations: Iterable[EvolutionObservation],
 ) -> EvolutionSummary:
@@ -188,6 +199,10 @@ def build_evolution_summary(
     rejection_counts = Counter(
         event.reason for event in candidate_events
         if event.status == CandidateStatus.REJECTED.value and event.reason
+    )
+    validation_issue_counts = Counter(
+        code for event in candidate_events
+        for code in event.validation_issue_codes
     )
 
     evaluation_events = tuple(
@@ -228,13 +243,13 @@ def build_evolution_summary(
         candidates_rejected=candidates_rejected,
         valid_offspring_ratio=_safe_ratio(
             candidates_accepted, mutation_attempts),
-        rejection_counts=dict(sorted(rejection_counts.items())),
+        rejection_counts=_immutable_counts(rejection_counts),
+        validation_issue_counts=_immutable_counts(validation_issue_counts),
         evaluations_succeeded=evaluations_succeeded,
         evaluations_failed=evaluations_failed,
         evaluations_reused=evaluations_reused,
         evaluation_success_ratio=_safe_ratio(evaluations_succeeded, evaluated),
-        evaluation_failure_counts=dict(
-            sorted(evaluation_failure_counts.items())),
+        evaluation_failure_counts=_immutable_counts(evaluation_failure_counts),
         evaluation_duration_seconds=float(sum(evaluation_durations)),
         mean_evaluation_seconds=float(
             fmean(evaluation_durations)) if evaluation_durations else 0.0,
@@ -291,6 +306,7 @@ class EvolutionDiagnosticsRecorder:
             status: CandidateStatus,
             reason: CandidateRejectionReason | None = None,
             error: BaseException | None = None,
+            validation_issue_codes: Sequence[str] = (),
     ) -> EvolutionObservation:
         return self._record(
             EvolutionEventType.CANDIDATE_DECISION,
@@ -301,6 +317,7 @@ class EvolutionDiagnosticsRecorder:
             reason=reason.value if reason is not None else None,
             error_type=type(error).__name__ if error is not None else None,
             error_message=str(error) if error is not None else None,
+            validation_issue_codes=tuple(dict.fromkeys(validation_issue_codes)),
         )
 
     def record_evaluation(
@@ -388,6 +405,9 @@ def _summary_markdown(summary: EvolutionSummary) -> str:
     failure_rows = "\n".join(
         f"| `{reason}` | {count} |" for reason, count in summary.evaluation_failure_counts.items()
     ) or "| none | 0 |"
+    validation_rows = "\n".join(
+        f"| `{reason}` | {count} |" for reason, count in summary.validation_issue_counts.items()
+    ) or "| none | 0 |"
     return "\n".join((
         "# Evolution diagnostics",
         "",
@@ -413,6 +433,12 @@ def _summary_markdown(summary: EvolutionSummary) -> str:
         "| Reason | Count |",
         "|---|---:|",
         rejection_rows,
+        "",
+        "## Graph validation issues",
+        "",
+        "| Issue | Count |",
+        "|---|---:|",
+        validation_rows,
         "",
         "## Evaluation failures",
         "",

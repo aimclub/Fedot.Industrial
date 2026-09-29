@@ -38,6 +38,11 @@ def test_catalog_parsing_is_deterministic_and_adds_boundary_tags():
     assert first == second
     assert first.digest == second.digest
     assert first.operations[0].tags == ("industrial", "non-default", "example")
+    assert first.operations[0].devices == ("cpu",)
+    assert first.operations[0].serializable is True
+    assert first.operations[0].allowed_positions == ("any",)
+    assert first.operations[0].min_parents == 0
+    assert first.operations[0].max_parents is None
 
 
 @pytest.mark.parametrize(
@@ -80,6 +85,36 @@ def test_catalog_rejects_unknown_runtime_interface():
 
     assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
     assert error.value.context["runtime_interface"] == "dataframe"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("devices", ["tpu"]),
+        ("serializable", "yes"),
+        ("allowed_positions", ["any", "root"]),
+        ("min_parents", -1),
+        ("max_parents", False),
+    ],
+)
+def test_catalog_rejects_invalid_graph_capabilities(field, value):
+    payload = _payload()
+    payload["operations"][0][field] = value
+
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        parse_industrial_extension_catalog(payload)
+
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
+
+
+def test_catalog_rejects_inverted_parent_limits():
+    payload = _payload()
+    payload["operations"][0].update(min_parents=2, max_parents=1)
+
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        parse_industrial_extension_catalog(payload)
+
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
 
 
 def test_catalog_rejects_unknown_root_fields_and_duplicate_values():

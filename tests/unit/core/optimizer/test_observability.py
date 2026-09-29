@@ -43,6 +43,7 @@ def _populated_recorder() -> EvolutionDiagnosticsRecorder:
         graph_id="g0",
         status=CandidateStatus.REJECTED,
         reason=CandidateRejectionReason.DUPLICATE_GRAPH,
+        validation_issue_codes=("cycle", "root_count"),
     )
     recorder.record_evaluation(
         individual_id="candidate-1",
@@ -79,6 +80,9 @@ def test_recorder_builds_stable_ordered_summary():
     assert snapshot.summary.candidates_rejected == 1
     assert snapshot.summary.valid_offspring_ratio == pytest.approx(0.5)
     assert snapshot.summary.rejection_counts == {"duplicate_graph": 1}
+    assert snapshot.summary.validation_issue_counts == {"cycle": 1, "root_count": 1}
+    with pytest.raises(TypeError):
+        snapshot.summary.validation_issue_counts["cycle"] = 2
     assert snapshot.summary.evaluations_succeeded == 1
     assert snapshot.summary.evaluations_failed == 1
     assert snapshot.summary.evaluation_success_ratio == pytest.approx(0.5)
@@ -159,6 +163,7 @@ def test_snapshot_export_keeps_source_data_next_to_summary(tmp_path):
     assert summary_record["mutation_attempts"] == 2
     assert "Valid offspring ratio" in markdown
     assert "`duplicate_graph`" in markdown
+    assert "`cycle`" in markdown
 
 
 @pytest.mark.parametrize(

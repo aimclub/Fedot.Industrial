@@ -45,6 +45,10 @@ from fedot_ind.core.optimizer.observability import (
     write_evolution_diagnostics,
 )
 from fedot_ind.core.optimizer.mutation import without_resample_mutations
+from fedot_ind.core.optimizer.graph_validation import (
+    IndustrialGraphVerifier,
+    infer_validation_context,
+)
 
 
 EXPECTED_VERIFIER_EXCEPTIONS = (
@@ -76,6 +80,19 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self.diagnostics_recorder = EvolutionDiagnosticsRecorder()
         graph_optimizer_params = self._init_industrial_optimizer_params(
             graph_optimizer_params, self.evolution_config)
+        legacy_verifier = graph_generation_params.verifier
+        task_type, requested_device = infer_validation_context(
+            graph_generation_params)
+        if isinstance(legacy_verifier, IndustrialGraphVerifier):
+            self.graph_verifier = legacy_verifier
+        else:
+            self.graph_verifier = IndustrialGraphVerifier(
+                adapter=graph_generation_params.adapter,
+                task_type=task_type,
+                requested_device=requested_device,
+                legacy_verifier=legacy_verifier,
+            )
+            graph_generation_params.verifier = self.graph_verifier
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
         # self.operators.remove(self.crossover)
@@ -225,8 +242,14 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
             graph_id = graph_identity(new_ind.graph)
             individual_id = str(new_ind.uid)
+            validation_issue_codes = ()
             try:
-                is_valid_graph = verifier(new_ind.graph)
+                if isinstance(verifier, IndustrialGraphVerifier):
+                    validation_report = verifier.verify_with_report(new_ind.graph)
+                    is_valid_graph = validation_report.is_valid
+                    validation_issue_codes = validation_report.error_codes
+                else:
+                    is_valid_graph = verifier(new_ind.graph)
             except EXPECTED_VERIFIER_EXCEPTIONS as error:
                 failure = CandidateFailure(
                     code=CandidateFailureCode.VERIFIER_FAILED,
@@ -242,6 +265,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 is_duplicate_graph=new_ind.graph in pop_graphs,
                 individual_id=individual_id,
                 graph_id=graph_id,
+                validation_issue_codes=validation_issue_codes if not is_valid_graph else (),
             )
             if failure is None:
                 new_population.append(new_ind)
@@ -273,6 +297,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             status=CandidateStatus.REJECTED,
             reason=CandidateRejectionReason(failure.code.value),
             error=error,
+            validation_issue_codes=failure.validation_issue_codes,
         )
 
     def _update_population(self,

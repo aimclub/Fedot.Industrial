@@ -101,6 +101,12 @@ class IndustrialOperationDeclaration:
     backend: str = "numpy"
     description: str = ""
     runtime_interface: IndustrialRuntimeInterface = IndustrialRuntimeInterface.INPUT_DATA
+    devices: tuple[str, ...] = ("cpu",)
+    serializable: bool = True
+    allowed_positions: tuple[str, ...] = ("any",)
+    min_parents: int = 0
+    max_parents: int | None = None
+    allows_identical_parents: bool = True
 
     @property
     def needs_explicit_task_type(self) -> bool:
@@ -128,6 +134,12 @@ class IndustrialOperationDeclaration:
             "backend": self.backend,
             "description": self.description,
             "runtime_interface": self.runtime_interface.value,
+            "devices": list(self.devices),
+            "serializable": self.serializable,
+            "allowed_positions": list(self.allowed_positions),
+            "min_parents": self.min_parents,
+            "max_parents": self.max_parents,
+            "allows_identical_parents": self.allows_identical_parents,
         }
 
 

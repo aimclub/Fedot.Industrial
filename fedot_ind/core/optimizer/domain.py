@@ -100,6 +100,7 @@ class CandidateFailure:
     message: str
     individual_id: str | None = None
     graph_id: str | None = None
+    validation_issue_codes: tuple[str, ...] = ()
 
     def to_record(self) -> dict[str, object]:
         record = {
@@ -107,8 +108,10 @@ class CandidateFailure:
             "message": self.message,
             "individual_id": self.individual_id,
             "graph_id": self.graph_id,
+            "validation_issue_codes": list(self.validation_issue_codes),
         }
-        return {key: value for key, value in record.items() if value is not None}
+        return {key: value for key, value in record.items()
+                if value is not None and value != []}
 
 
 def classify_candidate_failure(
@@ -118,6 +121,7 @@ def classify_candidate_failure(
         is_duplicate_graph: bool | None,
         individual_id: str | None = None,
         graph_id: str | None = None,
+        validation_issue_codes: tuple[str, ...] = (),
 ) -> CandidateFailure | None:
     """Classify expected candidate rejection without mutating optimiser state."""
     if not is_individual:
@@ -131,6 +135,7 @@ def classify_candidate_failure(
             message="Graph verifier rejected the candidate",
             individual_id=individual_id,
             graph_id=graph_id,
+            validation_issue_codes=validation_issue_codes,
         )
     if is_duplicate_graph is True:
         return CandidateFailure(

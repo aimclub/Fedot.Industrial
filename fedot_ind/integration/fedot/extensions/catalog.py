@@ -26,6 +26,8 @@ RESERVED_BEHAVIOR_TAGS = frozenset({"correct_params"})
 SUPPORTED_TASKS = frozenset({"classification", "regression", "ts_forecasting", "clustering"})
 SUPPORTED_DATA_TYPES = frozenset({"tabular", "ts", "multi_ts", "text", "image"})
 SUPPORTED_BACKENDS = frozenset({"numpy", "torch"})
+SUPPORTED_DEVICES = frozenset({"cpu", "cuda"})
+SUPPORTED_POSITIONS = frozenset({"any", "primary", "secondary", "root"})
 SUPPORTED_PROBLEMS = frozenset({"classification", "regression", "ts_forecasting", "anomaly_detection"})
 
 
@@ -145,6 +147,8 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         "name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems",
         "defaults_key", "supports_multimodal", "requires_target", "requires_fit", "backend", "description",
         "runtime_interface", "requires_task_type",
+        "devices", "serializable", "allowed_positions", "min_parents", "max_parents",
+        "allows_identical_parents",
     }
     required = {"name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems"}
     _require_keys(value, required, f"operations[{index}]")
@@ -208,6 +212,40 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
             cause=error,
         )
 
+    devices = _string_tuple(
+        value.get("devices", ["cpu", "cuda"] if backend == "torch" else ["cpu"]),
+        f"operations[{index}].devices",
+        supported=SUPPORTED_DEVICES,
+        index=index,
+    )
+    serializable = _boolean(value.get("serializable", True), "serializable", index)
+    allowed_positions = _string_tuple(
+        value.get("allowed_positions", ["any"]),
+        f"operations[{index}].allowed_positions",
+        supported=SUPPORTED_POSITIONS,
+        index=index,
+    )
+    if "any" in allowed_positions and len(allowed_positions) > 1:
+        _invalid(
+            "The 'any' position cannot be combined with explicit positions.",
+            index=index,
+            field="allowed_positions",
+        )
+    min_parents = _nonnegative_integer(value.get("min_parents", 0), "min_parents", index)
+    max_parents = _optional_nonnegative_integer(value.get("max_parents"), "max_parents", index)
+    if max_parents is not None and max_parents < min_parents:
+        _invalid(
+            "Operation max_parents must not be smaller than min_parents.",
+            index=index,
+            min_parents=min_parents,
+            max_parents=max_parents,
+        )
+    allows_identical_parents = _boolean(
+        value.get("allows_identical_parents", True),
+        "allows_identical_parents",
+        index,
+    )
+
     return IndustrialOperationDeclaration(
         name=name,
         kind=kind,
@@ -225,6 +263,12 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         backend=backend,
         description=description_value,
         runtime_interface=runtime_interface,
+        devices=devices,
+        serializable=serializable,
+        allowed_positions=allowed_positions,
+        min_parents=min_parents,
+        max_parents=max_parents,
+        allows_identical_parents=allows_identical_parents,
     )
 
 
@@ -280,6 +324,18 @@ def _boolean(value: Any, field: str, index: int) -> bool:
     if not isinstance(value, bool):
         _invalid("Catalog flag must be boolean.", field=field, index=index)
     return value
+
+
+def _nonnegative_integer(value: Any, field: str, index: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        _invalid("Catalog value must be a non-negative integer.", field=field, index=index)
+    return value
+
+
+def _optional_nonnegative_integer(value: Any, field: str, index: int) -> int | None:
+    if value is None:
+        return None
+    return _nonnegative_integer(value, field, index)
 
 
 def _invalid(message: str, **context: Any) -> NoReturn:
