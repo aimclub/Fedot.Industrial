@@ -16,10 +16,38 @@ from golem.core.optimisers.timer import Timer
 from golem.utilities.memory import MemoryAnalytics
 from golem.utilities.utilities import determine_n_jobs
 from joblib import wrap_non_picklable_objects
+
+from fedot_ind.core.optimizer.observability import (
+    EvaluationStatus,
+    EvolutionDiagnosticsRecorder,
+    graph_identity,
+)
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
 
 class IndustrialDispatcher(MultiprocessingDispatcher):
+
+    def __init__(
+            self,
+            adapter,
+            n_jobs: int = 1,
+            graph_cleanup_fn=None,
+            delegate_evaluator=None,
+            diagnostics_recorder: Optional[EvolutionDiagnosticsRecorder] = None,
+    ):
+        super().__init__(
+            adapter=adapter,
+            n_jobs=n_jobs,
+            graph_cleanup_fn=graph_cleanup_fn,
+            delegate_evaluator=delegate_evaluator,
+        )
+        self.diagnostics_recorder = diagnostics_recorder
+
+    def __getstate__(self):
+        """Keep the coordinator-local recorder out of Dask worker payloads."""
+        state = dict(self.__dict__)
+        state['diagnostics_recorder'] = None
+        return state
 
     def dispatch(self, objective: ObjectiveFunction,
                  timer: Optional[Timer] = None) -> EvaluationOperator:
@@ -50,6 +78,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                     with_time_limit=False,
                 )
                 evaluation_result = dask.compute(delayed_result)[0]
+                self._record_evaluation_results((evaluation_result,))
                 successful_evals = self.apply_evaluation_results(
                     [single_ind], [evaluation_result])
                 if successful_evals:
@@ -70,6 +99,8 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             if individuals_to_evaluate
             else []
         )
+        self._record_evaluation_results(evaluation_results)
+        self._record_reused_individuals(individuals_to_skip)
         individuals_evaluated = self.apply_evaluation_results(
             individuals_to_evaluate,
             evaluation_results,
@@ -85,6 +116,36 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                             logging_level=logging.INFO)
         return successful_evals
 
+    def _record_evaluation_results(self, evaluation_results) -> None:
+        recorder = getattr(self, 'diagnostics_recorder', None)
+        if recorder is None:
+            return
+        for result in evaluation_results:
+            if result is None:
+                continue
+            metadata = dict(result.metadata or {})
+            error_message = metadata.get('evaluation_error')
+            recorder.record_evaluation(
+                individual_id=str(result.uid_of_individual),
+                graph_id=graph_identity(result.graph),
+                status=(
+                    EvaluationStatus.FAILED if error_message else EvaluationStatus.SUCCEEDED),
+                duration_seconds=metadata.get('computation_time_in_seconds'),
+                error_type=metadata.get('evaluation_error_type'),
+                error_message=error_message,
+            )
+
+    def _record_reused_individuals(self, individuals) -> None:
+        recorder = getattr(self, 'diagnostics_recorder', None)
+        if recorder is None:
+            return
+        for individual in individuals:
+            recorder.record_evaluation(
+                individual_id=str(individual.uid),
+                graph_id=graph_identity(individual.graph),
+                status=EvaluationStatus.REUSED,
+            )
+
     def _log_evaluation_failures(self, evaluation_results) -> None:
         failures = [
             result.metadata.get('evaluation_error')
@@ -98,6 +159,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
     def eval_ind(self, graph, uid_of_individual):
         start_time = timeit.default_timer()
         evaluation_error = None
+        evaluation_error_type = None
         try:
             with industrial_extension_scope():
                 adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
@@ -106,13 +168,18 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             self.logger.info(f'Graph evaluation failed. Assigning null fitness. Exception - {ex}')
             fitness = null_fitness()
             evaluation_error = repr(ex)
+            evaluation_error_type = type(ex).__name__
         end_time = timeit.default_timer()
         eval_time_iso = datetime.now().isoformat()
+        if evaluation_error is None and not fitness.valid:
+            evaluation_error = 'Objective returned invalid fitness without raising an exception'
+            evaluation_error_type = 'InvalidFitness'
         metadata = {
             'computation_time_in_seconds': end_time - start_time,
             'evaluation_time_iso': eval_time_iso}
         if evaluation_error is not None:
             metadata['evaluation_error'] = evaluation_error
+            metadata['evaluation_error_type'] = evaluation_error_type
         eval_res = GraphEvalResult(
             uid_of_individual=uid_of_individual,
             fitness=fitness,

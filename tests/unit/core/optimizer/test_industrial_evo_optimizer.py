@@ -1,11 +1,13 @@
 from types import SimpleNamespace
 
 import pytest
+from golem.core.optimisers.opt_history_objects.individual import Individual
 
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import (
     IndustrialEvoOptimizer,
     IndustrialPopulationError,
 )
+from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
 
 
 class _Context:
@@ -19,8 +21,10 @@ class _Context:
 def _optimizer_with_failed_initial_population(*, prevalidated: bool):
     optimizer = object.__new__(IndustrialEvoOptimizer)
     optimizer.timer = _Context()
-    optimizer.requirements = SimpleNamespace(show_progress=False, num_of_generations=1)
-    optimizer.eval_dispatcher = SimpleNamespace(dispatch=lambda objective, timer: "evaluator")
+    optimizer.requirements = SimpleNamespace(
+        show_progress=False, num_of_generations=1)
+    optimizer.eval_dispatcher = SimpleNamespace(
+        dispatch=lambda objective, timer: "evaluator")
     optimizer.initial_graphs = ["initial_graph"]
     optimizer.initial_graphs_prevalidated = prevalidated
     optimizer.log = SimpleNamespace(warning=lambda message: None)
@@ -46,3 +50,79 @@ def test_timeout_without_prevalidation_preserves_population_error():
 
     with pytest.raises(IndustrialPopulationError, match="evaluation failed"):
         optimizer.optimise(object())
+
+
+class _Graph:
+    def __init__(self, graph_id):
+        self.descriptive_id = graph_id
+
+    def __eq__(self, other):
+        return isinstance(other, _Graph) and self.descriptive_id == other.descriptive_id
+
+
+def _observable_optimizer(mutation_results, verifier):
+    optimizer = object.__new__(IndustrialEvoOptimizer)
+    optimizer.graph_generation_attempts = len(mutation_results)
+    optimizer.min_reproduce_attempt = 1
+    optimizer.graph_generation_params = SimpleNamespace(verifier=verifier)
+    optimizer.diagnostics_recorder = EvolutionDiagnosticsRecorder()
+    results = iter(mutation_results)
+    optimizer.mutation = lambda individual: next(results)
+    return optimizer
+
+
+def test_optimizer_returns_empty_diagnostics_when_collection_is_disabled():
+    optimizer = IndustrialEvoOptimizer.__new__(IndustrialEvoOptimizer)
+    optimizer.diagnostics_recorder = None
+
+    diagnostics = optimizer.diagnostics
+
+    assert diagnostics.observations == ()
+    assert diagnostics.summary.mutation_attempts == 0
+
+
+def test_population_extension_records_attempts_acceptance_and_duplicate_rejection():
+    initial = Individual(_Graph("initial"))
+    accepted = Individual(_Graph("accepted"))
+    duplicate = Individual(_Graph("accepted"))
+    optimizer = _observable_optimizer(
+        (accepted, duplicate), verifier=lambda graph: True)
+
+    population = optimizer._extend_population([initial], target_pop_size=3)
+    summary = optimizer.diagnostics.summary
+
+    assert population == [initial, accepted]
+    assert summary.mutation_attempts == 2
+    assert summary.candidates_accepted == 1
+    assert summary.candidates_rejected == 1
+    assert summary.rejection_counts == {"duplicate_graph": 1}
+    assert summary.valid_offspring_ratio == 0.5
+
+
+def test_population_extension_records_verifier_rejection():
+    initial = Individual(_Graph("initial"))
+    rejected = Individual(_Graph("rejected"))
+    optimizer = _observable_optimizer(
+        (rejected,), verifier=lambda graph: False)
+
+    population = optimizer._extend_population([initial], target_pop_size=2)
+
+    assert population == [initial]
+    assert optimizer.diagnostics.summary.rejection_counts == {
+        "verifier_rejected": 1}
+
+
+def test_population_extension_records_verifier_error_before_preserving_exception():
+    initial = Individual(_Graph("initial"))
+    candidate = Individual(_Graph("candidate"))
+
+    def fail_verification(graph):
+        raise ValueError(f"cannot verify {graph.descriptive_id}")
+
+    optimizer = _observable_optimizer((candidate,), verifier=fail_verification)
+
+    with pytest.raises(ValueError, match="cannot verify candidate"):
+        optimizer._extend_population([initial], target_pop_size=2)
+
+    summary = optimizer.diagnostics.summary
+    assert summary.rejection_counts == {"verifier_failed": 1}

@@ -457,9 +457,11 @@ class FedotIndustrial(Fedot):
     def shutdown(self):
         """Shutdown Dask client"""
         self.repository_initializer.close()
-        if self.manager.dask_client is not None:
-            self.manager.dask_client.close()
-            del self.manager.dask_client
-        if self.manager.dask_cluster is not None:
-            self.manager.dask_cluster.close()
-            del self.manager.dask_cluster
+        dask_client = getattr(self.manager, 'dask_client', None)
+        if dask_client is not None:
+            dask_client.close()
+            self.manager.dask_client = None
+        dask_cluster = getattr(self.manager, 'dask_cluster', None)
+        if dask_cluster is not None:
+            dask_cluster.close()
+            self.manager.dask_cluster = None

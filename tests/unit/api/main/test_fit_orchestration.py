@@ -50,7 +50,8 @@ def test_predict_orchestrates_processing_and_prediction_without_repository_setup
     )
 
     industrial._process_input_data = (
-        lambda data, *, fit_stage: calls.append(("process", data, fit_stage)) or "processed"
+        lambda data, *, fit_stage: calls.append(
+            ("process", data, fit_stage)) or "processed"
     )
     industrial._FedotIndustrial__abstract_predict = (
         lambda data, mode: calls.append(("predict", data, mode)) or "labels"
@@ -76,7 +77,8 @@ def test_predict_proba_for_regression_uses_label_mode():
     )
 
     industrial._process_input_data = (
-        lambda data, *, fit_stage: calls.append(("process", data, fit_stage)) or "processed"
+        lambda data, *, fit_stage: calls.append(
+            ("process", data, fit_stage)) or "processed"
     )
     industrial._FedotIndustrial__abstract_predict = (
         lambda data, mode: calls.append(("predict", data, mode)) or "predicted"
@@ -90,3 +92,22 @@ def test_predict_proba_for_regression_uses_label_mode():
         ("process", "raw", False),
         ("predict", "processed", "labels"),
     ]
+
+
+def test_shutdown_is_idempotent_after_resources_are_closed():
+    industrial = FedotIndustrial.__new__(FedotIndustrial)
+    calls = []
+    industrial.repository_initializer = SimpleNamespace(
+        close=lambda: calls.append("repository")
+    )
+    industrial.manager = SimpleNamespace(
+        dask_client=SimpleNamespace(close=lambda: calls.append("client")),
+        dask_cluster=SimpleNamespace(close=lambda: calls.append("cluster")),
+    )
+
+    industrial.shutdown()
+    industrial.shutdown()
+
+    assert calls == ["repository", "client", "cluster", "repository"]
+    assert industrial.manager.dask_client is None
+    assert industrial.manager.dask_cluster is None
