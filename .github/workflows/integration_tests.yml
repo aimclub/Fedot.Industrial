@@ -25,18 +25,22 @@ jobs:
         with:
           python-version: '3.10'
           cache: pip
-          cache-dependency-path: uv.lock
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential git
       - name: Install resolver
         run: python -m pip install "uv==0.8.17"
-      - name: Export frozen dependencies
+      - name: Resolve dependencies
+        run: uv lock --python 3.10
+      - name: Export resolved dependencies
         run: uv export --frozen --extra dev --no-hashes --no-emit-project --output-file /tmp/industrial-requirements.txt
       - name: Install CPU runtime
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
-      - name: Install locked dependencies and project
+      - name: Install resolved dependencies and project
         run: |
           python -m pip install -r /tmp/industrial-requirements.txt
           python -m pip install --no-deps -e .

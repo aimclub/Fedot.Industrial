@@ -14,13 +14,16 @@ FEDOT закреплён на полном идентификаторе комм
 | --- | --- | --- |
 | `pyproject.toml` | Версия Python, основные зависимости и дополнительные группы | Вручную, вместе с тестами контракта |
 | `requirements.txt` | Точный текстовый экспорт основных зависимостей | `python -m tools.platform_support export` |
-| `uv.lock` | Разрешённое дерево зависимостей и источники пакетов | `uv lock`, затем `uv lock --check` |
 | `tools/platform_support/compatibility.json` | Поддерживаемые версии Python, FEDOT SHA и известные ограничения | Вместе с доказательствами совместимости |
 
 FEDOT должен быть указан ровно один раз среди основных зависимостей как прямая
 Git-ссылка на полный SHA. В дополнительных группах повторно объявлять FEDOT
 запрещено. Команда `check` проверяет это правило, диапазон Python, обязательные
 ограничения и соответствие `requirements.txt` данным из `pyproject.toml`.
+Файл `uv.lock` является временным результатом локального запуска или задания
+CI и не хранится в репозитории. Его создают заново для выбранной поддерживаемой
+версии Python, после чего команды с `--frozen` используют одно неизменное
+разрешение в пределах проверки.
 
 ## Поддерживаемые версии
 
@@ -45,14 +48,16 @@ source .venv/bin/activate
 # .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install "uv==0.8.17"
-uv sync --extra dev
+uv lock --python 3.10
+uv sync --frozen --extra dev
 python -m pip check
 ```
 
 Для CPU-среды в CI PyTorch устанавливается отдельно из официального индекса,
-после чего остальные пакеты устанавливаются из `uv.lock`. Наличие CUDA не
-следует выводить из успешной установки: вычисления на CUDA проверяются
-отдельными сценариями.
+после чего остальные пакеты устанавливаются из временного разрешения,
+созданного для версии Python в текущем задании. Наличие CUDA не следует
+выводить из успешной установки: вычисления на CUDA проверяются отдельными
+сценариями.
 
 ## Интеграция с FEDOT
 
@@ -86,7 +91,7 @@ FEDOT хранится в `ContextVar`.
 ```bash
 python -m tools.platform_support check --json
 python -m tools.platform_support export --check
-uv lock --check --python 3.10
+uv lock --python 3.10
 python -m tools.fedot_import_boundary
 python -m pytest tests/unit/platform_support -q
 python -m pytest tests/unit/integration/fedot -q
@@ -108,16 +113,16 @@ stderr, итоговый JSON — в stdout.
 
 - `platform_checks.yml` проверяет метаданные на Python 3.10–3.12, установку
   wheel на Linux и Windows и интеграцию с FEDOT на Python 3.10/3.11;
-- `poetry_unit_test.yml` использует `uv.lock` и запускает полный набор модульных
-  тестов на Python 3.10;
+- `poetry_unit_test.yml` создаёт временное разрешение зависимостей и запускает
+  полный набор модульных тестов на Python 3.10;
 - `integration_tests.yml` устанавливает тот же набор зависимостей и запускает
   интеграционные тесты;
 - `package_build.yml` остаётся единственной процедурой сборки wheel и sdist.
 
 Публикация в PyPI заблокирована, пока FEDOT указан прямой Git-ссылкой: PyPI не
 принимает такие зависимости. Перед выпуском нужно заменить ссылку на
-совместимую опубликованную версию FEDOT, обновить `uv.lock` и повторить все
-проверки установки.
+совместимую опубликованную версию FEDOT, заново разрешить зависимости и
+повторить все проверки установки.
 
 Подробности завершения перехода приведены в
 `docs/dev_guide/ind_fedot_05_verification.md`.

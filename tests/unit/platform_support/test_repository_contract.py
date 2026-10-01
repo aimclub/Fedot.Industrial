@@ -1,11 +1,9 @@
-"""Prevent metadata, lock, build and CI entrypoints drifting apart."""
+"""Prevent metadata, dependency resolution, build and CI entrypoints drifting apart."""
 
 import ast
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
 
 from packaging.requirements import Requirement
-from packaging.specifiers import SpecifierSet
 import yaml
 
 from tools.distribution_check import expected_resources, tomllib
@@ -23,6 +21,15 @@ def project_metadata():
 def workflow(name):
     # BaseLoader preserves the YAML key "on" instead of YAML 1.1's boolean coercion.
     return yaml.load((ROOT / ".github/workflows" / name).read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+
+
+def workflow_commands(steps):
+    return "\n".join(step.get("run", "") for step in steps)
+
+
+def cache_dependency_paths(steps):
+    setup = next(step for step in steps if step.get("uses") == "actions/setup-python@v5")
+    return set(setup["with"]["cache-dependency-path"].splitlines())
 
 
 def test_repository_metadata_export_and_policy_are_coherent():
@@ -76,23 +83,13 @@ def test_dev_notebook_and_incompatible_research_dependencies_do_not_leak_into_ru
             for value in project["optional-dependencies"]["notebooks"]} == {"jupyter", "nbconvert", "ipykernel"}
 
 
-def test_lock_pins_same_fedot_sha_and_python_range():
-    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
-    project = project_metadata()["project"]
-    policy = load_compatibility().value
-    fedot = [package for package in lock["package"] if package["name"] == "fedot"]
-    assert len(fedot) == 1
-    sources = {urlsplit(package["source"]["git"]).fragment: urlsplit(package["source"]["git"])
-               for package in fedot}
-    assert set(sources) == {profile.sha for profile in policy.profiles}
-    for profile in policy.profiles:
-        source = sources[profile.sha]
-        assert source._replace(query="", fragment="").geturl() == profile.repository
-        assert parse_qs(source.query) in ({}, {"rev": [profile.sha]})
-    assert SpecifierSet(lock["requires-python"]) == SpecifierSet(project["requires-python"])
-    local_project = next(package for package in lock["package"] if package["name"] == project["name"])
-    assert local_project["version"] == project["version"]
-    assert any(item["name"] == "fedot" for item in local_project["dependencies"])
+def test_dependency_lock_is_an_ignored_local_artifact():
+    ignored = {
+        line.strip()
+        for line in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    assert "uv.lock" in ignored
 
 
 def test_install_matrix_and_python312_audit_are_distinct():
@@ -102,26 +99,44 @@ def test_install_matrix_and_python312_audit_are_distinct():
     assert set(matrix["os"]) == {"ubuntu-latest", "windows-latest"}
     assert "python312-audit" in jobs
     assert jobs["python312-audit"]["needs"] == "build"
-    install_commands = "\n".join(step.get("run", "") for step in jobs["install"]["steps"])
+    install_steps = jobs["install"]["steps"]
+    install_commands = workflow_commands(install_steps)
+    assert cache_dependency_paths(install_steps) == {"pyproject.toml", "requirements.txt"}
+    assert install_commands.index("uv lock --python") < install_commands.index("uv export --frozen --extra dev")
     assert "--frozen" in install_commands and "pip check" in install_commands
     assert "uv export --frozen --extra dev" in install_commands
     assert "python -I tools/runtime_smoke.py --json" in install_commands
     assert "poetry" not in install_commands
     integration = jobs["fedot-integration"]
     assert integration["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
-    integration_commands = "\n".join(step.get("run", "") for step in integration["steps"])
+    integration_steps = integration["steps"]
+    integration_commands = workflow_commands(integration_steps)
+    assert cache_dependency_paths(integration_steps) == {"pyproject.toml", "requirements.txt"}
+    assert integration_commands.index("uv lock --python") < integration_commands.index(
+        "uv export --frozen --extra dev")
     assert "uv export --frozen --extra dev" in integration_commands
     assert "environment --json" in integration_commands
     assert "tests/unit/integration/fedot" in integration_commands
 
 
-def test_unit_and_integration_install_same_locked_profile():
+def test_unit_and_integration_install_same_ephemeral_resolution():
     for name in ("poetry_unit_test.yml", "integration_tests.yml"):
         steps = workflow(name)["jobs"]["test"]["steps"]
-        commands = "\n".join(step.get("run", "") for step in steps)
+        commands = workflow_commands(steps)
+        assert cache_dependency_paths(steps) == {"pyproject.toml", "requirements.txt"}
+        assert commands.index("uv lock --python") < commands.index("uv export --frozen --extra dev")
         assert "uv export --frozen --extra dev" in commands
         assert "pip install --no-deps -e ." in commands
         assert "poetry " not in commands and "pip check" in commands
+
+
+def test_contract_matrix_resolves_only_supported_python_versions():
+    contracts = workflow("platform_checks.yml")["jobs"]["contracts"]
+    commands = workflow_commands(contracts["steps"])
+    resolution_step = next(step for step in contracts["steps"] if "uv lock --python" in step.get("run", ""))
+    assert contracts["strategy"]["matrix"]["python"] == ["3.10", "3.11", "3.12"]
+    assert resolution_step["if"] == "matrix.python != '3.12'"
+    assert "uv lock --check" not in commands
 
 
 def test_publication_uses_same_builder_and_pypi_guard():

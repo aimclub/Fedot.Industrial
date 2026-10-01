@@ -101,18 +101,17 @@ Fedot.Ind - это автоматизированный фреймворк ма�
     # Linux/macOS: source .venv/bin/activate
     # Windows PowerShell: .venv\Scripts\Activate.ps1
     python -m pip install --upgrade pip
-    python -m pip install -e ".[dev,fedot-legacy]"
+    python -m pip install -e ".[dev]"
     python -m tools.platform_support check --json
-    python -m tools.platform_support environment --profile legacy --json
+    python -m tools.platform_support environment --json
 
 Настройки зависимостей хранятся только в ``pyproject.toml``. ``requirements.txt``
-содержит профиль ``fedot-legacy``, ``requirements-tensor.txt`` — профиль
-``fedot-tensor``, а ``uv.lock`` фиксирует оба разрешённых набора. Профили
-взаимоисключающие: для каждого окружения нужно выбрать ровно один из них.
-Для воспроизводимой установки прежнего API используйте
-``uv sync --frozen --extra dev --extra fedot-legacy``. Для проверки нового
-контракта ``TensorData`` создайте отдельное окружение и замените последнюю
-группу на ``--extra fedot-tensor``.
+содержит проверяемый экспорт основных зависимостей. Файл ``uv.lock`` не входит
+в репозиторий: разработчик или задание CI создаёт его для выбранной версии
+Python командой ``uv lock --python 3.10``, а затем устанавливает зависимости
+командой ``uv sync --frozen --extra dev``. Такой порядок фиксирует одно
+разрешение зависимостей на время конкретной проверки, не создавая второго
+постоянного источника настроек.
 Матрица совместимости и порядок проверки сборки описаны в
 `инструкции разработчика <docs/dev_guide/platform_support.md>`_.
 

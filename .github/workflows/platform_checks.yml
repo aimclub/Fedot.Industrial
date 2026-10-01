@@ -26,13 +26,13 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install contract test tools only
         run: python -m pip install "pytest>=7,<9" "packaging>=24,<26" "tomli>=2,<3" "PyYAML>=6,<7" "uv==0.8.17"
-      - name: Check project metadata and frozen resolution
+      - name: Check project metadata and generated requirements
         run: |
           python -m tools.platform_support check --json
           python -m tools.platform_support export --check
-      - name: Check lock against project using supported Python
+      - name: Resolve dependencies using supported Python
         if: matrix.python != '3.12'
-        run: uv lock --check --python ${{ matrix.python }}
+        run: uv lock --python ${{ matrix.python }}
       - name: Run pure contract tests
         run: python -m pytest tests/unit/platform_support -q
   install:
@@ -53,7 +53,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: uv.lock
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
       - uses: actions/download-artifact@v4
         with:
           name: python-distributions
@@ -62,8 +64,9 @@ jobs:
         run: |
           python -m pip install "uv==0.8.17"
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
-      - name: Install locked dependencies and built wheel
+      - name: Install resolved dependencies and built wheel
         run: |
+          uv lock --python ${{ matrix.python }}
           uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install --no-deps dist/*.whl
@@ -85,7 +88,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: uv.lock
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
       - uses: actions/download-artifact@v4
         with:
           name: python-distributions
@@ -94,6 +99,7 @@ jobs:
         run: |
           python -m pip install "uv==0.8.17"
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
+          uv lock --python ${{ matrix.python }}
           uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install --no-deps dist/*.whl

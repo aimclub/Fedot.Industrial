@@ -101,17 +101,16 @@ To install the source from the `main branch`_:
     # Linux/macOS: source .venv/bin/activate
     # Windows PowerShell: .venv\Scripts\Activate.ps1
     python -m pip install --upgrade pip
-    python -m pip install -e ".[dev,fedot-legacy]"
+    python -m pip install -e ".[dev]"
     python -m tools.platform_support check --json
-    python -m tools.platform_support environment --profile legacy --json
+    python -m tools.platform_support environment --json
 
 ``pyproject.toml`` is the only dependency metadata source. ``requirements.txt``
-contains the ``fedot-legacy`` profile, ``requirements-tensor.txt`` contains the
-``fedot-tensor`` profile, and ``uv.lock`` records both resolved environments.
-The profiles are mutually exclusive: select exactly one per environment. Use
-``uv sync --frozen --extra dev --extra fedot-legacy`` for the established API.
-Create a separate environment and select ``--extra fedot-tensor`` to verify the
-new ``TensorData`` integration contract.
+is the validated export of direct runtime dependencies. ``uv.lock`` is not
+tracked: a developer or CI job creates it for the selected Python version with
+``uv lock --python 3.10`` and then installs that resolution with
+``uv sync --frozen --extra dev``. This keeps one resolution stable for a given
+verification run without introducing a second persistent metadata source.
 See the `developer installation guide <docs/dev_guide/platform_support.md>`_
 for the compatibility matrix and build checks.
 
