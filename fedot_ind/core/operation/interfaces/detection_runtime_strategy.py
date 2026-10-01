@@ -15,6 +15,7 @@ from fedot_ind.core.repository.detection_registry import (
 )
 from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 
+
 def build_detection_boundary_batch(input_data: InputData, params: Optional[OperationParameters] = None):
     """Build a FEDOT-boundary detection batch using the shared runtime adapter."""
     params = params or OperationParameters()

@@ -156,7 +156,7 @@ def parse_compatibility(raw: object) -> ParseResult[Compatibility]:
     issues: list[Issue] = []
     obj = _object(raw, {"schema_version", "requires_python", "source", "default_profile",
                   "profiles", "python", "known_constraints"}, "compatibility", issues)
-    if type(obj.get("schema_version")) is not int or obj.get("schema_version") != 3:
+    if not isinstance(obj.get("schema_version"), int) or obj.get("schema_version") != 3:
         issues.append(Issue("compatibility.schema_version", "version", "Only schema version 3 is supported."))
     source = _string(obj, "source", "compatibility", issues)
     requires = _string(obj, "requires_python", "compatibility", issues)
