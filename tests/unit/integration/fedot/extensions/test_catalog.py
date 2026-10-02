@@ -99,6 +99,17 @@ def test_catalog_rejects_unknown_invocation_policy(field):
     assert error.value.context["field"] == field
 
 
+def test_catalog_validates_structural_role_without_importing_graph_runtime():
+    payload = _payload()
+    payload["operations"][0]["structural_role"] = "resampling"
+    assert parse_industrial_extension_catalog(payload).operations[0].structural_role == "resampling"
+
+    payload["operations"][0]["structural_role"] = ["resampling"]
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        parse_industrial_extension_catalog(payload)
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

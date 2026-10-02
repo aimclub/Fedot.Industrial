@@ -32,6 +32,7 @@ SUPPORTED_BACKENDS = frozenset({"numpy", "torch"})
 SUPPORTED_DEVICES = frozenset({"cpu", "cuda"})
 SUPPORTED_POSITIONS = frozenset({"any", "primary", "secondary", "root"})
 SUPPORTED_PROBLEMS = frozenset({"classification", "regression", "ts_forecasting", "anomaly_detection"})
+SUPPORTED_STRUCTURAL_ROLES = frozenset({"resampling", "decomposition", "class_decomposition"})
 
 
 @lru_cache(maxsize=1)
@@ -153,6 +154,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         "devices", "serializable", "allowed_positions", "min_parents", "max_parents",
         "allows_identical_parents",
         "constructor_policy", "probability_policy", "transform_policy",
+        "structural_role",
     }
     required = {"name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems"}
     _require_keys(value, required, f"operations[{index}]")
@@ -249,6 +251,12 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         "allows_identical_parents",
         index,
     )
+    structural_role = value.get("structural_role")
+    if structural_role is not None and (
+            not isinstance(structural_role, str)
+            or structural_role not in SUPPORTED_STRUCTURAL_ROLES):
+        _invalid("Operation structural role is unsupported.",
+                 index=index, field="structural_role", value=structural_role)
     policies = {}
     for field, policy_type in (
         ("constructor_policy", IndustrialConstructorPolicy),
@@ -285,6 +293,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         min_parents=min_parents,
         max_parents=max_parents,
         allows_identical_parents=allows_identical_parents,
+        structural_role=structural_role,
         **policies,
     )
 

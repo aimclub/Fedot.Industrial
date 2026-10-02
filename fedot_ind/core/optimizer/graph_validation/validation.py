@@ -10,6 +10,7 @@ from fedot_ind.core.optimizer.graph_validation.contracts import (
     GraphSpec,
     NodePosition,
     OperationKind,
+    StructuralRole,
     ValidationIssue,
     ValidationIssueCode,
     ValidationReport,
@@ -236,7 +237,9 @@ def validate_special_operations(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
     children = _children_by_parent(nodes)
     primary_nodes = tuple(node for node in nodes.values() if not node.parent_ids)
 
-    source_flags = tuple(node.operation_name.startswith("data_source") for node in primary_nodes)
+    source_flags = tuple(node.capabilities is not None
+                         and node.capabilities.kind is OperationKind.DATA_SOURCE
+                         for node in primary_nodes)
     if source_flags and any(source_flags) and not all(source_flags):
         issues.append(_issue(
             ValidationIssueCode.MIXED_DATA_SOURCES,
@@ -245,7 +248,9 @@ def validate_special_operations(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
             operation_names=(node.operation_name for node in primary_nodes),
         ))
 
-    resample_nodes = tuple(node for node in nodes.values() if node.operation_name == "resample")
+    resample_nodes = tuple(node for node in nodes.values()
+                           if node.capabilities is not None
+                           and node.capabilities.structural_role is StructuralRole.RESAMPLING)
     for node in resample_nodes:
         if node.parent_ids or (len(primary_nodes) > 1):
             issues.append(_issue(
@@ -265,7 +270,8 @@ def validate_special_operations(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
                 ))
 
     for node in nodes.values():
-        if node.operation_name not in ("decompose", "class_decompose"):
+        if (node.capabilities is None or node.capabilities.structural_role not in
+                (StructuralRole.DECOMPOSITION, StructuralRole.CLASS_DECOMPOSITION)):
             continue
         if len(node.parent_ids) != 2:
             issues.append(_issue(
@@ -404,7 +410,8 @@ def _is_class_decompose_regression_branch(
     if "regression" not in node.capabilities.task_types:
         return False
     return any(nodes.get(parent_id) is not None
-               and nodes[parent_id].operation_name == "class_decompose"
+               and nodes[parent_id].capabilities is not None
+               and nodes[parent_id].capabilities.structural_role is StructuralRole.CLASS_DECOMPOSITION
                for parent_id in node.parent_ids)
 
 

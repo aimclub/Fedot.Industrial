@@ -20,6 +20,14 @@ class OperationKind(str, Enum):
     UNKNOWN = "unknown"
 
 
+class StructuralRole(str, Enum):
+    """Graph constraints supplied by an operation rather than its name."""
+
+    RESAMPLING = "resampling"
+    DECOMPOSITION = "decomposition"
+    CLASS_DECOMPOSITION = "class_decomposition"
+
+
 class ComputeDevice(str, Enum):
     """Execution devices declared by an operation capability."""
 
@@ -122,12 +130,15 @@ class OperationCapabilities:
     requires_target: bool = True
     requires_fit: bool = True
     tags: tuple[str, ...] = ()
+    structural_role: StructuralRole | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValueError("Operation capability name must not be empty")
         if not isinstance(self.kind, OperationKind):
             raise TypeError("Operation capability kind must be an OperationKind")
+        if self.structural_role is not None and not isinstance(self.structural_role, StructuralRole):
+            raise TypeError("Operation structural role must be a StructuralRole or None")
         tuple_fields = (
             self.input_data_types,
             self.output_data_types,
@@ -193,6 +204,7 @@ class OperationCapabilities:
             "requires_target": self.requires_target,
             "requires_fit": self.requires_fit,
             "tags": list(self.tags),
+            "structural_role": None if self.structural_role is None else self.structural_role.value,
         }
 
 

@@ -11,6 +11,7 @@ from fedot_ind.core.optimizer.graph_validation.contracts import (
     NodePosition,
     OperationCapabilities,
     OperationKind,
+    StructuralRole,
 )
 from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialOperationDeclaration,
@@ -40,6 +41,8 @@ def capabilities_from_declaration(
         requires_target=declaration.requires_target,
         requires_fit=declaration.requires_fit,
         tags=declaration.tags,
+        structural_role=(None if declaration.structural_role is None
+                         else StructuralRole(declaration.structural_role)),
     )
 
 

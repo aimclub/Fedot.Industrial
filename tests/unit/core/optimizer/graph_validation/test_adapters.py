@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from dataclasses import replace
 
 import pytest
 from fedot.core.pipelines.adapters import PipelineAdapter
@@ -11,6 +12,7 @@ from fedot_ind.core.optimizer.graph_validation import (
     ComputeDevice,
     IndustrialGraphVerifier,
     OperationKind,
+    StructuralRole,
     ValidationIssueCode,
     capabilities_from_declaration,
     graph_spec_from_runtime,
@@ -69,6 +71,24 @@ def test_mapping_metadata_and_device_aliases_are_projected_at_the_boundary():
     assert capability.input_data_types == ("tabular",)
     assert capability.output_data_types == ("ts",)
     assert capability.devices == (ComputeDevice.CPU, ComputeDevice.CUDA)
+
+
+def test_adapter_translates_legacy_names_and_explicit_extension_roles():
+    def node(name, role=None):
+        metadata = {"input_types": ["tabular"], "output_types": ["tabular"]}
+        if role is not None:
+            metadata["structural_role"] = role
+        return SimpleNamespace(content={"name": name, "metadata": metadata}, nodes_from=[])
+
+    spec = graph_spec_from_runtime(SimpleNamespace(nodes=[
+        node("resample"), node("decompose"), node("class_decompose"),
+        node("custom_sampler", "resampling"),
+    ]), capability_index={})
+
+    assert [item.capabilities.structural_role for item in spec.nodes] == [
+        StructuralRole.RESAMPLING, StructuralRole.DECOMPOSITION,
+        StructuralRole.CLASS_DECOMPOSITION, StructuralRole.RESAMPLING,
+    ]
 
 
 def test_runtime_node_without_catalog_or_metadata_remains_explicitly_unknown():
@@ -166,6 +186,8 @@ def test_industrial_declaration_exposes_backend_devices_and_contract_fields():
     assert capability.task_types == declaration.tasks
     assert capability.input_data_types == declaration.data_types
     assert capability.output_data_types == (declaration.output_data_type,)
+    assert capabilities_from_declaration(replace(
+        declaration, structural_role="resampling")).structural_role is StructuralRole.RESAMPLING
 
 
 def test_industrial_capability_index_is_cached_and_immutable():

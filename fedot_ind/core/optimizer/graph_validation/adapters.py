@@ -13,6 +13,7 @@ from fedot_ind.core.optimizer.graph_validation.contracts import (
     NodePosition,
     OperationCapabilities,
     OperationKind,
+    StructuralRole,
 )
 
 
@@ -113,6 +114,7 @@ def capabilities_from_runtime_node(
         serializable=True,
         allowed_positions=_positions(_metadata_value(metadata, "allowed_positions", ("any",))),
         tags=tags,
+        structural_role=_structural_role(metadata, operation_name),
     )
 
 
@@ -182,6 +184,18 @@ def _operation_kind(operation: object, operation_name: str) -> OperationKind:
     except ImportError:
         pass
     return OperationKind.TRANSFORM
+
+
+def _structural_role(metadata: object, operation_name: str) -> StructuralRole | None:
+    declared = _metadata_value(metadata, "structural_role", None)
+    if declared is not None:
+        return StructuralRole(_enum_name(declared))
+    # Translate FEDOT's legacy operation names only at the runtime boundary.
+    return {
+        "resample": StructuralRole.RESAMPLING,
+        "decompose": StructuralRole.DECOMPOSITION,
+        "class_decompose": StructuralRole.CLASS_DECOMPOSITION,
+    }.get(operation_name)
 
 
 def _metadata_value(metadata: object, name: str, default: Any) -> Any:

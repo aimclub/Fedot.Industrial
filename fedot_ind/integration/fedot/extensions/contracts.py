@@ -125,6 +125,7 @@ class IndustrialOperationDeclaration:
     min_parents: int = 0
     max_parents: int | None = None
     allows_identical_parents: bool = True
+    structural_role: str | None = None
     constructor_policy: IndustrialConstructorPolicy = IndustrialConstructorPolicy.OPERATION_PARAMETERS
     probability_policy: IndustrialProbabilityPolicy = IndustrialProbabilityPolicy.NONE
     transform_policy: IndustrialTransformPolicy = IndustrialTransformPolicy.TRANSFORM
@@ -161,6 +162,7 @@ class IndustrialOperationDeclaration:
             "min_parents": self.min_parents,
             "max_parents": self.max_parents,
             "allows_identical_parents": self.allows_identical_parents,
+            "structural_role": self.structural_role,
             "constructor_policy": self.constructor_policy.value,
             "probability_policy": self.probability_policy.value,
             "transform_policy": self.transform_policy.value,

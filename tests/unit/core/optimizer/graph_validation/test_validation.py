@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 from hypothesis import given, strategies as st
 import pytest
@@ -10,6 +11,7 @@ from fedot_ind.core.optimizer.graph_validation import (
     NodePosition,
     OperationCapabilities,
     OperationKind,
+    StructuralRole,
     ValidationIssue,
     ValidationIssueCode,
     ValidationReport,
@@ -32,6 +34,7 @@ def _capability(
         max_parents: int | None = None,
         identical: bool = True,
         tags: tuple[str, ...] = (),
+        structural_role: StructuralRole | None = None,
 ) -> OperationCapabilities:
     return OperationCapabilities(
         name=name,
@@ -46,6 +49,7 @@ def _capability(
         max_parents=max_parents,
         allows_identical_parents=identical,
         tags=tags,
+        structural_role=structural_role,
     )
 
 
@@ -230,14 +234,14 @@ def test_data_flow_reports_each_incompatible_edge_and_duplicate_transform_parent
 
 def test_class_decompose_allows_regression_model_inside_classification_graph():
     model = _capability("regressor", kind=OperationKind.MODEL, tasks=("regression",))
-    decompose = _capability("class_decompose")
+    decompose = _capability("custom_class_split", structural_role=StructuralRole.CLASS_DECOMPOSITION)
     spec = GraphSpec(
         graph_id="multitask",
         task_type="classification",
         nodes=(
             GraphNodeSpec("left", "left", capabilities=_capability("left")),
             GraphNodeSpec("right", "right", capabilities=_capability("right")),
-            GraphNodeSpec("bridge", "class_decompose", ("left", "right"), decompose),
+            GraphNodeSpec("bridge", "custom_class_split", ("left", "right"), decompose),
             GraphNodeSpec("root", "regressor", ("bridge",), model),
         ),
     )
@@ -257,10 +261,13 @@ def test_special_rules_handle_resample_decompose_and_mixed_sources_safely():
         graph_id="special",
         task_type="classification",
         nodes=(
-            GraphNodeSpec("data", "data_source/table", capabilities=transform),
-            GraphNodeSpec("resample", "resample", capabilities=transform),
+            GraphNodeSpec("data", "data_source/table", capabilities=_capability(
+                "data_source/table", kind=OperationKind.DATA_SOURCE)),
+            GraphNodeSpec("resample", "resample", capabilities=_capability(
+                "resample", structural_role=StructuralRole.RESAMPLING)),
             GraphNodeSpec("ordinary", "scale", capabilities=transform),
-            GraphNodeSpec("decompose", "decompose", ("ordinary",), transform),
+            GraphNodeSpec("decompose", "decompose", ("ordinary",), _capability(
+                "decompose", structural_role=StructuralRole.DECOMPOSITION)),
             GraphNodeSpec("root", "model", ("resample", "decompose"), model),
         ),
     )
@@ -273,6 +280,35 @@ def test_special_rules_handle_resample_decompose_and_mixed_sources_safely():
         ValidationIssueCode.RESAMPLE_PARENT_CONFLICT.value,
         ValidationIssueCode.DECOMPOSE_PARENT_COUNT.value,
     }.issubset(report.error_codes)
+
+
+def test_special_graph_rules_follow_declared_roles_when_operations_are_renamed():
+    model = _capability("model", kind=OperationKind.MODEL)
+    resampling = _capability("custom_sampler", structural_role=StructuralRole.RESAMPLING)
+    decomposition = _capability("custom_split", structural_role=StructuralRole.DECOMPOSITION)
+    spec = GraphSpec(
+        graph_id="extension-roles", task_type="classification",
+        nodes=(
+            GraphNodeSpec("sampler", "custom_sampler", capabilities=resampling),
+            GraphNodeSpec("ordinary", "scale", capabilities=_capability("scale")),
+            GraphNodeSpec("split", "custom_split", ("ordinary",), decomposition),
+            GraphNodeSpec("root", "model", ("sampler", "split"), model),
+        ),
+    )
+
+    codes = validate_graph(spec).error_codes
+    assert ValidationIssueCode.RESAMPLE_POSITION.value in codes
+    assert ValidationIssueCode.RESAMPLE_PARENT_CONFLICT.value in codes
+    assert ValidationIssueCode.DECOMPOSE_PARENT_COUNT.value in codes
+
+    without_roles = replace(spec, nodes=tuple(replace(
+        node, capabilities=(None if node.capabilities is None else replace(
+            node.capabilities, structural_role=None))) for node in spec.nodes))
+    familiar_name = replace(without_roles, nodes=tuple(replace(
+        node, operation_name="resample" if node.node_id == "sampler" else node.operation_name)
+        for node in without_roles.nodes))
+    assert ValidationIssueCode.RESAMPLE_POSITION.value not in validate_graph(familiar_name).error_codes
+    assert ValidationIssueCode.DECOMPOSE_PARENT_COUNT.value not in validate_graph(familiar_name).error_codes
 
 
 def test_parallel_filtering_rule_does_not_reject_sequential_filters():
