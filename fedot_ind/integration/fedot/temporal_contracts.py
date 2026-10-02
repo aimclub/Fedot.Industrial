@@ -653,5 +653,3 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (set, frozenset)):
         return [_jsonable(item) for item in sorted(value, key=repr)]
     return str(value)
-
-

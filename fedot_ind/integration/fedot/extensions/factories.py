@@ -16,7 +16,6 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialRuntimeInterface,
     IndustrialConstructorPolicy,
     IndustrialProbabilityPolicy,
-    IndustrialTransformPolicy,
 )
 
 

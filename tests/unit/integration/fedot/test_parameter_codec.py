@@ -33,13 +33,13 @@ def test_parameter_containers_survive_freeze_thaw_without_aliasing(make_plan):
     source["array"][0] = 99
 
     runtime = plan.runtime_parameters()
-    assert type(runtime["nested"]) is list
-    assert type(runtime["nested"][0]["tuple"]) is tuple
-    assert type(runtime["nested"][0]["tuple"][1]) is list
+    assert isinstance(runtime["nested"], list)
+    assert isinstance(runtime["nested"][0]["tuple"], tuple)
+    assert isinstance(runtime["nested"][0]["tuple"][1], list)
     assert runtime["nested"][0]["tuple"] == (1, [2, 3])
-    assert type(runtime["nested"][0]["set"]) is set
+    assert isinstance(runtime["nested"][0]["set"], set)
     assert runtime["nested"][0]["set"] == {(1, 2)}
-    assert type(runtime["nested"][1]) is frozenset
+    assert isinstance(runtime["nested"][1], frozenset)
     np.testing.assert_array_equal(runtime["array"], [6, 7])
 
     runtime["nested"][0]["tuple"][1].append(88)
