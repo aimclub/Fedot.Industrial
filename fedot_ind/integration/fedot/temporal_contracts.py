@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
@@ -327,8 +326,7 @@ class ForecastingPrediction:
         object.__setattr__(self, "values", values)
         object.__setattr__(self, "forecast_time_idx", future_idx)
         object.__setattr__(self, "sample_idx", sample_idx)
-        object.__setattr__(self, "metadata", MappingProxyType(
-            deepcopy(dict(self.metadata))))
+        object.__setattr__(self, "metadata", _freeze_mapping(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -583,8 +581,7 @@ class DetectionPrediction:
                 )
         object.__setattr__(self, "values", values)
         object.__setattr__(self, "time_idx", time_idx)
-        object.__setattr__(self, "metadata", MappingProxyType(
-            deepcopy(dict(self.metadata))))
+        object.__setattr__(self, "metadata", _freeze_mapping(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
         return {

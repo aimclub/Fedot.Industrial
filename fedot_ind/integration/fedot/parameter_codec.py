@@ -38,6 +38,8 @@ def freeze_value(value: Any) -> Any:
         return frozenset(freeze_value(item) for item in value)
     if isinstance(value, np.ndarray):
         copied = np.array(value, copy=True)
+        if not copied.dtype.hasobject:
+            return np.frombuffer(copied.tobytes(), dtype=copied.dtype).reshape(copied.shape)
         copied.setflags(write=False)
         return copied
     return deepcopy(value)

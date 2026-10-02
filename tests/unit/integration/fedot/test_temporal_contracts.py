@@ -9,6 +9,7 @@ from fedot_ind.integration.fedot import (
     DataProfile,
     DetectionExecutionPlan,
     DetectionMode,
+    DetectionPrediction,
     ForecastingExecutionPlan,
     ForecastingPrediction,
     IntegrationContractError,
@@ -146,6 +147,41 @@ def test_forecasting_prediction_requires_exact_horizon_and_future_coordinates():
         )
 
     assert error.value.code is IntegrationErrorCode.LENGTH_MISMATCH
+
+
+@pytest.mark.parametrize(
+    "make_prediction",
+    [
+        lambda metadata: ForecastingPrediction(
+            values=np.array([1.0, 2.0]), forecast_time_idx=np.array([10, 11]),
+            sample_idx=np.array(["series"]), horizon=2, metadata=metadata),
+        lambda metadata: DetectionPrediction(
+            values=np.array([0, 1]), time_idx=np.array([10, 11]),
+            mode=DetectionMode.LABELS, metadata=metadata),
+    ],
+)
+def test_prediction_metadata_is_recursively_immutable(make_prediction):
+    source = {"nested": {"list": [1, 2], "set": {3, 4}, "array": np.array([5, 6])}}
+    prediction = make_prediction(source)
+    source["nested"]["list"].append(99)
+    source["nested"]["array"][0] = 99
+
+    assert prediction.metadata["nested"]["list"] == (1, 2)
+    assert prediction.metadata["nested"]["set"] == frozenset({3, 4})
+    np.testing.assert_array_equal(prediction.metadata["nested"]["array"], [5, 6])
+    with pytest.raises(TypeError):
+        prediction.metadata["nested"]["new"] = 1
+    with pytest.raises((AttributeError, TypeError)):
+        prediction.metadata["nested"]["list"].append(3)
+    with pytest.raises((AttributeError, TypeError)):
+        prediction.metadata["nested"]["set"].add(5)
+    with pytest.raises(ValueError):
+        prediction.metadata["nested"]["array"][0] = 7
+    with pytest.raises(ValueError):
+        prediction.metadata["nested"]["array"].setflags(write=True)
+    assert prediction.to_dict()["metadata"]["nested"] == {
+        "list": [1, 2], "set": [3, 4], "array": [5, 6],
+    }
 
 
 def test_temporal_multimodal_plan_is_order_invariant_and_checks_future_availability():
