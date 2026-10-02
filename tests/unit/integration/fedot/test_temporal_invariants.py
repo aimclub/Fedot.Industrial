@@ -86,7 +86,7 @@ def test_detection_execution_plan_normalizes_mode_and_copies_parameters():
     parameters["weights"][0] = 9.0
 
     assert plan.mode is DetectionMode.SCORES
-    assert plan.runtime_parameters()["layers"] == [8, 4]
+    assert plan.runtime_parameters()["layers"] == (8, 4)
     assert plan.runtime_parameters()["families"] == {
         "frequency", "statistical"}
     np.testing.assert_allclose(plan.runtime_parameters()[

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from types import MappingProxyType
 from typing import Any, Mapping
 
 import numpy as np
+
+from fedot_ind.integration.fedot.parameter_codec import freeze_mapping, thaw_value
 
 
 class DataProfile(str, Enum):
@@ -186,16 +187,11 @@ class ModelExecutionPlan:
                 context={"operation": self.operation_name},
             )
         object.__setattr__(self, "operation_name", name)
-        copied = deepcopy(dict(self.parameters))
-        object.__setattr__(
-            self,
-            "parameters",
-            MappingProxyType({key: _freeze(value) for key, value in copied.items()}),
-        )
+        object.__setattr__(self, "parameters", freeze_mapping(self.parameters))
 
     def runtime_parameters(self) -> dict[str, Any]:
         """Return an owned mutable copy for the effectful model constructor."""
-        return {key: _thaw(value) for key, value in self.parameters.items()}
+        return {key: thaw_value(value) for key, value in self.parameters.items()}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -420,30 +416,8 @@ def _jsonable(value: Any) -> Any:
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):
         return [_jsonable(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return [_jsonable(item) for item in sorted(value, key=repr)]
     return repr(value)
 
 
-def _freeze(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
-    if isinstance(value, list):
-        return tuple(_freeze(item) for item in value)
-    if isinstance(value, tuple):
-        return tuple(_freeze(item) for item in value)
-    if isinstance(value, set):
-        return frozenset(_freeze(item) for item in value)
-    if isinstance(value, np.ndarray):
-        return _readonly_array(value, "parameter")
-    return value
-
-
-def _thaw(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {key: _thaw(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return [_thaw(item) for item in value]
-    if isinstance(value, frozenset):
-        return {_thaw(item) for item in value}
-    if isinstance(value, np.ndarray):
-        return np.array(value, copy=True)
-    return deepcopy(value)

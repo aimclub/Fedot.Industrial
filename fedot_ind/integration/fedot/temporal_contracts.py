@@ -17,6 +17,10 @@ from fedot_ind.integration.fedot.contracts import (
     IntegrationErrorCode,
     RuntimeState,
 )
+from fedot_ind.integration.fedot.parameter_codec import (
+    freeze_mapping as _freeze_mapping,
+    thaw_value as _thaw_value,
+)
 
 
 class TemporalOrientation(str, Enum):
@@ -649,35 +653,8 @@ def _jsonable(value: Any) -> Any:
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):
         return [_jsonable(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return [_jsonable(item) for item in sorted(value, key=repr)]
     return str(value)
 
 
-def _freeze_mapping(value: Mapping[str, Any]) -> Mapping[str, Any]:
-    copied = deepcopy(dict(value))
-    return MappingProxyType({key: _freeze_value(item) for key, item in copied.items()})
-
-
-def _freeze_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return MappingProxyType({key: _freeze_value(item) for key, item in value.items()})
-    if isinstance(value, list):
-        return tuple(_freeze_value(item) for item in value)
-    if isinstance(value, tuple):
-        return tuple(_freeze_value(item) for item in value)
-    if isinstance(value, set):
-        return frozenset(_freeze_value(item) for item in value)
-    if isinstance(value, np.ndarray):
-        return _readonly_array(value, "parameter")
-    return value
-
-
-def _thaw_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {key: _thaw_value(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return [_thaw_value(item) for item in value]
-    if isinstance(value, frozenset):
-        return {_thaw_value(item) for item in value}
-    if isinstance(value, np.ndarray):
-        return np.array(value, copy=True)
-    return deepcopy(value)
