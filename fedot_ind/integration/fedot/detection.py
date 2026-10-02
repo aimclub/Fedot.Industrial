@@ -72,6 +72,14 @@ class TensorDetectionRuntime:
             gap_mask=None,
             channel_names=None,
     ) -> "TensorDetectionRuntime":
+        """Fit the detector from the created state and return this runtime.
+
+        Raw data and annotation options follow ``prepare_detection_data``.
+        Prepared input is used as supplied, ignoring those options, and must have
+        a training plan matching the execution mode and causal flag. Invalid
+        state or plan raises IntegrationContractError. Exceptions from strategy
+        fitting are propagated as contract errors or wrapped as RUNTIME_FAILURE.
+        """
         self._require_state(RuntimeState.CREATED, "fit")
         prepared = data if isinstance(data, PreparedDetectionData) else prepare_detection_data(
             data,
@@ -119,6 +127,17 @@ class TensorDetectionRuntime:
             gap_mask=None,
             channel_names=None,
     ) -> DetectionPrediction:
+        """Return point predictions and anomaly intervals on the detector's time grid.
+
+        Require a fitted runtime and matching channel names, channel count, mode,
+        and causal flag. Raw data follows ``prepare_detection_data``; prepared
+        input retains its own plan and coordinates. Resampling may change the
+        output time index; metadata reports whether the input index was preserved.
+        Interval bounds are positions in the output grid, with exclusive stops.
+
+        Invalid state or plan raises IntegrationContractError. Exceptions during
+        scoring are propagated as contract errors or wrapped as RUNTIME_FAILURE.
+        """
         self._require_state(RuntimeState.FITTED, "predict")
         assert self._train_data is not None
         assert self._strategy is not None
@@ -165,6 +184,10 @@ class TensorDetectionRuntime:
         )
 
     def close(self) -> None:
+        """Discard the fitted operation and data and mark the runtime closed.
+
+        Repeated calls are harmless; fitting and prediction are rejected afterward.
+        """
         self._operation = None
         self._strategy = None
         self._train_data = None

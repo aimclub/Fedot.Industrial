@@ -69,6 +69,13 @@ class FinetuneService:
             process_input: Callable[[Any], Any],
             init_backend: Callable[[Any], Any],
     ) -> FinetunePayload:
+        """Prepare training data, tuning options, and a concrete model for fitting.
+
+        Call ``process_input`` only for non-FEDOT data, then initialize the backend
+        and convert to training TensorData. Update ``tuning_params`` in place with
+        the metric and tuner, and call ``model_to_tune.build()`` when available.
+        Raise ValueError if no model is supplied; collaborator errors propagate.
+        """
         if model_to_tune is None:
             raise ValueError("model_to_tune must be provided for finetune")
 

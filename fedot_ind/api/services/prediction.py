@@ -21,6 +21,16 @@ class PredictionService:
             predict_data: Any,
             predict_mode: str,
     ) -> Any:
+        """Route prediction to the configured solver and return its prediction values.
+
+        Custom solvers receive the original data and ignore ``predict_mode``.
+        FEDOT solvers receive data converted with the stored training reference;
+        FEDOT output containers are unwrapped to NumPy values. If an encoder is
+        active, decode predictions and update any target on the runtime data.
+
+        Solver and decoder errors propagate. Forecasts with an observed length
+        other than the requested horizon raise ValueError.
+        """
         condition_check = manager.condition_check
         solver = manager.solver
         have_encoder = condition_check.solver_have_target_encoder(target_encoder)
@@ -72,6 +82,10 @@ class PredictionService:
 
     @staticmethod
     def _inverse_encoder_transform(*, prediction: Any, target_encoder: Any, predict_data: Any) -> Any:
+        """Decode predictions and, when present, replace the input target in place.
+
+        Return decoded predictions; conversion and encoder errors propagate.
+        """
         predicted_labels = target_encoder.inverse_transform(as_numpy(prediction))
         if getattr(predict_data, "target", None) is not None:
             predict_data.target = target_encoder.inverse_transform(as_numpy(predict_data.target))
@@ -86,6 +100,11 @@ class PredictionService:
 
     @staticmethod
     def _validate_forecast_length(prediction: Any, predict_data: Any) -> None:
+        """Raise ValueError when the observed output length differs from the horizon.
+
+        For multidimensional outputs, use the last axis when it equals the
+        horizon, otherwise use the first axis. Zero-dimensional arrays have observed length zero.
+        """
         horizon = int(predict_data.task.task_params.forecast_length)
         shape = getattr(prediction, "shape", None)
         if shape is None:

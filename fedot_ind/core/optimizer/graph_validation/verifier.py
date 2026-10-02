@@ -43,9 +43,21 @@ class IndustrialGraphVerifier:
         return self.verify(graph)
 
     def verify(self, graph: object) -> bool:
+        """Return whether the graph is valid and retain the report in ``last_report``.
+
+        Use the error handling and optional legacy check of ``verify_with_report``.
+        """
         return self.verify_with_report(graph).is_valid
 
     def verify_with_report(self, graph: object) -> ValidationReport:
+        """Validate a runtime graph and retain the returned report in ``last_report``.
+
+        Run the optional legacy verifier only after the pure rules accept the
+        graph. AttributeError, IndexError, KeyError, TypeError, and ValueError from
+        graph projection or legacy verification become report issues. Other
+        exceptions, including OSError, propagate; pure-rule exceptions also
+        propagate.
+        """
         try:
             runtime_graph, spec = project_runtime_graph(
                 graph,

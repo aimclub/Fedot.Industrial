@@ -330,6 +330,12 @@ def _grid_positions(
 
 
 def _forward_fill(values: np.ndarray, *, causal: bool = False) -> np.ndarray:
+    """Copy values and carry the last observed value forward in each channel.
+
+    With ``causal=False``, fill leading NaNs from the first observation.
+    Causal mode leaves leading NaNs intact; entirely missing channels remain
+    NaN in either mode.
+    """
     filled = values.copy()
     for channel in range(filled.shape[1]):
         column = filled[:, channel]
@@ -529,19 +535,18 @@ def prepare_detection_series(
         external_gap_mask: Sequence[bool] | np.ndarray | None = None,
         causal: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, DataQualityReport]:
-    """alignment + gap_mask + (опц.) channel-quality.
-    Raw data
-    ↓
-    align_timestamps
-    ↓
-    Get an aligned row
-    ↓
-    diagnose_channel_quality
-    ↓
-    Get a quality report
-    ↓
-    Return everything together
-"""
+    """Align detection values and return values, a point gap mask, and a quality report.
+
+    Alignment options follow ``align_timestamps``. True mask entries mark
+    missing, synthetic, or externally flagged points. Disabling
+    ``run_channel_quality`` skips channel diagnostics but retains alignment
+    metadata. The report stores aligned timestamps as ISO strings for datetime
+    input and numeric values otherwise.
+
+    ValueError from alignment or channel-name validation propagates, including
+    mismatched timestamp or mask lengths and linear interpolation in causal
+    mode.
+    """
     timestamp_kind = _timestamp_kind(timestamps)
     aligned_values, aligned_ts, gap_mask, alignment_report = align_timestamps(
         values,

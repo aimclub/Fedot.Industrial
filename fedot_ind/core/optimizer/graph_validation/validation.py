@@ -21,7 +21,12 @@ GraphRule = Callable[[GraphSpec], tuple[ValidationIssue, ...]]
 
 
 def validate_graph(spec: GraphSpec, *, rules: Iterable[GraphRule] | None = None) -> ValidationReport:
-    """Return every issue found by deterministic, side-effect-free rules."""
+    """Return sorted issues from the selected graph rules.
+
+    ``rules=None`` selects the default pure rules; an explicit iterable
+    replaces them, and an empty iterable produces a valid report. Exceptions
+    from rules propagate.
+    """
     selected_rules = tuple(rules) if rules is not None else DEFAULT_GRAPH_RULES
     issues = tuple(sorted(
         (issue for rule in selected_rules for issue in rule(spec)),
@@ -31,6 +36,11 @@ def validate_graph(spec: GraphSpec, *, rules: Iterable[GraphRule] | None = None)
 
 
 def validate_structure(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
+    """Return issues for empty, cyclic, disconnected, or ambiguously rooted graphs.
+
+    Also report duplicate node IDs, absent parents, self-links, isolated nodes,
+    and missing primary nodes. A root is a node with no children.
+    """
     if not spec.nodes:
         return (_issue(ValidationIssueCode.EMPTY_GRAPH, "Graph has no nodes."),)
 
@@ -107,6 +117,11 @@ def validate_structure(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
 
 
 def validate_capabilities(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
+    """Return operation capability violations for the graph's execution context.
+
+    Check supported positions, parent counts, tasks, devices, serialization,
+    and model roots. Missing capability declarations are reported as issues.
+    """
     issues: list[ValidationIssue] = []
     nodes = _unique_node_map(spec)
     roots = frozenset(_root_ids(nodes))
@@ -187,6 +202,11 @@ def validate_capabilities(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
 
 
 def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
+    """Return incompatible parent-output/child-input and duplicate-parent issues.
+
+    Skip type comparisons when either endpoint lacks capabilities or either
+    type declaration is empty.
+    """
     issues: list[ValidationIssue] = []
     nodes = _unique_node_map(spec)
     for child in nodes.values():
@@ -232,6 +252,7 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
 
 
 def validate_special_operations(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
+    """Return violations of source, resampling, decomposition, and filtering rules."""
     issues: list[ValidationIssue] = []
     nodes = _unique_node_map(spec)
     children = _children_by_parent(nodes)

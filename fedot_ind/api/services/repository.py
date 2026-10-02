@@ -33,9 +33,18 @@ class IndustrialRepositoryInitializer:
         return self._session.activate() if industrial_context else None
 
     def close(self) -> None:
+        """Release this initializer's extension session."""
         self._session.close()
 
     def activate(self, *, manager: Any, logger: Any, input_data: Any = None) -> RepositoryActivationResult:
+        """Select the manager's optimizer and return the extension result and input.
+
+        Replace ``manager.automl_config.optimisation_strategy`` with the selected
+        optimizer. Industrial contexts also activate the owned extension session
+        and bind validated options with initial graphs marked as prevalidated.
+        The input is returned unchanged; activation and configuration errors
+        propagate.
+        """
         logger.info('-' * 50)
         logger.info('Initialising Industrial Repository')
         if manager.industrial_config.is_default_fedot_context:

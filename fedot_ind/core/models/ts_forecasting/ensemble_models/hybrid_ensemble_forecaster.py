@@ -97,6 +97,12 @@ class HybridEnsembleForecaster:
             source_series: np.ndarray,
             horizon: int,
     ) -> tuple[np.ndarray, dict[str, Any]]:
+        """Apply the configured policy to a failed branch forecast.
+
+        The ``raise`` policy raises RuntimeError chained from ``error``. The
+        ``last_value`` policy returns ``horizon`` copies of the final source value
+        and degraded-status diagnostics; it requires a nonempty source series.
+        """
         if self.branch_failure_policy == 'raise':
             raise RuntimeError(
                 f"Hybrid ensemble branch {branch_name!r} failed."
@@ -191,7 +197,14 @@ class HybridEnsembleForecaster:
         }
 
     def fit(self, time_series: np.ndarray) -> 'HybridEnsembleForecaster':
-        """Fit branch models and calibrate the weighted ensemble head."""
+        """Fit branch models and calibrate the weighted ensemble head; return self.
+
+        Under the default ``raise`` policy, calibration errors propagate and
+        branch fitting errors become RuntimeError with the original cause. The
+        ``last_value`` policy records branch failures. Failed calibration or short
+        histories use equal fallback weights when no fitted head is already present;
+        short histories skip calibration.
+        """
         series = np.asarray(time_series, dtype=float).reshape(-1)
         minimum_length = max(self.forecast_horizon * 3, self.forecast_horizon + 12)
         if len(series) > minimum_length:
@@ -254,7 +267,15 @@ class HybridEnsembleForecaster:
         return self
 
     def predict(self, time_series: np.ndarray | None = None, forecast_horizon: int | None = None) -> np.ndarray:
-        """Forecast with each branch and combine predictions with learned weights."""
+        """Forecast with each branch and combine predictions with learned weights.
+
+        Use fitted history when ``time_series`` is None. ``forecast_horizon`` is a
+        number of steps; None or zero selects the fitted horizon, and requesting
+        more steps raises ValueError. Failed or undersized branch predictions
+        raise RuntimeError under the ``raise`` policy, or use the final source
+        value under ``last_value``. Store branch forecasts and degradation status
+        in ``last_prediction_diagnostics_`` and return the combined forecast.
+        """
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(

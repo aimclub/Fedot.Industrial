@@ -416,15 +416,15 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             *,
             fit_stage: bool,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """чистит NaN, применяет масштабирование.
+        """Return aligned, filled values, the point gap mask, and the quality report.
 
-        Возвращает (clean_series, gap_mask):
-            clean_series — без NaN, готов к domain_invariant_scale и score моделям;
-            gap_mask     — per-sample bool длины N, True = точка пришла как NaN
-                           (синтез из align_timestamps в адаптере либо raw missing).
+        Store the aligned time index in ``last_prepared_time_idx_``. Training also
+        runs channel diagnostics and replaces the scaling reference; prediction
+        reuses it when present. Apply scaling only for domain-invariant transfer.
+        Keep the mask from alignment before filling missing values.
 
-        gap_mask считается ПЕРЕД forward fill
-        чтобы пропуски не терялись в заполненных значениях.
+        Alignment errors propagate; an unsupported transfer strategy raises
+        ValueError.
         """
         values, timestamps, external_gap_mask = _extract_detection_values_and_timestamps(values)
         names = self.params.get('channel_names')
@@ -479,11 +479,10 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             *,
             causal: bool = False,
     ) -> np.ndarray:
-        """Заполняет NaN по каждому каналу last-observation-carried-forward.
+        """Copy the series and carry the last observed value forward per channel.
 
-        Ведущие NaN заполняются первым валидным значением (backfill), чтобы
-        scaling не получил NaN на старте. Цикл по каналам идентичен
-        data_quality._forward_fill
+        Fill leading NaNs with zero in causal mode, or with the first valid value
+        otherwise. Entirely missing channels become zero in either mode.
         """
         filled = series.copy()
         for channel in range(filled.shape[1]):

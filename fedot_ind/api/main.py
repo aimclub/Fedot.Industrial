@@ -212,16 +212,17 @@ class FedotIndustrial(Fedot):
                 predict_data: tuple,
                 predict_mode: str = 'labels',
                 **kwargs):
-        """
-        Method to obtain prediction labels from trained Industrial model.
+        """Method to obtain prediction labels from a trained Industrial model.
 
         Args:
-            predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
-            predict_data: tuple with test_features and test_target
+            predict_mode: Prediction mode passed to the solver; defaults to 'labels'.
+            predict_data: Tuple with test features and test target.
 
         Returns:
-            the array with prediction values
+            Prediction values, also stored in ``manager.predicted_labels``.
 
+        Raises:
+            ValueError: If forecast output length does not match the requested horizon.
         """
         processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predict_data = processed_input
@@ -234,17 +235,16 @@ class FedotIndustrial(Fedot):
                       predict_mode: str = 'probs',
                       calibrate_probs: bool = False,
                       **kwargs):
-        """
-        Method to obtain prediction probabilities from trained Industrial model.
+        """Obtain predictions in probability mode, or value predictions for regression.
 
         Args:
-            predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
-            predict_data: tuple with test_features and test_target
-            calibrate_probs: ``default=False``. If True, calibrate probabilities
+            predict_mode: Solver output mode; defaults to 'probs'. Regression
+                contexts always use 'labels'.
+            predict_data: Tuple with test features and test target.
+            calibrate_probs: Currently unused; no calibration is performed.
 
         Returns:
-            the array with prediction probabilities
-
+            Prediction values, also stored in ``manager.predicted_probs``.
         """
         predict_mode = predict_mode if not self.manager.industrial_config.is_regression_task_context else 'labels'
         processed_input = self._process_input_data(predict_data, fit_stage=False)
@@ -257,15 +257,23 @@ class FedotIndustrial(Fedot):
                  tuning_params: Optional[dict] = None,
                  model_to_tune: Optional[Pipeline] = None,
                  return_only_fitted: bool = False):
-        """Method to obtain prediction probabilities from trained Industrial model.
+        """Fit or tune a supplied model and store it as the current solver.
 
-            Args:
-                model_to_tune: model to fine-tune
-                train_data: raw train data
-                tuning_params: dictionary with tuning parameters
-                return_only_fitted: ``default=False``. Defines what to return.
+        Args:
+            train_data: Training data accepted by the input processor, or an
+                existing FEDOT data container.
+            tuning_params: Tuning options. The supplied dictionary is updated
+                with the task metric and resolved tuner.
+            model_to_tune: Required pipeline or builder exposing ``build()``.
+            return_only_fitted: If True, fit the model directly without tuning.
 
-            """
+        Returns:
+            None. The model is stored in ``manager.solver`` and marked as fine-tuned.
+
+        Raises:
+            ValueError: If ``model_to_tune`` is None. Preparation, fitting, and
+                tuning errors propagate after shutdown is attempted.
+        """
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
         tuning_params = {} if tuning_params is None else tuning_params
 
@@ -455,7 +463,11 @@ class FedotIndustrial(Fedot):
         return history_visualizer.history if return_history else None
 
     def shutdown(self):
-        """Shutdown Dask client"""
+        """Close the owned extension session, Dask client, and Dask cluster.
+
+        Clear each Dask handle after it closes successfully. Close errors propagate
+        and prevent the remaining cleanup steps from running.
+        """
         self.repository_initializer.close()
         dask_client = getattr(self.manager, 'dask_client', None)
         if dask_client is not None:

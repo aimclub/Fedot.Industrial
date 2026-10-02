@@ -114,6 +114,12 @@ class IndustrialExtensionSession:
         return self._result
 
     def activate(self) -> IndustrialExtensionResult:
+        """Enter an owned extension scope and return its registration result.
+
+        Return the same result while already active. A closed session raises
+        IndustrialExtensionContractError with code INVALID_SESSION_STATE;
+        registration conflicts and scope-entry errors propagate.
+        """
         if self._state is IndustrialExtensionSessionState.ACTIVE:
             assert self._result is not None
             return self._result
@@ -131,6 +137,12 @@ class IndustrialExtensionSession:
         return result
 
     def close(self) -> None:
+        """Release this session's scope and clear its registration result.
+
+        Repeated calls after closure do nothing. Other local owners retain their
+        registration. Scope-exit errors propagate before the session is marked
+        closed.
+        """
         if self._state is IndustrialExtensionSessionState.CLOSED:
             return
         if self._scope is not None:
@@ -152,7 +164,12 @@ class IndustrialExtensionSession:
 
 
 def resolve_industrial_operation(operation_name: str):
-    """Resolve a catalog declaration without mutating the FEDOT registry."""
+    """Resolve a catalog declaration without mutating the FEDOT registry.
+
+    Ignore a slash-delimited suffix on the operation name. Return Right with
+    the declaration, or Left with an OPERATION_NOT_FOUND contract error.
+    Catalog-loading errors propagate.
+    """
     operation = load_industrial_extension_catalog().operation(operation_name.split("/", maxsplit=1)[0])
     if operation is None:
         return Left(IndustrialExtensionContractError(

@@ -65,6 +65,15 @@ class TensorForecastingRuntime:
             sample_idx=None,
             channel_names=None,
     ) -> "TensorForecastingRuntime":
+        """Fit one univariate series from the created state and return this runtime.
+
+        Raw data and coordinate options follow ``prepare_forecasting_data``.
+        Prepared input is used as supplied, ignoring those options, and must have
+        a training plan with the execution horizon and one series and channel.
+        State and plan violations raise IntegrationContractError. Exceptions from
+        strategy fitting are propagated as contract errors or wrapped as
+        RUNTIME_FAILURE.
+        """
         self._require_state(RuntimeState.CREATED, "fit")
         prepared = data if isinstance(data, PreparedForecastingData) else prepare_forecasting_data(
             data,
@@ -108,6 +117,20 @@ class TensorForecastingRuntime:
             channel_names=None,
             time_step=None,
     ) -> ForecastingPrediction:
+        """Forecast the execution horizon from supplied history or the fitted history.
+
+        ``data=None`` reuses the training history and coordinates. Raw data follows
+        ``prepare_forecasting_data``; prepared input retains its own plan and
+        coordinates. History length may change, but series indices and channel
+        schema must match training. ``time_step`` is an optional numeric or
+        calendar step for future coordinates, passed to ``infer_future_time_index``.
+
+        Return values with future time and series indices. Invalid lifecycle,
+        plans, schemas, or output length raise IntegrationContractError. Coordinate
+        errors from ``infer_future_time_index`` and numeric conversion errors
+        propagate. Strategy prediction errors are propagated as contract errors or wrapped
+        as RUNTIME_FAILURE.
+        """
         self._require_state(RuntimeState.FITTED, "predict")
         assert self._train_data is not None
         assert self._strategy is not None
@@ -173,6 +196,10 @@ class TensorForecastingRuntime:
         )
 
     def close(self) -> None:
+        """Discard the fitted operation and data and mark the runtime closed.
+
+        Repeated calls are harmless; fitting and prediction are rejected afterward.
+        """
         self._operation = None
         self._strategy = None
         self._train_data = None
@@ -275,6 +302,13 @@ def _validate_predict_schema(
 
 
 def _normalize_forecast_values(values: Any, *, horizon: int, series_count: int) -> np.ndarray:
+    """Convert model output to a float vector or a series-by-horizon matrix.
+
+    Accept either matrix orientation, preferring series-first for square
+    matrices. A single-series row or column becomes a vector. Shape mismatches
+    raise IntegrationContractError with code LENGTH_MISMATCH; numeric
+    conversion errors propagate.
+    """
     array = values.detach().cpu().numpy() if hasattr(
         values, "detach") else np.asarray(values)
     array = np.asarray(array, dtype=float)

@@ -43,7 +43,19 @@ def prepare_forecasting_data(
         sample_idx: Sequence[Any] | np.ndarray | pd.Index | None = None,
         channel_names: Sequence[str] | None = None,
 ) -> PreparedForecastingData:
-    """Normalize a temporal source without conflating object and time indices."""
+    """Normalize a temporal source without conflating object and time indices.
+
+    ``horizon`` is a positive number of forecast steps. For two-dimensional
+    input, ``time_first`` means (time, channels) for one series, while
+    ``time_last`` means (series, time). Three-dimensional input uses
+    (time, series, channels) or (series, channels, time), respectively.
+
+    Explicit time and sample indices override pandas coordinates. Indices
+    with no explicit or inferred values default to integer ranges. Time coordinates must be unique and
+    increasing. Return copied, read-only values with time last and separate
+    series indices. Invalid axes, dimensions, horizon, or coordinates raise
+    IntegrationContractError.
+    """
     normalized_stage = _parse_enum(
         stage, DataStage, IntegrationErrorCode.UNKNOWN_STAGE, "stage")
     normalized_orientation = _parse_enum(
@@ -333,7 +345,21 @@ def prepare_detection_data(
         channel_names: Sequence[str] | None = None,
         causal: bool = True,
 ) -> PreparedDetectionData:
-    """Normalize detector input and interval labels on one explicit time grid."""
+    """Normalize detector input and interval labels on one explicit time grid.
+
+    ``orientation`` selects (time, channels) or (channels, time) for matrices;
+    a vector is one channel. Explicit ``time_idx`` overrides pandas coordinates,
+    with an integer range used when neither is available. Time coordinates must
+    be unique and increasing. Interval endpoints are point positions, with
+    ``interval_boundary`` applying to sequence inputs only. Supplied binary
+    ``point_labels`` must agree with any nonempty interval annotations.
+
+    Return copied, read-only values in (time, channels) order, time coordinates,
+    and normalized intervals. ``gap_mask`` marks unreliable points and must
+    match the time axis; ``causal`` is recorded in the plan. Shape, coordinate,
+    and annotation contract violations raise IntegrationContractError.
+    Interval endpoint conversion errors propagate.
+    """
     normalized_stage = _parse_enum(
         stage, DataStage, IntegrationErrorCode.UNKNOWN_STAGE, "stage")
     normalized_mode = _parse_enum(
@@ -406,7 +432,14 @@ def normalize_anomaly_intervals(
         length: int,
         boundary: IntervalBoundary | str = IntervalBoundary.HALF_OPEN,
 ) -> tuple[AnomalyInterval, ...]:
-    """Convert external interval conventions to sorted half-open intervals."""
+    """Convert external interval conventions to sorted half-open intervals.
+
+    Sequence entries contain positional start, stop, and an optional label.
+    ``boundary='closed'`` adds one to sequence stops; existing AnomalyInterval
+    objects already use exclusive stops. Adjacent intervals remain separate.
+    Raise IntegrationContractError for invalid, overlapping, or out-of-bounds
+    intervals. Errors converting endpoints with ``int`` propagate.
+    """
     normalized_boundary = _parse_enum(
         boundary,
         IntervalBoundary,

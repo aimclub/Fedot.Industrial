@@ -38,10 +38,18 @@ class RegressionRuntime(ABC):
 
     @property
     def snapshot(self) -> RuntimeSnapshot:
+        """Return the current lifecycle state and fitted feature schema, if present."""
         schema = None if self._train_plan is None else self._train_plan.feature_schema
         return RuntimeSnapshot(self.profile, self._state, schema)
 
     def fit(self, features: SupportedData, target: Any) -> "RegressionRuntime":
+        """Fit once from the created state and return this runtime.
+
+        Targets are matched to feature rows by position. A single-column target
+        is flattened; other non-vector shapes and unequal sample counts raise
+        IntegrationContractError. Data and lifecycle contract errors propagate;
+        other exceptions from model fitting become RUNTIME_FAILURE contract errors.
+        """
         self._require_state(RuntimeState.CREATED, "fit")
         plan = build_data_plan(
             features,
@@ -62,6 +70,12 @@ class RegressionRuntime(ABC):
         return self
 
     def predict(self, features: SupportedData) -> PredictionBatch:
+        """Return predictions paired with the input sample index.
+
+        Require a fitted runtime and the training feature schema, including column
+        order for pandas inputs. Violations raise IntegrationContractError; other
+        exceptions from model prediction become RUNTIME_FAILURE contract errors.
+        """
         self._require_state(RuntimeState.FITTED, "predict")
         plan = build_data_plan(
             features,
@@ -87,6 +101,12 @@ class RegressionRuntime(ABC):
         return PredictionBatch(values=np.asarray(values), idx=prepared.idx)
 
     def close(self) -> None:
+        """Release model resources and discard fitted metadata.
+
+        Repeated calls after closure do nothing. Mark the runtime closed even if
+        resource cleanup fails, wrapping that failure in IntegrationContractError
+        with code RUNTIME_FAILURE.
+        """
         if self._state is RuntimeState.CLOSED:
             return
         try:
@@ -129,10 +149,19 @@ class SupervisedRuntime(ABC):
 
     @property
     def snapshot(self) -> RuntimeSnapshot:
+        """Return the current lifecycle state and fitted feature schema, if present."""
         schema = None if self._train_plan is None else self._train_plan.feature_schema
         return RuntimeSnapshot(self.profile, self._state, schema)
 
     def fit(self, features: SupportedData, target: Any) -> "SupervisedRuntime":
+        """Fit once from the created state and return this runtime.
+
+        Match targets to feature rows by position, accepting a vector or a
+        single-column target. Classification requires at least two distinct
+        classes; regression targets must convert to float. Data or state contract violations
+        raise IntegrationContractError. Other exceptions from model fitting
+        become RUNTIME_FAILURE contract errors.
+        """
         self._require_state(RuntimeState.CREATED, "fit")
         plan = build_data_plan(
             features,
@@ -163,6 +192,13 @@ class SupervisedRuntime(ABC):
             features: SupportedData,
             mode: PredictionMode | str = PredictionMode.DEFAULT,
     ) -> PredictionBatch:
+        """Return predictions with sample indices and classification class values.
+
+        Require the fitted feature schema. Classification supports default,
+        label, and probability modes; regression accepts only default or labels.
+        Invalid state, schema, or mode raises IntegrationContractError. Other
+        exceptions from model prediction become RUNTIME_FAILURE contract errors.
+        """
         self._require_state(RuntimeState.FITTED, "predict")
         selected_mode = _prediction_mode(mode, self.plan.task)
         plan = build_data_plan(
@@ -189,6 +225,12 @@ class SupervisedRuntime(ABC):
         return PredictionBatch(values=np.asarray(values), idx=prepared.idx, classes=classes)
 
     def close(self) -> None:
+        """Release model resources and discard fitted metadata.
+
+        Repeated calls after closure do nothing. Mark the runtime closed even if
+        resource cleanup fails, wrapping that failure in IntegrationContractError
+        with code RUNTIME_FAILURE.
+        """
         if self._state is RuntimeState.CLOSED:
             return
         try:
