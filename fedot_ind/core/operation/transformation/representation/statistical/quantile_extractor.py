@@ -1,7 +1,7 @@
 from typing import Optional
 
 import dask
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -22,10 +22,10 @@ class QuantileExtractor(BaseExtractor):
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from examples.fedot.fedot_ex import init_input_data
             from fedot_ind.tools.loader import DataLoader
-            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+            from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
-            with IndustrialModels():
+            with industrial_extension_scope():
                 pipeline = PipelineBuilder().add_node('quantile_extractor',
                                                        params={'window_size': 20, 'window_mode': True})
                                             .add_node('rf')

@@ -16,13 +16,59 @@ from golem.core.optimisers.timer import Timer
 from golem.utilities.memory import MemoryAnalytics
 from golem.utilities.utilities import determine_n_jobs
 from joblib import wrap_non_picklable_objects
-from pymonad.either import Either
-from pymonad.maybe import Maybe
 
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.core.optimizer.domain import (
+    EvaluationFailed,
+    EvaluationFailure,
+    EvaluationFailureCode,
+    EvaluationReused,
+    EvaluationSucceeded,
+    evaluation_outcome_from_metadata,
+    evaluation_outcome_to_metadata,
+)
+from fedot_ind.core.optimizer.observability import (
+    EvaluationStatus,
+    EvolutionDiagnosticsRecorder,
+    graph_identity,
+)
+from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+
+
+EXPECTED_EVALUATION_EXCEPTIONS = (
+    ArithmeticError,
+    AssertionError,
+    AttributeError,
+    IndexError,
+    KeyError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
 
 
 class IndustrialDispatcher(MultiprocessingDispatcher):
+
+    def __init__(
+            self,
+            adapter,
+            n_jobs: int = 1,
+            graph_cleanup_fn=None,
+            delegate_evaluator=None,
+            diagnostics_recorder: Optional[EvolutionDiagnosticsRecorder] = None,
+    ):
+        super().__init__(
+            adapter=adapter,
+            n_jobs=n_jobs,
+            graph_cleanup_fn=graph_cleanup_fn,
+            delegate_evaluator=delegate_evaluator,
+        )
+        self.diagnostics_recorder = diagnostics_recorder
+
+    def __getstate__(self):
+        """Keep the coordinator-local recorder out of Dask worker payloads."""
+        state = dict(self.__dict__)
+        state['diagnostics_recorder'] = None
+        return state
 
     def dispatch(self, objective: ObjectiveFunction,
                  timer: Optional[Timer] = None) -> EvaluationOperator:
@@ -43,17 +89,20 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return evaluation_results
 
     def _eval_at_least_one(self, individuals):
-        successful_evals = None
+        successful_evals = []
         for single_ind in individuals:
-            try:
-                evaluation_result = self.industrial_evaluate_single(
-                    self, graph=single_ind.graph, uid_of_individual=single_ind.uid, with_time_limit=False)
-                successful_evals = self.apply_evaluation_results(
-                    [single_ind], [evaluation_result])
-                if successful_evals:
-                    break
-            except Exception:
-                successful_evals = None
+            delayed_result = self.industrial_evaluate_single(
+                self,
+                graph=single_ind.graph,
+                uid_of_individual=single_ind.uid,
+                with_time_limit=False,
+            )
+            evaluation_result = dask.compute(delayed_result)[0]
+            self._record_evaluation_results((evaluation_result,))
+            successful_evals = self.apply_evaluation_results(
+                [single_ind], [evaluation_result])
+            if successful_evals:
+                break
         return successful_evals
 
     def evaluate_population(self, individuals: PopulationT) -> PopulationT:
@@ -63,45 +112,118 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         # Evaluate individuals without valid fitness in parallel.
         self.n_jobs = determine_n_jobs(self._n_jobs, self.logger)
 
-        individuals_evaluated = Maybe(individuals,
-                                      monoid=[individuals, True]).then(
-            lambda generation: self._multithread_eval(generation)). \
-            then(lambda eval_res: self.apply_evaluation_results(individuals_to_evaluate, eval_res)).value
+        evaluation_results = (
+            self._multithread_eval(individuals_to_evaluate)
+            if individuals_to_evaluate
+            else []
+        )
+        self._record_evaluation_results(evaluation_results)
+        self._record_reused_individuals(individuals_to_skip)
+        individuals_evaluated = self.apply_evaluation_results(
+            individuals_to_evaluate,
+            evaluation_results,
+        )
 
         successful_evals = individuals_evaluated + individuals_to_skip
         self.population_evaluation_info(evaluated_pop_size=len(successful_evals), pop_size=len(individuals))
-        successful_evals = Either(successful_evals,
-                                  monoid=[individuals_evaluated, not successful_evals]).either(
-            left_function=lambda x: x,
-            right_function=lambda y: self._eval_at_least_one(y))
+        if not successful_evals:
+            self._log_evaluation_failures(evaluation_results)
+            successful_evals = self._eval_at_least_one(individuals)
 
         MemoryAnalytics.log(self.logger, additional_info='parallel evaluation of population',
                             logging_level=logging.INFO)
         return successful_evals
 
+    def _record_evaluation_results(self, evaluation_results) -> None:
+        recorder = getattr(self, 'diagnostics_recorder', None)
+        if recorder is None:
+            return
+        for result in evaluation_results:
+            if result is None:
+                continue
+            metadata = dict(result.metadata or {})
+            outcome = evaluation_outcome_from_metadata(metadata)
+            failure = outcome.failure if isinstance(outcome, EvaluationFailed) else None
+            if isinstance(outcome, EvaluationFailed):
+                status = EvaluationStatus.FAILED
+            elif isinstance(outcome, EvaluationReused):
+                status = EvaluationStatus.REUSED
+            else:
+                status = EvaluationStatus.SUCCEEDED
+            recorder.record_evaluation(
+                individual_id=str(result.uid_of_individual),
+                graph_id=graph_identity(result.graph),
+                status=status,
+                duration_seconds=outcome.duration_seconds,
+                error_type=failure.error_type if failure is not None else None,
+                error_message=failure.message if failure is not None else None,
+            )
+
+    def _record_reused_individuals(self, individuals) -> None:
+        recorder = getattr(self, 'diagnostics_recorder', None)
+        if recorder is None:
+            return
+        for individual in individuals:
+            recorder.record_evaluation(
+                individual_id=str(individual.uid),
+                graph_id=graph_identity(individual.graph),
+                status=EvaluationStatus.REUSED,
+            )
+
+    def _log_evaluation_failures(self, evaluation_results) -> None:
+        failures = [
+            result.metadata.get('evaluation_error')
+            for result in evaluation_results
+            if result is not None and result.metadata.get('evaluation_error')
+        ]
+        for message in tuple(dict.fromkeys(failures))[:3]:
+            self.logger.warning('Industrial graph evaluation failed: %s', message)
+
     @dask.delayed
     def eval_ind(self, graph, uid_of_individual):
-        adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
         start_time = timeit.default_timer()
-        evaluation_error = None
+        evaluation_failure = None
         try:
-            fitness, graph = adapted_evaluate(graph)
-        except Exception as ex:
+            with industrial_extension_scope():
+                adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
+                fitness, graph = adapted_evaluate(graph)
+        except EXPECTED_EVALUATION_EXCEPTIONS as ex:
             self.logger.info(f'Graph evaluation failed. Assigning null fitness. Exception - {ex}')
             fitness = null_fitness()
-            evaluation_error = repr(ex)
+            evaluation_failure = EvaluationFailure(
+                code=EvaluationFailureCode.OBJECTIVE_EXCEPTION,
+                error_type=type(ex).__name__,
+                message=repr(ex),
+            )
         end_time = timeit.default_timer()
         eval_time_iso = datetime.now().isoformat()
-        metadata = {
-            'computation_time_in_seconds': end_time - start_time,
-            'evaluation_time_iso': eval_time_iso}
-        if evaluation_error is not None:
-            metadata['evaluation_error'] = evaluation_error
+        duration = end_time - start_time
+        if evaluation_failure is not None:
+            outcome = EvaluationFailed(
+                duration_seconds=duration,
+                evaluated_at=eval_time_iso,
+                failure=evaluation_failure,
+            )
+        elif not fitness.valid:
+            outcome = EvaluationFailed(
+                duration_seconds=duration,
+                evaluated_at=eval_time_iso,
+                failure=EvaluationFailure(
+                    code=EvaluationFailureCode.INVALID_FITNESS,
+                    error_type='InvalidFitness',
+                    message='Objective returned invalid fitness without raising an exception',
+                ),
+            )
+        else:
+            outcome = EvaluationSucceeded(
+                duration_seconds=duration,
+                evaluated_at=eval_time_iso,
+            )
         eval_res = GraphEvalResult(
             uid_of_individual=uid_of_individual,
             fitness=fitness,
             graph=graph,
-            metadata=metadata)
+            metadata=evaluation_outcome_to_metadata(outcome))
         return eval_res
 
     @wrap_non_picklable_objects
@@ -112,9 +234,6 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                                    cache_key: Optional[str] = None,
                                    logs_initializer: Optional[Tuple[int,
                                                                     pathlib.Path]] = None) -> GraphEvalResult:
-        if self._n_jobs != 1:
-            IndustrialModels().setup_repository()
-
         graph = self.evaluation_cache.get(cache_key, graph)
         #
         # if with_time_limit and self.timer.is_time_limit_reached():

@@ -1,6 +1,6 @@
 import dask
 import pytest
-from fedot.core.data.data import OutputData
+from fedot.core.data.input_data.data import OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.operation.dummy.dummy_operation import init_input_data

@@ -8,7 +8,7 @@ import optuna
 from dask.distributed import wait
 from distributed import Client, LocalCluster
 from fedot.core.constants import DEFAULT_TUNING_ITERATIONS_NUMBER
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.adapter import BaseOptimizationAdapter
@@ -19,6 +19,8 @@ from golem.core.tuning.search_space import SearchSpace, get_node_operation_param
 from golem.core.tuning.tuner_interface import BaseTuner, DomainGraphForTune
 from optuna import Trial, Study
 from optuna.trial import FrozenTrial
+
+from fedot_ind.core.tuning.search_space import build_industrial_pipeline_search_space
 
 
 class DaskOptunaTuner(BaseTuner):
@@ -149,6 +151,7 @@ def tune_pipeline_industrial(self, train_data: InputData, pipeline_gp_composed: 
     timeout_for_tuning = abs(self.timer.determine_resources_for_tuning()) / 60
     tuner = (TunerBuilder(self.params.task)
              .with_tuner(OptunaTuner)  # DaskOptunaTuner
+             .with_search_space(build_industrial_pipeline_search_space())
              .with_metric(self.metrics[0])
              .with_iterations(DEFAULT_TUNING_ITERATIONS_NUMBER)
              .with_timeout(datetime.timedelta(minutes=timeout_for_tuning))

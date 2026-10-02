@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastai.torch_core import Module
 from fastcore.meta import delegates
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import Tensor
 from torch import nn, optim
@@ -50,11 +50,11 @@ class InceptionTimeModel(BaseNeuralModel):
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from examples.fedot.fedot_ex import init_input_data
             from fedot_ind.tools.loader import DataLoader
-            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+            from fedot_ind.integration.fedot.extensions import industrial_extension_scope
             train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
             input_data = init_input_data(train_data[0], train_data[1])
             val_data = init_input_data(test_data[0], test_data[1])
-            with IndustrialModels():
+            with industrial_extension_scope():
                 pipeline = PipelineBuilder().add_node('inception_model', params={'epochs': 100,
                                                                                  'batch_size': 10}).build()
                 pipeline.fit(input_data)

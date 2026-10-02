@@ -4,7 +4,7 @@ from multiprocessing import cpu_count
 
 import dask
 import torch
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from numpy.lib import stride_tricks as stride_repr
 from pymonad.either import Either
@@ -13,10 +13,12 @@ from tqdm.dask import TqdmCallback
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.repository.constanst_repository import (STAT_METHODS,
-                                                            STAT_METHODS_GLOBAL,
-                                                            STAT_METHODS_TORCH,
-                                                            STAT_METHODS_GLOBAL_TORCH)
+from fedot_ind.core.operation.transformation.representation.statistical.methods import (
+    STAT_METHODS,
+    STAT_METHODS_GLOBAL,
+    STAT_METHODS_GLOBAL_TORCH,
+    STAT_METHODS_TORCH,
+)
 
 
 class BaseExtractor(IndustrialCachableOperationImplementation):

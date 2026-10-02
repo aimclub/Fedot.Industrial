@@ -4,14 +4,13 @@ from copy import deepcopy
 
 import numpy as np
 from fedot import Fedot
-from fedot.core.data.data import InputData
-from fedot.core.data.data_split import train_test_data_setup
-from fedot.core.data.multi_modal import MultiModalData
+from fedot.core.data.input_data.data import InputData
+from fedot.core.data.split.data_split import train_test_data_setup
+from fedot.core.data.multimodal.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.maybe import Maybe
 
-from fedot_ind.core.architecture.abstraction.client import use_default_fedot_client
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFEnsembler
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.column_sampling_decomposition import \
@@ -328,7 +327,6 @@ class IndustrialStrategy:
     def _forecasting_predict(self,
                              input_data,
                              mode: str = True):
-        @use_default_fedot_client
         def _predict_function(forecasting_model):
             if isinstance(forecasting_model, dict):
                 predict_by_component = {

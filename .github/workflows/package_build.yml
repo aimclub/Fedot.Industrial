@@ -1,0 +1,36 @@
+name: Build checked Python distributions
+
+on:
+  workflow_call:
+    inputs:
+      for-pypi:
+        description: Reject direct URL dependencies before index publication
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install build tools only
+        run: python -m pip install "build>=1,<2" "packaging>=24,<26" "tomli>=2,<3"
+      - name: Build sdist and rebuild wheel from sdist
+        run: python -m build
+      - name: Check metadata and archive contents
+        run: python -m tools.distribution_check --json
+      - name: Check PyPI publication eligibility
+        if: inputs.for-pypi
+        run: python -m tools.distribution_check --pypi --json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error

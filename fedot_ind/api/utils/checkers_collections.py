@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import Union
 
 import pandas as pd
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 from pymonad.either import Either
 from sklearn.preprocessing import LabelEncoder
@@ -16,7 +16,7 @@ from fedot_ind.core.operation.dummy.dummy_operation import check_multivariate_da
 from fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor import TabularExtractor
 from fedot_ind.core.repository.config_repository import TASK_MAPPING
 from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.integration.fedot.extensions import require_industrial_extension
 
 
 class DataCheck:
@@ -93,8 +93,8 @@ class DataCheck:
             features_array = self.data_convertor.numpy_data
 
         if self.fit_stage:
-            features_array = features_array[:-self.task_params['forecast_length']]
             target = features_array[-self.task_params['forecast_length']:]
+            features_array = features_array[:-self.task_params['forecast_length']]
         else:
             features_array = features_array
             target = features_array
@@ -198,7 +198,7 @@ class DataCheck:
 
     def _check_fedot_context(self):
         if self.strategy_params is not None:
-            IndustrialModels().setup_repository()
+            require_industrial_extension()
             strategy = self.strategy_params.get('learning_strategy')
             is_big_data = strategy.__contains__('big') if strategy else False
             is_default_fedot = strategy.__contains__('tabular') if strategy else False

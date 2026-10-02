@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from fedot_ind.api.services.prediction import PredictionService
 
@@ -146,10 +147,32 @@ def test_prediction_service_applies_target_encoder_to_labels_and_target():
     np.testing.assert_array_equal(data.target, np.array([11, 10]))
 
 
-def test_prediction_service_slices_forecasting_output_to_horizon():
+def test_prediction_service_rejects_forecasting_output_with_wrong_horizon():
     class FakeSolver:
         def predict(self, data):
             return np.arange(5)
+
+    data = SimpleNamespace(
+        task=SimpleNamespace(
+            task_type=SimpleNamespace(value="ts_forecasting"),
+            task_params=SimpleNamespace(forecast_length=2),
+        )
+    )
+    manager = SimpleNamespace(solver=FakeSolver(), condition_check=FakeConditionCheck())
+
+    with pytest.raises(ValueError, match="exactly 2 steps, got 5"):
+        PredictionService().predict_output(
+            manager=manager,
+            target_encoder=None,
+            predict_data=data,
+            predict_mode="labels",
+        )
+
+
+def test_prediction_service_preserves_exact_forecasting_output():
+    class FakeSolver:
+        def predict(self, data):
+            return np.array([3.0, 4.0])
 
     data = SimpleNamespace(
         task=SimpleNamespace(
@@ -166,4 +189,4 @@ def test_prediction_service_slices_forecasting_output_to_horizon():
         predict_mode="labels",
     )
 
-    np.testing.assert_array_equal(result, np.array([3, 4]))
+    np.testing.assert_array_equal(result, np.array([3.0, 4.0]))

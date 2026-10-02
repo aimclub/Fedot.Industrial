@@ -82,6 +82,29 @@ def test_iter_forecasting_splits_supports_time_series_split():
     assert all(len(fold.validation_target) == 6 for fold in folds)
 
 
+def test_holdout_split_reserves_gap_between_history_and_validation():
+    series = np.arange(100, dtype=float)
+    batch = series_to_forecast_tensor_batch(series, forecast_horizon=5)
+
+    fold, = iter_forecasting_splits(
+        batch,
+        ForecastingSplitSpec(
+            kind=ForecastingSplitKind.HOLDOUT,
+            validation_horizon=5,
+            gap=7,
+        ),
+    )
+
+    assert fold.train_end == 88
+    assert fold.test_start == 95
+    assert fold.test_start - fold.train_end == 7
+    assert fold.train_batch.series_length == 88
+    np.testing.assert_array_equal(
+        fold.validation_target.detach().cpu().numpy(),
+        series[95:100],
+    )
+
+
 def test_iter_forecasting_splits_supports_expanding_window():
     series = np.linspace(1.0, 96.0, num=96)
     batch = series_to_forecast_tensor_batch(series, forecast_horizon=8)

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
-    from fedot.core.data.data import InputData, OutputData
+    from fedot.core.data.input_data.data import InputData, OutputData
     from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
@@ -127,6 +127,7 @@ class TopologicalRidgeForecaster:
                 "TopologicalRidgeForecaster currently supports only channel_model='ridge'.")
         self.device_policy_ = TensorDevicePolicy(
             device=self.device, dtype=self.dtype)
+        self.runtime_device_ = self.device_policy_.resolve_device()
         self.runtime_ = ForecastingRuntimeAdapter(self.device_policy_)
 
         embed_config = TopologicalEmbeddingConfig(
@@ -137,8 +138,7 @@ class TopologicalRidgeForecaster:
         )
         self.point_cloud_builder_ = PointCloudBuilder(embed_config)
 
-        dist_device = 'cuda' if 'cuda' in str(
-            self.device_policy_.device) else 'cpu'
+        dist_device = 'cuda' if self.runtime_device_.type == 'cuda' else 'cpu'
         pers_config = PersistenceConfig(
             homology_dimensions=self.homology_dimensions,
             filtration_type=self.filtration_type,
@@ -182,7 +182,7 @@ class TopologicalRidgeForecaster:
         windows_tensor = torch.tensor(
             windows,
             dtype=getattr(torch, self.dtype, torch.float32),
-            device=self.device_policy_.device
+            device=self.runtime_device_
         )
 
         point_clouds = self.point_cloud_builder_.build(windows_tensor)
@@ -197,11 +197,15 @@ class TopologicalRidgeForecaster:
             diagrams = torch.tensor(
                 diagrams,
                 dtype=getattr(torch, self.dtype, torch.float32),
-                device=self.device_policy_.device
+                device=self.runtime_device_
             )
 
         feature_tensors, _ = self.feature_extractor_.transform(diagrams)
-        features_tensor = torch.cat(feature_tensors, dim=1)
+        features_tensor = (
+            feature_tensors
+            if isinstance(feature_tensors, torch.Tensor)
+            else torch.cat(tuple(feature_tensors), dim=1)
+        )
 
         if self.multivariate_strategy == 'independent':
             features_tensor = features_tensor.view(B, -1)

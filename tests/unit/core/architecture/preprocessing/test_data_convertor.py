@@ -1,5 +1,5 @@
 import pytest
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 
 from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import FedotConverter, CustomDatasetCLF

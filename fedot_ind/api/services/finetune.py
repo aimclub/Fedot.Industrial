@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
+from fedot_ind.integration.fedot.compatibility import ensure_fedot_tensor_data
+
 FEDOT_TUNER_STRATEGY = {}
 FEDOT_TUNING_METRICS = {}
 
@@ -67,11 +69,19 @@ class FinetuneService:
             process_input: Callable[[Any], Any],
             init_backend: Callable[[Any], Any],
     ) -> FinetunePayload:
+        """Prepare training data, tuning options, and a concrete model for fitting.
+
+        Call ``process_input`` only for non-FEDOT data, then initialize the backend
+        and convert to training TensorData. Update ``tuning_params`` in place with
+        the metric and tuner, and call ``model_to_tune.build()`` when available.
+        Raise ValueError if no model is supplied; collaborator errors propagate.
+        """
         if model_to_tune is None:
             raise ValueError("model_to_tune must be provided for finetune")
 
         processed_data = train_data if is_fedot_datatype else process_input(train_data)
         processed_data = init_backend(processed_data)
+        processed_data = ensure_fedot_tensor_data(processed_data, fit_stage=True)
         prepared_params = self.prepare_tuning_params(tuning_params, task)
         return FinetunePayload(
             train_data=processed_data,

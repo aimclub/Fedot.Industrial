@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from fedot_ind.core.repository.runtime_operation_registry import LazyOperationMapping
+
 DETECTION_MODEL_ALIASES: dict[str, str] = {
     'iforest_detector': 'feature_iforest_detector',
     'feature_iforest': 'feature_iforest_detector',
@@ -30,6 +32,35 @@ LEGACY_DETECTION_MODELS: tuple[str, ...] = (
     'legacy_kalman_detector',
     'legacy_functional_pca_detector',
 )
+
+DETECTION_RUNTIME_TARGETS: dict[str, str] = {
+    'feature_iforest_detector': (
+        'fedot_ind.core.models.detection.modern_detectors:'
+        'FeatureIsolationForestDetector'
+    ),
+    'feature_oneclass_detector': (
+        'fedot_ind.core.models.detection.modern_detectors:'
+        'FeatureOneClassDetector'
+    ),
+    'conv_autoencoder_detector': (
+        'fedot_ind.core.models.detection.modern_detectors:'
+        'ConvAutoencoderDetector'
+    ),
+    'tcn_autoencoder_detector': (
+        'fedot_ind.core.models.detection.modern_detectors:'
+        'TCNAutoencoderDetector'
+    ),
+    'legacy_lstm_autoencoder_detector': (
+        'fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector:'
+        'LSTMAutoEncoderDetector'
+    ),
+    'legacy_arima_detector': (
+        'fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector:'
+        'ARIMAFaultDetector'
+    ),
+}
+
+DETECTION_RUNTIME_MODELS = LazyOperationMapping(DETECTION_RUNTIME_TARGETS)
 
 
 def canonical_detection_model_name(name: str | None) -> str:

@@ -4,15 +4,14 @@ from itertools import chain
 from typing import List, Optional, Union
 
 from fedot.core.constants import default_data_split_ratio_by_task
-from fedot.core.data.array_utilities import atleast_4d
-from fedot.core.data.cv_folds import cv_generator
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.data_split import _split_input_data_by_indexes
+from fedot.core.data.common.array_utils import atleast_4d
+from fedot.core.data.split.cv_folds import cv_generator
+from fedot.core.data.input_data.data import InputData, OutputData
+from fedot.core.data.split.data_split import _split_input_data_by_indexes
 from fedot.core.data.merge.data_merger import TSDataMerger, DataMerger, ImageDataMerger, TextDataMerger
-from fedot.core.data.multi_modal import MultiModalData
+from fedot.core.data.multimodal.multi_modal import MultiModalData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.optimisers.objective import DataSource
-from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
@@ -22,7 +21,7 @@ from sklearn.model_selection import train_test_split
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.tuning.search_space import get_industrial_search_space
+from fedot_ind.core.tuning.search_space import build_industrial_pipeline_search_space
 
 
 def split_time_series_industrial(data: InputData,
@@ -199,10 +198,12 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
 
 
 def build_tuner(self, model_to_tune, tuning_params, train_data):
+    from fedot_ind.integration.fedot.compatibility import ensure_fedot_tensor_data
+
+    train_data = ensure_fedot_tensor_data(train_data, fit_stage=True)
+
     def _create_tuner(tuning_params, tuning_data):
-        custom_search_space = get_industrial_search_space(self)
-        search_space = PipelineSearchSpace(custom_search_space=custom_search_space,
-                                           replace_default_search_space=True)
+        search_space = build_industrial_pipeline_search_space(self)
         pipeline_tuner = TunerBuilder(train_data.task). \
             with_search_space(search_space). \
             with_tuner(tuning_params['tuner']). \

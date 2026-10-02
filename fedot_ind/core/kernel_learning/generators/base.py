@@ -54,7 +54,7 @@ def to_fedot_input_data(
         use_torch: bool = False,
         torch_device: Any = "auto",
 ):
-    from fedot.core.data.data import InputData
+    from fedot_ind.integration.fedot.compatibility import InputData
     from fedot.core.repository.dataset_types import DataTypesEnum
     from fedot.core.repository.tasks import Task, TaskTypesEnum
 
@@ -79,7 +79,7 @@ def to_fedot_input_data(
 
 
 def features_to_fedot_input_data(features: Any, template: Any, *, use_torch: bool, torch_device: Any = "auto"):
-    from fedot.core.data.data import InputData
+    from fedot_ind.integration.fedot.compatibility import InputData
     from fedot.core.repository.dataset_types import DataTypesEnum
 
     prepared = _to_torch(

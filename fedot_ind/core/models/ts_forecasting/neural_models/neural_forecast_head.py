@@ -17,7 +17,7 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
 from fedot_ind.core.repository.forecasting_registry import canonical_forecasting_model_name
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
-    from fedot.core.data.data import InputData, OutputData
+    from fedot.core.data.input_data.data import InputData, OutputData
     from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
@@ -193,7 +193,7 @@ def build_neural_forecasting_stage_diagnostics(
 def build_neural_forecasting_input_data(series: np.ndarray, *, forecast_horizon: int):
     """Build FEDOT-compatible InputData for neural forecasting backends."""
     try:
-        from fedot.core.data.data import InputData
+        from fedot.core.data.input_data.data import InputData
         from fedot.core.repository.dataset_types import DataTypesEnum
         from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
     except Exception:

@@ -2,7 +2,7 @@ from fedot_ind.core.models.pdl import PairwiseDifferenceClassifier, PairwiseDiff
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 import numpy as np
 import pytest
 

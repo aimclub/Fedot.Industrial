@@ -1,16 +1,15 @@
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 import torch
 from dask_ml.preprocessing import LabelEncoder
-from fedot.core.data.data import InputData, OutputData
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
-
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 def check_multivariate_data(data: pd.DataFrame) -> tuple:
