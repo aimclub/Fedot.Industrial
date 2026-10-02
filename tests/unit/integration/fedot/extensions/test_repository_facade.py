@@ -1,5 +1,6 @@
 import importlib
 from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 import pytest
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
@@ -86,13 +87,27 @@ def test_registration_remains_until_last_session_closes():
 
 
 def test_extension_scope_is_isolated_between_threads():
-    def registry_size_inside_and_after_scope():
-        clear_extension_registry()
+    entered = Barrier(2, timeout=10)
+    first_exited = Barrier(2, timeout=10)
+
+    def first_scope():
         with industrial_extension_scope():
-            inside = len(get_registered_extensions())
-        return inside, len(get_registered_extensions())
+            entered.wait()
+        first_exited.wait()
+        return len(get_registered_extensions())
 
+    def second_scope():
+        with industrial_extension_scope():
+            entered.wait()
+            first_exited.wait()
+            inside_after_first_exit = len(get_registered_extensions())
+        return inside_after_first_exit, len(get_registered_extensions())
+
+    clear_extension_registry()
     with ThreadPoolExecutor(max_workers=2) as executor:
-        results = tuple(executor.map(lambda _: registry_size_inside_and_after_scope(), range(2)))
+        first = executor.submit(first_scope)
+        second = executor.submit(second_scope)
+        assert first.result() == 0
+        assert second.result() == (1, 0)
 
-    assert results == ((1, 0), (1, 0))
+    assert get_registered_extensions() == ()
