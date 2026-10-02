@@ -12,6 +12,7 @@ from fedot_ind.integration.fedot import (
     IntegrationTask,
     ModelExecutionPlan,
 )
+from fedot_ind.integration.fedot.parameter_codec import freeze_mapping, thaw_value
 
 
 @pytest.mark.parametrize(
@@ -49,3 +50,44 @@ def test_parameter_containers_survive_freeze_thaw_without_aliasing(make_plan):
     np.testing.assert_array_equal(restored["array"], [6, 7])
     assert make_plan(plan.parameters).runtime_parameters()["nested"] == restored["nested"]
     json.dumps(plan.to_dict())
+
+
+@pytest.mark.parametrize("source", [
+    np.array(7, dtype=np.int16),
+    np.empty((0, 3), dtype=np.float32),
+    np.arange(24, dtype=np.float64).reshape(4, 6)[::2, ::-2],
+    np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[D]"),
+])
+def test_array_parameters_preserve_dtype_shape_and_values_in_independent_copies(source):
+    expected = source.copy()
+    frozen = freeze_mapping({"weights": source})
+    source[...] = np.zeros_like(source)
+
+    snapshot = frozen["weights"]
+    np.testing.assert_array_equal(snapshot, expected)
+    assert snapshot.dtype == expected.dtype
+    assert snapshot.shape == expected.shape
+    with pytest.raises(ValueError):
+        snapshot.setflags(write=True)
+
+    first = thaw_value(frozen)["weights"]
+    second = thaw_value(frozen)["weights"]
+    assert first.flags.writeable
+    assert not np.shares_memory(first, snapshot)
+    assert not np.shares_memory(first, second)
+    first[...] = np.ones_like(first)
+    np.testing.assert_array_equal(second, expected)
+
+
+def test_repeated_freezing_preserves_empty_container_types():
+    source = {"list": [], "tuple": (), "set": set(), "frozenset": frozenset(), "dict": {}}
+
+    frozen = freeze_mapping(freeze_mapping(source))
+    restored = thaw_value(frozen)
+
+    assert restored == source
+    assert {key: type(value) for key, value in restored.items()} == {
+        key: type(value) for key, value in source.items()
+    }
+    with pytest.raises(TypeError):
+        frozen["dict"]["new"] = 1

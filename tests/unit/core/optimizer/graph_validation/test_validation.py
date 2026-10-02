@@ -385,3 +385,40 @@ def test_self_parent_is_always_reported_without_index_access(name):
 
     assert ValidationIssueCode.SELF_CYCLE.value in codes
     assert ValidationIssueCode.CYCLE.value in codes
+
+
+def test_invalid_graph_reports_are_stable_when_nodes_are_reordered():
+    spec = GraphSpec("invalid", nodes=(
+        GraphNodeSpec("b", "unknown-b", ("missing-b",)),
+        GraphNodeSpec("a", "unknown-a", ("missing-a",)),
+        GraphNodeSpec("isolated", "unknown-isolated"),
+    ))
+
+    forward = validate_graph(spec)
+    reverse = validate_graph(replace(spec, nodes=tuple(reversed(spec.nodes))))
+
+    assert not forward.is_valid
+    assert forward.to_record() == reverse.to_record()
+    assert forward.error_codes.count(ValidationIssueCode.UNKNOWN_PARENT.value) == 2
+    assert forward.error_codes.count(ValidationIssueCode.UNKNOWN_OPERATION.value) == 3
+
+
+def test_custom_rules_replace_defaults_and_accept_a_single_use_iterator():
+    spec = GraphSpec("empty", nodes=())
+    warning = ValidationIssue.create(
+        ValidationIssueCode.EMPTY_GRAPH, "Allowed by custom policy.",
+        severity=ValidationSeverity.WARNING,
+    )
+    seen = []
+
+    def custom_rule(value):
+        seen.append(value)
+        return (warning,)
+
+    report = validate_graph(spec, rules=iter([custom_rule]))
+
+    assert seen == [spec]
+    assert report.issues == (warning,)
+    assert report.is_valid
+    assert validate_graph(spec, rules=()).issues == ()
+    assert not validate_graph(spec).is_valid

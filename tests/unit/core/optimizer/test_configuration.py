@@ -206,3 +206,53 @@ def test_resource_budget_rejects_non_positive_or_non_integer_values(resource_bud
 def test_direct_typed_construction_rejects_invalid_values(constructor, message):
     with pytest.raises(ValueError, match=message):
         constructor()
+
+
+def test_prevalidation_update_preserves_all_other_settings_and_original_config():
+    original = EvolutionConfig(
+        mutation_agent=MutationAgentType.BANDIT,
+        mutation_strategy=MutationStrategy.GROWTH,
+        resource_budget=ResourceBudget(2, 3, 4),
+        execution_policy=ExecutionPolicy(
+            retry_initial_population_without_timer=False,
+            diagnostics_output_dir="diagnostics/run",
+        ),
+    )
+
+    updated = original.with_initial_graphs_prevalidated(True)
+
+    assert original.execution_policy.initial_graphs_prevalidated is False
+    assert updated.execution_policy == ExecutionPolicy(True, False, "diagnostics/run")
+    assert updated.mutation_agent is MutationAgentType.BANDIT
+    assert updated.mutation_strategy is MutationStrategy.GROWTH
+    assert updated.resource_budget == ResourceBudget(2, 3, 4)
+    assert updated.with_initial_graphs_prevalidated(False) == original
+
+
+@pytest.mark.parametrize("value", [1, "true", None])
+def test_prevalidation_update_rejects_truthy_non_booleans(value):
+    with pytest.raises(ValueError, match="must be a boolean"):
+        EvolutionConfig().with_initial_graphs_prevalidated(value)
+
+
+def test_equal_legacy_and_canonical_fields_are_accepted_without_mutating_payload(tmp_path):
+    payload = {
+        "mutation_agent": "bandit",
+        "mutation": {"agent": "bandit"},
+        "min_population_size": 2,
+        "resource_budget": {"min_population_size": 2},
+        "diagnostics_output_dir": tmp_path,
+        "execution_policy": {"diagnostics_output_dir": tmp_path},
+    }
+
+    config = normalize_evolution_config(payload)
+    record = config.to_record()
+    record["mutation"]["agent"] = "random"
+    record["resource_budget"]["min_population_size"] = 99
+
+    assert config.mutation_agent is MutationAgentType.BANDIT
+    assert config.resource_budget.min_population_size == 2
+    assert config.execution_policy.diagnostics_output_dir == str(tmp_path)
+    assert payload["mutation"] == {"agent": "bandit"}
+    assert payload["resource_budget"] == {"min_population_size": 2}
+    assert payload["execution_policy"]["diagnostics_output_dir"] is tmp_path

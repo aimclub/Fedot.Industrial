@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from io import BytesIO
+import json
 import tarfile
 from zipfile import ZipFile
 
@@ -205,3 +206,40 @@ def test_archive_inspection_does_not_extract_files(project, tmp_path):
     source = sdist_file(tmp_path, metadata_bytes(project), additional=["../../outside"])
     inspect_sdist(source, project, [])
     assert list(tmp_path.iterdir()) == [source]
+
+
+def test_corrupt_archives_are_both_reported_and_cli_fails_as_json(tmp_path, capsys):
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='fedot-ind'\nversion='0.5.0'\nrequires-python='>=3.10,<3.12'\n",
+        encoding="utf-8",
+    )
+    wheel = tmp_path / "fedot_ind-0.5.0-py3-none-any.whl"
+    source = tmp_path / "fedot_ind-0.5.0.tar.gz"
+    wheel.write_bytes(b"not a zip archive")
+    source.write_bytes(b"not a gzip archive")
+
+    result = main(["--project", str(tmp_path), "--dist-dir", str(tmp_path), "--json"])
+
+    report = json.loads(capsys.readouterr().out)
+    assert result == 1
+    assert report["ok"] is False
+    assert report["archives"] == [wheel.name, source.name]
+    assert [(issue["archive"], issue["field"]) for issue in report["issues"]] == [
+        (wheel.name, "archive"), (source.name, "archive"),
+    ]
+
+
+def test_multiple_sdist_roots_are_rejected_before_reading_metadata(project, tmp_path):
+    source = tmp_path / "multiple-roots.tar.gz"
+    with tarfile.open(source, "w:gz") as archive:
+        for root in ("first", "second"):
+            info = tarfile.TarInfo(f"{root}/PKG-INFO")
+            raw = metadata_bytes(project)
+            info.size = len(raw)
+            archive.addfile(info, BytesIO(raw))
+
+    issues = inspect_sdist(source, project, [])
+
+    assert len(issues) == 1
+    assert issues[0].field == "contents"
+    assert "single source distribution root" in issues[0].message

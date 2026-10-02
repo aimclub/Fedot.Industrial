@@ -6,6 +6,7 @@ import pytest
 
 from fedot_ind.integration.fedot.extensions.catalog import (
     load_industrial_extension_catalog,
+    load_industrial_extension_catalog_from,
     parse_industrial_extension_catalog,
 )
 from fedot_ind.integration.fedot.extensions.contracts import (
@@ -176,3 +177,43 @@ def test_basis_transforms_accept_legacy_table_series_as_tabular_data():
 
     for operation_name in ("eigen_basis", "wavelet_basis", "fourier_basis"):
         assert "tabular" in operations[operation_name].data_types
+
+
+def test_explicit_defaults_and_mapping_order_do_not_change_catalog_identity():
+    payload = _payload()
+    original = parse_industrial_extension_catalog(payload)
+    payload["operations"][0].update(
+        devices=["cpu"], serializable=True, allowed_positions=["any"],
+        min_parents=0, max_parents=None,
+    )
+    reordered = dict(reversed(tuple(payload.items())))
+
+    assert parse_industrial_extension_catalog(reordered) == original
+
+
+@pytest.mark.parametrize("change", [
+    {"factory": "example.module:Replacement"},
+    {"serializable": False},
+    {"devices": ["cpu", "cuda"]},
+    {"runtime_interface": "array"},
+])
+def test_behavior_changes_invalidate_catalog_digest_without_mutating_prior_catalog(change):
+    payload = _payload()
+    original = parse_industrial_extension_catalog(payload)
+    payload["operations"][0].update(change)
+
+    updated = parse_industrial_extension_catalog(payload)
+
+    assert updated.digest != original.digest
+    assert original == parse_industrial_extension_catalog(_payload())
+
+
+@pytest.mark.parametrize("contents", ["{", "[]", "null"])
+def test_explicit_catalog_file_rejects_invalid_json_or_root(tmp_path, contents):
+    path = tmp_path / "catalog.json"
+    path.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        load_industrial_extension_catalog_from(path)
+
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_CATALOG

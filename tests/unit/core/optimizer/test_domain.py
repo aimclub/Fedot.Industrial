@@ -149,3 +149,83 @@ def test_legacy_evaluation_failure_metadata_remains_readable():
 def test_malformed_evaluation_metadata_fails_at_boundary(metadata, message):
     with pytest.raises(EvaluationOutcomeDecodeError, match=message):
         evaluation_outcome_from_metadata(metadata)
+
+
+@pytest.mark.parametrize("terminal", [EvolutionPhase.COMPLETED, EvolutionPhase.FAILED])
+@pytest.mark.parametrize("target", list(EvolutionPhase))
+def test_terminal_states_cannot_restart_or_transition_to_another_terminal(terminal, target):
+    state = EvolutionState(terminal, generation=3)
+
+    with pytest.raises(EvolutionTransitionError) as error:
+        transition_evolution_state(state, target)
+
+    assert error.value.current is state
+    assert error.value.target is target
+    assert state == EvolutionState(terminal, generation=3)
+
+
+@pytest.mark.parametrize("phase", [
+    EvolutionPhase.CREATED, EvolutionPhase.INITIALISING,
+    EvolutionPhase.EVALUATING_INITIAL, EvolutionPhase.EVOLVING,
+])
+def test_failure_is_reachable_from_each_active_phase_without_changing_generation(phase):
+    state = EvolutionState(phase, generation=2)
+
+    failed = transition_evolution_state(state, EvolutionPhase.FAILED)
+
+    assert failed == EvolutionState(EvolutionPhase.FAILED, generation=2)
+    assert state == EvolutionState(phase, generation=2)
+
+
+def test_initial_evaluation_can_complete_without_creating_offspring():
+    state = EvolutionState(EvolutionPhase.EVALUATING_INITIAL)
+
+    assert transition_evolution_state(state, EvolutionPhase.COMPLETED) == EvolutionState(
+        EvolutionPhase.COMPLETED, generation=0,
+    )
+
+
+def test_canonical_evaluation_failure_takes_precedence_over_stale_legacy_fields():
+    metadata = {
+        "evaluation_status": "failed",
+        "computation_time_in_seconds": 0.25,
+        "evaluation_time_iso": "2026-01-01T00:00:00",
+        "evaluation_failure": {
+            "code": "invalid_fitness", "error_type": "InvalidFitness", "message": "non-finite score",
+        },
+        "evaluation_error": "stale message",
+        "evaluation_error_type": "ValueError",
+    }
+
+    outcome = evaluation_outcome_from_metadata(metadata)
+
+    assert outcome == EvaluationFailed(
+        0.25, "2026-01-01T00:00:00",
+        EvaluationFailure(EvaluationFailureCode.INVALID_FITNESS, "InvalidFitness", "non-finite score"),
+    )
+    assert metadata["evaluation_error"] == "stale message"
+
+
+def test_reused_fitness_does_not_inherit_previous_failure():
+    outcome = evaluation_outcome_from_metadata({
+        "evaluation_status": "reused",
+        "evaluation_error": "previous attempt failed",
+        "evaluation_failure": {"code": "invalid_fitness"},
+    })
+
+    assert outcome == EvaluationReused(0.0)
+    assert "evaluation_error" not in evaluation_outcome_to_metadata(outcome)
+
+
+def test_candidate_rejection_preserves_validation_reasons_in_transport():
+    failure = classify_candidate_failure(
+        is_individual=True, is_valid_graph=False, is_duplicate_graph=True,
+        individual_id="candidate", graph_id="graph",
+        validation_issue_codes=("unknown_parent", "root_count"),
+    )
+
+    record = failure.to_record()
+    assert record["code"] == "verifier_rejected"
+    assert record["validation_issue_codes"] == ["unknown_parent", "root_count"]
+    record["validation_issue_codes"].clear()
+    assert failure.validation_issue_codes == ("unknown_parent", "root_count")
