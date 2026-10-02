@@ -127,7 +127,9 @@ class TensorSupervisedRuntime(SupervisedRuntime):
             from_data=self._train_data,
         )
         with industrial_extension_scope():
-            output = self._pipeline.predict(predict_data, output_mode=mode.value)
+            # FEDOT owns target encoding; its decoded pipeline mode restores domain labels.
+            output_mode = "decoded" if mode is PredictionMode.LABELS else mode.value
+            output = self._pipeline.predict(predict_data, output_mode=output_mode)
         values = output.predict
         return values.detach().cpu().numpy() if hasattr(values, "detach") else np.asarray(values)
 

@@ -186,13 +186,7 @@ class SupervisedRuntime(ABC):
         except Exception as error:
             raise _runtime_failure(self.profile, "predict", error) from error
         classes = self._classes if self.plan.task is IntegrationTask.CLASSIFICATION else None
-        normalized_values = np.asarray(values)
-        if (
-                classes is not None
-                and selected_mode in (PredictionMode.DEFAULT, PredictionMode.LABELS)
-        ):
-            normalized_values = _decode_class_labels(normalized_values, classes)
-        return PredictionBatch(values=normalized_values, idx=prepared.idx, classes=classes)
+        return PredictionBatch(values=np.asarray(values), idx=prepared.idx, classes=classes)
 
     def close(self) -> None:
         if self._state is RuntimeState.CLOSED:
@@ -425,19 +419,6 @@ def _prediction_mode(value: PredictionMode | str, task: IntegrationTask) -> Pred
             context={"mode": mode.value, "task": task.value},
         )
     return PredictionMode.DEFAULT if task is IntegrationTask.REGRESSION else mode
-
-
-def _decode_class_labels(values: np.ndarray, classes: np.ndarray) -> np.ndarray:
-    flat = np.asarray(values).reshape(-1)
-    try:
-        encoded = flat.astype(int)
-    except (TypeError, ValueError):
-        return values
-    if not np.all(flat == encoded):
-        return values
-    if np.any(encoded < 0) or np.any(encoded >= len(classes)):
-        return values
-    return classes[encoded].reshape(np.asarray(values).shape)
 
 
 def _runtime_failure(profile: DataProfile, phase: str, error: Exception) -> IntegrationContractError:

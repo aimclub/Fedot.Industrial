@@ -120,6 +120,7 @@ def test_pdl_classifier_tensor_runtime_matches_direct_model_and_preserves_index(
     [
         np.array(["negative", "negative", "positive", "positive"]),
         np.array([10, 10, 30, 30]),
+        np.array([1, 1, 2, 2]),
     ],
 )
 def test_tensor_runtime_decodes_original_class_labels(target):
@@ -136,12 +137,14 @@ def test_tensor_runtime_decodes_original_class_labels(target):
     ).fit(CLASSIFICATION_FEATURES, target)
 
     result = runtime.predict(CLASSIFICATION_FEATURES, PredictionMode.LABELS)
+    first_only = runtime.predict(CLASSIFICATION_FEATURES[:1], PredictionMode.LABELS)
 
     np.testing.assert_array_equal(
         result.values.reshape(-1),
         direct.predict(CLASSIFICATION_FEATURES).reshape(-1),
     )
     assert result.classes.tolist() == np.unique(target).tolist()
+    np.testing.assert_array_equal(first_only.values.reshape(-1), result.values.reshape(-1)[:1])
     runtime.close()
 
 
