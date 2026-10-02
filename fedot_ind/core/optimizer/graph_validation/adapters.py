@@ -208,9 +208,7 @@ def _enum_name(value: object | None) -> str | None:
     if value is None:
         return None
     name = getattr(value, "name", None)
-    if name:
-        return str(name)
-    raw = getattr(value, "value", value)
+    raw = name or getattr(value, "value", value)
     normalized = str(raw).strip().lower()
     aliases = {
         "gpu": "cuda",

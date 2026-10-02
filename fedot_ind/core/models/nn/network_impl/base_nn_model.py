@@ -251,7 +251,7 @@ class BaseNeuralModel:
             torch.cuda.empty_cache()
         self.model = self.model_for_inference.to(torch.device('cpu'))
         self.model.load_state_dict(torch.load(
-            prefix, map_location=torch.device('cpu')))
+            prefix, map_location=torch.device('cpu'), weights_only=True))
         os.remove(prefix)
 
     @convert_inputdata_to_torch_dataset

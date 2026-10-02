@@ -36,6 +36,7 @@ from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
 EXPECTED_EVALUATION_EXCEPTIONS = (
     ArithmeticError,
+    AssertionError,
     AttributeError,
     IndexError,
     KeyError,

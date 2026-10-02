@@ -261,7 +261,6 @@ def installed_snapshot(policy, numpy="1.26.4"):
                                             "vcs_info": {"vcs": "git",
                                                          "commit_id": policy.current.sha}}),
             "numpy": InstalledDistribution(numpy),
-            "typing": InstalledDistribution("3.7.4.3"),
             "dask-ml": InstalledDistribution("2024.4.4"),
             "giotto-tda": InstalledDistribution("0.6.2"),
             "scikit-learn": InstalledDistribution("1.3.2"),
@@ -284,6 +283,47 @@ def test_environment_metadata_only_success_with_marker_skipped(project, policy):
     assert rows["sample"]["status"] == "marker-skipped"
     assert result["profile"] == "current"
     assert result["optional_extras"] == ["test"]
+
+
+def test_direct_url_accepts_development_version_with_exact_pep610_source(project, policy):
+    snapshot = installed_snapshot(policy)
+    snapshot["fedot"] = replace(snapshot["fedot"], version="1.0.0.dev0")
+
+    result = inspect_environment(project, policy, policy.current, "3.11.1", markers(), snapshot)
+
+    assert result["ok"], result["issues"]
+    row = next(row for row in result["dependencies"] if row["name"] == "fedot")
+    assert row["status"] == "installed" and row["source"] == "verified"
+
+
+def test_direct_url_development_version_still_requires_exact_source(project, policy):
+    snapshot = installed_snapshot(policy)
+    snapshot["fedot"] = InstalledDistribution("1.0.0.dev0", {
+        "url": policy.current.repository,
+        "vcs_info": {"vcs": "git", "commit_id": "a" * 40},
+    })
+
+    result = inspect_environment(project, policy, policy.current, "3.11.1", markers(), snapshot)
+
+    assert not result["ok"]
+    assert [issue["code"] for issue in result["issues"]] == ["source-unverified"]
+
+
+@pytest.mark.parametrize(("requirement", "version", "status"), [
+    ("numpy<2", "1.26.4rc1", "incompatible"),
+    ("numpy", "1.26.4rc1", "incompatible"),
+    ("numpy>=1.26.4rc1,<2", "1.26.4rc1", "installed"),
+    ("numpy<2", "2.0.0", "incompatible"),
+])
+def test_ordinary_requirements_keep_their_prerelease_and_version_policy(project, policy, requirement, version, status):
+    project = replace(project, dependencies=tuple(
+        requirement if Requirement(item).name == "numpy" else item for item in project.dependencies
+    ))
+    result = inspect_environment(
+        project, policy, policy.current, "3.11.1", markers(), installed_snapshot(policy, version))
+
+    row = next(row for row in result["dependencies"] if row["name"] == "numpy")
+    assert row["status"] == status
 
 
 def test_environment_missing_incompatible_and_unverified_accumulate(project, policy):

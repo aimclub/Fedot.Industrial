@@ -88,8 +88,8 @@ def test_default_registry_exposes_repo_native_generators():
         "eigen_extractor").operation_specs[0].module_path.endswith("basis.eigen_basis")
 
 
-def test_default_registry_does_not_import_legacy_constant_repository():
-    sys.modules.pop("fedot_ind.core.repository.constanst_repository", None)
+def test_default_registry_does_not_import_legacy_constant_repository(monkeypatch):
+    monkeypatch.delitem(sys.modules, "fedot_ind.core.repository.constanst_repository", raising=False)
 
     build_generator_registry()
 

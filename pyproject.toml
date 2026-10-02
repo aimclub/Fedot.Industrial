@@ -14,7 +14,6 @@ classifiers = [
 keywords = ["automated machine learning", "time series", "anomaly detection"]
 dependencies = [
     "fedot @ git+https://github.com/aimclub/FEDOT.git@d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
-    "typing==3.7.4.3",
     "numpy>=1.24.4,<2",
     "scipy>=1.10,<1.15.2",
     "pandas>=2,<2.3",
@@ -24,9 +23,9 @@ dependencies = [
     "distributed==2024.4.2",
     "dask-ml==2024.4.4",
     "spacy>=3.5,<3.6",
-    "torch>=2.2,<2.6",
-    "torchvision>=0.17,<0.21",
-    "fastai==2.7.18",
+    "torch>=2.6,<2.7",
+    "torchvision>=0.21,<0.22",
+    "fastai==2.7.19",
     "giotto-tda==0.6.2",
     "scikit-tda>=1.1.1,<2",
     "chardet>=5.2,<6",

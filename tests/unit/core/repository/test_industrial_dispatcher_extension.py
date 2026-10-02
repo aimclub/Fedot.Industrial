@@ -91,13 +91,14 @@ def test_null_fitness_is_recorded_as_structured_evaluation_failure():
     assert result.metadata["evaluation_failure"]["code"] == "invalid_fitness"
 
 
-def test_expected_objective_error_is_preserved_as_typed_failure():
+@pytest.mark.parametrize("error_type", [ValueError, AssertionError])
+def test_expected_objective_error_is_preserved_as_typed_failure(error_type):
     dispatcher = object.__new__(IndustrialDispatcher)
     dispatcher._adapter = SimpleNamespace(adapt_func=lambda function: function)
     dispatcher.logger = SimpleNamespace(info=lambda message: None)
 
     def fail_evaluation(graph):
-        raise ValueError(f"cannot evaluate {graph}")
+        raise error_type(f"cannot evaluate {graph}")
 
     dispatcher._evaluate_graph = fail_evaluation
 
@@ -107,20 +108,21 @@ def test_expected_objective_error_is_preserved_as_typed_failure():
     assert not result.fitness.valid
     assert result.metadata["evaluation_failure"] == {
         "code": "objective_exception",
-        "error_type": "ValueError",
-        "message": "ValueError('cannot evaluate graph')",
+        "error_type": error_type.__name__,
+        "message": repr(error_type("cannot evaluate graph")),
     }
 
 
-def test_unexpected_environment_error_is_not_silently_converted_to_null_fitness():
+@pytest.mark.parametrize("error_type", [OSError, ImportError, MemoryError])
+def test_unexpected_environment_error_is_not_silently_converted_to_null_fitness(error_type):
     dispatcher = object.__new__(IndustrialDispatcher)
     dispatcher._adapter = SimpleNamespace(adapt_func=lambda function: function)
     dispatcher.logger = SimpleNamespace(info=lambda message: None)
 
     def fail_evaluation(graph):
-        raise OSError(f"storage unavailable for {graph}")
+        raise error_type(f"storage unavailable for {graph}")
 
     dispatcher._evaluate_graph = fail_evaluation
 
-    with pytest.raises(OSError, match="storage unavailable"):
+    with pytest.raises(error_type, match="storage unavailable"):
         dispatcher.eval_ind("graph", "individual").compute(scheduler="synchronous")

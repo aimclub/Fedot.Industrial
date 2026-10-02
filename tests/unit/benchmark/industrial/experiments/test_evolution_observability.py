@@ -57,8 +57,8 @@ def test_public_api_config_enables_diagnostics_without_mutating_defaults(tmp_pat
     api_config = build_fedot_industrial_config(config, scenario, tmp_path)
 
     strategy = api_config["automl_config"]["optimisation_strategy"]["optimisation_strategy"]
-    assert strategy["diagnostics_output_dir"].endswith(
-        "tiny_classification\\diagnostics")
+    assert Path(strategy["diagnostics_output_dir"]).parts[-2:] == (
+        "tiny_classification", "diagnostics")
     assert api_config["learning_config"]["learning_strategy_params"]["num_of_generations"] == 1
     assert api_config["compute_config"]["distributed"]["n_workers"] == 1
     assert DEFAULT_CLF_API_CONFIG == defaults_before

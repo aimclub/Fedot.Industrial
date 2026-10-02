@@ -112,7 +112,12 @@ class AbstractPipeline:
                 target = as_numpy(self.train_data.target).flatten()
             else:
                 predict = test_model.predict(self.test_data, 'labels')
-                predict_proba = test_model.predict(self.test_data, 'probs')
+                predict_proba = (
+                    test_model.predict(self.test_data, 'probs')
+                    if self.task == 'classification'
+                    and self.task_params.get('industrial_strategy') != 'anomaly_detection'
+                    else predict
+                )
                 target = as_numpy(self.test_data.target)
         predicted_labels = as_numpy(predict.predict)
         predicted_probs = as_numpy(predict_proba.predict)

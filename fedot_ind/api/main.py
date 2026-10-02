@@ -1,6 +1,7 @@
 import os
 import warnings
 from typing import Union, Optional
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -202,7 +203,7 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
+        with exception_handler(Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
             train_data = self._process_input_data(input_data, fit_stage=True)
             train_data = self.__init_industrial_backend(train_data)
             train_data = self.__init_solver(train_data)
@@ -277,7 +278,7 @@ class FedotIndustrial(Fedot):
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
         tuning_params = {} if tuning_params is None else tuning_params
 
-        with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
+        with exception_handler(Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
             payload = self.finetune_service.prepare_payload(
                 train_data=train_data,
                 tuning_params=tuning_params,
@@ -462,18 +463,28 @@ class FedotIndustrial(Fedot):
             plot_func(mode)
         return history_visualizer.history if return_history else None
 
-    def shutdown(self):
+    def shutdown(self, *, raise_cleanup_errors: bool = True):
         """Close the owned extension session, Dask client, and Dask cluster.
 
-        Clear each Dask handle after it closes successfully. Close errors propagate
-        and prevent the remaining cleanup steps from running.
+        Attempt every cleanup step and clear each Dask handle only after it closes
+        successfully. Direct calls propagate the first cleanup error; failure
+        callbacks suppress cleanup errors to preserve the operation error.
         """
-        self.repository_initializer.close()
-        dask_client = getattr(self.manager, 'dask_client', None)
-        if dask_client is not None:
-            dask_client.close()
-            self.manager.dask_client = None
-        dask_cluster = getattr(self.manager, 'dask_cluster', None)
-        if dask_cluster is not None:
-            dask_cluster.close()
-            self.manager.dask_cluster = None
+        first_error = None
+        try:
+            self.repository_initializer.close()
+        except Exception as error:
+            first_error = error
+        for handle_name in ('dask_client', 'dask_cluster'):
+            handle = getattr(self.manager, handle_name, None)
+            if handle is None:
+                continue
+            try:
+                handle.close()
+            except Exception as error:
+                if first_error is None:
+                    first_error = error
+            else:
+                setattr(self.manager, handle_name, None)
+        if first_error is not None and raise_cleanup_errors:
+            raise first_error

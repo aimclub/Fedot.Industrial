@@ -70,8 +70,11 @@ def _file_violations(path: str, tree: ast.AST) -> list[BoundaryViolation]:
             call_name = _attribute_name(node.func)
             if call_name in FORBIDDEN_CALLS:
                 violations.append(BoundaryViolation(path, node.lineno, "removed repository call", call_name))
-            if call_name in FORBIDDEN_REPOSITORY_MUTATIONS:
+            if call_name in FORBIDDEN_REPOSITORY_MUTATIONS and not (
+                    isinstance(node.func, ast.Attribute) and call_name == "__repository_dict__"):
                 violations.append(BoundaryViolation(path, node.lineno, "repository mutation", call_name))
+        elif isinstance(node, ast.Attribute) and node.attr == "__repository_dict__":
+            violations.append(BoundaryViolation(path, node.lineno, "repository mutation", node.attr))
     return violations
 
 

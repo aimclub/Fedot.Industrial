@@ -23,9 +23,9 @@ def test_default_pdl_models_are_resolved_inside_the_thematic_package():
     assert "treg" in available_pdl_base_models("regression")
 
 
-def test_optional_estimator_modules_are_not_loaded_by_default():
-    sys.modules.pop("lightgbm.sklearn", None)
-    sys.modules.pop("xgboost", None)
+def test_optional_estimator_modules_are_not_loaded_by_default(monkeypatch):
+    monkeypatch.delitem(sys.modules, "lightgbm.sklearn", raising=False)
+    monkeypatch.delitem(sys.modules, "xgboost", raising=False)
 
     create_pdl_base_model("classification", "dt")
     create_pdl_base_model("regression", "ridge")

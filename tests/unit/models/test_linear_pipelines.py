@@ -4,6 +4,8 @@ import os
 import shutil
 import pytest
 import logging
+from contextlib import nullcontext
+from types import SimpleNamespace
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_REG_PIPELINE, VALID_LINEAR_CLF_PIPELINE, \
@@ -123,6 +125,46 @@ LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF
 def mock_message(self, msg: str, **kwargs):
     level = 40
     self.log(level, msg, **kwargs)
+
+
+@pytest.mark.parametrize(("task", "task_params", "modes"), [
+    ("classification", {}, ["labels", "probs"]),
+    ("regression", {}, ["labels"]),
+    ("classification", {"industrial_strategy": "anomaly_detection"}, ["labels"]),
+    ("ts_forecasting", {}, [None]),
+])
+def test_evaluate_pipeline_requests_probability_output_only_for_classification(monkeypatch, task, task_params, modes):
+    from fedot_ind.core.architecture.pipelines import abstract_pipeline as module
+
+    calls = []
+    target = np.array([0.0, 1.0])
+    data = SimpleNamespace(target=target)
+    labels = SimpleNamespace(predict=target)
+    probabilities = SimpleNamespace(predict=np.array([[1.0, 0.0], [0.0, 1.0]]))
+
+    class Model:
+        def fit(self, train_data):
+            assert train_data is data
+
+        def predict(self, input_data, mode=None):
+            calls.append(mode)
+            assert input_data is data
+            if mode == "probs":
+                assert task == "classification" and not task_params
+                return probabilities
+            return labels
+
+    pipeline = AbstractPipeline(task=task, task_params=task_params)
+    monkeypatch.setattr(pipeline, "create_pipeline", lambda node_list: Model())
+    monkeypatch.setattr(pipeline, "create_input_data", lambda dataset: (data, data))
+    monkeypatch.setattr(module, "industrial_extension_scope", nullcontext)
+    monkeypatch.setattr(module, "ensure_fedot_tensor_data", lambda data, **kwargs: data)
+
+    result = pipeline.evaluate_pipeline({}, "dataset")
+
+    assert calls == modes
+    np.testing.assert_array_equal(result["predict_labels"], target)
+    np.testing.assert_array_equal(result["predict_probs"], probabilities.predict if "probs" in modes else target)
 
 
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)

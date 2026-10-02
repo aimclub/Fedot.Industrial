@@ -31,6 +31,7 @@ uv.lock
 !benchmark/industrial/examples/kernel_learning_tser_manifest.json
 !benchmark/industrial/examples/kernel_learning_ucr_manifest.json
 !benchmark/experiments/kernel_learning/defaults.json
+!benchmark/industrial/experiments/evolution_observability/defaults.json
 !benchmark/industrial/experiments/preset_defaults.json
 !examples/utils/current_api/example_defaults.json
 !examples/utils/current_api/manifests/*.json

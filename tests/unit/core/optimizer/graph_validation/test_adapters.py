@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from dataclasses import replace
+from enum import Enum
 
 import pytest
 from fedot.core.pipelines.adapters import PipelineAdapter
@@ -71,6 +72,43 @@ def test_mapping_metadata_and_device_aliases_are_projected_at_the_boundary():
     assert capability.input_data_types == ("tabular",)
     assert capability.output_data_types == ("ts",)
     assert capability.devices == (ComputeDevice.CPU, ComputeDevice.CUDA)
+
+
+@pytest.mark.parametrize("device", [ComputeDevice.CPU, ComputeDevice.CUDA])
+def test_runtime_projection_normalizes_enum_names_and_aliases(device):
+    class MetadataValue(Enum):
+        TABLE = "table"
+        TIME_SERIES = "time_series"
+        CLASSIFICATION = "classification"
+
+    node = SimpleNamespace(content={"name": "custom", "metadata": {
+        "input_types": MetadataValue.TABLE,
+        "output_types": MetadataValue.TIME_SERIES,
+        "task_type": MetadataValue.CLASSIFICATION,
+        "structural_role": StructuralRole.RESAMPLING,
+    }}, nodes_from=[])
+
+    spec = graph_spec_from_runtime(
+        SimpleNamespace(nodes=[node]), capability_index={},
+        task_type=MetadataValue.CLASSIFICATION, requested_device=device,
+    )
+
+    assert spec.task_type == "classification"
+    assert spec.requested_device is device
+    capability = spec.nodes[0].capabilities
+    assert capability.input_data_types == ("tabular",)
+    assert capability.output_data_types == ("ts",)
+    assert capability.task_types == ("classification",)
+    assert capability.structural_role is StructuralRole.RESAMPLING
+
+
+@pytest.mark.parametrize("device", [
+    SimpleNamespace(name=" GPU "), SimpleNamespace(value=" GPU "),
+])
+def test_runtime_projection_normalizes_whitespace_and_value_wrappers(device):
+    spec = graph_spec_from_runtime(SimpleNamespace(nodes=[]), requested_device=device)
+
+    assert spec.requested_device is ComputeDevice.CUDA
 
 
 def test_adapter_translates_legacy_names_and_explicit_extension_roles():

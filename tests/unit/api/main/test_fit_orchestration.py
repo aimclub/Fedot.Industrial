@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from fedot_ind.api.main import FedotIndustrial
 
 
@@ -110,4 +112,94 @@ def test_shutdown_is_idempotent_after_resources_are_closed():
 
     assert calls == ["repository", "client", "cluster", "repository"]
     assert industrial.manager.dask_client is None
+    assert industrial.manager.dask_cluster is None
+
+
+@pytest.mark.parametrize("failed", [
+    ("repository",), ("client",), ("cluster",), ("repository", "client", "cluster"),
+])
+def test_shutdown_attempts_all_resources_and_preserves_the_first_error(failed):
+    industrial = FedotIndustrial.__new__(FedotIndustrial)
+    calls = []
+    errors = {name: OSError(f"cannot close {name}") for name in failed}
+
+    def resource(name):
+        def close():
+            calls.append(name)
+            if name in errors:
+                raise errors[name]
+        return SimpleNamespace(close=close)
+
+    industrial.repository_initializer = resource("repository")
+    client, cluster = resource("client"), resource("cluster")
+    industrial.manager = SimpleNamespace(dask_client=client, dask_cluster=cluster)
+
+    with pytest.raises(OSError) as caught:
+        industrial.shutdown()
+
+    assert caught.value is errors[failed[0]]
+    assert calls == ["repository", "client", "cluster"]
+    assert industrial.manager.dask_client is (client if "client" in failed else None)
+    assert industrial.manager.dask_cluster is (cluster if "cluster" in failed else None)
+
+
+def test_shutdown_can_retry_a_handle_that_failed_to_close():
+    industrial = FedotIndustrial.__new__(FedotIndustrial)
+    calls = []
+
+    def close_client():
+        calls.append("client")
+        if calls.count("client") == 1:
+            raise OSError("temporary close failure")
+
+    industrial.repository_initializer = SimpleNamespace(close=lambda: calls.append("repository"))
+    industrial.manager = SimpleNamespace(
+        dask_client=SimpleNamespace(close=close_client),
+        dask_cluster=SimpleNamespace(close=lambda: calls.append("cluster")),
+    )
+    client = industrial.manager.dask_client
+
+    industrial.shutdown(raise_cleanup_errors=False)
+    assert industrial.manager.dask_client is client
+    assert industrial.manager.dask_cluster is None
+    industrial.shutdown()
+
+    assert calls == ["repository", "client", "cluster", "repository", "client"]
+    assert industrial.manager.dask_client is None
+
+
+@pytest.mark.parametrize("operation", ["fit", "finetune"])
+def test_operation_failure_survives_cleanup_errors_and_all_resources_are_attempted(operation):
+    industrial = FedotIndustrial.__new__(FedotIndustrial)
+    calls = []
+    operation_error = ValueError("model preparation failed")
+
+    def fail(*args, **kwargs):
+        raise operation_error
+
+    def close_repository():
+        calls.append("repository")
+        raise OSError("repository close failed")
+
+    def close_client():
+        calls.append("client")
+        raise RuntimeError("client close failed")
+
+    client = SimpleNamespace(close=close_client)
+    industrial.repository_initializer = SimpleNamespace(close=close_repository)
+    industrial.manager = SimpleNamespace(
+        dask_client=client,
+        dask_cluster=SimpleNamespace(close=lambda: calls.append("cluster")),
+        condition_check=SimpleNamespace(input_data_is_fedot_type=lambda data: False),
+        automl_config=SimpleNamespace(config={"task": "classification"}),
+    )
+    industrial._process_input_data = fail
+    industrial.finetune_service = SimpleNamespace(prepare_payload=fail)
+
+    with pytest.raises(ValueError) as caught:
+        getattr(industrial, operation)("raw")
+
+    assert caught.value is operation_error
+    assert calls == ["repository", "client", "cluster"]
+    assert industrial.manager.dask_client is client
     assert industrial.manager.dask_cluster is None

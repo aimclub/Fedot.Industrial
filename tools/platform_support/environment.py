@@ -92,7 +92,8 @@ def inspect_environment(project: Project, compatibility: Compatibility, profile:
         issues.extend(distribution.issues)
         try:
             version = Version(distribution.version)
-            compatible = requirement.specifier.contains(version)
+            compatible = requirement.specifier.contains(
+                version, prereleases=True if requirement.url and not requirement.specifier else None)
         except InvalidVersion:
             compatible = False
         if not compatible:
