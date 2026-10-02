@@ -67,10 +67,6 @@ class _DeferredRuntime:
             )
         return method
 
-
-class DeferredModel(_DeferredRuntime):
-    """Array-level model facade expected by the FEDOT extension runtime."""
-
     def fit(self, features: Any, target: Any = None) -> object:
         runtime_features = self._runtime_input(features, target)
         args = _fit_args(self.declaration, runtime_features, target)
@@ -78,6 +74,15 @@ class DeferredModel(_DeferredRuntime):
         if fitted is not None and fitted is not self.implementation:
             self._implementation = fitted
         return self
+
+    def _runtime_input(self, features: Any, target: Any = None) -> Any:
+        if self.declaration.runtime_interface is IndustrialRuntimeInterface.ARRAY:
+            return features
+        return _build_input_data(self, features, target)
+
+
+class DeferredModel(_DeferredRuntime):
+    """Array-level model facade expected by the FEDOT extension runtime."""
 
     def predict(self, features: Any) -> Any:
         runtime_features = self._runtime_input(features)
@@ -110,11 +115,6 @@ class DeferredModel(_DeferredRuntime):
             preferred=("predict", "features"),
         )
 
-    def _runtime_input(self, features: Any, target: Any = None) -> Any:
-        if self.declaration.runtime_interface is IndustrialRuntimeInterface.ARRAY:
-            return features
-        return _build_input_data(self, features, target)
-
     def _normalize_prediction_shape(self, prediction: Any, features: Any) -> Any:
         task_type = getattr(getattr(self._task, "task_type", None), "value", None)
         if task_type != "ts_forecasting":
@@ -128,14 +128,6 @@ class DeferredModel(_DeferredRuntime):
 class DeferredTransform(_DeferredRuntime):
     """Array-level transform facade expected by the FEDOT extension runtime."""
 
-    def fit(self, features: Any, target: Any = None) -> object:
-        runtime_features = self._runtime_input(features, target)
-        args = _fit_args(self.declaration, runtime_features, target)
-        fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
-        if fitted is not None and fitted is not self.implementation:
-            self._implementation = fitted
-        return self
-
     def transform(self, features: Any) -> Any:
         method_name = self.declaration.transform_policy.value
         method = self._method(method_name)
@@ -144,11 +136,6 @@ class DeferredTransform(_DeferredRuntime):
             _invoke(method, (runtime_features,), {}, self.declaration.name)
         )
         return _normalize_transform_shape(transformed, self.declaration)
-
-    def _runtime_input(self, features: Any, target: Any = None) -> Any:
-        if self.declaration.runtime_interface is IndustrialRuntimeInterface.ARRAY:
-            return features
-        return _build_input_data(self, features, target)
 
 
 def _build_input_data(runtime: _DeferredRuntime, features: Any, target: Any = None) -> object:
