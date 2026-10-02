@@ -21,6 +21,24 @@ class IndustrialRuntimeInterface(str, Enum):
     INPUT_DATA = "input_data"
 
 
+class IndustrialConstructorPolicy(str, Enum):
+    OPERATION_PARAMETERS = "operation_parameters"
+    KEYWORDS = "keywords"
+    MAPPING = "mapping"
+
+
+class IndustrialProbabilityPolicy(str, Enum):
+    NONE = "none"
+    PREDICT_PROBA = "predict_proba"
+    OUTPUT_MODE_KEYWORD = "output_mode_keyword"
+    OUTPUT_MODE_POSITIONAL = "output_mode_positional"
+
+
+class IndustrialTransformPolicy(str, Enum):
+    TRANSFORM = "transform"
+    PREDICT = "predict"
+
+
 class IndustrialExtensionStatus(str, Enum):
     """Observable outcomes of the idempotent bootstrap operation."""
 
@@ -107,6 +125,9 @@ class IndustrialOperationDeclaration:
     min_parents: int = 0
     max_parents: int | None = None
     allows_identical_parents: bool = True
+    constructor_policy: IndustrialConstructorPolicy = IndustrialConstructorPolicy.OPERATION_PARAMETERS
+    probability_policy: IndustrialProbabilityPolicy = IndustrialProbabilityPolicy.NONE
+    transform_policy: IndustrialTransformPolicy = IndustrialTransformPolicy.TRANSFORM
 
     @property
     def needs_explicit_task_type(self) -> bool:
@@ -140,6 +161,9 @@ class IndustrialOperationDeclaration:
             "min_parents": self.min_parents,
             "max_parents": self.max_parents,
             "allows_identical_parents": self.allows_identical_parents,
+            "constructor_policy": self.constructor_policy.value,
+            "probability_policy": self.probability_policy.value,
+            "transform_policy": self.transform_policy.value,
         }
 
 

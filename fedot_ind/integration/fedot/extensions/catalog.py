@@ -17,6 +17,9 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialOperationDeclaration,
     IndustrialOperationKind,
     IndustrialRuntimeInterface,
+    IndustrialConstructorPolicy,
+    IndustrialProbabilityPolicy,
+    IndustrialTransformPolicy,
 )
 
 
@@ -149,6 +152,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         "runtime_interface", "requires_task_type",
         "devices", "serializable", "allowed_positions", "min_parents", "max_parents",
         "allows_identical_parents",
+        "constructor_policy", "probability_policy", "transform_policy",
     }
     required = {"name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems"}
     _require_keys(value, required, f"operations[{index}]")
@@ -245,6 +249,18 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         "allows_identical_parents",
         index,
     )
+    policies = {}
+    for field, policy_type in (
+        ("constructor_policy", IndustrialConstructorPolicy),
+        ("probability_policy", IndustrialProbabilityPolicy),
+        ("transform_policy", IndustrialTransformPolicy),
+    ):
+        default = getattr(IndustrialOperationDeclaration, field)
+        try:
+            policies[field] = policy_type(value.get(field, default))
+        except (TypeError, ValueError) as error:
+            _invalid("Operation invocation policy is unsupported.",
+                     index=index, field=field, value=value.get(field), cause=error)
 
     return IndustrialOperationDeclaration(
         name=name,
@@ -269,6 +285,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         min_parents=min_parents,
         max_parents=max_parents,
         allows_identical_parents=allows_identical_parents,
+        **policies,
     )
 
 

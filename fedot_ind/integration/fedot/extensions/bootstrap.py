@@ -227,6 +227,7 @@ def _manifest_signature(manifest: object) -> tuple[object, ...]:
             spec.name,
             type(spec).__name__,
             getattr(spec.factory, "__industrial_factory_target__", None),
+            getattr(spec.factory, "__industrial_invocation_policy__", None),
             getattr(spec.factory, "__module__", None),
             getattr(spec.factory, "__qualname__", None),
             capabilities,

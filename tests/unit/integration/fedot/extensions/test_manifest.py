@@ -20,6 +20,9 @@ try:
         IndustrialOperationDeclaration,
         IndustrialOperationKind,
         IndustrialRuntimeInterface,
+        IndustrialConstructorPolicy,
+        IndustrialProbabilityPolicy,
+        IndustrialTransformPolicy,
     )
     from fedot_ind.integration.fedot.extensions.factories import make_deferred_factory
     from fedot_ind.integration.fedot.extensions.manifest import build_industrial_extension_manifest
@@ -160,6 +163,7 @@ def test_deferred_factory_uses_keyword_parameters_for_sklearn_style_target():
         tags=("industrial",),
         problems=("classification",),
         runtime_interface=IndustrialRuntimeInterface.ARRAY,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
 
     instance = make_deferred_factory(declaration)(
@@ -280,6 +284,10 @@ def test_deferred_factory_adapts_declared_runtime_interface(
         tags=("industrial",),
         problems=("classification",),
         runtime_interface=runtime_interface,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
+        probability_policy=(IndustrialProbabilityPolicy.PREDICT_PROBA
+                            if runtime_interface is IndustrialRuntimeInterface.ARRAY
+                            else IndustrialProbabilityPolicy.OUTPUT_MODE_KEYWORD),
     )
     features = np.arange(12, dtype=float).reshape(6, 2)
     target = np.array([0, 0, 0, 1, 1, 1])
@@ -317,6 +325,7 @@ def test_deferred_forecaster_infers_horizon_and_preserves_tensor_sample_count(mo
         tags=("industrial",),
         problems=("ts_forecasting",),
         runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
     runtime = make_deferred_factory(declaration)({})
     features = np.arange(90, dtype=float).reshape(1, -1)
@@ -347,6 +356,7 @@ def test_deferred_transform_returns_calculated_output_instead_of_source_features
         tags=("industrial",),
         problems=("classification",),
         runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
     features = np.arange(12, dtype=float).reshape(6, 2)
     runtime = make_deferred_factory(declaration)({})
@@ -375,6 +385,7 @@ def test_tabular_transform_flattens_feature_axes_beyond_fedot_runtime_limit(monk
         tags=("industrial",),
         problems=("regression",),
         runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
     features = np.arange(60, dtype=float).reshape(5, 3, 4)
     runtime = make_deferred_factory(declaration)({})
@@ -403,6 +414,7 @@ def test_tabular_transform_flattens_three_dimensional_feature_output(monkeypatch
         tags=("industrial",),
         problems=("classification",),
         runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
     features = np.arange(60, dtype=float).reshape(5, 3, 4)
     runtime = make_deferred_factory(declaration)({})
@@ -431,6 +443,7 @@ def test_image_transform_preserves_last_axis_within_fedot_runtime_limit(monkeypa
         tags=("industrial",),
         problems=("classification",),
         runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
     features = np.arange(60, dtype=float).reshape(5, 3, 4)
     runtime = make_deferred_factory(declaration)({})
@@ -459,6 +472,7 @@ def test_multi_task_model_requires_explicit_task_type(monkeypatch):
         tags=("industrial",),
         problems=("classification", "regression"),
         runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
     )
     features = np.arange(12, dtype=float).reshape(6, 2)
     integer_regression_target = np.arange(6)
@@ -471,6 +485,128 @@ def test_multi_task_model_requires_explicit_task_type(monkeypatch):
     regression = make_deferred_factory(declaration)({"task_type": "regression"})
     regression.fit(features, integer_regression_target)
     assert regression.implementation.fit_payload.task.task_type is TaskTypesEnum.regression
+
+
+@pytest.mark.parametrize(
+    "policy, target_name",
+    [
+        (IndustrialProbabilityPolicy.OUTPUT_MODE_KEYWORD, "KeywordModel"),
+        (IndustrialProbabilityPolicy.OUTPUT_MODE_POSITIONAL, "PositionalModel"),
+    ],
+)
+def test_declared_probability_policy_selects_one_call_shape(monkeypatch, policy, target_name):
+    from fedot_ind.integration.fedot.extensions import factories
+
+    class KeywordModel:
+        def fit(self, features, target):
+            return self
+
+        def predict(self, features, *, output_mode="labels"):
+            return np.full(len(features), 2 if output_mode == "probs" else 1)
+
+    class PositionalModel:
+        def fit(self, features, target):
+            return self
+
+        def predict(self, features, output_mode="labels", /):
+            return np.full(len(features), 3 if output_mode == "probs" else 1)
+
+    monkeypatch.setattr(factories, "import_module", lambda _: SimpleNamespace(
+        KeywordModel=KeywordModel, PositionalModel=PositionalModel))
+    declaration = IndustrialOperationDeclaration(
+        name="probability_test", kind=IndustrialOperationKind.MODEL,
+        factory=f"example.runtime:{target_name}", tasks=("classification",),
+        data_types=("tabular",), output_data_type="tabular", tags=(),
+        problems=("classification",), runtime_interface=IndustrialRuntimeInterface.ARRAY,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
+        probability_policy=policy,
+    )
+    runtime = make_deferred_factory(declaration)({})
+    runtime.fit(np.arange(3), np.array([0, 1, 0]))
+
+    assert runtime.predict_proba(np.arange(3)).tolist() == ([2] * 3 if target_name == "KeywordModel"
+                                                            else [3] * 3)
+
+
+def test_invalid_declared_constructor_does_not_discard_parameters(monkeypatch):
+    from fedot_ind.integration.fedot.extensions import factories
+
+    class NoParameters:
+        calls = 0
+
+        def __init__(self):
+            type(self).calls += 1
+
+    monkeypatch.setattr(factories, "import_module", lambda _: SimpleNamespace(NoParameters=NoParameters))
+    declaration = IndustrialOperationDeclaration(
+        name="invalid_constructor", kind=IndustrialOperationKind.MODEL,
+        factory="example.runtime:NoParameters", tasks=("classification",),
+        data_types=("tabular",), output_data_type="tabular", tags=(),
+        problems=("classification",), constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
+    )
+
+    with pytest.raises(Exception) as error:
+        make_deferred_factory(declaration)({"alpha": 1}).implementation
+    assert error.value.code is IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID
+    assert NoParameters.calls == 0
+
+
+def test_runtime_type_error_is_not_retried_with_another_invocation(monkeypatch):
+    from fedot_ind.integration.fedot.extensions import factories
+
+    class FailingModel:
+        calls = 0
+
+        def fit(self, features, target):
+            return self
+
+        def predict(self, features, *, output_mode="labels"):
+            type(self).calls += 1
+            raise TypeError("failure inside model")
+
+    monkeypatch.setattr(factories, "import_module", lambda _: SimpleNamespace(FailingModel=FailingModel))
+    declaration = IndustrialOperationDeclaration(
+        name="failing_model", kind=IndustrialOperationKind.MODEL,
+        factory="example.runtime:FailingModel", tasks=("classification",),
+        data_types=("tabular",), output_data_type="tabular", tags=(),
+        problems=("classification",), runtime_interface=IndustrialRuntimeInterface.ARRAY,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
+        probability_policy=IndustrialProbabilityPolicy.OUTPUT_MODE_KEYWORD,
+    )
+    runtime = make_deferred_factory(declaration)({})
+    runtime.fit(np.arange(2), np.array([0, 1]))
+
+    with pytest.raises(Exception) as error:
+        runtime.predict_proba(np.arange(2))
+    assert error.value.code is IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID
+    assert FailingModel.calls == 1
+
+
+def test_transform_uses_declared_predict_method(monkeypatch):
+    from fedot_ind.integration.fedot.extensions import factories
+
+    class PredictTransform:
+        def fit(self, data):
+            return self
+
+        def predict(self, data):
+            return np.asarray(data.features) + 1
+
+    monkeypatch.setattr(factories, "import_module", lambda _: SimpleNamespace(
+        PredictTransform=PredictTransform))
+    declaration = IndustrialOperationDeclaration(
+        name="predict_transform", kind=IndustrialOperationKind.TRANSFORM,
+        factory="example.runtime:PredictTransform", tasks=("regression",),
+        data_types=("tabular",), output_data_type="tabular", tags=(),
+        problems=("regression",), runtime_interface=IndustrialRuntimeInterface.INPUT_DATA,
+        constructor_policy=IndustrialConstructorPolicy.KEYWORDS,
+        transform_policy=IndustrialTransformPolicy.PREDICT,
+    )
+    runtime = make_deferred_factory(declaration)({})
+    features = np.arange(6).reshape(3, 2)
+    runtime.fit(features, np.arange(3))
+
+    np.testing.assert_array_equal(runtime.transform(features), features + 1)
 
 
 def test_multi_task_model_schema_requires_explicit_task_type():

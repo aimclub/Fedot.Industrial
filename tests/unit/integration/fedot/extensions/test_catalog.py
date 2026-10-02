@@ -87,6 +87,18 @@ def test_catalog_rejects_unknown_runtime_interface():
     assert error.value.context["runtime_interface"] == "dataframe"
 
 
+@pytest.mark.parametrize("field", ["constructor_policy", "probability_policy", "transform_policy"])
+def test_catalog_rejects_unknown_invocation_policy(field):
+    payload = _payload()
+    payload["operations"][0][field] = "guess_from_signature"
+
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        parse_industrial_extension_catalog(payload)
+
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
+    assert error.value.context["field"] == field
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

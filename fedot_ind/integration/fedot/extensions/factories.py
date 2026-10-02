@@ -14,6 +14,9 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialOperationDeclaration,
     IndustrialOperationKind,
     IndustrialRuntimeInterface,
+    IndustrialConstructorPolicy,
+    IndustrialProbabilityPolicy,
+    IndustrialTransformPolicy,
 )
 
 
@@ -28,6 +31,13 @@ def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callab
     factory.__qualname__ = factory.__name__
     factory.__module__ = __name__
     factory.__industrial_factory_target__ = declaration.factory
+    factory.__industrial_invocation_policy__ = (
+        declaration.constructor_policy,
+        declaration.probability_policy,
+        declaration.transform_policy,
+        declaration.runtime_interface,
+        declaration.requires_target,
+    )
     return factory
 
 
@@ -63,12 +73,8 @@ class DeferredModel(_DeferredRuntime):
 
     def fit(self, features: Any, target: Any = None) -> object:
         runtime_features = self._runtime_input(features, target)
-        candidates = (
-            ((runtime_features, target), (runtime_features,))
-            if self.declaration.runtime_interface is IndustrialRuntimeInterface.ARRAY
-            else ((runtime_features,),)
-        )
-        fitted = _invoke_supported(self._method("fit"), candidates, self.declaration.name)
+        args = _fit_args(self.declaration, runtime_features, target)
+        fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
         if fitted is not None and fitted is not self.implementation:
             self._implementation = fitted
         return self
@@ -76,20 +82,31 @@ class DeferredModel(_DeferredRuntime):
     def predict(self, features: Any) -> Any:
         runtime_features = self._runtime_input(features)
         prediction = _unwrap_output(
-            _invoke_supported(self._method("predict"), ((runtime_features,),), self.declaration.name),
+            _invoke(self._method("predict"), (runtime_features,), {}, self.declaration.name),
             preferred=("predict", "features"),
         )
         return self._normalize_prediction_shape(prediction, features)
 
     def predict_proba(self, features: Any) -> Any:
         runtime_features = self._runtime_input(features)
-        method = getattr(self.implementation, "predict_proba", None)
-        candidates = ((runtime_features,),)
-        if not callable(method):
+        policy = self.declaration.probability_policy
+        if policy is IndustrialProbabilityPolicy.PREDICT_PROBA:
+            method = self._method("predict_proba")
+            args, kwargs = (runtime_features,), {}
+        elif policy is IndustrialProbabilityPolicy.OUTPUT_MODE_KEYWORD:
             method = self._method("predict")
-            candidates = ((runtime_features, "probs"),)
+            args, kwargs = (runtime_features,), {"output_mode": "probs"}
+        elif policy is IndustrialProbabilityPolicy.OUTPUT_MODE_POSITIONAL:
+            method = self._method("predict")
+            args, kwargs = (runtime_features, "probs"), {}
+        else:
+            raise IndustrialExtensionContractError(
+                IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
+                "Industrial operation does not declare probability output.",
+                context={"operation": self.declaration.name},
+            )
         return _unwrap_output(
-            _invoke_supported(method, candidates, self.declaration.name),
+            _invoke(method, args, kwargs, self.declaration.name),
             preferred=("predict", "features"),
         )
 
@@ -113,23 +130,18 @@ class DeferredTransform(_DeferredRuntime):
 
     def fit(self, features: Any, target: Any = None) -> object:
         runtime_features = self._runtime_input(features, target)
-        candidates = (
-            ((runtime_features, target), (runtime_features,))
-            if self.declaration.runtime_interface is IndustrialRuntimeInterface.ARRAY
-            else ((runtime_features,),)
-        )
-        fitted = _invoke_supported(self._method("fit"), candidates, self.declaration.name)
+        args = _fit_args(self.declaration, runtime_features, target)
+        fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
         if fitted is not None and fitted is not self.implementation:
             self._implementation = fitted
         return self
 
     def transform(self, features: Any) -> Any:
-        method = getattr(self.implementation, "transform", None)
-        if not callable(method):
-            method = self._method("predict")
+        method_name = self.declaration.transform_policy.value
+        method = self._method(method_name)
         runtime_features = self._runtime_input(features)
         transformed = _unwrap_transform_output(
-            _invoke_supported(method, ((runtime_features,),), self.declaration.name)
+            _invoke(method, (runtime_features,), {}, self.declaration.name)
         )
         return _normalize_transform_shape(transformed, self.declaration)
 
@@ -203,6 +215,14 @@ def _as_numpy(value: Any) -> np.ndarray:
     return np.asarray(value)
 
 
+def _fit_args(declaration: IndustrialOperationDeclaration,
+              features: Any, target: Any) -> tuple[Any, ...]:
+    if (declaration.runtime_interface is IndustrialRuntimeInterface.ARRAY
+            and declaration.requires_target):
+        return features, target
+    return (features,)
+
+
 def _instantiate_target(declaration: IndustrialOperationDeclaration,
                         params: Mapping[str, Any]) -> object:
     module_name, attribute_name = declaration.factory.split(":", maxsplit=1)
@@ -222,53 +242,25 @@ def _instantiate_target(declaration: IndustrialOperationDeclaration,
             context={"operation": declaration.name, "target": declaration.factory},
         )
 
+    policy = declaration.constructor_policy
+    if policy is IndustrialConstructorPolicy.OPERATION_PARAMETERS:
+        args, kwargs = (_operation_parameters(params),), {}
+    elif policy is IndustrialConstructorPolicy.MAPPING:
+        args, kwargs = (dict(params),), {}
+    else:
+        args, kwargs = (), dict(params)
+    _validate_call(target, args, kwargs, declaration.name)
     try:
-        signature = inspect.signature(target)
-    except (TypeError, ValueError) as error:
+        instance = target(*args, **kwargs)
+    except Exception as error:
         raise IndustrialExtensionContractError(
             IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
-            "Industrial runtime target signature cannot be inspected.",
+            "Industrial runtime target construction failed.",
             context={"operation": declaration.name, "target": declaration.factory},
             cause=error,
         ) from error
-    candidates = _constructor_candidates(signature, params)
-    for args, kwargs in candidates:
-        try:
-            signature.bind(*args, **kwargs)
-        except TypeError:
-            continue
-        try:
-            return target(*args, **kwargs)
-        except Exception as error:
-            raise IndustrialExtensionContractError(
-                IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
-                "Industrial runtime target construction failed.",
-                context={"operation": declaration.name, "target": declaration.factory},
-                cause=error,
-            ) from error
-    raise IndustrialExtensionContractError(
-        IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
-        "Industrial runtime target constructor has no supported call shape.",
-        context={"operation": declaration.name, "target": declaration.factory,
-                 "signature": str(signature)},
-    )
-
-
-def _constructor_candidates(
-        signature: inspect.Signature,
-        params: Mapping[str, Any],
-) -> tuple[tuple[tuple[Any, ...], dict[str, Any]], ...]:
-    """Choose constructor forms without binding a parameter object to an unrelated first argument."""
-    keyword_params = dict(params)
-    if "params" not in signature.parameters:
-        return (((), keyword_params), ((), {}))
-    operation_params = _operation_parameters(params)
-    return (
-        ((operation_params,), {}),
-        ((), {"params": operation_params}),
-        ((), keyword_params),
-        ((), {}),
-    )
+    _validate_runtime_methods(instance, declaration)
+    return instance
 
 
 def _operation_parameters(params: Mapping[str, Any]) -> object:
@@ -283,36 +275,62 @@ def _operation_parameters(params: Mapping[str, Any]) -> object:
     return OperationParameters(**dict(params))
 
 
-def _invoke_supported(method: Callable[..., Any], candidates: tuple[tuple[Any, ...], ...],
-                      operation_name: str) -> Any:
+def _validate_call(method: Callable[..., Any], args: tuple[Any, ...],
+                   kwargs: Mapping[str, Any], operation_name: str) -> None:
     try:
         signature = inspect.signature(method)
+        signature.bind(*args, **kwargs)
     except (TypeError, ValueError) as error:
         raise IndustrialExtensionContractError(
             IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
-            "Industrial runtime method signature cannot be inspected.",
-            context={"operation": operation_name},
+            "Industrial runtime signature does not match its declared invocation policy.",
+            context={"operation": operation_name,
+                     "method": getattr(method, "__name__", repr(method))},
             cause=error,
         ) from error
-    for args in candidates:
-        try:
-            signature.bind(*args)
-        except TypeError:
-            continue
-        try:
-            return method(*args)
-        except Exception as error:
+
+
+def _validate_runtime_methods(instance: object,
+                              declaration: IndustrialOperationDeclaration) -> None:
+    def method(name: str) -> Callable[..., Any]:
+        candidate = getattr(instance, name, None)
+        if not callable(candidate):
             raise IndustrialExtensionContractError(
                 IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
-                "Industrial runtime method failed.",
-                context={"operation": operation_name, "method": getattr(method, "__name__", repr(method))},
-                cause=error,
-            ) from error
-    raise IndustrialExtensionContractError(
-        IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
-        "Industrial runtime method has no supported call shape.",
-        context={"operation": operation_name, "signature": str(signature)},
-    )
+                "Industrial runtime target does not implement the declared method.",
+                context={"operation": declaration.name, "method": name},
+            )
+        return candidate
+
+    sample = object()
+    _validate_call(method("fit"), _fit_args(declaration, sample, sample), {}, declaration.name)
+    if declaration.kind is IndustrialOperationKind.MODEL:
+        prediction = method("predict")
+        _validate_call(prediction, (sample,), {}, declaration.name)
+        policy = declaration.probability_policy
+        if policy is IndustrialProbabilityPolicy.PREDICT_PROBA:
+            _validate_call(method("predict_proba"), (sample,), {}, declaration.name)
+        elif policy is IndustrialProbabilityPolicy.OUTPUT_MODE_KEYWORD:
+            _validate_call(prediction, (sample,), {"output_mode": "probs"}, declaration.name)
+        elif policy is IndustrialProbabilityPolicy.OUTPUT_MODE_POSITIONAL:
+            _validate_call(prediction, (sample, "probs"), {}, declaration.name)
+    else:
+        _validate_call(method(declaration.transform_policy.value),
+                       (sample,), {}, declaration.name)
+
+
+def _invoke(method: Callable[..., Any], args: tuple[Any, ...],
+            kwargs: Mapping[str, Any], operation_name: str) -> Any:
+    try:
+        return method(*args, **kwargs)
+    except Exception as error:
+        raise IndustrialExtensionContractError(
+            IndustrialExtensionErrorCode.RUNTIME_TARGET_INVALID,
+            "Industrial runtime method failed.",
+            context={"operation": operation_name,
+                     "method": getattr(method, "__name__", repr(method))},
+            cause=error,
+        ) from error
 
 
 def _unwrap_output(value: Any, preferred: tuple[str, ...]) -> Any:
