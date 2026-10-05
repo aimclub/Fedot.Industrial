@@ -66,6 +66,7 @@ def test_fedot_imports_stay_in_effectful_boundary_modules():
     effectful_modules = {
         "compatibility.py",
         "detection.py",
+        "evaluation.py",
         "forecasting.py",
         "temporal_tensor.py",
         "tensor.py",

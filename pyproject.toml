@@ -78,6 +78,8 @@ fedot_ind = [
     "core/repository/data/ts_benchmark_metadata.csv",
     "core/architecture/postprocessing/ucr_datasets.json",
     "integration/fedot/extensions/catalog.json",
+    "integration/fedot/compat/manifest.json",
+    "integration/fedot/compat/patches/*.patch",
 ]
 
 [tool.coverage.report]

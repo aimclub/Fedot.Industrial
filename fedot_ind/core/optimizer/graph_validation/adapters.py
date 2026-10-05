@@ -115,6 +115,9 @@ def capabilities_from_runtime_node(
         allowed_positions=_positions(_metadata_value(metadata, "allowed_positions", ("any",))),
         tags=tags,
         structural_role=_structural_role(metadata, operation_name),
+        # Native forecasting rules limit non-lagged temporal operations to one
+        # parent. Multimodal support is a separate capability, not an arity rule.
+        max_parents=1 if "non_lagged" in tags else None,
     )
 
 

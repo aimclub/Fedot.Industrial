@@ -107,3 +107,21 @@ def test_cli_missing_diagnostics_is_not_success(tmp_path, monkeypatch):
         lambda *args, **kwargs: (EvolutionBaselineResult("tiny", "classification", "not_observed", "none"),),
     )
     assert main(["--output-dir", str(tmp_path), "--execute"]) == 1
+
+
+def test_preview_records_explicit_compatibility_audit(tmp_path, monkeypatch):
+    audit = {"worktree": str(tmp_path / "fedot"), "patches": [{"name": "verified-fix"}]}
+    monkeypatch.setattr("fedot_ind.integration.fedot.compat.audit_compatibility_worktree", lambda _: audit)
+    run_api_verification(tmp_path, compatibility_worktree=tmp_path / "fedot")
+    settings = json.loads((tmp_path / "verification_settings.json").read_text())
+    assert settings["fedot_compatibility"] == audit
+
+
+def test_execution_rejects_active_fedot_outside_audited_worktree(tmp_path, monkeypatch):
+    audit = {"worktree": str(tmp_path / "other"), "patches": []}
+    monkeypatch.setattr("fedot_ind.integration.fedot.compat.audit_compatibility_worktree", lambda _: audit)
+    factory = Mock()
+    with pytest.raises(ValueError, match="Active FEDOT import"):
+        run_api_verification(tmp_path, execute=True, compatibility_worktree=tmp_path, model_factory=factory)
+    factory.assert_not_called()
+    assert not (tmp_path / "verification_settings.json").exists()

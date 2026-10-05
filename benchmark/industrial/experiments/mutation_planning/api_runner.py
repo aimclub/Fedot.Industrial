@@ -58,11 +58,21 @@ def run_api_verification(
         execute: bool = False,
         legacy: bool = False,
         without_prediction_cache: bool = False,
+        compatibility_worktree: str | Path | None = None,
         model_factory: Callable[[Mapping[str, object]], object] = _industrial_model,
 ):
     """Save exact configurations; train only on an explicit execution request."""
     root = Path(output_dir)
     suite = load_default_evolution_baseline_config()
+    compatibility = None
+    if compatibility_worktree is not None:
+        from fedot_ind.integration.fedot.compat import audit_compatibility_worktree
+        compatibility = audit_compatibility_worktree(compatibility_worktree)
+        if execute:
+            import fedot
+            expected = Path(compatibility["worktree"]) / "fedot"
+            if not Path(fedot.__file__).resolve().is_relative_to(expected.resolve()):
+                raise ValueError("Active FEDOT import does not belong to the audited compatibility worktree")
     if execute and any((root / scenario.name / "diagnostics" / "evolution_summary.json").exists()
                        for scenario in suite.scenarios):
         raise ValueError("Use a fresh output directory: previous diagnostics cannot verify a new training run")
@@ -74,6 +84,7 @@ def run_api_verification(
         "execute": execute,
         "without_prediction_cache": without_prediction_cache,
         "evolution_policy": policy.to_record(),
+        "fedot_compatibility": compatibility,
     }
     (root / "verification_settings.json").write_text(
         json.dumps(settings, indent=2, sort_keys=True) + "\n", encoding="utf-8",
@@ -103,10 +114,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--legacy", action="store_true")
     parser.add_argument("--without-prediction-cache", action="store_true")
+    parser.add_argument("--compatibility-worktree", type=Path)
     args = parser.parse_args(argv)
     results = run_api_verification(
         args.output_dir, execute=args.execute, legacy=args.legacy,
         without_prediction_cache=args.without_prediction_cache,
+        compatibility_worktree=args.compatibility_worktree,
     )
     print(json.dumps([result.to_record() for result in results], indent=2))
     return int(any(result.status not in {"planned", "succeeded"} for result in results))

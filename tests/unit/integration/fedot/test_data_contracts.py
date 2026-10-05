@@ -240,7 +240,7 @@ def test_legacy_forecast_series_is_split_by_declared_horizon():
     source = InputData(
         idx=np.arange(len(series)),
         features=series,
-        target=series,
+        target=None,
         task=Task(
             TaskTypesEnum.ts_forecasting,
             TsForecastingParams(forecast_length=3),
@@ -252,6 +252,19 @@ def test_legacy_forecast_series_is_split_by_declared_horizon():
 
     assert tuple(converted.features.shape) == (1, 9)
     assert tuple(converted.target.shape) == (1, 3)
+
+
+def test_legacy_forecast_bridge_preserves_explicit_holdout():
+    series = np.arange(12, dtype=float)
+    source = InputData(
+        idx=np.arange(9), features=series[:9], target=series[9:],
+        task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=3)),
+        data_type=DataTypesEnum.ts,
+    )
+    converted = ensure_fedot_tensor_data(source, fit_stage=True)
+    np.testing.assert_array_equal(converted.features.cpu().numpy(), series[:9].reshape(1, -1))
+    np.testing.assert_array_equal(converted.target.cpu().numpy(), series[9:].reshape(1, -1))
+    np.testing.assert_array_equal(source.features, series[:9])
 
 
 def test_forecast_prediction_conversion_requires_fitted_reference_data():

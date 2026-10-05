@@ -1,0 +1,379 @@
+diff --git a/fedot/core/data/split/data_split.py b/fedot/core/data/split/data_split.py
+index 6ec6ae71..1f0e8cb0 100644
+--- a/fedot/core/data/split/data_split.py
++++ b/fedot/core/data/split/data_split.py
+@@ -102,8 +102,12 @@ def _split_tensor_data_by_indexes(origin_tensor_data: TensorData, index: torch.T
+ 
+ 
+ def train_test_tensor_data_setup(tensor_data: TensorData,
+-                                 split_ratio: float = 0.8) -> Tuple[TensorData, TensorData]:
++                                 split_ratio: float = 0.8,
++                                 validation_blocks: Optional[int] = None) -> Tuple[TensorData, TensorData]:
+     """Minimal sequential hold-out split for TensorData."""
++    if tensor_data.task.task_type == TaskTypesEnum.ts_forecasting:
++        from fedot.core.data.split.temporal import temporal_tensor_holdout
++        return temporal_tensor_holdout(tensor_data, validation_blocks)
+     samples_count = tensor_data.target.shape[0] if tensor_data.target is not None else tensor_data.features.shape[0]
+     train_size = int(samples_count * split_ratio)
+     if not 0 < train_size < samples_count:
+diff --git a/fedot/core/data/split/temporal.py b/fedot/core/data/split/temporal.py
+new file mode 100644
+index 00000000..6d772ba5
+--- /dev/null
++++ b/fedot/core/data/split/temporal.py
+@@ -0,0 +1,51 @@
++"""Temporal hold-out for prepared series; never slice the sample axis."""
++from dataclasses import dataclass, replace
++from numbers import Integral
++
++from fedot.core.data.common.enums import StateEnum
++from fedot.core.data.tensor_data import TensorData
++
++
++@dataclass(frozen=True)
++class TemporalHoldoutPlan:
++    context_steps: int
++    horizon: int
++
++
++def plan_temporal_holdout(shape, horizon, validation_blocks=None):
++    if len(shape) not in (2, 3) or any(size <= 0 for size in shape):
++        raise ValueError('Temporal hold-out requires (series, time) or (series, channels, time)')
++    for name, value in (('horizon', horizon), ('validation_blocks', validation_blocks)):
++        if value is not None and (isinstance(value, bool) or not isinstance(value, Integral) or value <= 0):
++            raise ValueError(f'{name} must be a positive integer')
++    if horizon is None:
++        raise ValueError('Temporal hold-out requires an explicit forecast horizon')
++    if validation_blocks not in (None, 1):
++        raise ValueError('Multi-block TensorData validation requires a rolling forecast evaluator')
++    context_steps = shape[-1] - horizon
++    if context_steps <= 0:
++        raise ValueError('Forecast horizon must leave non-empty training history')
++    return TemporalHoldoutPlan(context_steps, int(horizon))
++
++
++def forecast_horizon(data):
++    task_horizon = getattr(data.task.task_params, 'forecast_length', None)
++    data_horizon = data.ts_forecast_horizon
++    if task_horizon is not None and data_horizon is not None and task_horizon != data_horizon:
++        raise ValueError('Task and TensorData forecast horizons must agree')
++    horizon = task_horizon if task_horizon is not None else data_horizon
++    if isinstance(horizon, bool) or not isinstance(horizon, Integral) or horizon <= 0:
++        raise ValueError('Forecasting requires an explicit positive forecast horizon')
++    return int(horizon)
++
++
++def temporal_tensor_holdout(data: TensorData, validation_blocks=None):
++    horizon = forecast_horizon(data)
++    plan = plan_temporal_holdout(data.features.shape, horizon, validation_blocks)
++    history = data.features[..., :plan.context_steps]
++    future = data.features[..., plan.context_steps:]
++    common = dict(predict=None,
++                  ts_init_shape=tuple(history.shape), fingerprint=None, trace_uuid=None)
++    train = replace(data, **common, features=history.clone(), target=history.clone(), state=StateEnum.FIT)
++    test = replace(data, **common, features=history.clone(), target=future.clone(), state=StateEnum.PREDICT)
++    return train, test
+diff --git a/fedot/core/operations/evaluation/extensions.py b/fedot/core/operations/evaluation/extensions.py
+index c8d693ed..a02abe44 100644
+--- a/fedot/core/operations/evaluation/extensions.py
++++ b/fedot/core/operations/evaluation/extensions.py
+@@ -5,6 +5,8 @@ import numpy as np
+ import torch
+ 
+ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
++from fedot.core.data.split.temporal import forecast_horizon
++from fedot.core.repository.tasks import TaskTypesEnum
+ from fedot.extensions.contracts import ArrayBackend, ExtensionContractError, ExtensionError, unwrap_extension_result
+ from fedot.extensions.execution_rules import plan_execution
+ from fedot.extensions.parameter_rules import resolve_extension_params
+@@ -39,6 +41,15 @@ class _ExtensionStrategy(EvaluationStrategy):
+         self.output_mode = 'default'
+ 
+     def _prepare(self, data, input_type, fitting=False):
++        schema = self.spec.hyperparams_schema
++        if (fitting and data.task.task_type == TaskTypesEnum.ts_forecasting
++                and schema is not None and 'forecast_length' in schema.required + schema.optional):
++            horizon = forecast_horizon(data)
++            supplied = self.params.get('forecast_length')
++            if supplied is not None and (isinstance(supplied, bool) or supplied != horizon):
++                raise ValueError('Extension forecast_length must agree with the task horizon')
++            self.params = unwrap_extension_result(resolve_extension_params(
++                self.spec, {**self.params, 'forecast_length': horizon}))
+         plan = unwrap_extension_result(plan_execution(
+             self.spec, data.task.task_type, data.data_type,
+             fitting=fitting, has_target=data.target is not None))
+diff --git a/fedot/core/operations/evaluation/regression.py b/fedot/core/operations/evaluation/regression.py
+index 799465c1..c8c72c0b 100644
+--- a/fedot/core/operations/evaluation/regression.py
++++ b/fedot/core/operations/evaluation/regression.py
+@@ -1,7 +1,10 @@
+ import warnings
+ from typing import Optional
+ 
++import torch
++
+ from fedot.core.data.input_data.data import InputData, OutputData
++from fedot.core.data.tensor_data import TensorData
+ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy, SkLearnEvaluationStrategy
+ from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose \
+     import DecomposerRegImplementation
+@@ -27,6 +30,9 @@ class SkLearnRegressionStrategy(SkLearnEvaluationStrategy):
+         :return:
+         """
+         prediction = trained_operation.predict(predict_data.features)
++        if isinstance(predict_data, TensorData):
++            prediction = torch.as_tensor(prediction, device=predict_data.device)
++            return self._replace_predict_in_tensor_data(prediction, predict_data)
+         converted = self._convert_to_output(prediction, predict_data)
+ 
+         return converted
+diff --git a/fedot/core/operations/evaluation/temporal_bridge.py b/fedot/core/operations/evaluation/temporal_bridge.py
+new file mode 100644
+index 00000000..ac63ad5d
+--- /dev/null
++++ b/fedot/core/operations/evaluation/temporal_bridge.py
+@@ -0,0 +1,53 @@
++"""Explicit single-series boundary for legacy temporal implementations."""
++from dataclasses import replace
++
++import numpy as np
++import torch
++
++from fedot.core.data.input_data.data import InputData
++from fedot.core.data.tensor_data import TensorData
++from fedot.core.data.split.temporal import forecast_horizon
++from fedot.core.repository.dataset_types import DataTypesEnum
++from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
++
++
++def legacy_temporal_input(data, *, fit_stage):
++    if not isinstance(data, TensorData):
++        return data
++    shape = tuple(data.features.shape)
++    if shape[0] != 1 or len(shape) not in (2, 3) or (len(shape) == 3 and shape[1] != 1):
++        raise ValueError('Legacy temporal operations support exactly one univariate series')
++    history = data.features.detach().cpu().numpy().reshape(-1).copy()
++    horizon = forecast_horizon(data)
++    idx = np.arange(len(history)) if fit_stage else np.arange(len(history), len(history) + horizon)
++    target = history.copy() if fit_stage else None
++    return InputData(features=history, target=target, idx=idx,
++                     task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(horizon)),
++                     data_type=DataTypesEnum.ts)
++
++
++def tensor_temporal_output(output, source, *, is_transform):
++    if not isinstance(source, TensorData):
++        return output
++    values = np.asarray(output.predict)
++    is_series = output.data_type in (DataTypesEnum.ts, DataTypesEnum.multi_ts)
++    if is_series:
++        values = values.reshape(1, -1)
++        target = None if output.target is None else np.asarray(output.target).reshape(1, -1)
++        idx = source.idx
++        data_type = DataTypesEnum.ts
++    else:
++        if values.ndim == 1:
++            values = values.reshape(1, -1)
++        target = None if output.target is None else np.asarray(output.target)
++        if target is not None and target.ndim == 1:
++            target = target.reshape(1, -1)
++        idx = np.asarray(output.idx) if len(output.idx) == len(values) else np.arange(len(values))
++        data_type = DataTypesEnum.tabular
++    tensor = torch.as_tensor(values.copy(), device=source.device, dtype=source.features.dtype)
++    target = None if target is None else torch.as_tensor(target.copy(), device=source.device,
++                                                         dtype=source.features.dtype)
++    return replace(source, features=tensor, target=target, idx=idx,
++                   predict=None if is_transform else tensor.clone(), data_type=data_type,
++                   features_names=None, categorical_idx=[], numerical_idx=[], idx_mapping={},
++                   preparation_state=None, fingerprint=None, trace_uuid=None)
+diff --git a/fedot/core/operations/evaluation/time_series.py b/fedot/core/operations/evaluation/time_series.py
+index f1afcd1f..f566b97a 100644
+--- a/fedot/core/operations/evaluation/time_series.py
++++ b/fedot/core/operations/evaluation/time_series.py
+@@ -19,6 +19,7 @@ from fedot.core.operations.evaluation.operation_implementations.models. \
+     ts_implementations.statsmodels import AutoRegImplementation, GLMImplementation, ExpSmoothingImplementation
+ from fedot.core.operations.operation_parameters import OperationParameters
+ from fedot.utilities.random import ImplementationRandomStateHandler
++from fedot.core.operations.evaluation.temporal_bridge import legacy_temporal_input, tensor_temporal_output
+ 
+ warnings.filterwarnings("ignore", category=UserWarning)
+ 
+@@ -61,7 +62,7 @@ class FedotTsForecastingStrategy(EvaluationStrategy):
+         model = self.operation(self.params_for_fit)
+ 
+         with ImplementationRandomStateHandler(implementation=model):
+-            model.fit(train_data)
++            model.fit(legacy_temporal_input(train_data, fit_stage=True))
+         return model
+ 
+     def predict(self, trained_operation, predict_data: InputData) -> OutputData:
+@@ -73,8 +74,10 @@ class FedotTsForecastingStrategy(EvaluationStrategy):
+         :return OutputData: passed data with new predicted target
+         """
+ 
+-        prediction = trained_operation.predict(predict_data)
+-        converted = self._convert_to_output(prediction, predict_data)
++        legacy = legacy_temporal_input(predict_data, fit_stage=False)
++        prediction = trained_operation.predict(legacy)
++        converted = tensor_temporal_output(self._convert_to_output(prediction, legacy), predict_data,
++                                           is_transform=False)
+         return converted
+ 
+     def predict_for_fit(self, trained_operation, predict_data: InputData) -> OutputData:
+@@ -86,8 +89,10 @@ class FedotTsForecastingStrategy(EvaluationStrategy):
+         :return OutputData: passed data with new predicted target
+         """
+ 
+-        prediction = trained_operation.predict_for_fit(predict_data)
+-        converted = self._convert_to_output(prediction, predict_data)
++        legacy = legacy_temporal_input(predict_data, fit_stage=True)
++        prediction = trained_operation.predict_for_fit(legacy)
++        converted = tensor_temporal_output(self._convert_to_output(prediction, legacy), predict_data,
++                                           is_transform=False)
+         return converted
+ 
+ 
+@@ -125,7 +130,7 @@ class FedotTsTransformingStrategy(EvaluationStrategy):
+ 
+         transformation_operation = self.operation(self.params_for_fit)
+         with ImplementationRandomStateHandler(implementation=transformation_operation):
+-            transformation_operation.fit(train_data)
++            transformation_operation.fit(legacy_temporal_input(train_data, fit_stage=True))
+         return transformation_operation
+ 
+     def predict(self, trained_operation, predict_data: InputData) -> OutputData:
+@@ -137,8 +142,10 @@ class FedotTsTransformingStrategy(EvaluationStrategy):
+         :return OutputData: passed data with new predicted target
+         """
+ 
+-        prediction = trained_operation.transform(predict_data)
+-        converted = self._convert_to_output(prediction, predict_data)
++        legacy = legacy_temporal_input(predict_data, fit_stage=False)
++        prediction = trained_operation.transform(legacy)
++        converted = tensor_temporal_output(self._convert_to_output(prediction, legacy), predict_data,
++                                           is_transform=True)
+         return converted
+ 
+     def predict_for_fit(self, trained_operation, predict_data: InputData) -> OutputData:
+@@ -150,6 +157,8 @@ class FedotTsTransformingStrategy(EvaluationStrategy):
+         :return OutputData: passed data with new predicted target
+         """
+ 
+-        prediction = trained_operation.transform_for_fit(predict_data)
+-        converted = self._convert_to_output(prediction, predict_data)
++        legacy = legacy_temporal_input(predict_data, fit_stage=True)
++        prediction = trained_operation.transform_for_fit(legacy)
++        converted = tensor_temporal_output(self._convert_to_output(prediction, legacy), predict_data,
++                                           is_transform=True)
+         return converted
+diff --git a/fedot/core/optimisers/objective/data_source_splitter.py b/fedot/core/optimisers/objective/data_source_splitter.py
+index acc6359f..e9616afb 100644
+--- a/fedot/core/optimisers/objective/data_source_splitter.py
++++ b/fedot/core/optimisers/objective/data_source_splitter.py
+@@ -65,7 +65,7 @@ class DataSourceSplitter:
+             self.log.info('TensorData splitter currently uses hold-out validation; cv_folds is ignored.')
+ 
+         train_data, test_data = train_test_tensor_data_setup(
+-            tensor_data, split_ratio=self.split_ratio)
++            tensor_data, split_ratio=self.split_ratio, validation_blocks=self.validation_blocks)
+         producer = partial(DataSourceSplitter._data_producer, train_data, test_data)
+         producer.evaluation_data_version = stable_hash(
+             (tensor_data_identity(train_data), tensor_data_identity(test_data)),
+diff --git a/fedot/core/pipelines/pipeline_advisor.py b/fedot/core/pipelines/pipeline_advisor.py
+index 4d5bbdfd..744445f2 100644
+--- a/fedot/core/pipelines/pipeline_advisor.py
++++ b/fedot/core/pipelines/pipeline_advisor.py
+@@ -25,7 +25,7 @@ class PipelineChangeAdvisor(DefaultChangeAdvisor):
+         operation_id = node.content['name']
+         if 'exog_ts' in operation_id:
+             return RemoveType.forbidden
+-        if 'custom' in operation_id or 'lagged' in operation_id:
++        if 'custom' in operation_id or operation_id in {'lagged', 'sparse_lagged'}:
+             return RemoveType.with_parents
+         if 'data_source' in operation_id:
+             return RemoveType.with_direct_children
+@@ -49,7 +49,7 @@ class PipelineChangeAdvisor(DefaultChangeAdvisor):
+         candidates = set.intersection(
+             set(similar_operations), set(possible_operations))
+ 
+-        if 'lagged' in operation_id:
++        if operation_id in {'lagged', 'sparse_lagged'}:
+             # lagged transform can be replaced only to lagged
+             candidates = set.intersection(
+                 {'lagged', 'sparse_lagged'}, set(possible_operations))
+diff --git a/test/unit/data/test_evo04_temporal_holdout.py b/test/unit/data/test_evo04_temporal_holdout.py
+new file mode 100644
+index 00000000..92e63917
+--- /dev/null
++++ b/test/unit/data/test_evo04_temporal_holdout.py
+@@ -0,0 +1,70 @@
++from dataclasses import replace
++
++import numpy as np
++import pytest
++import torch
++
++from fedot import create_data
++from fedot.core.data.split.temporal import plan_temporal_holdout
++from fedot.core.optimisers.objective.data_source_splitter import DataSourceSplitter
++from fedot.core.pipelines.pipeline_builder import PipelineBuilder
++from fedot.core.operations.evaluation.temporal_bridge import legacy_temporal_input
++from fedot.core.pipelines.pipeline_advisor import PipelineChangeAdvisor
++from fedot.core.repository.tasks import Task, TaskTypesEnum
++from golem.core.optimisers.graph import OptNode
++
++
++@pytest.mark.parametrize('shape', [(1, 40), (3, 40), (2, 2, 40)])
++def test_holdout_preserves_sample_axis_and_never_exposes_future(shape):
++    values = np.arange(np.prod(shape), dtype=float).reshape(shape)
++    data = create_data(values, task='ts_forecasting', data_type='ts',
++                       ts_forecast_horizon=4, without_target=True)
++    snapshot = data.features.clone()
++    train, test = next(DataSourceSplitter().build(data)())
++    assert train.features.shape == (*shape[:-1], 36)
++    torch.testing.assert_close(train.features, snapshot[..., :-4])
++    torch.testing.assert_close(train.target, train.features)
++    torch.testing.assert_close(test.features, train.features)
++    torch.testing.assert_close(test.target, snapshot[..., -4:])
++    torch.testing.assert_close(data.features, snapshot)
++    train.features.add_(1000)
++    torch.testing.assert_close(test.features, snapshot[..., :-4])
++
++
++@pytest.mark.parametrize('horizon,blocks', [(True, None), (0, None), (40, None), (4, 2), (4, False)])
++def test_invalid_temporal_plans_are_explicit(horizon, blocks):
++    with pytest.raises(ValueError):
++        plan_temporal_holdout((1, 40), horizon, blocks)
++
++
++@pytest.mark.parametrize('operations', [('lagged', 'ridge'), ('smoothing', 'ar'), ('locf',)])
++def test_native_temporal_pipeline_fits_and_forecasts(operations):
++    data = create_data(np.arange(96, dtype=float), task='ts_forecasting', data_type='ts',
++                       ts_forecast_horizon=8, without_target=True)
++    train, test = next(DataSourceSplitter().build(data)())
++    builder = PipelineBuilder()
++    for operation in operations:
++        builder = builder.add_node(operation)
++    pipeline = builder.build()
++    pipeline.fit(train)
++    prediction = pipeline.predict(test).predict
++    assert prediction.numel() == 8
++    assert torch.isfinite(prediction).all()
++
++
++def test_legacy_bridge_rejects_multiple_series_and_ignores_future_fit_target():
++    data = create_data(np.arange(32, dtype=float), task='ts_forecasting', data_type='ts',
++                       ts_forecast_horizon=4)
++    legacy = legacy_temporal_input(data, fit_stage=True)
++    np.testing.assert_array_equal(legacy.target, legacy.features)
++    assert len(legacy.features) == 28
++    with pytest.raises(ValueError, match='one univariate'):
++        legacy_temporal_input(replace(data, idx=None, features=data.features.repeat(2, 1),
++                                      target=data.target.repeat(2, 1)), fit_stage=True)
++
++
++def test_lagged_forecaster_is_not_misclassified_as_lagged_transform():
++    advisor = PipelineChangeAdvisor(Task(TaskTypesEnum.ts_forecasting))
++    advisor.models.extend(['lagged_ridge_forecaster', 'mssa_forecaster'])
++    assert advisor.propose_change(OptNode('lagged_ridge_forecaster'), ['mssa_forecaster']) == {'mssa_forecaster'}
++    assert advisor.propose_change(OptNode('lagged'), ['mssa_forecaster', 'sparse_lagged']) == {'sparse_lagged'}

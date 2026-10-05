@@ -119,6 +119,16 @@ def test_catalog_with_no_declared_operation_pool_does_not_invent_models():
     assert catalog.capabilities == ()
 
 
+def test_native_temporal_arity_is_projected_before_mutation_planning():
+    from fedot.core.pipelines.node import PipelineNode
+    from fedot_ind.core.optimizer.graph_validation import capabilities_from_runtime_node
+
+    for name in ("lagged", "smoothing", "ar"):
+        capability = capabilities_from_runtime_node(PipelineNode(name))
+        assert capability.max_parents == 1
+    assert capabilities_from_runtime_node(PipelineNode("ridge")).max_parents is None
+
+
 def test_standard_advisor_classifies_only_enabled_extensions_and_keeps_source_vetoes():
     from fedot.core.pipelines.pipeline_advisor import PipelineChangeAdvisor
     from fedot.core.repository.tasks import Task, TaskTypesEnum

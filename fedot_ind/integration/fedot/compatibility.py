@@ -56,12 +56,13 @@ def ensure_fedot_tensor_data(
             raise ValueError(
                 "Forecast prediction conversion requires reference_data from the fitted FEDOT model."
             )
-        horizon = int(data.task.task_params.forecast_length)
         return create_data(
             data.features,
+            target=data.target,
             task=data.task,
             data_type=data.data_type,
-            ts_forecast_horizon=horizon,
+            ts_forecast_horizon=int(data.task.task_params.forecast_length),
+            without_target=data.target is not None,
         )
 
     state = StateEnum.FIT if fit_stage else StateEnum.PREDICT
