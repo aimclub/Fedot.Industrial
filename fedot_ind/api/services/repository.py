@@ -1,49 +1,67 @@
-"""Repository activation service for ``FedotIndustrial``."""
+"""FEDOT extension activation service for ``FedotIndustrial``."""
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Callable
 
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.core.optimizer.configuration import normalize_evolution_config
+from fedot_ind.integration.fedot.extensions import (
+    IndustrialExtensionResult,
+    IndustrialExtensionSession,
+)
 
 
 @dataclass(frozen=True)
 class RepositoryActivationResult:
-    """Result of activating the FEDOT/Industrial operation repository."""
+    """Result of configuring one Industrial execution context."""
 
-    repo: Any
+    extension: IndustrialExtensionResult | None
     input_data: Any = None
 
 
 class IndustrialRepositoryInitializer:
-    """Activate the correct operation repository for the current context."""
+    """Own extension registration and optimizer selection for one API instance."""
 
-    def __init__(self, industrial_models_factory=IndustrialModels):
-        self.industrial_models_factory = industrial_models_factory
+    def __init__(
+            self,
+            session_factory: Callable[[], IndustrialExtensionSession] = IndustrialExtensionSession,
+    ) -> None:
+        self._session = session_factory()
 
-    def setup_repository(self, *, backend: str) -> Any:
-        """Set up the Industrial repository without touching optimizer config."""
-        return self.industrial_models_factory().setup_repository(backend=backend)
+    def ensure_active(self, *, industrial_context: bool) -> IndustrialExtensionResult | None:
+        """Activate the Industrial manifest when the selected context needs it."""
+        return self._session.activate() if industrial_context else None
+
+    def close(self) -> None:
+        """Release this initializer's extension session."""
+        self._session.close()
 
     def activate(self, *, manager: Any, logger: Any, input_data: Any = None) -> RepositoryActivationResult:
+        """Select the manager's optimizer and return the extension result and input.
+
+        Replace ``manager.automl_config.optimisation_strategy`` with the selected
+        optimizer. Industrial contexts also activate the owned extension session
+        and bind validated options with initial graphs marked as prevalidated.
+        The input is returned unchanged; activation and configuration errors
+        propagate.
+        """
         logger.info('-' * 50)
         logger.info('Initialising Industrial Repository')
-        industrial_models = self.industrial_models_factory()
-
         if manager.industrial_config.is_default_fedot_context:
             logger.info('-------------------------------------------------')
             logger.info('Initialising Fedot Evolutionary Optimisation params')
-            repo = industrial_models.setup_default_repository()
             manager.automl_config.optimisation_strategy = manager.optimisation_agent['Fedot']
-            return RepositoryActivationResult(repo=repo, input_data=input_data)
+            return RepositoryActivationResult(extension=None, input_data=input_data)
 
         logger.info('-------------------------------------------------')
         logger.info('Initialising Industrial Evolutionary Optimisation params')
-        repo = industrial_models.setup_repository(backend=manager.compute_config.backend)
+        extension = self.ensure_active(industrial_context=True)
         optimisation_agent = manager.automl_config.optimisation_strategy['optimisation_agent']
-        optimisation_params = manager.automl_config.optimisation_strategy['optimisation_strategy']
+        optimisation_params = normalize_evolution_config(
+            manager.automl_config.optimisation_strategy['optimisation_strategy']
+        ).with_initial_graphs_prevalidated(True)
         manager.automl_config.optimisation_strategy = partial(
             manager.optimisation_agent[optimisation_agent],
             optimisation_params=optimisation_params,
         )
-        return RepositoryActivationResult(repo=repo, input_data=input_data)
+        return RepositoryActivationResult(extension=extension, input_data=input_data)

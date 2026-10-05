@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from sklearn.neighbors import NearestCentroid
@@ -153,13 +153,39 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
         return list(set(channels_selected))
 
     def __convert_target_for_regression(self, input_data):
-        bins = [np.quantile(input_data.target, x)
+        target = np.asarray(input_data.target).reshape(-1)
+        bins = [np.quantile(target, x)
                 for x in np.arange(0, 1, 0.2)]
         labels = [x for x in range(len(bins) - 1)]
-        input_data.target = pd.cut(input_data.target,
+        input_data.target = pd.cut(target,
                                    bins=bins,
                                    labels=labels).codes
         return input_data
+
+    def fit(self, data):
+        if data.features.shape[1] > 1 and not self.channels_selected:
+            self._select_channels(data)
+        return self
+
+    def _select_channels(self, input_data):
+        if input_data.target is None:
+            raise ValueError('Channel filtration requires a target during fitting.')
+        regression_task = input_data.task.task_type.value == 'regression'
+        summation_of_channels = self.channel_selection_strategy == 'sum'
+
+        def get_channels(distance_frame):
+            return self._channel_sum(distance_frame) if summation_of_channels \
+                else self._channel_pairwise(distance_frame)
+
+        input_data = Either(input_data,
+                            monoid=[input_data, regression_task]). \
+            either(left_function=lambda data: data,
+                   right_function=lambda data: self.__convert_target_for_regression(data))
+        self.channels_selected = Either(value=input_data,
+                                        monoid=[input_data, not summation_of_channels]).then(
+            lambda data: self.create_centroid(
+                data.features, data.target)).then(lambda centroids_by_channel: self.eval_distance_from_centroid(
+                    centroids_by_channel)).then(lambda dist_frame: get_channels(dist_frame)).value
 
     def _transform(self, input_data: InputData):
         """Fit ECS to a specified X and y.
@@ -183,22 +209,5 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
         elif have_selected_channels:
             return input_data.features[:, self.channels_selected, :]
         else:
-            regression_task = input_data.task.task_type.value == 'regression'
-            summation_of_channels = self.channel_selection_strategy == 'sum'
-
-            def get_channels(distance_frame):
-                return self._channel_sum(distance_frame) if summation_of_channels \
-                    else self._channel_pairwise(distance_frame)
-
-            input_data = Either(input_data,
-                                monoid=[input_data, regression_task]). \
-                either(left_function=lambda data: data,
-                       right_function=lambda data: self.__convert_target_for_regression(data))
-
-            self.channels_selected = Either(value=input_data,
-                                            monoid=[input_data, not summation_of_channels]).then(
-                lambda data: self.create_centroid(
-                    data.features, data.target)).then(lambda centroids_by_channel: self.eval_distance_from_centroid(
-                        centroids_by_channel)).then(lambda dist_frame: get_channels(dist_frame)).value
-
+            self._select_channels(input_data)
             return input_data.features[:, self.channels_selected, :]

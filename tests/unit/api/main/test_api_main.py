@@ -154,10 +154,10 @@ def test_generate_anomaly_ts(ts_config, anomaly_config):
 
 
 @pytest.mark.parametrize('data_func, fedot_func, node', (
-    [univariate_clf_data, fedot_industrial_classification, 'rf'],
-    [multivariate_clf_data, fedot_industrial_classification, 'rf'],
-    [univariate_regression_data, fedot_industrial_regression, 'treg'],
-    [multivariate_regression_data, fedot_industrial_regression, 'treg'],
+    [univariate_clf_data, fedot_industrial_classification, 'pdl_clf'],
+    [multivariate_clf_data, fedot_industrial_classification, 'pdl_clf'],
+    [univariate_regression_data, fedot_industrial_regression, 'pdl_reg'],
+    [multivariate_regression_data, fedot_industrial_regression, 'pdl_reg'],
 ), ids=['clf_uni', 'clf_multi', 'reg_uni', 'reg_multi'])
 def test_finetune(data_func, fedot_func, node):
     data = data_func()

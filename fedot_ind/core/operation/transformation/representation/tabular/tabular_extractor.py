@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from pymonad.either import Either
@@ -11,7 +11,6 @@ from sklearn.preprocessing import StandardScaler
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.operation.transformation.data.park_transformation import park_transform
 from fedot_ind.core.repository.constanst_repository import KERNEL_BASELINE_FEATURE_GENERATORS
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 class TabularExtractor(BaseExtractor):
@@ -32,7 +31,6 @@ class TabularExtractor(BaseExtractor):
         self.explained_dispersion = params.get('explained_dispersion', .975)
         self.reduce_dimension = params.get('reduce_dimension', True)
 
-        self.repo = IndustrialModels().setup_repository()
         self.custom_tabular_transformation = {'park_transformation': park_transform}
         self.pca_is_fitted = False
         self.scaler = StandardScaler()

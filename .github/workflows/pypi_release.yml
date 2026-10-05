@@ -1,53 +1,30 @@
-name: Build, publish, and deploy with Poetry (on release)
+name: Build and publish on release
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
-  build_and_publish:
-
+  build:
+    uses: ./.github/workflows/package_build.yml
+    with:
+      for-pypi: true
+  publish:
+    if: github.event_name == 'release'
+    needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.9]
-
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-
-      - name: Checkout branch
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - uses: actions/download-artifact@v4
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-      - name: Install dependencies
-        run: poetry install
-      - name: Build package
-        run:
-          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
-          poetry build
-
-      - name: Publish package to PyPI (if release)
-        if: github.event_name == 'release'
-#        env:
-#          PYPI_USERNAME: __token__
-#          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: poetry publish
-
-      - name: Deploy source code
-        if: github.event_name == 'release'
-        uses: actions/upload-artifact@v2
+          name: python-distributions
+          path: dist
+      - name: Publish checked distributions
+        uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
         with:
-          name: source-code-${{ matrix.python-version }}
-          path: .
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
 

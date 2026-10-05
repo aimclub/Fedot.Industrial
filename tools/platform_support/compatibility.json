@@ -1,0 +1,27 @@
+{
+  "schema_version": 3,
+  "requires_python": ">=3.10,<3.12",
+  "source": "IND-FEDOT-05 single FEDOT 1.0 integration contract",
+  "default_profile": "current",
+  "profiles": {
+    "current": {
+      "repository": "https://github.com/aimclub/FEDOT.git",
+      "reference": "FEDOT PR #1462 merged integration contract",
+      "sha": "d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
+      "status": "supported",
+      "requirements_file": "requirements.txt"
+    }
+  },
+  "python": [
+    {"version": "3.10", "status": "supported", "reason": "Current compatible dependency profile."},
+    {"version": "3.11", "status": "supported", "reason": "Current compatible dependency profile."},
+    {"version": "3.12", "status": "audit-only", "reason": "Blocked by spaCy 3.5 and the current compatible dependency profile; not a supported install target."}
+  ],
+  "known_constraints": [
+    {"requirement": "dask-ml==2024.4.4", "reason": "Current compatible DaskML profile; resolution is verified separately."},
+    {"requirement": "giotto-tda==0.6.2", "reason": "Compatible giottoTDA profile requires scikit-learn 1.3.2."},
+    {"requirement": "scikit-learn==1.3.2", "reason": "Required by giottoTDA 0.6.2."},
+    {"requirement": "numpy<2", "reason": "Current compatible dependency profile excludes NumPy 2."},
+    {"requirement": "spacy>=3.5,<3.6", "reason": "Current spaCy 3.5 profile blocks Python 3.12 support."}
+  ]
+}

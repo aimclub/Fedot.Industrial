@@ -8,7 +8,14 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     IsolationForestClassImplementation, IsolationForestRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_imbalanced_class import \
     ResampleImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
+from fedot.core.operations.evaluation.operation_implementations.data_operations.features_reducing import \
+    PCAImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import (
+    ImputationImplementation,
+    KernelPCAImplementation,
+    NormalizationImplementation,
+    ScalingImplementation,
+)
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     TsSmoothingImplementation

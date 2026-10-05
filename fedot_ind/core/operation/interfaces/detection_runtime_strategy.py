@@ -3,31 +3,17 @@ from __future__ import annotations
 import warnings
 from typing import Optional
 
-from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.utilities.random import ImplementationRandomStateHandler
 
-from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
-from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
-from fedot_ind.core.models.detection.modern_detectors import (
-    ConvAutoencoderDetector,
-    FeatureIsolationForestDetector,
-    FeatureOneClassDetector,
-    TCNAutoencoderDetector,
-)
 from fedot_ind.core.models.detection.runtime import DetectionBoundaryAdapter, ensure_detection_array
-from fedot_ind.core.repository.detection_registry import canonical_detection_model_name
-
-DETECTION_RUNTIME_MODELS = {
-    'feature_iforest_detector': FeatureIsolationForestDetector,
-    'feature_oneclass_detector': FeatureOneClassDetector,
-    'conv_autoencoder_detector': ConvAutoencoderDetector,
-    'tcn_autoencoder_detector': TCNAutoencoderDetector,
-    'legacy_lstm_autoencoder_detector': LSTMAutoEncoderDetector,
-    'legacy_arima_detector': ARIMAFaultDetector,
-}
+from fedot_ind.core.repository.detection_registry import (
+    DETECTION_RUNTIME_MODELS,
+    canonical_detection_model_name,
+)
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 
 
 def build_detection_boundary_batch(input_data: InputData, params: Optional[OperationParameters] = None):
@@ -109,4 +95,5 @@ class IndustrialDetectionModelRuntimeStrategy(EvaluationStrategy):
             target=input_data.target,
             task=input_data.task,
             data_type=input_data.data_type,
+            supplementary_data=input_data.supplementary_data,
         )

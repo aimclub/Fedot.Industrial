@@ -1,0 +1,33 @@
+{
+  "schema_version": "industrial_evolution_baseline@1",
+  "seed": 42,
+  "timeout_minutes": 4.0,
+  "population_size": 2,
+  "generations": 1,
+  "scenarios": [
+    {
+      "name": "tiny_classification",
+      "task": "classification",
+      "sample_count": 24,
+      "series_length": 32,
+      "forecast_horizon": null,
+      "quality_metric": "f1"
+    },
+    {
+      "name": "tiny_regression",
+      "task": "regression",
+      "sample_count": 24,
+      "series_length": 32,
+      "forecast_horizon": null,
+      "quality_metric": "rmse"
+    },
+    {
+      "name": "tiny_forecasting",
+      "task": "ts_forecasting",
+      "sample_count": 1,
+      "series_length": 96,
+      "forecast_horizon": 8,
+      "quality_metric": "rmse"
+    }
+  ]
+}

@@ -69,6 +69,58 @@ def test_hybrid_ensemble_forecaster_learns_normalized_branch_weights():
     assert set(diagnostics['branch_names']) == {'lagged_linear', 'low_rank_linear', 'operator_model'}
 
 
+class _WorkingForecastBranch:
+    def fit(self, series):
+        self.series = np.asarray(series, dtype=float)
+        return self
+
+    def predict(self, series, forecast_horizon):
+        del series
+        return np.arange(forecast_horizon, dtype=float)
+
+
+class _FailingForecastBranch:
+    def fit(self, series):
+        del series
+        raise RuntimeError('branch fit failed')
+
+    def predict(self, series, forecast_horizon):
+        del series, forecast_horizon
+        raise RuntimeError('branch prediction failed')
+
+
+def _branch_models_with_failure():
+    return {
+        'lagged_linear': _WorkingForecastBranch(),
+        'low_rank_linear': _WorkingForecastBranch(),
+        'operator_model': _FailingForecastBranch(),
+    }
+
+
+def test_hybrid_ensemble_raises_on_branch_failure_by_default(monkeypatch):
+    model = HybridEnsembleForecaster(forecast_horizon=4)
+    monkeypatch.setattr(model, '_build_branch_models', _branch_models_with_failure)
+
+    with pytest.raises(RuntimeError, match="operator_model.*failed during fit"):
+        model.fit(_trend_with_oscillation(12))
+
+
+def test_hybrid_ensemble_reports_explicit_last_value_degradation(monkeypatch):
+    model = HybridEnsembleForecaster(
+        forecast_horizon=4,
+        branch_failure_policy='last_value',
+    )
+    monkeypatch.setattr(model, '_build_branch_models', _branch_models_with_failure)
+
+    model.fit(_trend_with_oscillation(12))
+    forecast = model.predict()
+    diagnostics = model.get_diagnostics()
+
+    assert forecast.shape == (4,)
+    assert diagnostics['degraded'] is True
+    assert diagnostics['branch_diagnostics']['operator_model']['policy'] == 'last_value'
+
+
 def test_okhs_fdmd_forecaster_exposes_stage_aware_diagnostics(monkeypatch):
     class FakeInnerOKHSForecaster:
         def __init__(self, **kwargs):

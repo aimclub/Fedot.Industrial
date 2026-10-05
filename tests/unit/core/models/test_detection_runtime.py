@@ -55,27 +55,20 @@ def test_build_detection_window_batch_preserves_window_count_and_shape():
     assert batch.statistical_features.shape == (21, 10)
 
 
-def test_split_detection_batch_temporal_prevents_future_leakage_between_calib_and_test():
-    """TEMPORAL-разбиение: единственная реальная гарантия отсутствия утечки из будущего —
-    калибровочные окна полностью предшествуют тестовым по ВРЕМЕНИ (calib_end <= test_start).
+def test_split_detection_batch_temporal_prevents_future_leakage_between_all_splits():
+    """TEMPORAL-разбиение исключает общие исходные точки между соседними частями.
         Окна перекрываются, когда stride < window_size (здесь window_size=10, stride=2).
         TEMPORAL-сплит в split_detection_batch режет ПО ПОРЯДКУ ID окон:
         train = первые n_train окон (по id), остаток уходит в calib/test.
-        Поэтому train идёт раньше calib по id (и по START), но временной КОНЕЦ
-        последнего train-окна налезает на START первого calib-окна. То есть
-        train_end <= calib_start в общем случае НЕ выполняется — это была неверная
-        предпосылка прежней версии теста. prevent_future_leakage влияет только на
-        границу calib/test (см. _split_temporal_window_ids).
+        После выделения train пограничные окна отбрасываются до начала calibration.
+        Аналогично очищается граница между calibration и test.
 
         series_length=64, window_size=10, stride=2
         -> n_windows = (64-10)//2 + 1 = 28, окно i имеет start=2*i, end=2*i+10.
         train_fraction=0.5  -> n_train = round(28*0.5) = 14  (id 0..13, start 0..26).
-        remaining = id 14..27 (14 окон).
-        calibration_fraction=0.25 -> n_calib = round(14*0.25/(1-0.5)) = round(7.0) = 7
-                                     (id 14..20, start 28..40), calib_end = end(id=20) = 40+10 = 50.
-        prevent_future_leakage=True -> test = окна со start >= 50: 2*i>=50 => i>=25
-                                       (id 25..27, start 50..54) => 3 окна.
-        Окна id 21..24 (start 42..48 < 50) отбрасываются как пересекающие границу calib.
+        Последний train заканчивается в точке 36, поэтому calibration начинается с id 18.
+        Из 10 оставшихся окон 5 идут в calibration (id 18..22), после чего test
+        начинается с id 27. Получаем 14/5/1 окно без пересечения исходных точек.
     """
     batch = build_detection_window_batch(
         _multichannel_series(64),
@@ -96,11 +89,9 @@ def test_split_detection_batch_temporal_prevents_future_leakage_between_calib_an
     assert calibration_batch is not None
     # Размеры сплитов (детерминированы для TEMPORAL).
     assert train_batch.n_windows == 14
-    assert calibration_batch.n_windows == 7
-    assert test_batch is not None and test_batch.n_windows == 3
-    # train предшествует calib по ПОРЯДКУ START (id-упорядоченность), но НЕ по концу окна.
-    assert train_batch.window_indices[-1, 0] < calibration_batch.window_indices[0, 0]
-    # Главная гарантия prevent_future_leakage: calib целиком раньше test по времени.
+    assert calibration_batch.n_windows == 5
+    assert test_batch is not None and test_batch.n_windows == 1
+    assert train_batch.window_indices[-1, 1] <= calibration_batch.window_indices[0, 0]
     assert calibration_batch.window_indices[-1, 1] <= test_batch.window_indices[0, 0]
 
 
@@ -344,18 +335,14 @@ class TestSplitDetectionBatch:
         train_fraction=0.6, calibration_fraction=0.2, prevent_future_leakage=True.
             n_windows = (120-10)//1 + 1 = 111, окно i: start=i, end=i+10.
             n_train = round(111*0.6) = round(66.6) = 67  -> id 0..66.
-            remaining = id 67..110 (44 окна).
-            n_calib = round(44*0.2/(1-0.6)) = round(22.0) = 22 -> id 67..88,
-                      calib_end = end(id=88) = 88+10 = 98.
-            test = окна со start >= 98: id 98..110 -> 13 окон.
-            id 89..97 (start 89..97 < 98) отбрасываются границей утечки.
-            Итого train=67, calib=22, test=13, total = 102 <= 111.
+            train заканчивается в точке 76, поэтому id 67..75 исключаются.
+            Из id 76..110 калибровка получает 18 окон (id 76..93).
+            После очистки второй границы test получает id 103..110, то есть 8 окон.
+            Итого train=67, calib=18, test=8, total = 93 <= 111.
         сравниваем НАБОРЫ id окон (а не пары (start,end)),
         потому что перекрывающиеся окна — это разные окна с разными id, и именно
         непересечение id-множеств train/calib/test и есть смысл контракта.
-        Прежнее утверждение ``max(train_end) <= min(calib_start)`` убрано как НЕВЕРНОЕ:
-        при stride=1 < window_size конец train-окна (76) больше начала calib-окна (67).
-        Корректный временной порядок гарантируется только между calib и test.
+        Проверяются обе границы: train/calib и calib/test.
         """
         series = np.linspace(0, 1, 120)
 
@@ -376,8 +363,8 @@ class TestSplitDetectionBatch:
 
         # Точные размеры сплитов, выведенные из реализации.
         assert train.n_windows == 67
-        assert calib.n_windows == 22
-        assert test is not None and test.n_windows == 13
+        assert calib.n_windows == 18
+        assert test is not None and test.n_windows == 8
 
         # Дизъюнктность множеств id окон train/calib/test.
         train_ids = set(train.metadata['selected_window_ids'])
@@ -392,7 +379,8 @@ class TestSplitDetectionBatch:
         assert max(train_ids) < min(calib_ids)
         assert max(calib_ids) < min(test_ids)
 
-        # Реальная гарантия отсутствия утечки: calib раньше test по ВРЕМЕНИ.
+        # Ни одна исходная временная точка не переиспользуется соседними частями.
+        assert train.window_indices[-1, 1] <= calib.window_indices[0, 0]
         assert calib.window_indices[-1, 1] <= test.window_indices[0, 0]
 
         # Сохранность объёма: ни одно окно не задвоено, часть могла быть отброшена.

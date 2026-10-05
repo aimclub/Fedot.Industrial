@@ -83,7 +83,8 @@
     "device": "cpu"
   },
   "hybrid_ensemble_forecaster": {
-    "complex_branch": "okhs",
+    "complex_branch": "havok",
+    "branch_failure_policy": "raise",
     "device": "cpu",
     "lagged_params": {},
     "low_rank_params": {},
@@ -201,6 +202,15 @@
   "pdl_clf": {
     "model": "rf"
   },
+  "kernel_ensemble_clf": {
+    "generator_names": ["identity"],
+    "kernel": "linear",
+    "normalize": null,
+    "center": false,
+    "probability": true,
+    "random_state": 42,
+    "kernel_cache_enabled": false
+  },
   "ridge": {
     "alpha": 1.0
   },
@@ -248,6 +258,15 @@
   },
   "pdl_reg": {
     "model": "treg"
+  },
+  "kernel_ensemble_reg": {
+    "generator_names": ["identity"],
+    "kernel": "linear",
+    "normalize": null,
+    "center": false,
+    "alpha": 1.0,
+    "head_type": "kernel_ridge",
+    "kernel_cache_enabled": false
   },
   "dt": {
     "max_depth": 5,

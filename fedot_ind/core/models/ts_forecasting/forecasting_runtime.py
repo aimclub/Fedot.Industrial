@@ -17,14 +17,13 @@ except Exception:  # pragma: no cover
 from .progress_policy import ForecastingProgressPolicy, resolve_forecasting_progress_policy
 
 try:  # pragma: no cover - optional FEDOT runtime in lightweight envs
-    from fedot.core.data.data import InputData, OutputData
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
-    InputData = OutputData = None
-
     class DataTypesEnum:  # type: ignore[override]
         table = 'table'
         ts = 'ts'
+
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 
 
 class ForecastingSplitKind(str, Enum):
@@ -69,7 +68,7 @@ class ForecastTensorBatch:
     history: torch.Tensor
     target: torch.Tensor | None
     forecast_horizon: int
-    idx: torch.Tensor | None = None
+    idx: np.ndarray | torch.Tensor | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -95,7 +94,13 @@ class ForecastTensorBatch:
             history=self.history.to(device=device, dtype=dtype),
             target=None if self.target is None else self.target.to(device=device, dtype=dtype),
             forecast_horizon=int(self.forecast_horizon),
-            idx=None if self.idx is None else self.idx.to(device=device),
+            idx=(
+                None
+                if self.idx is None
+                else self.idx.to(device=device)
+                if isinstance(self.idx, torch.Tensor)
+                else np.array(self.idx, copy=True)
+            ),
             metadata=dict(self.metadata),
         )
 
@@ -888,14 +893,12 @@ def series_to_forecast_tensor_batch(
         dtype=resolved_policy.resolve_dtype(),
         device=resolved_policy.resolve_device(),
     )
-    idx_tensor = None
-    if idx is not None:
-        idx_tensor = torch.as_tensor(idx, device=resolved_policy.resolve_device())
+    idx_values = None if idx is None else np.array(idx, copy=True)
     return ForecastTensorBatch(
         history=history,
         target=None,
         forecast_horizon=int(forecast_horizon),
-        idx=idx_tensor,
+        idx=idx_values,
         metadata=dict(metadata or {}),
     )
 
@@ -1167,12 +1170,13 @@ def _build_holdout_folds(batch: ForecastTensorBatch,
                          spec: ForecastingSplitSpec,
                          validation_horizon: int,
                          min_train: int) -> tuple[ForecastingFoldSplit, ...]:
-    if batch.series_length <= min_train + validation_horizon:
+    gap = int(max(0, spec.gap))
+    if batch.series_length < min_train + gap + validation_horizon:
         raise ValueError('Series is too short for the requested holdout split.')
     test_end = int(batch.series_length)
     test_start = int(test_end - validation_horizon)
     train_start = 0
-    train_end = test_start
+    train_end = test_start - gap
     return (
         _build_fold_split(
             batch,

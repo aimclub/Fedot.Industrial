@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
-from fedot.core.data.data import InputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.ensemble import IsolationForest as SklearnIsolationForest
@@ -32,6 +31,7 @@ from fedot_ind.core.models.detection.runtime import (
 )
 from fedot_ind.core.models.detection.stage_tuning import build_detection_stage_tuning_plan
 from fedot_ind.core.repository.detection_registry import detection_family_for
+from fedot_ind.integration.fedot.compatibility import InputData
 
 from fedot_ind.core.models.detection.data_quality import (
     DataQualityReport,
@@ -69,11 +69,17 @@ def _operation_params_to_dict(params) -> dict[str, Any]:
     return dict(params)
 
 
-def _extract_detection_values_and_timestamps(values) -> tuple[Any, Any]:
-    """Return raw series and optional timestamps from FEDOT InputData or arrays."""
+def _extract_detection_values_and_timestamps(values) -> tuple[Any, Any, Any]:
+    """Return raw series, timestamps, and an optional external gap mask."""
     if hasattr(values, 'features'):
-        return values.features, getattr(values, 'idx', None)
-    return values, None
+        supplementary = getattr(values, 'supplementary_data', None)
+        gap_mask = (
+            getattr(supplementary, 'gap_mask', None)
+            if supplementary is not None
+            else None
+        )
+        return values.features, getattr(values, 'idx', None), gap_mask
+    return values, None, None
 
 
 class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
@@ -90,6 +96,7 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         self.threshold_quantile = self.params.get('threshold_quantile', 0.99)
         self.min_event_length = int(self.params.get('min_event_length', 1))
         self.transfer_strategy = self.params.get('transfer_strategy', 'domain_invariant_scaling')
+        self.causal = bool(self.params.get('causal', False))
         self.representation_mode = self.params.get('representation_mode', self.default_representation_mode)
         self.enable_regime_segmentation = bool(self.params.get('enable_regime_segmentation', True))
         # data_quality policies
@@ -130,7 +137,11 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         features = self._apply_transfer_to_features(features, fit_stage=True)
         self._fit_scoring_model(features, batch=batch)
         window_scores = self._score_windows(features, batch=batch)
-        point_scores = align_window_scores_to_points(window_scores, batch)
+        point_scores = align_window_scores_to_points(
+            window_scores,
+            batch,
+            causal=self.causal,
+        )
         regime_labels = _regime_labels_from_segments(self.regime_segments_, len(point_scores))
         # Калибровка порога: gap-точки не должны влиять на распределение score.
         # Если gap_mask пустой
@@ -146,6 +157,12 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             strategy=self.calibration_strategy,
             quantile=float(self.threshold_quantile),
             regime_labels=calibration_regime_labels,
+        )
+        score_scale = float(np.std(calibration_scores))
+        self.score_reference_scale_ = (
+            score_scale
+            if score_scale > 1e-8
+            else max(abs(float(self.threshold_)), 1.0)
         )
         self.training_score_series_ = build_anomaly_score_series(
             point_scores,
@@ -219,7 +236,7 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
     def score_samples(self, values: np.ndarray | list[float]) -> np.ndarray:
         score_series = self.score_series_on_values(values)
         scores = np.asarray(score_series.scores, dtype=float)
-        reference_scale = np.std(scores) if np.std(scores) > 1e-8 else max(float(score_series.threshold), 1.0)
+        reference_scale = float(self.score_reference_scale_)
         anomaly_probability = _sigmoid((scores - float(score_series.threshold)) / reference_scale)
         return np.column_stack((1.0 - anomaly_probability, anomaly_probability))
 
@@ -229,7 +246,11 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         features, _ = self._build_representation(batch, fit_stage=False)
         features = self._apply_transfer_to_features(features, fit_stage=False)
         window_scores = self._score_windows(features, batch=batch)
-        point_scores = align_window_scores_to_points(window_scores, batch)
+        point_scores = align_window_scores_to_points(
+            window_scores,
+            batch,
+            causal=self.causal,
+        )
         return build_anomaly_score_series(
             point_scores,
             threshold=float(self.threshold_),
@@ -329,12 +350,19 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             *,
             gap_mask: np.ndarray | None = None,
     ) -> Any:
-        window_size = resolve_detection_window_size(
-            values.shape[0],
-            window_size=self.window_size,
-            window_size_percent=self.window_size_percent,
-        )
-        stride = resolve_detection_stride(window_size, self.stride)
+        fit_stage = bool(metadata.get('fit_stage'))
+        if fit_stage or not hasattr(self, 'effective_window_size_'):
+            window_size = resolve_detection_window_size(
+                values.shape[0],
+                window_size=self.window_size,
+                window_size_percent=self.window_size_percent,
+            )
+            stride = resolve_detection_stride(window_size, self.stride)
+            self.effective_window_size_ = int(window_size)
+            self.effective_stride_ = int(stride)
+        else:
+            window_size = self.effective_window_size_
+            stride = self.effective_stride_
         return build_detection_window_batch(
             values,
             window_size=window_size,
@@ -388,17 +416,17 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             *,
             fit_stage: bool,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """чистит NaN, применяет масштабирование.
+        """Return aligned, filled values, the point gap mask, and the quality report.
 
-        Возвращает (clean_series, gap_mask):
-            clean_series — без NaN, готов к domain_invariant_scale и score моделям;
-            gap_mask     — per-sample bool длины N, True = точка пришла как NaN
-                           (синтез из align_timestamps в адаптере либо raw missing).
+        Store the aligned time index in ``last_prepared_time_idx_``. Training also
+        runs channel diagnostics and replaces the scaling reference; prediction
+        reuses it when present. Apply scaling only for domain-invariant transfer.
+        Keep the mask from alignment before filling missing values.
 
-        gap_mask считается ПЕРЕД forward fill
-        чтобы пропуски не терялись в заполненных значениях.
+        Alignment errors propagate; an unsupported transfer strategy raises
+        ValueError.
         """
-        values, timestamps = _extract_detection_values_and_timestamps(values)
+        values, timestamps, external_gap_mask = _extract_detection_values_and_timestamps(values)
         names = self.params.get('channel_names')
         if names is not None:
             names = tuple(names)
@@ -413,11 +441,25 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             target_sample_rate_hz=self.target_sample_rate_hz,
             channel_names=names,
             run_channel_quality=fit_stage,
+            external_gap_mask=external_gap_mask,
+            causal=self.causal,
+        )
+        aligned_timestamps = quality_report.metadata.get(
+            'aligned_timestamps', np.arange(len(aligned))
+        )
+        timestamp_dtype = (
+            'datetime64[ns]'
+            if quality_report.metadata.get('timestamp_kind') == 'datetime'
+            else None
+        )
+        self.last_prepared_time_idx_ = np.asarray(
+            aligned_timestamps,
+            dtype=timestamp_dtype,
         )
         series = np.asarray(aligned, dtype=float)
         # gap_mask из prepare — до fill; при mark_only в aligned ещё могут быть NaN
         if gap_mask.any():
-            series = self._forward_fill_nans(series)
+            series = self._forward_fill_nans(series, causal=self.causal)
         if fit_stage or not hasattr(self, 'scaling_reference_'):
             self.scaling_reference_ = np.asarray(series, dtype=float)
         if self.transfer_strategy == 'domain_invariant_scaling':
@@ -432,12 +474,15 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
         return clean, gap_mask, quality_report
 
     @staticmethod
-    def _forward_fill_nans(series: np.ndarray) -> np.ndarray:
-        """Заполняет NaN по каждому каналу last-observation-carried-forward.
+    def _forward_fill_nans(
+            series: np.ndarray,
+            *,
+            causal: bool = False,
+    ) -> np.ndarray:
+        """Copy the series and carry the last observed value forward per channel.
 
-        Ведущие NaN заполняются первым валидным значением (backfill), чтобы
-        scaling не получил NaN на старте. Цикл по каналам идентичен
-        data_quality._forward_fill
+        Fill leading NaNs with zero in causal mode, or with the first valid value
+        otherwise. Entirely missing channels become zero in either mode.
         """
         filled = series.copy()
         for channel in range(filled.shape[1]):
@@ -450,8 +495,12 @@ class BaseRuntimeAnomalyDetector(ModelImplementation, ABC):
             carry = np.where(valid, np.arange(column.size), 0)
             np.maximum.accumulate(carry, out=carry)
             column = column[carry]
-            first_valid = int(np.argmax(valid))
-            column[:first_valid] = column[first_valid]
+            if causal:
+                first_valid = int(np.argmax(valid))
+                column[:first_valid] = 0.0
+            else:
+                first_valid = int(np.argmax(valid))
+                column[:first_valid] = column[first_valid]
             filled[:, channel] = column
         return filled
 

@@ -4,7 +4,7 @@ import inspect
 from typing import Any, Optional
 
 import torch
-from fedot.core.data.data import InputData
+from fedot_ind.integration.fedot.compatibility import InputData
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.base_extractor import BaseExtractor
@@ -12,7 +12,7 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.torch_backend.enums import (
     STAT_FEATURE_CONFIG,
 )
-from fedot_ind.core.repository.constanst_repository import (
+from fedot_ind.core.operation.transformation.representation.statistical.methods import (
     STAT_METHODS_GLOBAL_TORCH,
     STAT_METHODS_TORCH,
 )

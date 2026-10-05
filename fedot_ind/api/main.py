@@ -1,11 +1,11 @@
 import os
 import warnings
 from typing import Union, Optional
+from functools import partial
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
@@ -26,6 +26,7 @@ from fedot_ind.core.architecture.abstraction.decorators import exception_handler
 from fedot_ind.core.architecture.pipelines.classification import (
     SklearnCompatibleClassifier,
 )
+from fedot_ind.integration.fedot.compatibility import InputData
 
 warnings.filterwarnings("ignore")
 
@@ -102,7 +103,7 @@ class FedotIndustrial(Fedot):
             logger=self.logger,
             input_data=input_data,
         )
-        self.repo = result.repo
+        self.extension_registration = result.extension
         return result.input_data
 
     def __init_solver(self, input_data: Optional[Union[InputData, np.array]] = None):
@@ -121,12 +122,15 @@ class FedotIndustrial(Fedot):
         self.manager.solver = self.solver_factory.create(build_solver_init_plan(self.manager))
         return input_data
 
-    def _process_input_data(self, input_data):
+    def _process_input_data(self, input_data, *, fit_stage: bool = True):
+        self.repository_initializer.ensure_active(
+            industrial_context=not self.manager.industrial_config.is_default_fedot_context,
+        )
         bundle = self.input_processor.process(
             input_data,
             task=self.manager.automl_config.config['task'],
             task_params=self.manager.automl_config.config['task_params'],
-            fit_stage=True,
+            fit_stage=fit_stage,
             industrial_task_params=self.manager.industrial_config.strategy_params,
             default_fedot_context=self.manager.industrial_config.is_default_fedot_context,
         )
@@ -199,8 +203,8 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
-            train_data = self._process_input_data(input_data)
+        with exception_handler(Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
+            train_data = self._process_input_data(input_data, fit_stage=True)
             train_data = self.__init_industrial_backend(train_data)
             train_data = self.__init_solver(train_data)
             self.fit_service.fit(self.manager, train_data)
@@ -209,19 +213,19 @@ class FedotIndustrial(Fedot):
                 predict_data: tuple,
                 predict_mode: str = 'labels',
                 **kwargs):
-        """
-        Method to obtain prediction labels from trained Industrial model.
+        """Method to obtain prediction labels from a trained Industrial model.
 
         Args:
-            predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
-            predict_data: tuple with test_features and test_target
+            predict_mode: Prediction mode passed to the solver; defaults to 'labels'.
+            predict_data: Tuple with test features and test target.
 
         Returns:
-            the array with prediction values
+            Prediction values, also stored in ``manager.predicted_labels``.
 
+        Raises:
+            ValueError: If forecast output length does not match the requested horizon.
         """
-        self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
-        processed_input = self._process_input_data(predict_data)
+        processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predict_data = processed_input
         self.manager.predicted_labels = self.__abstract_predict(processed_input, predict_mode)
 
@@ -232,21 +236,19 @@ class FedotIndustrial(Fedot):
                       predict_mode: str = 'probs',
                       calibrate_probs: bool = False,
                       **kwargs):
-        """
-        Method to obtain prediction probabilities from trained Industrial model.
+        """Obtain predictions in probability mode, or value predictions for regression.
 
         Args:
-            predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
-            predict_data: tuple with test_features and test_target
-            calibrate_probs: ``default=False``. If True, calibrate probabilities
+            predict_mode: Solver output mode; defaults to 'probs'. Regression
+                contexts always use 'labels'.
+            predict_data: Tuple with test features and test target.
+            calibrate_probs: Currently unused; no calibration is performed.
 
         Returns:
-            the array with prediction probabilities
-
+            Prediction values, also stored in ``manager.predicted_probs``.
         """
-        self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
         predict_mode = predict_mode if not self.manager.industrial_config.is_regression_task_context else 'labels'
-        processed_input = self._process_input_data(predict_data)
+        processed_input = self._process_input_data(predict_data, fit_stage=False)
         self.manager.predicted_probs = self.__abstract_predict(processed_input, predict_mode)
 
         return self.manager.predicted_probs
@@ -256,19 +258,27 @@ class FedotIndustrial(Fedot):
                  tuning_params: Optional[dict] = None,
                  model_to_tune: Optional[Pipeline] = None,
                  return_only_fitted: bool = False):
-        """Method to obtain prediction probabilities from trained Industrial model.
+        """Fit or tune a supplied model and store it as the current solver.
 
-            Args:
-                model_to_tune: model to fine-tune
-                train_data: raw train data
-                tuning_params: dictionary with tuning parameters
-                return_only_fitted: ``default=False``. Defines what to return.
+        Args:
+            train_data: Training data accepted by the input processor, or an
+                existing FEDOT data container.
+            tuning_params: Tuning options. The supplied dictionary is updated
+                with the task metric and resolved tuner.
+            model_to_tune: Required pipeline or builder exposing ``build()``.
+            return_only_fitted: If True, fit the model directly without tuning.
 
-            """
+        Returns:
+            None. The model is stored in ``manager.solver`` and marked as fine-tuned.
+
+        Raises:
+            ValueError: If ``model_to_tune`` is None. Preparation, fitting, and
+                tuning errors propagate after shutdown is attempted.
+        """
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
         tuning_params = {} if tuning_params is None else tuning_params
 
-        with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
+        with exception_handler(Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
             payload = self.finetune_service.prepare_payload(
                 train_data=train_data,
                 tuning_params=tuning_params,
@@ -278,6 +288,7 @@ class FedotIndustrial(Fedot):
                 process_input=self._process_input_data,
                 init_backend=self.__init_industrial_backend,
             )
+            self.manager.fedot_train_data = payload.train_data
             model_to_tune = self.finetune_service.run(
                 api=self,
                 payload=payload,
@@ -381,7 +392,9 @@ class FedotIndustrial(Fedot):
             path (str): path to the model
 
         """
-        self.repo = self.repository_initializer.setup_repository(backend=self.manager.compute_config.backend)
+        self.repository_initializer.ensure_active(
+            industrial_context=not self.manager.industrial_config.is_default_fedot_context,
+        )
         dir_list = os.listdir(path)
         if not path.__contains__('pipeline_saved'):
             saved_pipe = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
@@ -450,11 +463,28 @@ class FedotIndustrial(Fedot):
             plot_func(mode)
         return history_visualizer.history if return_history else None
 
-    def shutdown(self):
-        """Shutdown Dask client"""
-        if self.manager.dask_client is not None:
-            self.manager.dask_client.close()
-            del self.manager.dask_client
-        if self.manager.dask_cluster is not None:
-            self.manager.dask_cluster.close()
-            del self.manager.dask_cluster
+    def shutdown(self, *, raise_cleanup_errors: bool = True):
+        """Close the owned extension session, Dask client, and Dask cluster.
+
+        Attempt every cleanup step and clear each Dask handle only after it closes
+        successfully. Direct calls propagate the first cleanup error; failure
+        callbacks suppress cleanup errors to preserve the operation error.
+        """
+        first_error = None
+        try:
+            self.repository_initializer.close()
+        except Exception as error:
+            first_error = error
+        for handle_name in ('dask_client', 'dask_cluster'):
+            handle = getattr(self.manager, handle_name, None)
+            if handle is None:
+                continue
+            try:
+                handle.close()
+            except Exception as error:
+                if first_error is None:
+                    first_error = error
+            else:
+                setattr(self.manager, handle_name, None)
+        if first_error is not None and raise_cleanup_errors:
+            raise first_error

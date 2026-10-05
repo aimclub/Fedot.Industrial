@@ -404,12 +404,13 @@ class FedotOperationConstant(Enum):
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().
         add_node('quantile_extractor_torch', params=stat_params).add_node(
-            'catboost', params=catboost_params),
-        'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
-        'regression': PipelineBuilder().add_node('quantile_extractor_torch', params=stat_params).add_node('treg'),
-        'regression_tabular': PipelineBuilder().add_node('treg'),
-        'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
-        'ts_forecasting': PipelineBuilder().add_node('ar')
+            'pdl_clf'),
+        'classification_tabular': PipelineBuilder().add_node('pdl_clf'),
+        'regression': PipelineBuilder().
+        add_node('quantile_extractor_torch', params=stat_params).add_node('pdl_reg'),
+        'regression_tabular': PipelineBuilder().add_node('pdl_reg'),
+        'anomaly_detection': PipelineBuilder().add_node('feature_iforest_detector'),
+        'ts_forecasting': PipelineBuilder().add_node('lagged_ridge_forecaster')
     }
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
@@ -973,17 +974,21 @@ class BenchmarkDatasets(Enum):
 
 class UnitTestConstant(Enum):
     VALID_LINEAR_CLF_PIPELINE = {
-        'frequency_domain_clf': ['industrial_freq_clf'],
-        'manifold_clf': ['industrial_manifold_clf'],
-        'stat_clf': ['industrial_stat_clf'],
-        'eigen_statistical': ['eigen_basis', 'quantile_extractor', 'logit'],
-        'channel_filtration_statistical': ['channel_filtration', 'quantile_extractor', 'logit'],
-        'fourier_statistical': ['fourier_basis', 'quantile_extractor', 'logit'],
-        'wavelet_statistical': ['wavelet_basis', 'quantile_extractor', 'logit'],
-        'recurrence_clf': ['recurrence_extractor', 'logit'],
-        'riemann_clf': ['riemann_extractor', 'logit'],
-        'topological_clf': ['topological_extractor', 'logit'],
-        'statistical_clf': ['quantile_extractor', 'logit'],
+        'frequency_domain_clf': ['fourier_basis', 'quantile_extractor', 'pdl_clf'],
+        'manifold_clf': ['riemann_extractor', 'pdl_clf'],
+        'stat_clf': ['quantile_extractor', 'pdl_clf'],
+        'eigen_statistical': ['eigen_basis', 'quantile_extractor', 'pdl_clf'],
+        'channel_filtration_statistical': [
+            ('channel_filtration', {'task_type': 'classification'}),
+            'quantile_extractor',
+            'pdl_clf',
+        ],
+        'fourier_statistical': ['fourier_basis', 'quantile_extractor', 'pdl_clf'],
+        'wavelet_statistical': ['wavelet_basis', 'quantile_extractor', 'pdl_clf'],
+        'recurrence_clf': ['recurrence_extractor', 'pdl_clf'],
+        'riemann_clf': ['riemann_extractor', 'pdl_clf'],
+        'topological_clf': ['topological_extractor', 'pdl_clf'],
+        'statistical_clf': ['quantile_extractor', 'pdl_clf'],
         # 'statistical_lgbm': ['quantile_extractor', 'lgbm'],
         'composite_clf': {
             0: ['quantile_extractor'], 1: ['riemann_extractor'],
@@ -991,18 +996,22 @@ class UnitTestConstant(Enum):
         },
     }
     VALID_LINEAR_REG_PIPELINE = {
-        'stat_reg': ['industrial_stat_reg'],
-        'freq_reg': ['industrial_freq_reg'],
-        'manifold_reg': ['industrial_manifold_reg'],
-        'resnet_reg': ['resnet_model'],
-        'inception_reg': ['inception_model'],
-        'eigen_statistical_reg': ['eigen_basis', 'quantile_extractor', 'treg'],
-        'channel_filtration_statistical_reg': ['channel_filtration', 'quantile_extractor', 'treg'],
-        'fourier_statistical_reg': ['fourier_basis', 'quantile_extractor', 'treg'],
-        'wavelet_statistical_reg': ['wavelet_basis', 'quantile_extractor', 'treg'],
-        'recurrence_reg': ['recurrence_extractor', 'treg'],
-        'topological_reg': ['topological_extractor', 'treg'],
-        'statistical_reg': ['quantile_extractor', 'treg'],
+        'stat_reg': ['quantile_extractor', 'pdl_reg'],
+        'freq_reg': ['fourier_basis', 'quantile_extractor', 'pdl_reg'],
+        'manifold_reg': ['riemann_extractor', 'pdl_reg'],
+        'resnet_reg': [('resnet_model', {'task_type': 'regression'})],
+        'inception_reg': [('inception_model', {'task_type': 'regression'})],
+        'eigen_statistical_reg': ['eigen_basis', 'quantile_extractor', 'pdl_reg'],
+        'channel_filtration_statistical_reg': [
+            ('channel_filtration', {'task_type': 'regression'}),
+            'quantile_extractor',
+            'pdl_reg',
+        ],
+        'fourier_statistical_reg': ['fourier_basis', 'quantile_extractor', 'pdl_reg'],
+        'wavelet_statistical_reg': ['wavelet_basis', 'quantile_extractor', 'pdl_reg'],
+        'recurrence_reg': ['recurrence_extractor', 'pdl_reg'],
+        'topological_reg': ['topological_extractor', 'pdl_reg'],
+        'statistical_reg': ['quantile_extractor', 'pdl_reg'],
         # 'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
         'composite_reg': {
             0: ['quantile_extractor'], 1: ['topological_extractor'],
@@ -1010,25 +1019,22 @@ class UnitTestConstant(Enum):
         },
     }
     VALID_LINEAR_TSF_PIPELINE = {
-        'stl_arima': ['stl_arima'],
-        'topological_lgbm': ['topological_extractor', 'lgbmreg'],
-        'ar': ['ar'],
+        'ssa': ['ssa_forecaster'],
+        'topological': ['topo_forecaster'],
+        'lagged_ridge': ['lagged_ridge_forecaster'],
         'eigen_autoregression': ['eigen_forecaster'],
-        # 'eigen_autoregression': ['eigen_basis', 'ar'],
-        'smoothed_ar': ['smoothing', 'ar'],
-        'gaussian_ar': ['gaussian_filter', 'ar'],
-        'glm': ['glm'],
+        'low_rank_lagged_ridge': ['low_rank_lagged_ridge_forecaster'],
+        'havok': ['havok_forecaster'],
+        'hybrid_ensemble': ['hybrid_ensemble_forecaster'],
         'nbeats': ['nbeats_model'],
         'tcn': ['tcn_model'],
     }
     VALID_LINEAR_DETECTION_PIPELINE = {
-        # 'sst': ['sst'],
-        # 'unscented_kalman_filter': ['unscented_kalman_filter'],
+        'feature_iforest': ['feature_iforest_detector'],
+        'feature_oneclass': ['feature_oneclass_detector'],
+        'conv_autoencoder': ['conv_autoencoder_detector'],
+        'tcn_autoencoder': ['tcn_autoencoder_detector'],
         'stat_detector': ['stat_detector'],
-        'iforest_detector': ['iforest_detector'],
-        'conv_ae_detector': ['conv_ae_detector'],
-        'lstm_ae_detector': ['lstm_ae_detector'],
-        'arima_detector': ['arima_detector'],
     }
 
 

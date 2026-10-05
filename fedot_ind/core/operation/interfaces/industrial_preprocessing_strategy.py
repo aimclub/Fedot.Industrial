@@ -5,7 +5,7 @@ from typing import Optional, Union, Callable
 
 import numpy as np
 import torch
-from fedot.core.data.data import InputData, OutputData
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum

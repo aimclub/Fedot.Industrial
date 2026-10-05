@@ -1,5 +1,7 @@
+from contextlib import contextmanager
+
 import numpy as np
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
@@ -9,7 +11,6 @@ from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster impo
 )
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.repository.industrial_implementations.data_transformation import prepare_lagged_table_data
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import FORECASTING_PREPROC
 
 
@@ -106,12 +107,15 @@ def test_lagged_forecaster_hankel_pipeline_activates_industrial_repository(monke
     model.resolved_hankel_stride_ = model._resolve_hankel_stride()
     calls = []
 
-    monkeypatch.setattr(
-        model, '_is_industrial_repository_active', lambda: False)
-    monkeypatch.setattr(IndustrialModels, 'setup_repository',
-                        lambda self, backend='default': calls.append('setup'))
-    monkeypatch.setattr(IndustrialModels, 'setup_default_repository',
-                        lambda self, backend='default': calls.append('restore'))
+    @contextmanager
+    def fake_scope():
+        calls.append('setup')
+        try:
+            yield
+        finally:
+            calls.append('restore')
+
+    monkeypatch.setattr(model, '_industrial_repository_scope', fake_scope)
     monkeypatch.setattr(
         model, '_define_forecasting_pipeline_model', lambda: 'pipeline')
     monkeypatch.setattr(

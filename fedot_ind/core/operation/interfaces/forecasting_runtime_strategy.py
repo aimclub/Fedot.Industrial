@@ -3,15 +3,18 @@ from inspect import signature
 from typing import Optional
 
 import numpy as np
-from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.utilities.random import ImplementationRandomStateHandler
 
-from fedot_ind.core.repository.forecasting_registry import CANONICAL_STAGE_FORECASTING_MODELS
-from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, FORECASTING_PREPROC
+from fedot_ind.core.repository.forecasting_registry import (
+    CANONICAL_STAGE_FORECASTING_MODELS,
+    FORECASTING_MODELS,
+    FORECASTING_PREPROCESSING,
+)
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
 
 RUNTIME_FORECASTING_MODELS = set(CANONICAL_STAGE_FORECASTING_MODELS) | {
     'eigen_forecaster',
@@ -30,7 +33,7 @@ def is_forecasting_model_operation(operation_type: str) -> bool:
 
 
 def is_forecasting_preprocessing_operation(operation_type: str) -> bool:
-    return str(operation_type) in FORECASTING_PREPROC
+    return str(operation_type) in FORECASTING_PREPROCESSING
 
 
 def should_redirect_legacy_model_strategy(strategy_cls: type, operation_type: str) -> bool:
@@ -183,7 +186,7 @@ class IndustrialForecastingModelRuntimeStrategy(_BaseIndustrialForecastingStrate
 class IndustrialForecastingPreprocessingRuntimeStrategy(_BaseIndustrialForecastingStrategy):
     """Thin forecasting-only preprocessing strategy without legacy multidim dispatch."""
 
-    _operations_by_types = FORECASTING_PREPROC
+    _operations_by_types = FORECASTING_PREPROCESSING
 
     def fit(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)

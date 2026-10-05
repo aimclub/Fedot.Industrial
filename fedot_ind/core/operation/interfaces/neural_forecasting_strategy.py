@@ -1,27 +1,28 @@
 import warnings
 from typing import Optional
 
-from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn import TCNModel
-from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
-from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
-from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
-from fedot_ind.core.models.nn.network_impl.forecasting_model.tst import TSTModel
+from fedot_ind.core.repository.runtime_operation_registry import LazyOperationMapping
+from fedot_ind.integration.fedot.compatibility import InputData, OutputData
+
+
+NEURAL_FORECASTING_TARGETS = {
+    'patch_tst_model': (
+        'fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst:PatchTSTModel'
+    ),
+    'tst_model': 'fedot_ind.core.models.nn.network_impl.forecasting_model.tst:TSTModel',
+    'nbeats_model': 'fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats:NBeatsModel',
+    'deepar_model': 'fedot_ind.core.models.nn.network_impl.forecasting_model.deepar:DeepAR',
+    'tcn_model': 'fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn:TCNModel',
+}
 
 
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
     """Forecasting-oriented neural strategy extracted from legacy industrial model internals."""
 
-    __operations_by_types = {
-        'patch_tst_model': PatchTSTModel,
-        'tst_model': TSTModel,
-        'nbeats_model': NBeatsModel,
-        'deepar_model': DeepAR,
-        'tcn_model': TCNModel,
-    }
+    __operations_by_types = LazyOperationMapping(NEURAL_FORECASTING_TARGETS)
 
     def _convert_to_operation(self, operation_type: str):
         if operation_type in self.__operations_by_types.keys():

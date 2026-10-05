@@ -5,12 +5,10 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from fedot import Fedot
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.multi_modal import MultiModalData
+from fedot_ind.integration.fedot.compatibility import InputData, MultiModalData, OutputData, TensorData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
-from pymonad.list import ListMonad
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
     Ridge as SklearnRidgeReg
@@ -25,10 +23,19 @@ from fedot_ind.core.operation.dummy.dummy_operation import check_multivariate_da
 
 class CustomDatasetTS:
     def __init__(self, ts):
-        self.x = torch.from_numpy(DataConverter(
-            data=ts.features).convert_to_torch_format()).float()
-        self.y = torch.from_numpy(DataConverter(
-            data=ts.target).convert_to_torch_format()).float()
+        self.x = torch.as_tensor(self._as_channel_tensor(ts.features), dtype=torch.float32)
+        self.y = torch.as_tensor(self._as_channel_tensor(ts.target), dtype=torch.float32)
+
+    @staticmethod
+    def _as_channel_tensor(values):
+        array = np.asarray(values)
+        if array.ndim == 1:
+            return array.reshape(array.shape[0], 1, 1)
+        if array.ndim == 2:
+            return array.reshape(array.shape[0], 1, array.shape[1])
+        if array.ndim == 3:
+            return array
+        return array.squeeze()
 
     def __getitem__(self, index):
         pass
@@ -574,7 +581,7 @@ class ApiConverter:
 
     @staticmethod
     def input_data_is_fedot_type(input_data):
-        return isinstance(input_data, (InputData, MultiModalData))
+        return isinstance(input_data, (InputData, MultiModalData, TensorData))
 
     @staticmethod
     def is_multiclf_with_labeling_problem(problem, target, predict):
@@ -723,11 +730,11 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_tensor()
 
     def convert_to_monad_data(self):
-
         if self.input_data_is_fedot_data:
-            features = np.array(ListMonad(*self.data.features.tolist()).value)
+            values = self.data.features.tolist()
         else:
-            features = np.array(ListMonad(*self.data.tolist()).value)
+            values = self.data.tolist()
+        features = np.array(values)
 
         if len(features.shape) == 2 and features.shape[1] == 1:
             features = features.reshape(1, -1)
@@ -741,7 +748,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         if self.input_data_is_fedot_data:
             features = self.data.features
         else:
-            features = np.array(ListMonad(*self.data.values.tolist()).value)
+            features = np.array(self.data.values.tolist())
             features = np.array([series[~np.isnan(series)]
                                  for series in features])
         return features

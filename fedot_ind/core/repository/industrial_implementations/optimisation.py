@@ -37,8 +37,11 @@ from golem.utilities.data_structures import ComparableEnum as Enum
 from golem.utilities.data_structures import ensure_wrapped_in_sequence
 
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation, \
-    PRIMARY_FORECASTING_MODELS
+from fedot_ind.core.repository.forecasting_registry import CANONICAL_STAGE_FORECASTING_MODELS
+from fedot_ind.integration.fedot.extensions.discovery import default_industrial_availiable_operation
+
+
+PRIMARY_FORECASTING_MODELS = ['ar', 'ets', 'stl_arima', *CANONICAL_STAGE_FORECASTING_MODELS]
 
 
 class MutationStrengthEnumIndustrial(Enum):

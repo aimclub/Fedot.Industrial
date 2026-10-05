@@ -12,7 +12,7 @@ from fedot_ind.core.kernel_learning import (
 )
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 
-from fedot.core.data.data import InputData
+from fedot.core.data.input_data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 

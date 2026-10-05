@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import Optional
 
 import numpy as np
-from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.input_data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -12,6 +12,7 @@ from fedot.core.repository.tasks import TaskTypesEnum
 from golem.core.tuning.sequential import SequentialTuner
 
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
+from fedot_ind.integration.fedot.compatibility import ensure_fedot_tensor_data
 from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
 
 
@@ -50,7 +51,12 @@ class StatClassificator(LaggedAR):
         return self
 
     def _predict(self, input_data: InputData, output_mode='labels') -> OutputData:
-        prediction = self.tuned_model.predict(input_data, output_mode)
+        tensor_data = ensure_fedot_tensor_data(
+            input_data,
+            fit_stage=False,
+            reference_data=self._fedot_train_data,
+        )
+        prediction = self.tuned_model.predict(tensor_data, output_mode)
         return prediction
 
     def predict_for_fit(self, input_data: InputData, output_mode='labels') -> OutputData:

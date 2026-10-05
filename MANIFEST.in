@@ -1,2 +1,12 @@
-include fedot_ind/core/repository/data/*
-include fedot_ind/core/architecture/postprocessing/*
+include README.rst README_en.rst requirements.txt
+include fedot_ind/core/repository/data/*.json
+include fedot_ind/core/repository/data/ts_benchmark_metadata.csv
+include fedot_ind/core/architecture/postprocessing/ucr_datasets.json
+include fedot_ind/integration/fedot/extensions/catalog.json
+prune benchmark
+prune examples
+prune tests
+prune docs
+prune tools
+prune .codex
+prune .local

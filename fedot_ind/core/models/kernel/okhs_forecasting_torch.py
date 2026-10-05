@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover
             )
 
 try:
-    from fedot.core.data.data import InputData
+    from fedot.core.data.input_data.data import InputData
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 except ImportError:  # pragma: no cover

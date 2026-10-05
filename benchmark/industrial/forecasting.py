@@ -759,7 +759,7 @@ def _safe_import(module_name: str) -> bool:
 
 def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
     try:
-        from fedot.core.data.data import InputData
+        from fedot.core.data.input_data.data import InputData
         from fedot.core.repository.dataset_types import DataTypesEnum
         from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
     except Exception as exc:  # pragma: no cover - depends on full FEDOT runtime
@@ -1317,7 +1317,7 @@ class SSACompatModel(ForecastingModelAdapter):
 
     def availability(self) -> tuple[RunStatus, str]:
         """Check whether FEDOT compatibility runtime is available."""
-        if not _safe_import('fedot.core.data.data'):
+        if not _safe_import('fedot.core.data.input_data.data'):
             return RunStatus.NOT_AVAILABLE, 'fedot is required for ssa_forecaster compatibility wrapper.'
         return RunStatus.SUCCESS, 'ready'
 
