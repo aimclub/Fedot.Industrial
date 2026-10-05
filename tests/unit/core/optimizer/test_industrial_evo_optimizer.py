@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import random
 
 import pytest
 from golem.core.optimisers.opt_history_objects.individual import Individual
@@ -11,6 +12,7 @@ from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
 from fedot_ind.core.optimizer.domain import EvolutionPhase
 from fedot_ind.core.optimizer.configuration import EvolutionConfig, ResourceBudget
 from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier
+from fedot_ind.core.optimizer.randomness import CandidateRandomness
 
 
 class _Context:
@@ -181,3 +183,38 @@ def test_population_extension_records_verifier_error_before_preserving_exception
 
     summary = optimizer.diagnostics.summary
     assert summary.rejection_counts == {"verifier_failed": 1}
+
+
+@pytest.mark.parametrize("seed", [None, 42])
+def test_adaptive_agent_learning_uses_its_own_seed_sequence(seed):
+    optimizer = object.__new__(IndustrialEvoOptimizer)
+    population = [Individual(_Graph("initial"))]
+    draws = []
+    optimizer.evolution_config = EvolutionConfig(random_seed=seed)
+    optimizer._agent_learning_attempt = 0
+    optimizer.regularization = lambda pop, evaluator: pop
+    optimizer.reproducer = SimpleNamespace(reproduce=lambda pop, evaluator: pop, stop_condition=False)
+    optimizer.mutation = SimpleNamespace(
+        agent_experience=SimpleNamespace(collect_results=lambda pop: None),
+        agent=SimpleNamespace(partial_fit=lambda experience: draws.append(random.random())),
+    )
+    optimizer.inheritance = lambda previous, new: new
+    optimizer.elitism = lambda best, new: new
+    optimizer.generations = SimpleNamespace(best_individuals=population)
+    optimizer.log = SimpleNamespace(message=lambda message: None)
+    state = random.getstate()
+    try:
+        assert optimizer._evolve_population(population, "evaluator") == (population, "evaluator")
+        optimizer._evolve_population(population, "evaluator")
+        if seed is None:
+            expected = random.Random()
+            expected.setstate(state)
+            assert draws == [expected.random(), expected.random()]
+            assert optimizer._agent_learning_attempt == 0
+        else:
+            assert draws == [random.Random(CandidateRandomness(seed, "agent_learning", i).seed).random()
+                             for i in range(2)]
+            assert random.getstate() == state
+            assert optimizer._agent_learning_attempt == 2
+    finally:
+        random.setstate(state)

@@ -29,6 +29,8 @@ class EvolutionState:
     generation: int = 0
 
     def __post_init__(self) -> None:
+        if not isinstance(self.phase, EvolutionPhase):
+            raise ValueError("phase must be an EvolutionPhase")
         if isinstance(self.generation, bool) or not isinstance(self.generation, int):
             raise ValueError("generation must be an integer")
         if self.generation < 0:

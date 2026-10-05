@@ -1,4 +1,4 @@
-from random import choice
+from random import choice, Random
 from typing import Any, Dict, Mapping, Optional, Sequence
 
 from golem.core.dag.graph import Graph
@@ -28,7 +28,6 @@ from fedot_ind.core.optimizer.domain import (
     CandidateFailure,
     CandidateFailureCode,
     EvolutionPhase,
-    EvolutionRuntimeError,
     EvolutionState,
     IndustrialPopulationError,
     classify_candidate_failure,
@@ -45,6 +44,7 @@ from fedot_ind.core.optimizer.observability import (
     write_evolution_diagnostics,
 )
 from fedot_ind.core.optimizer.mutation import without_resample_mutations
+from fedot_ind.core.optimizer.randomness import CandidateRandomness, install_seeded_operators, operator_random_scope
 from fedot_ind.core.optimizer.graph_validation import (
     IndustrialGraphVerifier,
     infer_validation_context,
@@ -95,6 +95,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             graph_generation_params.verifier = self.graph_verifier
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
+        install_seeded_operators(self, self.evolution_config.random_seed)
+        self._parent_selection_attempt = 0
+        self._agent_learning_attempt = 0
         # self.operators.remove(self.crossover)
         self.evaluated_population = []
         self.requirements = requirements
@@ -217,11 +220,22 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
     def _extend_population(self, pop: PopulationT, target_pop_size: int, mutation_prob: list = None) -> PopulationT:
         del mutation_prob
         verifier, new_population = self.graph_generation_params.verifier, list(pop)
+        if len(new_population) >= target_pop_size:
+            return new_population
+        if not pop:
+            raise IndustrialPopulationError('Cannot extend an empty population.')
+        run_seed = getattr(self, 'evolution_config', EvolutionConfig()).random_seed
         pop_graphs = [ind.graph for ind in new_population]
         for _ in range(self.graph_generation_attempts):
             new_ind = None
             for _ in range(self.min_reproduce_attempt):
-                random_ind = choice(pop)
+                if run_seed is None:
+                    random_ind = choice(pop)
+                else:
+                    attempt = self._parent_selection_attempt
+                    self._parent_selection_attempt += 1
+                    seed = CandidateRandomness(run_seed, 'parent_selection', attempt).seed
+                    random_ind = Random(seed).choice(pop)
                 self._record_diagnostic(
                     'record_mutation_attempt',
                     generation=self._diagnostic_generation(),
@@ -355,7 +369,14 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             # Must be called after reproduction (that collects the new experience)
             experience = self.mutation.agent_experience
             experience.collect_results(new_population)
-            self.mutation.agent.partial_fit(experience)
+            run_seed = self.evolution_config.random_seed
+            if run_seed is None:
+                self.mutation.agent.partial_fit(experience)
+            else:
+                address = CandidateRandomness(run_seed, 'agent_learning', self._agent_learning_attempt)
+                self._agent_learning_attempt += 1
+                with operator_random_scope(address.seed):
+                    self.mutation.agent.partial_fit(experience)
 
             # Use some part of previous pop in the next pop
             new_population = self.inheritance(population, new_population)
@@ -409,12 +430,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         """Optimise graphs and always persist diagnostics when configured."""
         try:
             return self._optimise(objective)
-        except EvolutionRuntimeError:
+        finally:
             state = getattr(self, 'evolution_state', EvolutionState.created())
             if state.phase not in (EvolutionPhase.COMPLETED, EvolutionPhase.FAILED):
                 self._transition_evolution(EvolutionPhase.FAILED)
-            raise
-        finally:
             output_dir = getattr(self, 'diagnostics_output_dir', None)
             if output_dir:
                 self.export_diagnostics(output_dir)

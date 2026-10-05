@@ -31,6 +31,7 @@ def evolution_configs(draw):
         ),
     ))
     return EvolutionConfig(
+        random_seed=draw(st.one_of(st.none(), st.integers(min_value=0, max_value=2**64))),
         mutation_agent=draw(st.sampled_from(tuple(MutationAgentType))),
         mutation_strategy=draw(st.sampled_from(tuple(MutationStrategy))),
         resource_budget=ResourceBudget(
@@ -165,6 +166,7 @@ def test_configuration_normalization_is_deterministic(config):
 @given(evolution_configs())
 def test_legacy_and_canonical_shapes_are_semantically_equivalent(config):
     legacy = {
+        "random_seed": config.random_seed,
         "mutation_agent": config.mutation_agent.value,
         "mutation_strategy": config.mutation_strategy.value,
         **config.resource_budget.to_record(),
@@ -256,3 +258,18 @@ def test_equal_legacy_and_canonical_fields_are_accepted_without_mutating_payload
     assert payload["mutation"] == {"agent": "bandit"}
     assert payload["resource_budget"] == {"min_population_size": 2}
     assert payload["execution_policy"]["diagnostics_output_dir"] is tmp_path
+
+
+@pytest.mark.parametrize("seed", [-1, True, False, 1.5, "42", [], {}])
+def test_invalid_random_seed_is_rejected_at_both_boundaries(seed):
+    with pytest.raises(EvolutionConfigError) as error:
+        normalize_evolution_config({"random_seed": seed})
+    assert error.value.violations[0].path == "random_seed"
+    with pytest.raises(ValueError, match="random_seed"):
+        EvolutionConfig(random_seed=seed)
+
+
+def test_random_seed_is_preserved_by_prevalidation_update():
+    config = normalize_evolution_config({"random_seed": 0})
+    assert config.with_initial_graphs_prevalidated(True).random_seed == 0
+    assert normalize_evolution_config(config.to_record()) == config

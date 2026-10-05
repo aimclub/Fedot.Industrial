@@ -130,6 +130,7 @@ class EvolutionConfig:
     mutation_strategy: MutationStrategy = MutationStrategy.PARAMS
     resource_budget: ResourceBudget = field(default_factory=ResourceBudget)
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
+    random_seed: int | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.mutation_agent, MutationAgentType):
@@ -140,6 +141,9 @@ class EvolutionConfig:
             raise ValueError("resource_budget must be a ResourceBudget")
         if not isinstance(self.execution_policy, ExecutionPolicy):
             raise ValueError("execution_policy must be an ExecutionPolicy")
+        if self.random_seed is not None:
+            if isinstance(self.random_seed, bool) or not isinstance(self.random_seed, int) or self.random_seed < 0:
+                raise ValueError("random_seed must be a non-negative integer or null")
 
     def to_record(self) -> dict[str, object]:
         """Return the canonical JSON-compatible transport shape."""
@@ -151,6 +155,7 @@ class EvolutionConfig:
             },
             "resource_budget": self.resource_budget.to_record(),
             "execution_policy": self.execution_policy.to_record(),
+            "random_seed": self.random_seed,
         }
 
     def with_initial_graphs_prevalidated(self, value: bool) -> "EvolutionConfig":
@@ -164,6 +169,7 @@ class EvolutionConfig:
 
 
 _ROOT_FIELDS = frozenset({
+    "random_seed",
     "schema_version",
     "mutation",
     "resource_budget",
@@ -341,6 +347,17 @@ def normalize_evolution_config(
     _collect_unknown_fields(policy, _POLICY_FIELDS, "execution_policy", violations)
 
     defaults = EvolutionConfig()
+    random_seed = payload.get("random_seed")
+    if random_seed is not None and (
+        isinstance(random_seed, bool) or not isinstance(random_seed, int) or random_seed < 0
+    ):
+        violations.append(EvolutionConfigViolation(
+            code=EvolutionConfigViolationCode.INVALID_TYPE,
+            path="random_seed",
+            message="must be a non-negative integer or null",
+            value=random_seed,
+        ))
+        random_seed = None
     agent = _enum_value(
         MutationAgentType,
         _section_or_legacy_value(
@@ -458,4 +475,5 @@ def normalize_evolution_config(
         mutation_strategy=strategy,
         resource_budget=resource_budget,
         execution_policy=execution_policy,
+        random_seed=random_seed,
     )
