@@ -1,4 +1,5 @@
 from random import choice, Random
+from contextlib import contextmanager
 from typing import Any, Dict, Mapping, Optional, Sequence
 
 from golem.core.dag.graph import Graph
@@ -43,8 +44,9 @@ from fedot_ind.core.optimizer.observability import (
     graph_identity,
     write_evolution_diagnostics,
 )
-from fedot_ind.core.optimizer.mutation import without_resample_mutations
+from fedot_ind.core.optimizer.mutation import mutation_weights, without_resample_mutations
 from fedot_ind.core.optimizer.randomness import CandidateRandomness, install_seeded_operators, operator_random_scope
+from fedot_ind.core.optimizer.mutation_runtime import MutationExecutionStatus, install_planned_mutation
 from fedot_ind.core.optimizer.graph_validation import (
     IndustrialGraphVerifier,
     infer_validation_context,
@@ -95,13 +97,13 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             graph_generation_params.verifier = self.graph_verifier
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
+        install_planned_mutation(self, self.evolution_config.mutation_planning)
         install_seeded_operators(self, self.evolution_config.random_seed)
         self._parent_selection_attempt = 0
         self._agent_learning_attempt = 0
         # self.operators.remove(self.crossover)
         self.evaluated_population = []
         self.requirements = requirements
-        self.initial_graphs = initial_graphs
         self.eval_dispatcher = IndustrialDispatcher(
             adapter=graph_generation_params.adapter,
             n_jobs=requirements.n_jobs,
@@ -134,6 +136,14 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         recorder = self.diagnostics_recorder
         if recorder is not None:
             getattr(recorder, method_name)(**values)
+
+    def _record_mutation_execution(self, execution) -> None:
+        self._record_diagnostic(
+            'record_mutation_plan', generation=self._diagnostic_generation(),
+            label=execution.action, status=execution.status.value,
+            plans_examined=execution.examined, admissible_plans=execution.admissible,
+            repair_edits=execution.repair_edits, validation_issue_codes=execution.issue_codes,
+        )
 
     def _transition_evolution(
             self,
@@ -173,7 +183,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         return graph_optimizer_params
 
     def _set_optimisation_strategy(self, graph_optimizer_params, config: EvolutionConfig):
-        self.optimisation_mutation_probs = FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value]
+        self.optimisation_mutation_probs = mutation_weights(
+            graph_optimizer_params.mutation_types, FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value])
         mutation_agent = self.mutation_agent_dict[config.mutation_agent]
         if config.mutation_agent is MutationAgentType.RANDOM:
             mutation_agent = mutation_agent(actions=graph_optimizer_params.mutation_types,
@@ -188,6 +199,19 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         )
         return graph_optimizer_params
 
+    @contextmanager
+    def _mutation_probability_strategy(self, strategy):
+        agent = self.mutation.agent
+        if not isinstance(agent, RandomAgent):
+            yield
+            return
+        previous = agent._probs
+        agent._probs = mutation_weights(agent.available_actions, FEDOT_MUTATION_STRATEGY[strategy])
+        try:
+            yield
+        finally:
+            agent._probs = previous
+
     def _initial_population(self, evaluator: EvaluationOperator):
         """ Initializes the initial population """
         # Adding of initial assumptions to history as zero generation
@@ -198,9 +222,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
         if len(initial_individuals) < pop_size:  # in case we have only one init assumption
             # change strategy of init assumption creation. Set max probability to node change mutation
-            self.mutation.agent._probs = FEDOT_MUTATION_STRATEGY['initial_population_diversity_strategy']
-            initial_individuals = self._extend_population(initial_individuals, pop_size)
-            self.mutation.agent._probs = self.optimisation_mutation_probs
+            with self._mutation_probability_strategy('initial_population_diversity_strategy'):
+                initial_individuals = self._extend_population(initial_individuals, pop_size)
             label = 'extended_initial_assumptions'
         init_population = evaluator(initial_individuals)
         if not init_population and self.retry_initial_population_without_timer:
@@ -226,16 +249,23 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             raise IndustrialPopulationError('Cannot extend an empty population.')
         run_seed = getattr(self, 'evolution_config', EvolutionConfig()).random_seed
         pop_graphs = [ind.graph for ind in new_population]
+        exhausted_parents = set()
+        timer = getattr(self, 'timer', None)
         for _ in range(self.graph_generation_attempts):
+            available_parents = [parent for parent in pop if id(parent) not in exhausted_parents]
+            if not available_parents or (timer is not None and timer.is_time_limit_reached()):
+                break
             new_ind = None
             for _ in range(self.min_reproduce_attempt):
+                if timer is not None and timer.is_time_limit_reached():
+                    break
                 if run_seed is None:
-                    random_ind = choice(pop)
+                    random_ind = choice(available_parents)
                 else:
                     attempt = self._parent_selection_attempt
                     self._parent_selection_attempt += 1
                     seed = CandidateRandomness(run_seed, 'parent_selection', attempt).seed
-                    random_ind = Random(seed).choice(pop)
+                    random_ind = Random(seed).choice(available_parents)
                 self._record_diagnostic(
                     'record_mutation_attempt',
                     generation=self._diagnostic_generation(),
@@ -244,6 +274,11 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 )
                 new_ind = self.mutation(random_ind)
                 if isinstance(new_ind, Individual):
+                    break
+                execution = getattr(self.mutation, 'last_execution', None)
+                if execution is not None and execution.status is MutationExecutionStatus.NO_ADMISSIBLE_PLAN:
+                    # Repeating RNG draws cannot change an empty deterministic plan pool.
+                    exhausted_parents.add(id(random_ind))
                     break
             if not isinstance(new_ind, Individual):
                 failure = classify_candidate_failure(
@@ -360,10 +395,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         def evolve_pop(population, evaluator):
             individuals_to_select = self.regularization(population, evaluator)
             new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
-            if self.reproducer.stop_condition or new_population is None:
+            if new_population is None:
                 new_population = population
             else:
-                self.log.message(f'Successful reproduction')
+                self.log.info('Successful reproduction')
 
             # Adaptive agent experience collection & learning
             # Must be called after reproduction (that collects the new experience)
@@ -392,11 +427,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         unique_population = list(unique_population_with_ids.values())
         is_population_too_small = len(unique_population) < self.min_pop_size
         # if size of unique population is too small, then extend it to MIN_POP_SIZE by repeating individuals
-        if all([is_population_too_small, not self.reproducer.stop_condition]):
-            self.mutation.agent._probs = FEDOT_MUTATION_STRATEGY['unique_population_strategy']
-            unique_population = self._extend_population(pop=unique_population,
-                                                        target_pop_size=self.min_pop_size)
-            self.mutation.agent._probs = self.optimisation_mutation_probs
+        if is_population_too_small and not self.timer.is_time_limit_reached():
+            with self._mutation_probability_strategy('unique_population_strategy'):
+                unique_population = self._extend_population(pop=unique_population,
+                                                            target_pop_size=self.min_pop_size)
             population = evaluator(unique_population)
         return population, evaluator
 

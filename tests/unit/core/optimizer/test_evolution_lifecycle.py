@@ -76,6 +76,11 @@ class _Graph:
         return isinstance(other, _Graph) and self.descriptive_id == other.descriptive_id
 
 
+class _UnlimitedTimer(nullcontext):
+    def is_time_limit_reached(self):
+        return False
+
+
 class _LifecycleHarness(IndustrialEvoOptimizer):
     """Keep the production loop, replacing only evaluation and generation effects."""
 
@@ -113,7 +118,7 @@ def _harness(seed, mutation):
     optimizer.evolution_config = EvolutionConfig(random_seed=seed)
     optimizer.evolution_state = EvolutionState.created()
     optimizer._parent_selection_attempt = 0
-    optimizer.timer = nullcontext()
+    optimizer.timer = _UnlimitedTimer()
     optimizer.generation = 0
     optimizer.population = [Individual(_Graph("initial"))]
     optimizer.labels = []

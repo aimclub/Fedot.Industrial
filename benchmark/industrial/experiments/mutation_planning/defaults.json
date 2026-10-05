@@ -1,0 +1,29 @@
+{
+  "schema_version": "industrial_mutation_comparison@1",
+  "seeds": [42, 123, 777],
+  "attempts_per_seed": 40,
+  "max_candidates": 128,
+  "max_depth": 5,
+  "max_nodes": 12,
+  "max_arity": 3,
+  "scenarios": [
+    {
+      "name": "classification_table",
+      "task": "classification",
+      "operations": ["scaling", "normalization", "pca", "logit", "rf", "dt"],
+      "initial_chain": ["scaling", "logit"]
+    },
+    {
+      "name": "regression_table",
+      "task": "regression",
+      "operations": ["scaling", "normalization", "pca", "ridge", "dtreg", "rfr"],
+      "initial_chain": ["scaling", "ridge"]
+    },
+    {
+      "name": "forecasting_ts",
+      "task": "ts_forecasting",
+      "operations": ["smoothing", "gaussian_filter", "lagged", "ar", "ridge"],
+      "initial_chain": ["smoothing", "lagged", "ridge"]
+    }
+  ]
+}

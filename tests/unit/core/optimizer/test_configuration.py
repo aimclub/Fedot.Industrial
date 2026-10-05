@@ -15,6 +15,7 @@ from fedot_ind.core.optimizer.configuration import (
     ExecutionPolicy,
     MutationAgentType,
     MutationStrategy,
+    MutationPlanningPolicy,
     ResourceBudget,
     normalize_evolution_config,
 )
@@ -31,6 +32,11 @@ def evolution_configs(draw):
         ),
     ))
     return EvolutionConfig(
+        mutation_planning=MutationPlanningPolicy(
+            enabled=draw(st.booleans()), max_candidates=draw(st.integers(min_value=1, max_value=200)),
+            max_repair_edits=draw(st.integers(min_value=0, max_value=4)),
+            max_nodes=draw(st.integers(min_value=1, max_value=100)),
+        ),
         random_seed=draw(st.one_of(st.none(), st.integers(min_value=0, max_value=2**64))),
         mutation_agent=draw(st.sampled_from(tuple(MutationAgentType))),
         mutation_strategy=draw(st.sampled_from(tuple(MutationStrategy))),
@@ -166,6 +172,7 @@ def test_configuration_normalization_is_deterministic(config):
 @given(evolution_configs())
 def test_legacy_and_canonical_shapes_are_semantically_equivalent(config):
     legacy = {
+        "mutation_planning": config.mutation_planning.to_record(),
         "random_seed": config.random_seed,
         "mutation_agent": config.mutation_agent.value,
         "mutation_strategy": config.mutation_strategy.value,
@@ -272,4 +279,23 @@ def test_invalid_random_seed_is_rejected_at_both_boundaries(seed):
 def test_random_seed_is_preserved_by_prevalidation_update():
     config = normalize_evolution_config({"random_seed": 0})
     assert config.with_initial_graphs_prevalidated(True).random_seed == 0
+    assert normalize_evolution_config(config.to_record()) == config
+
+
+@pytest.mark.parametrize("field,value", [
+    ("enabled", "false"), ("max_candidates", 0), ("max_nodes", -1),
+    ("max_repair_edits", -1), ("max_repair_edits", True), ("max_candidates", 1.5),
+])
+def test_planning_policy_rejects_invalid_fields(field, value):
+    with pytest.raises(EvolutionConfigError) as error:
+        normalize_evolution_config({"mutation_planning": {field: value}})
+    assert any(v.path == f"mutation_planning.{field}" for v in error.value.violations)
+    with pytest.raises(ValueError):
+        MutationPlanningPolicy(**{field: value})
+
+
+def test_planning_can_be_disabled_and_repair_can_be_zero():
+    config = normalize_evolution_config({"mutation_planning": {"enabled": False, "max_repair_edits": 0}})
+    assert not config.mutation_planning.enabled
+    assert config.mutation_planning.max_repair_edits == 0
     assert normalize_evolution_config(config.to_record()) == config

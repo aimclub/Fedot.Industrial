@@ -1,0 +1,215 @@
+"""Local graph transitions; no runtime objects, catalog discovery or randomness."""
+
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import replace
+from hashlib import sha256
+import json
+
+from fedot_ind.core.optimizer.graph_validation.contracts import (
+    GraphNodeSpec, GraphSpec, OperationCapabilities, OperationKind,
+)
+from fedot_ind.core.optimizer.graph_validation.validation import validate_graph, validate_structure
+from fedot_ind.core.optimizer.mutation_planning.contracts import (
+    DeduplicateParents, DropTransform, GraphEdit, InsertTransform, MutationLimits,
+    MutationRejection, MutationRejectionCode, ReplaceOperation,
+)
+
+
+def graph_signature(spec: GraphSpec) -> str:
+    """Include capabilities and context so a plan cannot silently change its base."""
+    payload = json.dumps(spec.to_record(), sort_keys=True, separators=(",", ":"))
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def candidate_signature(spec: GraphSpec) -> str:
+    """Canonical ordered-root traversal, preserving sharing but ignoring edit IDs.
+
+    Parent order is semantic. This needs no graph permutations or isomorphism
+    search: a valid graph has one root and ordered incoming edges.
+    """
+    nodes = {node.node_id: node for node in spec.nodes}
+    parents = {parent for node in spec.nodes for parent in node.parent_ids}
+    root = next(node.node_id for node in spec.nodes if node.node_id not in parents)
+    pending, order, identifiers = [root], [], {}
+    while pending:
+        node_id = pending.pop()
+        if node_id not in identifiers:
+            identifiers[node_id] = f"node-{len(order)}"
+            order.append(node_id)
+            pending.extend(reversed(nodes[node_id].parent_ids))
+    canonical = replace(spec, graph_id="candidate", nodes=tuple(replace(
+        nodes[node_id], node_id=identifiers[node_id],
+        parent_ids=tuple(identifiers[parent] for parent in nodes[node_id].parent_ids))
+        for node_id in order))
+    return graph_signature(canonical)
+
+
+def graph_depth(spec: GraphSpec) -> int | None:
+    """Linear topological depth; None means ambiguous IDs, absent parents or a cycle."""
+    nodes = {node.node_id: node for node in spec.nodes}
+    if len(nodes) != len(spec.nodes):
+        return None
+    children: dict[str, list[str]] = {node_id: [] for node_id in nodes}
+    pending = {}
+    for node in spec.nodes:
+        parents = tuple(dict.fromkeys(node.parent_ids))
+        if any(parent not in nodes for parent in parents):
+            return None
+        pending[node.node_id] = len(parents)
+        for parent in parents:
+            children[parent].append(node.node_id)
+    ready = deque(node_id for node_id in nodes if not pending[node_id])
+    depths = {node_id: 1 for node_id in ready}
+    visited = 0
+    while ready:
+        node_id = ready.popleft()
+        visited += 1
+        for child in children[node_id]:
+            depths[child] = max(depths.get(child, 1), depths[node_id] + 1)
+            pending[child] -= 1
+            if pending[child] == 0:
+                ready.append(child)
+    return max(depths.values(), default=0) if visited == len(nodes) else None
+
+
+def budget_excess(spec: GraphSpec, limits: MutationLimits) -> tuple[int, int, int]:
+    depth = graph_depth(spec)
+    return (max(0, len(spec.nodes) - limits.max_nodes),
+            max(0, (depth or 0) - limits.max_depth),
+            sum(max(0, len(node.parent_ids) - limits.max_arity) for node in spec.nodes)
+            if limits.max_arity is not None else 0)
+
+
+def ordinary(capability: OperationCapabilities | None) -> bool:
+    return bool(capability is not None
+                and capability.kind in (OperationKind.MODEL, OperationKind.TRANSFORM)
+                and capability.structural_role is None
+                and not capability.supports_multimodal
+                and "filtering" not in capability.tags
+                and capability.input_data_types and capability.output_data_types)
+
+
+def graph_precondition(spec: GraphSpec, limits: MutationLimits,
+                       *, check_budget: bool = True,
+                       allow_duplicate_parents: bool = False) -> MutationRejection | None:
+    # Reject structural ambiguity before special-operation rules traverse ancestors.
+    structure = validate_graph(spec, rules=(validate_structure,))
+    if not structure.is_valid:
+        return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
+                                 "Structural ambiguity cannot be repaired locally.", structure)
+    if spec.task_type is None:
+        return MutationRejection(MutationRejectionCode.MISSING_CONTEXT,
+                                 "An explicit graph task is required for structural edits.")
+    if any(node.capabilities is None
+           or node.capabilities.kind is OperationKind.UNKNOWN
+           or node.capabilities.name != node.operation_name for node in spec.nodes):
+        return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
+                                 "Unknown or inconsistent operation contracts are preserved, not inferred.")
+    if not allow_duplicate_parents and any(
+            len(set(node.parent_ids)) != len(node.parent_ids) for node in spec.nodes):
+        return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
+                                 "Repeated parent references require explicit normalization.")
+    if check_budget and any(budget_excess(spec, limits)):
+        return MutationRejection(MutationRejectionCode.BUDGET_EXCEEDED,
+                                 "Graph exceeds the node, depth or arity budget.")
+    return None
+
+
+def replacement_allowed(spec: GraphSpec, node: GraphNodeSpec,
+                        operation: OperationCapabilities) -> bool:
+    """Type tuples declare supported alternatives, not guaranteed simultaneous types."""
+    old = node.capabilities
+    return bool(ordinary(old) and ordinary(operation)
+                and operation.name != node.operation_name
+                and operation.kind is old.kind
+                and spec.task_type in old.task_types
+                and spec.task_type in operation.task_types
+                and not set(old.input_data_types).isdisjoint(operation.input_data_types)
+                and not set(operation.output_data_types).isdisjoint(old.output_data_types)
+                and not (operation.requires_target and not old.requires_target))
+
+
+def drop_allowed(spec: GraphSpec, node: GraphNodeSpec) -> bool:
+    if (not ordinary(node.capabilities)
+            or node.capabilities.kind is not OperationKind.TRANSFORM
+            or len(node.parent_ids) != 1):
+        return False
+    nodes = {item.node_id: item for item in spec.nodes}
+    parent = nodes.get(node.parent_ids[0])
+    children = [item for item in spec.nodes if node.node_id in item.parent_ids]
+    return bool(parent is not None and parent.capabilities is not None and children
+                and spec.task_type in node.capabilities.task_types
+                and all(ordinary(child.capabilities)
+                        and spec.task_type in child.capabilities.task_types
+                        and parent.node_id not in child.parent_ids for child in children))
+
+
+def new_node_id(spec: GraphSpec, parent_id: str | None, child_id: str,
+                operation_name: str) -> str:
+    payload = json.dumps((parent_id, child_id, operation_name), separators=(",", ":"))
+    prefix = "mutation-" + sha256(payload.encode("utf-8")).hexdigest()[:16]
+    known = set(spec.node_ids)
+    for index in range(len(known) + 1):
+        candidate = f"{prefix}-{index}"
+        if candidate not in known:
+            return candidate
+    raise AssertionError("Finite ID allocation exhausted")
+
+
+def apply_edit(spec: GraphSpec, edit: GraphEdit) -> GraphSpec | MutationRejection:
+    """Check semantic safety before constructing a new immutable graph."""
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = MutationRejection(MutationRejectionCode.UNSUPPORTED_EDIT,
+                                "Edit is absent, ambiguous or outside the safe local rules.")
+    if isinstance(edit, ReplaceOperation):
+        if node is None or not replacement_allowed(spec, node, edit.operation):
+            return invalid
+        updated = replace(node, operation_name=edit.operation.name, capabilities=edit.operation)
+        return replace(spec, nodes=tuple(updated if item is node else item for item in spec.nodes))
+    if isinstance(edit, InsertTransform):
+        parent, child = nodes.get(edit.parent_id), nodes.get(edit.child_id)
+        operation = edit.operation
+        if (node is not None or child is None or not ordinary(child.capabilities)
+                or not ordinary(operation) or operation.kind is not OperationKind.TRANSFORM
+                or spec.task_type not in operation.task_types
+                or spec.task_type not in child.capabilities.task_types
+                or (operation.requires_target and not child.capabilities.requires_target)
+                or set(operation.output_data_types).isdisjoint(child.capabilities.input_data_types)):
+            return invalid
+        if edit.parent_id is None:
+            if (child.parent_ids
+                    or set(child.capabilities.input_data_types).isdisjoint(operation.input_data_types)):
+                return invalid
+            parent_ids, child_parents = (), (edit.node_id,)
+        else:
+            if (parent is None or child.parent_ids.count(edit.parent_id) != 1
+                    or parent.capabilities is None
+                    or parent.capabilities.kind is OperationKind.UNKNOWN
+                    or parent.capabilities.structural_role is not None
+                    or parent.capabilities.supports_multimodal
+                    or not parent.capabilities.output_data_types
+                    or set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
+                return invalid
+            parent_ids = (edit.parent_id,)
+            child_parents = tuple(edit.node_id if parent_id == edit.parent_id else parent_id
+                                  for parent_id in child.parent_ids)
+        inserted = GraphNodeSpec(edit.node_id, operation.name, parent_ids, operation)
+        updated = replace(child, parent_ids=child_parents)
+        result = tuple(updated if item is child else item for item in spec.nodes)
+        return replace(spec, nodes=result + (inserted,))
+    if isinstance(edit, DropTransform):
+        if node is None or not drop_allowed(spec, node):
+            return invalid
+        return replace(spec, nodes=tuple(replace(item, parent_ids=tuple(
+            node.parent_ids[0] if parent_id == node.node_id else parent_id
+            for parent_id in item.parent_ids)) for item in spec.nodes if item is not node))
+    if isinstance(edit, DeduplicateParents):
+        if (node is None or not ordinary(node.capabilities)
+                or len(set(node.parent_ids)) == len(node.parent_ids)):
+            return invalid
+        updated = replace(node, parent_ids=tuple(dict.fromkeys(node.parent_ids)))
+        return replace(spec, nodes=tuple(updated if item is node else item for item in spec.nodes))
+    return invalid

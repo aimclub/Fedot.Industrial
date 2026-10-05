@@ -1,4 +1,6 @@
 from types import SimpleNamespace
+from contextlib import nullcontext
+from datetime import timedelta
 import random
 
 import pytest
@@ -10,7 +12,7 @@ from fedot_ind.core.optimizer.IndustrialEvoOptimizer import (
 )
 from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
 from fedot_ind.core.optimizer.domain import EvolutionPhase
-from fedot_ind.core.optimizer.configuration import EvolutionConfig, ResourceBudget
+from fedot_ind.core.optimizer.configuration import EvolutionConfig, MutationPlanningPolicy, ResourceBudget
 from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier
 from fedot_ind.core.optimizer.randomness import CandidateRandomness
 
@@ -91,8 +93,9 @@ def test_optimizer_returns_empty_diagnostics_when_collection_is_disabled():
 
 def test_optimizer_uses_typed_resource_budget_for_internal_limits():
     optimizer = IndustrialEvoOptimizer.__new__(IndustrialEvoOptimizer)
+    from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
     graph_optimizer_params = SimpleNamespace(
-        mutation_types=[],
+        mutation_types=[MutationTypesEnum.single_change],
         adaptive_mutation_type=None,
     )
     config = EvolutionConfig(
@@ -201,7 +204,7 @@ def test_adaptive_agent_learning_uses_its_own_seed_sequence(seed):
     optimizer.inheritance = lambda previous, new: new
     optimizer.elitism = lambda best, new: new
     optimizer.generations = SimpleNamespace(best_individuals=population)
-    optimizer.log = SimpleNamespace(message=lambda message: None)
+    optimizer.log = SimpleNamespace(info=lambda message: None)
     state = random.getstate()
     try:
         assert optimizer._evolve_population(population, "evaluator") == (population, "evaluator")
@@ -218,3 +221,88 @@ def test_adaptive_agent_learning_uses_its_own_seed_sequence(seed):
             assert optimizer._agent_learning_attempt == 2
     finally:
         random.setstate(state)
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_real_optimizer_completes_generation_with_builtin_graph_objective(monkeypatch, tmp_path, enabled):
+    """Exercise real GOLEM reproduction and Dask with no ML/extension-model dependency."""
+    import dask
+    from golem.core.optimisers.objective import Objective
+    from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
+    from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
+    from benchmark.industrial.experiments.mutation_planning.runner import _environment
+    from fedot_ind.core.optimizer.configuration import ExecutionPolicy, MutationStrategy
+    from fedot_ind.core.repository import IndustrialDispatcher as dispatcher_module
+
+    monkeypatch.setattr(dispatcher_module, "industrial_extension_scope", nullcontext)
+    requirements, params, graph = _environment(
+        {"name": "test", "task": "regression", "operations": ["scaling", "normalization", "ridge", "dtreg"],
+         "initial_chain": ["scaling", "ridge"]}, {"max_depth": 4, "max_arity": 3})
+    requirements.num_of_generations = 2
+    requirements.timeout = timedelta(seconds=20)
+    requirements.agent_dir = str(tmp_path)
+    objective = Objective({"size": lambda pipeline: float(len(pipeline.nodes))})
+    optimizer = IndustrialEvoOptimizer(
+        objective, [graph], requirements, params,
+        GPAlgorithmParameters(pop_size=2, max_pop_size=3, mutation_prob=1.0,
+                              mutation_types=[MutationTypesEnum.single_add, MutationTypesEnum.single_change]),
+        EvolutionConfig(random_seed=42, mutation_strategy=MutationStrategy.GROWTH,
+                        mutation_planning=MutationPlanningPolicy(enabled=enabled),
+                        resource_budget=ResourceBudget(2, 2, 8),
+                        execution_policy=ExecutionPolicy(diagnostics_output_dir=str(tmp_path / "diagnostics"))))
+    with dask.config.set(scheduler="synchronous"):
+        result = optimizer.optimise(objective)
+    assert result
+    assert optimizer.evolution_state.phase is EvolutionPhase.COMPLETED
+    assert optimizer.diagnostics.summary.evaluations_succeeded > 0
+    assert optimizer.diagnostics.summary.population_observations >= 2
+    assert (tmp_path / "diagnostics" / "evolution_summary.json").is_file()
+    if enabled:
+        assert any(event.event_type.value == "mutation_plan" for event in optimizer.diagnostics.observations)
+
+
+def test_probability_strategy_restores_random_agent_even_when_extension_fails():
+    from golem.core.optimisers.adaptive.operator_agent import RandomAgent
+    from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
+    agent = RandomAgent([MutationTypesEnum.single_add, MutationTypesEnum.single_change], [.5, .5])
+    optimizer = IndustrialEvoOptimizer.__new__(IndustrialEvoOptimizer)
+    optimizer.mutation = SimpleNamespace(agent=agent)
+    with pytest.raises(RuntimeError):
+        with optimizer._mutation_probability_strategy("initial_population_diversity_strategy"):
+            raise RuntimeError("failed extension")
+    assert agent._probs == [.5, .5]
+
+
+def test_probability_strategy_does_not_override_adaptive_agent():
+    optimizer = IndustrialEvoOptimizer.__new__(IndustrialEvoOptimizer)
+    optimizer.mutation = SimpleNamespace(agent=SimpleNamespace())
+    with optimizer._mutation_probability_strategy("initial_population_diversity_strategy"):
+        assert not hasattr(optimizer.mutation.agent, "_probs")
+
+
+def test_population_extension_does_not_repeat_an_exhausted_plan_pool():
+    from fedot_ind.core.optimizer.mutation_runtime import MutationExecution, MutationExecutionStatus
+    parent = Individual(_Graph("initial"))
+    calls = []
+
+    class Exhausted:
+        last_execution = MutationExecution(MutationExecutionStatus.NO_ADMISSIBLE_PLAN)
+
+        def __call__(self, individual):
+            calls.append(individual)
+            return []
+
+    optimizer = _observable_optimizer((), verifier=lambda graph: True)
+    optimizer.graph_generation_attempts = 100
+    optimizer.min_reproduce_attempt = 50
+    optimizer.mutation = Exhausted()
+    assert optimizer._extend_population([parent], 2) == [parent]
+    assert calls == [parent]
+
+
+def test_population_extension_obeys_shared_timer_before_mutation():
+    parent = Individual(_Graph("initial"))
+    optimizer = _observable_optimizer((Individual(_Graph("new")),), verifier=lambda graph: True)
+    optimizer.timer = SimpleNamespace(is_time_limit_reached=lambda: True)
+    assert optimizer._extend_population([parent], 2) == [parent]
+    assert optimizer.diagnostics.summary.mutation_attempts == 0

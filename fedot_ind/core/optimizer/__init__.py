@@ -7,6 +7,7 @@ from fedot_ind.core.optimizer.configuration import (
     ExecutionPolicy,
     MutationAgentType,
     MutationStrategy,
+    MutationPlanningPolicy,
     ResourceBudget,
     normalize_evolution_config,
 )
@@ -79,6 +80,7 @@ __all__ = [
     "ValidationSeverity",
     "build_evolution_summary",
     "normalize_evolution_config",
+    "MutationPlanningPolicy",
     "transition_evolution_state",
     "validate_graph",
     "write_evolution_diagnostics",
