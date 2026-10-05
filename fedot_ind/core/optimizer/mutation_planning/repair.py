@@ -7,24 +7,27 @@ from dataclasses import replace
 from fedot_ind.core.optimizer.graph_validation.contracts import GraphSpec
 from fedot_ind.core.optimizer.graph_validation.validation import validate_graph
 from fedot_ind.core.optimizer.mutation_planning._graph import (
-    apply_edit, budget_excess, drop_allowed, graph_precondition,
+    apply_edit, budget_excess, drop_allowed, drop_primary_allowed, graph_precondition,
 )
 from fedot_ind.core.optimizer.mutation_planning.contracts import (
-    DeduplicateParents, DropTransform, GraphEdit, MutationLimits, MutationRejection,
-    MutationRejectionCode, RepairedGraph,
+    DeduplicateParents, DropPrimaryTransform, DropTransform, GraphEdit, MutationLimits,
+    MutationRejection, MutationRejectionCode, RawInputSpec, RepairedGraph,
 )
 
 
-def repair_graph(spec: GraphSpec, *, limits: MutationLimits) -> RepairedGraph | MutationRejection:
+def repair_graph(spec: GraphSpec, *, limits: MutationLimits,
+                 raw_input: RawInputSpec | None = None) -> RepairedGraph | MutationRejection:
     """Normalize repeated edge references, then greedily bypass unary transforms.
 
     Bypasses must strictly reduce the total budget excess and pass the existing
     validator. At most max_edits rewrites and max_candidates proposals are used
-    across the entire repair, not per step. A failure is atomic. Source nodes,
-    special/multimodal operations, cycles and incompatible task/data contracts
-    are never repaired by inventing input, changing roles or removing branches.
+    across the entire repair, not per step. A failure is atomic. Actual source
+    or multimodal contexts, special roles, cycles and incompatible task/data
+    contracts are not inferred or rewritten. Primary transforms can be removed
+    only against a confirmed RawInputSpec, never by inventing a raw input.
     """
-    rejection = graph_precondition(spec, limits, check_budget=False, allow_duplicate_parents=True)
+    rejection = graph_precondition(spec, limits, check_budget=False, allow_duplicate_parents=True,
+                                   raw_input=raw_input)
     if rejection is not None:
         return rejection
     # A unary bypass removes one node and reduces any path by at most one.
@@ -46,7 +49,7 @@ def repair_graph(spec: GraphSpec, *, limits: MutationLimits) -> RepairedGraph | 
                 return exhausted()
             examined += 1
             edit = DeduplicateParents(node.node_id)
-            updated = apply_edit(graph, edit)
+            updated = apply_edit(graph, edit, raw_input=raw_input)
             if isinstance(updated, MutationRejection):
                 return replace(updated, examined=examined)
             edits.append(edit)
@@ -62,16 +65,21 @@ def repair_graph(spec: GraphSpec, *, limits: MutationLimits) -> RepairedGraph | 
         old_excess = sum(budget_excess(graph, limits))
         accepted = False
         for node in graph.nodes:
-            if not drop_allowed(graph, node):
+            if drop_allowed(graph, node):
+                edit = DropTransform(node.node_id)
+            elif drop_primary_allowed(graph, node, raw_input):
+                edit = DropPrimaryTransform(node.node_id)
+            else:
                 continue
             if examined >= limits.max_candidates:
                 return exhausted()
             examined += 1
-            edit = DropTransform(node.node_id)
-            updated = apply_edit(graph, edit)
+            updated = apply_edit(graph, edit, raw_input=raw_input)
             if isinstance(updated, MutationRejection):
                 continue
             if sum(budget_excess(updated, limits)) >= old_excess:
+                continue
+            if graph_precondition(updated, limits, check_budget=False, raw_input=raw_input) is not None:
                 continue
             candidate_report = validate_graph(updated)
             if candidate_report.is_valid:

@@ -308,7 +308,7 @@ def test_equal_structures_with_different_inserted_ids_are_deduplicated():
     candidates = enumerate_mutation_plans(spec, (transform,), limits=LIMITS,
                                           kinds=(MutationKind.ADD,))
     # Insertion before/after this transform yields the same ordered A -> A -> model graph.
-    assert candidates.examined == 2
+    assert candidates.examined == 3
     assert len(candidates.plans) == 1
 
 

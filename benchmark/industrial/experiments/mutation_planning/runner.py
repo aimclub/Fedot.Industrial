@@ -23,6 +23,7 @@ from golem.core.optimisers.optimizer import GraphGenerationParams
 from fedot_ind.core.optimizer.configuration import MutationPlanningPolicy
 from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier
 from fedot_ind.core.optimizer.mutation_runtime import PlannedMutation
+from fedot_ind.core.optimizer.mutation_planning import RawInputSpec
 from fedot_ind.core.optimizer.randomness import CandidateRandomness, operator_random_scope
 
 
@@ -93,8 +94,9 @@ def compare_mutations(settings=None):
                 adaptive_mutation_type=RandomAgent(actions=actions, probs=[1 / len(actions)] * len(actions)))
             operator = Mutation(algorithm, requirements, params)
             if mode == "planned":
+                raw_input = RawInputSpec(**scenario["raw_input"]) if "raw_input" in scenario else None
                 operator = PlannedMutation(operator, params, MutationPlanningPolicy(
-                    max_candidates=settings["max_candidates"], max_nodes=settings["max_nodes"]))
+                    max_candidates=settings["max_candidates"], max_nodes=settings["max_nodes"]), raw_input=raw_input)
             for seed in settings["seeds"]:
                 for attempt in range(settings["attempts_per_seed"]):
                     parent = Individual(graph)

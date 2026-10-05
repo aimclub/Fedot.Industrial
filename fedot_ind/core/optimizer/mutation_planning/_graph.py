@@ -12,8 +12,9 @@ from fedot_ind.core.optimizer.graph_validation.contracts import (
 )
 from fedot_ind.core.optimizer.graph_validation.validation import validate_graph, validate_structure
 from fedot_ind.core.optimizer.mutation_planning.contracts import (
-    DeduplicateParents, DropTransform, GraphEdit, InsertTransform, MutationLimits,
-    MutationRejection, MutationRejectionCode, ReplaceOperation,
+    AddBranch, DeduplicateParents, DropPrimaryTransform, DropTransform, GraphEdit,
+    InsertTransform, MutationLimits, MutationRejection, MutationRejectionCode,
+    RawInputSpec, ReplaceOperation,
 )
 
 
@@ -86,14 +87,26 @@ def ordinary(capability: OperationCapabilities | None) -> bool:
     return bool(capability is not None
                 and capability.kind in (OperationKind.MODEL, OperationKind.TRANSFORM)
                 and capability.structural_role is None
-                and not capability.supports_multimodal
                 and "filtering" not in capability.tags
                 and capability.input_data_types and capability.output_data_types)
 
 
+def single_input_graph(spec: GraphSpec) -> bool:
+    """A multimodal-capable operation is not itself a multimodal input context."""
+    return (sum(not node.parent_ids for node in spec.nodes) == 1
+            and all(len(node.parent_ids) <= 1 and node.capabilities is not None
+                    and node.capabilities.kind is not OperationKind.DATA_SOURCE
+                    and node.capabilities.structural_role is None for node in spec.nodes))
+
+
+def unary_context_allowed(spec: GraphSpec, *capabilities: OperationCapabilities) -> bool:
+    return not any(capability.supports_multimodal for capability in capabilities) or single_input_graph(spec)
+
+
 def graph_precondition(spec: GraphSpec, limits: MutationLimits,
                        *, check_budget: bool = True,
-                       allow_duplicate_parents: bool = False) -> MutationRejection | None:
+                       allow_duplicate_parents: bool = False,
+                       raw_input: RawInputSpec | None = None) -> MutationRejection | None:
     # Reject structural ambiguity before special-operation rules traverse ancestors.
     structure = validate_graph(spec, rules=(validate_structure,))
     if not structure.is_valid:
@@ -111,6 +124,20 @@ def graph_precondition(spec: GraphSpec, limits: MutationLimits,
             len(set(node.parent_ids)) != len(node.parent_ids) for node in spec.nodes):
         return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
                                  "Repeated parent references require explicit normalization.")
+    if raw_input is not None:
+        if not isinstance(raw_input, RawInputSpec):
+            raise TypeError("raw_input must be a RawInputSpec or None")
+        if any(node.capabilities.kind is OperationKind.DATA_SOURCE
+               or node.capabilities.structural_role is not None for node in spec.nodes):
+            return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
+                                     "Homogeneous raw input cannot describe source, multimodal or special graphs.")
+        if not unary_context_allowed(spec, *(node.capabilities for node in spec.nodes)):
+            return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
+                                     "Multimodal-capable operations require a confirmed unary graph context.")
+        if any((not node.parent_ids and raw_input.data_type not in node.capabilities.input_data_types)
+               or (node.capabilities.requires_target and not raw_input.has_target) for node in spec.nodes):
+            return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
+                                     "The confirmed raw input does not satisfy the operation contracts.")
     if check_budget and any(budget_excess(spec, limits)):
         return MutationRejection(MutationRejectionCode.BUDGET_EXCEEDED,
                                  "Graph exceeds the node, depth or arity budget.")
@@ -122,6 +149,7 @@ def replacement_allowed(spec: GraphSpec, node: GraphNodeSpec,
     """Type tuples declare supported alternatives, not guaranteed simultaneous types."""
     old = node.capabilities
     return bool(ordinary(old) and ordinary(operation)
+                and unary_context_allowed(spec, old, operation)
                 and operation.name != node.operation_name
                 and operation.kind is old.kind
                 and spec.task_type in old.task_types
@@ -142,8 +170,31 @@ def drop_allowed(spec: GraphSpec, node: GraphNodeSpec) -> bool:
     return bool(parent is not None and parent.capabilities is not None and children
                 and spec.task_type in node.capabilities.task_types
                 and all(ordinary(child.capabilities)
+                        and unary_context_allowed(spec, node.capabilities, parent.capabilities,
+                                                  child.capabilities)
                         and spec.task_type in child.capabilities.task_types
                         and parent.node_id not in child.parent_ids for child in children))
+
+
+def drop_primary_allowed(spec: GraphSpec, node: GraphNodeSpec,
+                         raw_input: RawInputSpec | None) -> bool:
+    if (raw_input is None or node.parent_ids or not ordinary(node.capabilities)
+            or node.capabilities.kind is not OperationKind.TRANSFORM
+            or raw_input.data_type not in node.capabilities.input_data_types):
+        return False
+    if any(item.capabilities is None or item.capabilities.kind is OperationKind.DATA_SOURCE
+           or item.capabilities.structural_role is not None
+           for item in spec.nodes):
+        return False
+    if not unary_context_allowed(spec, *(item.capabilities for item in spec.nodes)):
+        return False
+    children = [child for child in spec.nodes if node.node_id in child.parent_ids]
+    return bool(children and spec.task_type in node.capabilities.task_types
+                and all(child.parent_ids == (node.node_id,) and ordinary(child.capabilities)
+                        and spec.task_type in child.capabilities.task_types
+                        and raw_input.data_type in child.capabilities.input_data_types
+                        and (raw_input.has_target or not child.capabilities.requires_target)
+                        for child in children))
 
 
 def new_node_id(spec: GraphSpec, parent_id: str | None, child_id: str,
@@ -158,7 +209,8 @@ def new_node_id(spec: GraphSpec, parent_id: str | None, child_id: str,
     raise AssertionError("Finite ID allocation exhausted")
 
 
-def apply_edit(spec: GraphSpec, edit: GraphEdit) -> GraphSpec | MutationRejection:
+def apply_edit(spec: GraphSpec, edit: GraphEdit, *,
+               raw_input: RawInputSpec | None = None) -> GraphSpec | MutationRejection:
     """Check semantic safety before constructing a new immutable graph."""
     nodes = {node.node_id: node for node in spec.nodes}
     node = nodes.get(edit.node_id)
@@ -174,6 +226,7 @@ def apply_edit(spec: GraphSpec, edit: GraphEdit) -> GraphSpec | MutationRejectio
         operation = edit.operation
         if (node is not None or child is None or not ordinary(child.capabilities)
                 or not ordinary(operation) or operation.kind is not OperationKind.TRANSFORM
+                or not unary_context_allowed(spec, child.capabilities, operation)
                 or spec.task_type not in operation.task_types
                 or spec.task_type not in child.capabilities.task_types
                 or (operation.requires_target and not child.capabilities.requires_target)
@@ -189,7 +242,7 @@ def apply_edit(spec: GraphSpec, edit: GraphEdit) -> GraphSpec | MutationRejectio
                     or parent.capabilities is None
                     or parent.capabilities.kind is OperationKind.UNKNOWN
                     or parent.capabilities.structural_role is not None
-                    or parent.capabilities.supports_multimodal
+                    or not unary_context_allowed(spec, parent.capabilities)
                     or not parent.capabilities.output_data_types
                     or set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
                 return invalid
@@ -206,8 +259,47 @@ def apply_edit(spec: GraphSpec, edit: GraphEdit) -> GraphSpec | MutationRejectio
         return replace(spec, nodes=tuple(replace(item, parent_ids=tuple(
             node.parent_ids[0] if parent_id == node.node_id else parent_id
             for parent_id in item.parent_ids)) for item in spec.nodes if item is not node))
+    if isinstance(edit, AddBranch):
+        parent, child, operation = nodes.get(edit.parent_id), nodes.get(edit.child_id), edit.operation
+        if (node is not None or parent is None or child is None
+                or child.parent_ids.count(edit.parent_id) != 1
+                or not ordinary(child.capabilities) or not ordinary(operation)
+                or child.capabilities.supports_multimodal or operation.supports_multimodal
+                or parent.capabilities is None or parent.capabilities.kind is OperationKind.UNKNOWN
+                or parent.capabilities.structural_role is not None or parent.capabilities.supports_multimodal
+                or not parent.capabilities.output_data_types
+                or spec.task_type not in operation.task_types
+                or spec.task_type not in child.capabilities.task_types
+                or (operation.requires_target and not child.capabilities.requires_target)
+                or set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
+            return invalid
+        # FEDOT requires one common type at an ordinary merge, not just valid pairs.
+        common_types = set(child.capabilities.input_data_types) & set(operation.output_data_types)
+        for parent_id in child.parent_ids:
+            previous = nodes.get(parent_id)
+            if (previous is None or previous.capabilities is None
+                    or previous.capabilities.structural_role is not None
+                    or previous.capabilities.supports_multimodal):
+                return invalid
+            common_types.intersection_update(previous.capabilities.output_data_types)
+        if not common_types:
+            return invalid
+        branch = GraphNodeSpec(edit.node_id, operation.name, (edit.parent_id,), operation)
+        updated = replace(child, parent_ids=child.parent_ids + (edit.node_id,))
+        return replace(spec, nodes=tuple(updated if item is child else item
+                                         for item in spec.nodes) + (branch,))
+    if isinstance(edit, DropPrimaryTransform):
+        if raw_input is None:
+            return MutationRejection(MutationRejectionCode.MISSING_CONTEXT,
+                                     "Primary removal requires a confirmed homogeneous raw input.")
+        if node is None or not drop_primary_allowed(spec, node, raw_input):
+            return invalid
+        return replace(spec, nodes=tuple(replace(item, parent_ids=())
+                                         if node.node_id in item.parent_ids else item
+                                         for item in spec.nodes if item is not node))
     if isinstance(edit, DeduplicateParents):
         if (node is None or not ordinary(node.capabilities)
+                or not unary_context_allowed(spec, node.capabilities)
                 or len(set(node.parent_ids)) == len(node.parent_ids)):
             return invalid
         updated = replace(node, parent_ids=tuple(dict.fromkeys(node.parent_ids)))

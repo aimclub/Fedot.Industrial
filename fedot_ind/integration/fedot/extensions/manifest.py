@@ -24,6 +24,7 @@ from fedot_ind.integration.fedot.extensions.catalog import load_industrial_exten
 from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialOperationDeclaration,
     IndustrialOperationKind,
+    IndustrialRuntimeInterface,
 )
 from fedot_ind.integration.fedot.extensions.factories import make_deferred_factory
 
@@ -104,6 +105,9 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
     optional.update(_pdl_parameter_names(declaration.name, search_parameters))
     if declaration.needs_explicit_task_type:
         required.add("task_type")
+    elif (declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
+          and len(declaration.tasks) > 1):
+        optional.add("task_type")
     optional.difference_update({"model_fit", "model_predict"})
     return ModelHyperparamsSchema(
         required=tuple(sorted(required)),

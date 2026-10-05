@@ -1,4 +1,3 @@
-import sys
 from typing import Optional, Union
 import pandas as pd
 import numpy as np
@@ -11,8 +10,6 @@ from fedot_ind.core.operation.transformation.data.point_cloud import Topological
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import TopologicalFeaturesExtractor
 from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_FEATURES
 from fedot_ind.integration.fedot.compatibility import InputData
-
-sys.setrecursionlimit(1000000000)
 
 
 class TopologicalExtractor(BaseExtractor):

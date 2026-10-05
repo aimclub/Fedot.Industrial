@@ -2,9 +2,10 @@
 
 from fedot_ind.core.optimizer.mutation_planning._graph import graph_depth, graph_signature
 from fedot_ind.core.optimizer.mutation_planning.contracts import (
-    AppliedMutation, DeduplicateParents, DropTransform, GraphEdit, InsertTransform,
+    AddBranch, AppliedMutation, DeduplicateParents, DropPrimaryTransform, DropTransform,
+    GraphEdit, InsertTransform,
     MutationCandidates, MutationKind, MutationLimits, MutationPlan, MutationRejection,
-    MutationRejectionCode, RepairedGraph, ReplaceOperation,
+    MutationRejectionCode, RawInputSpec, RepairedGraph, ReplaceOperation,
 )
 from fedot_ind.core.optimizer.mutation_planning.planning import (
     admissible_operations, apply_mutation_plan, enumerate_mutation_plans, select_mutation_plan,
@@ -12,9 +13,10 @@ from fedot_ind.core.optimizer.mutation_planning.planning import (
 from fedot_ind.core.optimizer.mutation_planning.repair import repair_graph
 
 __all__ = [
-    "AppliedMutation", "DeduplicateParents", "DropTransform", "GraphEdit", "InsertTransform",
+    "AddBranch", "AppliedMutation", "DeduplicateParents", "DropPrimaryTransform", "DropTransform",
+    "GraphEdit", "InsertTransform",
     "MutationCandidates", "MutationKind", "MutationLimits", "MutationPlan", "MutationRejection",
-    "MutationRejectionCode", "RepairedGraph", "ReplaceOperation", "admissible_operations",
+    "MutationRejectionCode", "RawInputSpec", "RepairedGraph", "ReplaceOperation", "admissible_operations",
     "apply_mutation_plan", "enumerate_mutation_plans", "graph_depth", "graph_signature",
     "repair_graph", "select_mutation_plan",
 ]

@@ -10,11 +10,16 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot_ind.core.optimizer.graph_validation import NodePosition
 from fedot_ind.core.optimizer.mutation_runtime import (
     MutationExecutionStatus, PlannedMutation,
-    advisor_allows_plan, interpret_graph_spec, load_runtime_operation_catalog, project_for_mutation,
+    advisor_allows_plan, install_extension_aware_advisor, interpret_graph_spec,
+    load_runtime_operation_catalog, project_for_mutation,
 )
 from fedot_ind.core.optimizer.configuration import MutationPlanningPolicy
 from fedot_ind.core.optimizer.mutation import mutation_weights
 from fedot_ind.core.optimizer.randomness import operator_random_scope
+from fedot_ind.core.optimizer.mutation_planning import (
+    AddBranch, AppliedMutation, MutationLimits,
+    RawInputSpec, apply_mutation_plan, enumerate_mutation_plans,
+)
 from golem.core.optimisers.adaptive.operator_agent import RandomAgent
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
 from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
@@ -78,6 +83,20 @@ def test_interpreter_rejects_mismatched_projection():
         interpret_graph_spec(graph, replace(before, nodes=()), before)
 
 
+def test_interpreter_passes_task_to_new_multitask_input_data_operation():
+    graph = _graph()
+    before = project_for_mutation(graph, _context())
+    after = replace(before, nodes=tuple(
+        replace(node, operation_name="bagging") if node.operation_name == "scaling" else node
+        for node in before.nodes
+    ))
+    result = interpret_graph_spec(graph, before, after)
+    bagging = next(node for node in result.nodes if node.content["name"] == "bagging")
+    assert bagging.content["params"] == {"task_type": "regression"}
+    assert graph.nodes[1].content["name"] == "scaling"
+    assert graph.nodes[1].content["params"] == {"with_mean": False}
+
+
 def test_catalog_uses_factory_repository_and_keeps_position_restrictions():
     class Repository:
         def get_operations(self, is_primary):
@@ -100,6 +119,38 @@ def test_catalog_with_no_declared_operation_pool_does_not_invent_models():
     assert catalog.capabilities == ()
 
 
+def test_standard_advisor_classifies_only_enabled_extensions_and_keeps_source_vetoes():
+    from fedot.core.pipelines.pipeline_advisor import PipelineChangeAdvisor
+    from fedot.core.repository.tasks import Task, TaskTypesEnum
+    from golem.core.optimisers.graph import OptNode
+
+    previous = PipelineChangeAdvisor(Task(TaskTypesEnum.regression))
+    original_models = list(previous.models)
+    operations = ['pdl_reg', 'kernel_ensemble_reg', 'quantile_extractor_torch']
+    repository = SimpleNamespace(get_operations=lambda is_primary: operations)
+    factory = SimpleNamespace(advisor=previous, graph_model_repository=repository)
+    params = SimpleNamespace(advisor=previous, node_factory=factory)
+
+    install_extension_aware_advisor(params)
+
+    assert params.advisor is not previous
+    assert factory.advisor is params.advisor
+    assert previous.models == original_models
+    assert {'pdl_reg', 'kernel_ensemble_reg'} <= set(params.advisor.models)
+    assert 'quantile_extractor_torch' in params.advisor.data_operations
+    assert 'pdl_clf' not in params.advisor.models
+    assert params.advisor.propose_change(OptNode('pdl_reg'), ['kernel_ensemble_reg']) == {'kernel_ensemble_reg'}
+    assert not params.advisor.propose_change(OptNode('data_source_ts'), operations)
+    assert not params.advisor.propose_parent(OptNode('custom'), operations)
+
+
+def test_custom_advisor_is_not_replaced_or_given_undeclared_permissions():
+    advisor = SimpleNamespace(propose_change=lambda node, candidates: [])
+    params = SimpleNamespace(advisor=advisor)
+    install_extension_aware_advisor(params)
+    assert params.advisor is advisor
+
+
 def test_interpreter_retains_shared_branch_topology():
     graph = _graph()
     before = project_for_mutation(graph, _context())
@@ -111,6 +162,35 @@ def test_interpreter_retains_shared_branch_topology():
     root_node, feature_node, extra_node = result.nodes
     assert root_node.nodes_from == [feature_node, extra_node]
     assert extra_node.nodes_from[0] is feature_node
+
+
+def test_planned_branch_is_interpreted_without_cloning_shared_parent():
+    operator, parent = _planned()
+    before = project_for_mutation(parent.graph, operator.graph_generation_params)
+    limits = MutationLimits(max_nodes=8, max_depth=5, max_candidates=128, max_arity=3)
+    candidates = enumerate_mutation_plans(before, operator.catalog.capabilities, limits=limits)
+    plan = next(plan for plan in candidates.plans if isinstance(plan.edits[0], AddBranch))
+    outcome = apply_mutation_plan(before, plan, limits=limits)
+
+    assert isinstance(outcome, AppliedMutation)
+    graph = interpret_graph_spec(parent.graph, before, outcome.graph)
+    assert operator.graph_generation_params.verifier(graph)
+    root = graph.root_node
+    assert len(root.nodes_from) == 2
+    assert root.nodes_from[1].nodes_from[0] is root.nodes_from[0]
+
+
+def test_runtime_primary_drop_requires_confirmed_input_and_reuses_existing_data():
+    operator, parent = _planned([MutationTypesEnum.single_drop])
+    assert operator(parent) == []
+    operator.raw_input = RawInputSpec('tabular', True)
+    child = operator(parent)
+
+    assert isinstance(child, Individual)
+    assert len(child.graph.nodes) == 1
+    assert child.graph.root_node.content['name'] == 'ridge'
+    assert child.metadata['mutation_plan']['edits'][0]['kind'] == 'drop_primary'
+    assert child.metadata['mutation_plan']['raw_input'] == operator.raw_input.to_record()
 
 
 def test_advisor_veto_is_preserved_for_replacement_and_removal():

@@ -1,9 +1,19 @@
+import importlib
+
 import numpy as np
 import pytest
 from unittest.mock import patch
 
 from fedot_ind.core.kernel_learning import create_feature_generator
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import TopologicalExtractor
+
+
+def test_import_does_not_change_process_recursion_limit():
+    module = importlib.import_module(TopologicalExtractor.__module__)
+    with patch('sys.setrecursionlimit') as set_limit:
+        importlib.reload(module)
+
+    set_limit.assert_not_called()
 
 
 @pytest.mark.parametrize("invalid_params, expected_error", [

@@ -154,6 +154,7 @@ class EvaluationFailureCode(str, Enum):
 
     OBJECTIVE_EXCEPTION = "objective_exception"
     INVALID_FITNESS = "invalid_fitness"
+    OBJECTIVE_INCOMPLETE = "objective_incomplete"
 
 
 @dataclass(frozen=True)

@@ -45,8 +45,13 @@ from fedot_ind.core.optimizer.observability import (
     write_evolution_diagnostics,
 )
 from fedot_ind.core.optimizer.mutation import mutation_weights, without_resample_mutations
-from fedot_ind.core.optimizer.randomness import CandidateRandomness, install_seeded_operators, operator_random_scope
-from fedot_ind.core.optimizer.mutation_runtime import MutationExecutionStatus, install_planned_mutation
+from fedot_ind.core.optimizer.randomness import (
+    CandidateRandomness, SeededOperator, install_seeded_operators, operator_random_scope,
+)
+from fedot_ind.core.optimizer.mutation_runtime import (
+    MutationExecutionStatus, PlannedMutation, install_extension_aware_advisor, install_planned_mutation,
+)
+from fedot_ind.integration.fedot.evaluation import confirmed_input_from_objective
 from fedot_ind.core.optimizer.graph_validation import (
     IndustrialGraphVerifier,
     infer_validation_context,
@@ -82,6 +87,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self.diagnostics_recorder = EvolutionDiagnosticsRecorder()
         graph_optimizer_params = self._init_industrial_optimizer_params(
             graph_optimizer_params, self.evolution_config)
+        install_extension_aware_advisor(graph_generation_params)
         legacy_verifier = graph_generation_params.verifier
         task_type, requested_device = infer_validation_context(
             graph_generation_params)
@@ -474,6 +480,11 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
     def _optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
         self._transition_evolution(EvolutionPhase.INITIALISING)
+        mutation = getattr(self, 'mutation', None)
+        while isinstance(mutation, SeededOperator):
+            mutation = mutation.operator
+        if isinstance(mutation, PlannedMutation):
+            mutation.raw_input = confirmed_input_from_objective(objective)
         with self.timer:
             pbar = self._progressbar
             try:

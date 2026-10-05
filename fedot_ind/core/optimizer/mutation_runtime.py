@@ -21,7 +21,7 @@ from fedot_ind.core.optimizer.graph_validation import (
 from fedot_ind.core.optimizer.configuration import MutationPlanningPolicy
 from fedot_ind.core.optimizer.mutation import mutation_name
 from fedot_ind.core.optimizer.mutation_planning import (
-    AppliedMutation, DropTransform, InsertTransform, ReplaceOperation,
+    AddBranch, AppliedMutation, DropPrimaryTransform, DropTransform, InsertTransform, RawInputSpec, ReplaceOperation,
     MutationKind, MutationLimits, MutationRejection,
     apply_mutation_plan, enumerate_mutation_plans, repair_graph, select_mutation_plan,
 )
@@ -79,6 +79,35 @@ def load_runtime_operation_catalog(graph_generation_params) -> RuntimeOperationC
     return RuntimeOperationCatalog(tuple(result), tuple(unavailable))
 
 
+def install_extension_aware_advisor(graph_generation_params) -> None:
+    """Classify enabled Industrial operations without bypassing FEDOT vetoes.
+
+    Only the standard advisor is copied. A user-defined advisor/subclass retains
+    its own policy. The node factory must share the updated classification.
+    """
+    from fedot.core.pipelines.pipeline_advisor import PipelineChangeAdvisor
+
+    previous = graph_generation_params.advisor
+    if type(previous) is not PipelineChangeAdvisor:
+        return
+    task, _ = infer_validation_context(graph_generation_params)
+    declared = industrial_capability_index()
+    catalog = load_runtime_operation_catalog(graph_generation_params)
+    enabled = tuple(capability for capability in catalog.capabilities
+                    if capability.name in declared and task in capability.task_types)
+    if not enabled:
+        return
+    advisor = deepcopy(previous)
+    advisor.models = list(dict.fromkeys((*previous.models, *(
+        capability.name for capability in enabled if capability.kind is OperationKind.MODEL))))
+    advisor.data_operations = list(dict.fromkeys((*previous.data_operations, *(
+        capability.name for capability in enabled if capability.kind is OperationKind.TRANSFORM))))
+    graph_generation_params.advisor = advisor
+    factory = graph_generation_params.node_factory
+    if getattr(factory, 'advisor', None) is previous:
+        factory.advisor = advisor
+
+
 def project_for_mutation(graph, graph_generation_params) -> GraphSpec:
     """Use stable positional addresses rather than freshly generated runtime UUIDs."""
     task, device = infer_validation_context(graph_generation_params)
@@ -94,11 +123,15 @@ def project_for_mutation(graph, graph_generation_params) -> GraphSpec:
 
 def interpret_graph_spec(original, before: GraphSpec, after: GraphSpec) -> OptGraph:
     """Materialize a pure graph decision, keeping only unchanged node parameters."""
+    from fedot_ind.integration.fedot.extensions.catalog import load_industrial_extension_catalog
+    from fedot_ind.integration.fedot.extensions.contracts import IndustrialRuntimeInterface
+
     original_nodes = tuple(original.nodes)
     if len(original_nodes) != len(before.nodes):
         raise ValueError("Runtime graph does not match mutation projection")
     original_by_id = dict(zip(before.node_ids, original_nodes))
     before_by_id = {node.node_id: node for node in before.nodes}
+    declarations = {operation.name: operation for operation in load_industrial_extension_catalog().operations}
     nodes = {}
     for specification in after.nodes:
         previous = before_by_id.get(specification.node_id)
@@ -107,6 +140,11 @@ def interpret_graph_spec(original, before: GraphSpec, after: GraphSpec) -> OptGr
         else:
             # Parameters and fitted-node metadata cannot transfer to another model.
             content = {"name": specification.operation_name, "params": {}}
+            declaration = declarations.get(specification.operation_name)
+            if (declaration is not None
+                    and declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
+                    and len(declaration.tasks) > 1 and after.task_type in declaration.tasks):
+                content["params"]["task_type"] = after.task_type
         nodes[specification.node_id] = OptNode(content=content)
     for specification in after.nodes:
         nodes[specification.node_id].nodes_from = [nodes[parent] for parent in specification.parent_ids]
@@ -185,12 +223,14 @@ class PlannedMutation:
     trained agents retain their own choice and receive explicit failed experience.
     """
 
-    def __init__(self, operator, graph_generation_params, policy: MutationPlanningPolicy, observer=None):
+    def __init__(self, operator, graph_generation_params, policy: MutationPlanningPolicy, observer=None,
+                 *, raw_input: RawInputSpec | None = None):
         self.operator = operator
         self.graph_generation_params = graph_generation_params
         self.policy = policy
         self.catalog = load_runtime_operation_catalog(graph_generation_params)
         self.observer = observer
+        self.raw_input = raw_input
         self.last_execution = MutationExecution(MutationExecutionStatus.SKIPPED)
 
     def __getattr__(self, name):
@@ -220,7 +260,7 @@ class PlannedMutation:
 
     def _mutate(self, parent):
         before = project_for_mutation(parent.graph, self.graph_generation_params)
-        repair = repair_graph(before, limits=self._limits(repair=True))
+        repair = repair_graph(before, limits=self._limits(repair=True), raw_input=self.raw_input)
         if isinstance(repair, MutationRejection):
             self._record(MutationExecution(MutationExecutionStatus.REJECTED,
                          issue_codes=repair.report.error_codes if repair.report else (), message=repair.message))
@@ -233,12 +273,13 @@ class PlannedMutation:
             return None
         operations = self.catalog.capabilities
         limits = replace(self._limits(), max_candidates=max(0, self.policy.max_candidates - repair.examined))
-        candidates = enumerate_mutation_plans(prepared, operations, limits=limits)
+        candidates = enumerate_mutation_plans(prepared, operations, limits=limits, raw_input=self.raw_input)
         plans_by_kind = {kind: [] for kind in MutationKind}
         edit_kinds = {ReplaceOperation: MutationKind.REPLACE, InsertTransform: MutationKind.ADD,
-                      DropTransform: MutationKind.DROP}
+                      AddBranch: MutationKind.ADD, DropTransform: MutationKind.DROP,
+                      DropPrimaryTransform: MutationKind.DROP}
         for plan in candidates.plans:
-            outcome = apply_mutation_plan(prepared, plan, limits=limits)
+            outcome = apply_mutation_plan(prepared, plan, limits=limits, raw_input=self.raw_input)
             if isinstance(outcome, AppliedMutation) and advisor_allows_plan(
                     before, outcome.graph, parent.graph, self.graph_generation_params.advisor):
                 plans_by_kind[edit_kinds[type(plan.edits[0])]].append(plan)
@@ -276,7 +317,7 @@ class PlannedMutation:
                 self._record(MutationExecution(MutationExecutionStatus.NO_ADMISSIBLE_PLAN, action=name,
                                                examined=examined))
                 return None
-            outcome = apply_mutation_plan(prepared, plan, limits=self._limits())
+            outcome = apply_mutation_plan(prepared, plan, limits=self._limits(), raw_input=self.raw_input)
             if not isinstance(outcome, AppliedMutation):
                 raise RuntimeError("An enumerated mutation plan could not be applied")
             graph = interpret_graph_spec(parent.graph, before, outcome.graph)
@@ -289,7 +330,7 @@ class PlannedMutation:
                 graph, requirements=self.operator.requirements,
                 graph_gen_params=self.graph_generation_params, parameters=self.operator.parameters)
             changed = project_for_mutation(graph, self.graph_generation_params)
-            fixed = repair_graph(changed, limits=self._limits(repair=True))
+            fixed = repair_graph(changed, limits=self._limits(repair=True), raw_input=self.raw_input)
             if isinstance(fixed, MutationRejection):
                 self._record(MutationExecution(MutationExecutionStatus.REJECTED, action=name,
                              issue_codes=fixed.report.error_codes if fixed.report else (), message=fixed.message))

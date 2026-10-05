@@ -47,6 +47,34 @@ def test_manifest_is_valid_and_has_unique_operation_names():
     assert manifest.transforms
 
 
+@pytest.mark.parametrize("task", ["classification", "regression"])
+def test_bagging_extension_transforms_unlabelled_data_after_fit(task):
+    from fedot_ind.integration.fedot.extensions.catalog import load_industrial_extension_catalog
+
+    declaration = next(
+        operation for operation in load_industrial_extension_catalog().operations
+        if operation.name == "bagging"
+    )
+    runtime = make_deferred_factory(declaration)({"task_type": task})
+    features = np.arange(24, dtype=float).reshape(6, 4)
+    target = np.arange(6, dtype=float) if task == "regression" else np.array([0, 0, 0, 1, 1, 1])
+    assert runtime.fit(features, target) is runtime
+    result = runtime.transform(features)
+    assert result.shape == (6,)
+    assert np.isfinite(result).all()
+    np.testing.assert_array_equal(runtime.transform(features.copy()), result)
+
+
+@pytest.mark.parametrize("operation", ["bagging", "minirocket_extractor", "wavelet_basis"])
+def test_multitask_transform_schema_accepts_explicit_task(operation):
+    from fedot.extensions.parameter_rules import resolve_extension_params
+
+    manifest = build_industrial_extension_manifest()
+    specification = next(spec for spec in manifest.transforms if spec.name == operation)
+    assert "task_type" in specification.hyperparams_schema.optional
+    assert resolve_extension_params(specification, {"task_type": "regression"}).is_right()
+
+
 def test_manifest_does_not_shadow_builtin_fedot_operations():
     manifest = build_industrial_extension_manifest()
     extension_names = {spec.name for spec in manifest.models + manifest.transforms}

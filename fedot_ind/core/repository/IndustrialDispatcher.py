@@ -32,6 +32,7 @@ from fedot_ind.core.optimizer.observability import (
     graph_identity,
 )
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+from fedot_ind.integration.fedot.evaluation import industrial_failure_from_fedot
 
 
 EXPECTED_EVALUATION_EXCEPTIONS = (
@@ -205,10 +206,17 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                 failure=evaluation_failure,
             )
         elif not fitness.valid:
+            from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
+            evaluator = getattr(getattr(self, '_objective_eval', None), '__self__', None)
+            native_failure = (
+                industrial_failure_from_fedot(evaluator.last_outcome)
+                if isinstance(evaluator, PipelineObjectiveEvaluateWithTensorData)
+                else None
+            )
             outcome = EvaluationFailed(
                 duration_seconds=duration,
                 evaluated_at=eval_time_iso,
-                failure=EvaluationFailure(
+                failure=native_failure or EvaluationFailure(
                     code=EvaluationFailureCode.INVALID_FITNESS,
                     error_type='InvalidFitness',
                     message='Objective returned invalid fitness without raising an exception',

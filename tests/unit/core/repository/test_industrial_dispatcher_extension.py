@@ -91,6 +91,30 @@ def test_null_fitness_is_recorded_as_structured_evaluation_failure():
     assert result.metadata["evaluation_failure"]["code"] == "invalid_fitness"
 
 
+def test_dispatcher_preserves_native_fedot_failure_instead_of_invalid_fitness():
+    from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
+    from fedot.core.optimisers.objective.evaluation_contracts import (
+        EvaluationFailure, EvaluationIncomplete, FailureKind,
+    )
+
+    evaluator = object.__new__(PipelineObjectiveEvaluateWithTensorData)
+    evaluator.last_outcome = EvaluationIncomplete(
+        'graph', 0, (), (), EvaluationFailure(FailureKind.DATA, 'no validation data'))
+    dispatcher = object.__new__(IndustrialDispatcher)
+    dispatcher._adapter = SimpleNamespace(adapt_func=lambda function: function)
+    dispatcher.logger = SimpleNamespace(info=lambda message: None)
+    dispatcher._objective_eval = evaluator.evaluate
+    dispatcher._evaluate_graph = lambda graph: (null_fitness(), graph)
+
+    result = dispatcher.eval_ind('graph', 'individual').compute(scheduler='synchronous')
+
+    assert result.metadata['evaluation_failure'] == {
+        'code': 'objective_incomplete',
+        'error_type': 'FedotEvaluation:data',
+        'message': 'data: no validation data',
+    }
+
+
 @pytest.mark.parametrize("error_type", [ValueError, AssertionError])
 def test_expected_objective_error_is_preserved_as_typed_failure(error_type):
     dispatcher = object.__new__(IndustrialDispatcher)

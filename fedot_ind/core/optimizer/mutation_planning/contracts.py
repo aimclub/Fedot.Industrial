@@ -60,6 +60,27 @@ def _operation(value: OperationCapabilities) -> None:
 
 
 @dataclass(frozen=True)
+class RawInputSpec:
+    """Confirmed homogeneous input, using the normalized GraphSpec data type.
+
+    This describes the caller's existing data, not an operation's possible
+    input types. It is inapplicable to explicit sources or multimodal graphs.
+    """
+
+    data_type: str
+    has_target: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.data_type, str) or not self.data_type.strip():
+            raise ValueError("data_type must be a non-empty string")
+        if not isinstance(self.has_target, bool):
+            raise TypeError("has_target must be boolean")
+
+    def to_record(self) -> dict[str, object]:
+        return {"data_type": self.data_type, "has_target": self.has_target}
+
+
+@dataclass(frozen=True)
 class ReplaceOperation:
     node_id: str
     operation: OperationCapabilities
@@ -95,6 +116,31 @@ class DropTransform:
 
 
 @dataclass(frozen=True)
+class AddBranch:
+    """Reuse an existing parent of child, retaining its original incoming edge."""
+
+    parent_id: str
+    child_id: str
+    node_id: str
+    operation: OperationCapabilities
+
+    def __post_init__(self) -> None:
+        for node_id in (self.parent_id, self.child_id, self.node_id):
+            _node_id(node_id)
+        _operation(self.operation)
+
+
+@dataclass(frozen=True)
+class DropPrimaryTransform:
+    """Remove a primary transform only against a confirmed RawInputSpec."""
+
+    node_id: str
+
+    def __post_init__(self) -> None:
+        _node_id(self.node_id)
+
+
+@dataclass(frozen=True)
 class DeduplicateParents:
     """Repair only repeated references to the same node, not equal operations."""
 
@@ -104,7 +150,8 @@ class DeduplicateParents:
         _node_id(self.node_id)
 
 
-GraphEdit = ReplaceOperation | InsertTransform | DropTransform | DeduplicateParents
+GraphEdit = (ReplaceOperation | InsertTransform | DropTransform | AddBranch
+             | DropPrimaryTransform | DeduplicateParents)
 
 
 def edit_record(edit: GraphEdit) -> dict[str, object]:
@@ -116,6 +163,11 @@ def edit_record(edit: GraphEdit) -> dict[str, object]:
                 "child_id": edit.child_id, "operation": edit.operation.to_record()}
     if isinstance(edit, DropTransform):
         return {"kind": "drop", "node_id": edit.node_id}
+    if isinstance(edit, AddBranch):
+        return {"kind": "add_branch", "node_id": edit.node_id, "parent_id": edit.parent_id,
+                "child_id": edit.child_id, "operation": edit.operation.to_record()}
+    if isinstance(edit, DropPrimaryTransform):
+        return {"kind": "drop_primary", "node_id": edit.node_id}
     if isinstance(edit, DeduplicateParents):
         return {"kind": "deduplicate_parents", "node_id": edit.node_id}
     raise TypeError("Unsupported graph edit type")
@@ -125,6 +177,7 @@ def edit_record(edit: GraphEdit) -> dict[str, object]:
 class MutationPlan:
     source_signature: str
     edits: tuple[GraphEdit, ...]
+    raw_input: RawInputSpec | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_signature, str) or not self.source_signature:
@@ -132,13 +185,19 @@ class MutationPlan:
         if not isinstance(self.edits, tuple) or not self.edits:
             raise ValueError("edits must be a non-empty tuple")
         if any(not isinstance(edit, (ReplaceOperation, InsertTransform,
-                                     DropTransform, DeduplicateParents)) for edit in self.edits):
+                                     DropTransform, AddBranch, DropPrimaryTransform,
+                                     DeduplicateParents)) for edit in self.edits):
             raise TypeError("Unsupported graph edit type")
+        if self.raw_input is not None and not isinstance(self.raw_input, RawInputSpec):
+            raise TypeError("raw_input must be a RawInputSpec or None")
 
     def to_record(self) -> dict[str, object]:
-        return {"schema_version": "industrial_mutation_plan@1",
-                "source_signature": self.source_signature,
-                "edits": [edit_record(edit) for edit in self.edits]}
+        record = {"schema_version": "industrial_mutation_plan@1",
+                  "source_signature": self.source_signature,
+                  "edits": [edit_record(edit) for edit in self.edits]}
+        if self.raw_input is not None:
+            record["raw_input"] = self.raw_input.to_record()
+        return record
 
 
 @dataclass(frozen=True)
