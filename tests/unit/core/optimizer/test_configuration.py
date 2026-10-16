@@ -19,6 +19,7 @@ from fedot_ind.core.optimizer.configuration import (
     ResourceBudget,
     normalize_evolution_config,
 )
+from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
 
 
 @st.composite
@@ -32,6 +33,9 @@ def evolution_configs(draw):
         ),
     ))
     return EvolutionConfig(
+        evaluation_execution=EvaluationExecutionConfig(
+            backend=draw(st.sampled_from(tuple(EvaluationBackend))),
+        ),
         mutation_planning=MutationPlanningPolicy(
             enabled=draw(st.booleans()), max_candidates=draw(st.integers(min_value=1, max_value=200)),
             max_repair_edits=draw(st.integers(min_value=0, max_value=4)),
@@ -172,6 +176,7 @@ def test_configuration_normalization_is_deterministic(config):
 @given(evolution_configs())
 def test_legacy_and_canonical_shapes_are_semantically_equivalent(config):
     legacy = {
+        "evaluation_execution": config.evaluation_execution.to_record(),
         "mutation_planning": config.mutation_planning.to_record(),
         "random_seed": config.random_seed,
         "mutation_agent": config.mutation_agent.value,

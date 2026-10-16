@@ -7,6 +7,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
 
+from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
+from fedot_ind.core.optimizer.evaluation.contracts import positive_seconds
+
 
 EVOLUTION_CONFIG_SCHEMA = "industrial_evolution_config@1"
 
@@ -155,6 +158,7 @@ class EvolutionConfig:
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     random_seed: int | None = None
     mutation_planning: MutationPlanningPolicy = field(default_factory=MutationPlanningPolicy)
+    evaluation_execution: EvaluationExecutionConfig = field(default_factory=EvaluationExecutionConfig)
 
     def __post_init__(self) -> None:
         if not isinstance(self.mutation_agent, MutationAgentType):
@@ -167,6 +171,8 @@ class EvolutionConfig:
             raise ValueError("execution_policy must be an ExecutionPolicy")
         if not isinstance(self.mutation_planning, MutationPlanningPolicy):
             raise ValueError("mutation_planning must be a MutationPlanningPolicy")
+        if not isinstance(self.evaluation_execution, EvaluationExecutionConfig):
+            raise ValueError("evaluation_execution must be an EvaluationExecutionConfig")
         if self.random_seed is not None:
             if isinstance(self.random_seed, bool) or not isinstance(self.random_seed, int) or self.random_seed < 0:
                 raise ValueError("random_seed must be a non-negative integer or null")
@@ -183,6 +189,7 @@ class EvolutionConfig:
             "execution_policy": self.execution_policy.to_record(),
             "random_seed": self.random_seed,
             "mutation_planning": self.mutation_planning.to_record(),
+            "evaluation_execution": self.evaluation_execution.to_record(),
         }
 
     def with_initial_graphs_prevalidated(self, value: bool) -> "EvolutionConfig":
@@ -196,6 +203,7 @@ class EvolutionConfig:
 
 
 _ROOT_FIELDS = frozenset({
+    "evaluation_execution",
     "mutation_planning",
     "random_seed",
     "schema_version",
@@ -372,10 +380,13 @@ def normalize_evolution_config(
     resources = _mapping_section(payload, "resource_budget", violations)
     policy = _mapping_section(payload, "execution_policy", violations)
     planning = _mapping_section(payload, "mutation_planning", violations)
+    evaluation = _mapping_section(payload, "evaluation_execution", violations)
     _collect_unknown_fields(mutation, _MUTATION_FIELDS, "mutation", violations)
     _collect_unknown_fields(resources, _RESOURCE_FIELDS, "resource_budget", violations)
     _collect_unknown_fields(policy, _POLICY_FIELDS, "execution_policy", violations)
     _collect_unknown_fields(planning, _PLANNING_FIELDS, "mutation_planning", violations)
+    _collect_unknown_fields(evaluation, frozenset(EvaluationExecutionConfig().to_record()),
+                            "evaluation_execution", violations)
 
     defaults = EvolutionConfig()
     random_seed = payload.get("random_seed")
@@ -517,6 +528,22 @@ def normalize_evolution_config(
         max_nodes=_positive_integer(planning.get("max_nodes", defaults.mutation_planning.max_nodes),
                                     "mutation_planning.max_nodes", violations),
     )
+    evaluation_backend = _enum_value(EvaluationBackend, evaluation.get("backend", "legacy"),
+                                     "evaluation_execution.backend", violations)
+    timeouts = {}
+    for name in ("candidate_timeout_seconds", "total_timeout_seconds"):
+        value = evaluation.get(name)
+        try:
+            positive_seconds(value, name)
+        except ValueError as error:
+            violations.append(EvolutionConfigViolation(
+                EvolutionConfigViolationCode.INVALID_VALUE, f"evaluation_execution.{name}", str(error), value))
+            value = None
+        timeouts[name] = value
+    if evaluation_backend is EvaluationBackend.LEGACY and any(v is not None for v in timeouts.values()):
+        violations.append(EvolutionConfigViolation(
+            EvolutionConfigViolationCode.CONFLICTING_FIELDS, "evaluation_execution",
+            "legacy backend cannot enforce local executor deadlines"))
     if violations:
         raise EvolutionConfigError(tuple(violations))
     return EvolutionConfig(
@@ -526,4 +553,5 @@ def normalize_evolution_config(
         execution_policy=execution_policy,
         random_seed=random_seed,
         mutation_planning=mutation_planning,
+        evaluation_execution=EvaluationExecutionConfig(backend=evaluation_backend, **timeouts),
     )

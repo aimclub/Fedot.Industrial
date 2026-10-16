@@ -19,6 +19,8 @@ from golem.core.optimisers.populational_optimizer import _try_unfit_graph
 from pymonad.either import Either
 
 from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
+from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend
+from fedot_ind.core.optimizer.evaluation.dispatcher import LocalEvaluationDispatcher
 from fedot_ind.core.repository.constanst_repository import FEDOT_MUTATION_STRATEGY
 from fedot_ind.core.optimizer.configuration import (
     EvolutionConfig,
@@ -110,12 +112,17 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         # self.operators.remove(self.crossover)
         self.evaluated_population = []
         self.requirements = requirements
-        self.eval_dispatcher = IndustrialDispatcher(
+        execution_config = self.evolution_config.evaluation_execution
+        dispatcher_type = (IndustrialDispatcher if execution_config.backend is EvaluationBackend.LEGACY
+                           else LocalEvaluationDispatcher)
+        execution_args = ({} if dispatcher_type is IndustrialDispatcher else
+                          {"config": execution_config, "random_seed": self.evolution_config.random_seed})
+        self.eval_dispatcher = dispatcher_type(
             adapter=graph_generation_params.adapter,
             n_jobs=requirements.n_jobs,
             graph_cleanup_fn=_try_unfit_graph,
             delegate_evaluator=graph_generation_params.remote_evaluator,
-            diagnostics_recorder=self.diagnostics_recorder)
+            diagnostics_recorder=self.diagnostics_recorder, **execution_args)
 
     @property
     def diagnostics(self) -> EvolutionDiagnosticsSnapshot:
@@ -232,7 +239,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 initial_individuals = self._extend_population(initial_individuals, pop_size)
             label = 'extended_initial_assumptions'
         init_population = evaluator(initial_individuals)
-        if not init_population and self.retry_initial_population_without_timer:
+        if (not init_population and self.retry_initial_population_without_timer
+                and getattr(self.eval_dispatcher, 'allows_untimed_retry', True)):
             self.log.warning(
                 'Initial population was not evaluated within the shared time limit; '
                 'retrying once without the timer guard.'
@@ -428,7 +436,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
     def get_structure_unique_population(self, population: PopulationT, evaluator: EvaluationOperator) -> PopulationT:
         """ Increases structurally uniqueness of population to prevent stagnation in optimization process.
-        Returned population may be not entirely unique, if the size of unique population is lower than MIN_POP_SIZE. """
+        Returned population may contain duplicates if its unique part is smaller than MIN_POP_SIZE.
+        """
         unique_population_with_ids = {ind.graph.descriptive_id: ind for ind in population}
         unique_population = list(unique_population_with_ids.values())
         is_population_too_small = len(unique_population) < self.min_pop_size

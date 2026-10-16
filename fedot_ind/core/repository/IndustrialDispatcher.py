@@ -21,9 +21,7 @@ from fedot_ind.core.optimizer.domain import (
     EvaluationFailed,
     EvaluationFailure,
     EvaluationFailureCode,
-    EvaluationReused,
     EvaluationSucceeded,
-    evaluation_outcome_from_metadata,
     evaluation_outcome_to_metadata,
 )
 from fedot_ind.core.optimizer.observability import (
@@ -33,6 +31,7 @@ from fedot_ind.core.optimizer.observability import (
 )
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 from fedot_ind.integration.fedot.evaluation import industrial_failure_from_fedot
+from fedot_ind.core.optimizer.evaluation.diagnostics import record_evaluation_results
 
 
 EXPECTED_EVALUATION_EXCEPTIONS = (
@@ -136,29 +135,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return successful_evals
 
     def _record_evaluation_results(self, evaluation_results) -> None:
-        recorder = getattr(self, 'diagnostics_recorder', None)
-        if recorder is None:
-            return
-        for result in evaluation_results:
-            if result is None:
-                continue
-            metadata = dict(result.metadata or {})
-            outcome = evaluation_outcome_from_metadata(metadata)
-            failure = outcome.failure if isinstance(outcome, EvaluationFailed) else None
-            if isinstance(outcome, EvaluationFailed):
-                status = EvaluationStatus.FAILED
-            elif isinstance(outcome, EvaluationReused):
-                status = EvaluationStatus.REUSED
-            else:
-                status = EvaluationStatus.SUCCEEDED
-            recorder.record_evaluation(
-                individual_id=str(result.uid_of_individual),
-                graph_id=graph_identity(result.graph),
-                status=status,
-                duration_seconds=outcome.duration_seconds,
-                error_type=failure.error_type if failure is not None else None,
-                error_message=failure.message if failure is not None else None,
-            )
+        record_evaluation_results(getattr(self, 'diagnostics_recorder', None), evaluation_results)
 
     def _record_reused_individuals(self, individuals) -> None:
         recorder = getattr(self, 'diagnostics_recorder', None)

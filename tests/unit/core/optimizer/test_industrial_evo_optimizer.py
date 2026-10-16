@@ -224,14 +224,17 @@ def test_adaptive_agent_learning_uses_its_own_seed_sequence(seed):
 
 
 @pytest.mark.parametrize("enabled", [True, False])
-def test_real_optimizer_completes_generation_with_builtin_graph_objective(monkeypatch, tmp_path, enabled):
-    """Exercise real GOLEM reproduction and Dask with no ML/extension-model dependency."""
+@pytest.mark.parametrize("execution_backend", ["legacy", "sequential", "process"])
+def test_real_optimizer_completes_generation_with_builtin_graph_objective(
+        monkeypatch, tmp_path, enabled, execution_backend):
+    """Exercise real GOLEM reproduction through each supported execution boundary."""
     import dask
     from golem.core.optimisers.objective import Objective
     from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
     from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
     from benchmark.industrial.experiments.mutation_planning.runner import _environment
     from fedot_ind.core.optimizer.configuration import ExecutionPolicy, MutationStrategy
+    from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
     from fedot_ind.core.repository import IndustrialDispatcher as dispatcher_module
 
     monkeypatch.setattr(dispatcher_module, "industrial_extension_scope", nullcontext)
@@ -247,6 +250,7 @@ def test_real_optimizer_completes_generation_with_builtin_graph_objective(monkey
         GPAlgorithmParameters(pop_size=2, max_pop_size=3, mutation_prob=1.0,
                               mutation_types=[MutationTypesEnum.single_add, MutationTypesEnum.single_change]),
         EvolutionConfig(random_seed=42, mutation_strategy=MutationStrategy.GROWTH,
+                        evaluation_execution=EvaluationExecutionConfig(EvaluationBackend(execution_backend)),
                         mutation_planning=MutationPlanningPolicy(enabled=enabled),
                         resource_budget=ResourceBudget(2, 2, 8),
                         execution_policy=ExecutionPolicy(diagnostics_output_dir=str(tmp_path / "diagnostics"))))
