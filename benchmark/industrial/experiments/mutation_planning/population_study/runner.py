@@ -66,7 +66,7 @@ def execute_worker(job_file, timeout):
     environment = dict(os.environ)
     environment.update({key: '1' for key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
                                              'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')})
-    environment['CUDA_VISIBLE_DEVICES'] = ''
+    environment['CUDA_VISIBLE_DEVICES'] = '-1'
     environment['PYTHONHASHSEED'] = '0'
     command = [sys.executable, '-m',
                'benchmark.industrial.experiments.mutation_planning.population_study.worker', '--job', str(job_file)]

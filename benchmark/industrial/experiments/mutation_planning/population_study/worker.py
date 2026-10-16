@@ -111,6 +111,8 @@ def run_trial(config, job, root):
     from benchmark.industrial.experiments.mutation_planning.runner import _environment
 
     torch.set_num_threads(1)
+    if torch.cuda.is_available():
+        raise RuntimeError('CPU study admission failed: CUDA must be hidden before model training')
     torch.manual_seed(job['seed'])
     data = load_study_data(config, job['scenario'], job['seed'])
     task = job['scenario']['task']

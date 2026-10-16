@@ -120,3 +120,36 @@ def test_forecast_split_never_exposes_future_values_to_training(tmp_path):
     assert first.scale == second.scale
     assert first.source['split'] == {'train_end': 26, 'validation_end': 30, 'test_end': 34}
     np.testing.assert_equal(first.test.target.numpy().reshape(-1), [30, 31, 32, 33])
+
+
+def test_cpu_admission_rejects_visible_cuda_before_data_or_training(monkeypatch, tmp_path):
+    from benchmark.industrial.experiments.mutation_planning.population_study import worker
+    monkeypatch.setattr(worker.torch.cuda, 'is_available', lambda: True)
+    monkeypatch.setattr(worker, 'load_study_data', lambda *args: pytest.fail('Data was loaded before admission'))
+    with pytest.raises(RuntimeError, match='admission'):
+        worker.run_trial(load_protocol().to_record(), experiment_matrix(load_protocol())[0], tmp_path)
+
+
+def test_worker_environment_hides_cuda_with_explicit_windows_safe_value(monkeypatch, tmp_path):
+    from benchmark.industrial.experiments.mutation_planning.population_study import runner
+    seen = {}
+
+    class Process:
+        returncode = 0
+
+        def __init__(self, command, **kwargs):
+            seen.update(kwargs['env'])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def poll(self):
+            return 0
+
+    monkeypatch.setattr(runner.subprocess, 'Popen', Process)
+    assert runner.execute_worker(tmp_path / 'job.json', 1) == 0
+    assert seen['CUDA_VISIBLE_DEVICES'] == '-1'
+    assert all(seen[key] == '1' for key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'))
