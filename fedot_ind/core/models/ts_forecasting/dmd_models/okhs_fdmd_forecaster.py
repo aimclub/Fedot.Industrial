@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from numbers import Integral
 from typing import Any, Optional
 
 import numpy as np
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
     from fedot.core.data.input_data.data import InputData, OutputData
-    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import (
+        ModelImplementation,
+    )
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
@@ -106,7 +109,13 @@ def normalize_okhs_fdmd_params(
         key: value
         for key, value in OKHS_FDMD_DEFAULT_PARAMS.items()
     }
-    for key, value in dict(params or {}).items():
+    user_params = dict(params or {})
+    # FEDOT transports its task horizon separately from the model's constructor parameters.
+    task_horizon = user_params.pop('forecast_length', forecast_horizon)
+    if (isinstance(task_horizon, bool) or not isinstance(task_horizon, Integral)
+            or task_horizon <= 0 or task_horizon != forecast_horizon):
+        raise ValueError('forecast_length must be a positive integer matching forecast_horizon')
+    for key, value in user_params.items():
         if value is not None:
             resolved[key] = value
 
@@ -301,10 +310,11 @@ class OKHSFDMDForecaster:
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
-                f'OKHSFDMDForecaster was trained for horizon={self.forecast_horizon}, got requested horizon={horizon}.'
+                f'OKHSFDMDForecaster was trained for horizon={self.forecast_horizon}, '
+                f'got requested horizon={horizon}.'
             )
-        source_series = self.training_history_ if time_series is None else np.asarray(time_series, dtype=float).reshape(
-            -1)
+        source_series = (self.training_history_ if time_series is None
+                         else np.asarray(time_series, dtype=float).reshape(-1))
         self.last_prediction_diagnostics_ = {
             'source_series_length': int(len(source_series)),
         }
