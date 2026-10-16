@@ -59,6 +59,10 @@ class DataCheck:
         self.fit_stage = fit_stage
         self.label_encoder = None
 
+    def _require_training_target(self, target):
+        if self.fit_stage and self.task in ('classification', 'regression') and target is None:
+            raise ValueError('Training data requires a target for classification and regression')
+
     def __check_features_and_target(self, input_data, data_type):
         if data_type == 'torchvision':
             X, multi_features, y = input_data[0].data.cpu().detach(
@@ -68,7 +72,10 @@ class DataCheck:
         else:
             X, y = input_data.features, input_data.target
 
+        self._require_training_target(y)
         multi_features, features = check_multivariate_data(X)
+        if y is None:
+            return dict(features=features, target=None, multi_features=multi_features, multi_target=False)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
         target = y.values if isinstance(y, (pd.DataFrame, pd.Series)) else y
         target = target.reshape(-1, 1) if multi_features and not multi_target else np.ravel(target).reshape(-1, 1)
@@ -110,9 +117,9 @@ class DataCheck:
             left_function=lambda dict: dict,
             right_function=lambda dict: self._encode_target(dict))
 
-        def encode_idx(dict_with_target): return Either(value=dict_with_target,
-                                                        monoid=[dict_with_target,
-                                                                not self.data_convertor.is_torchvision_dataset]).either(
+        def encode_idx(dict_with_target): return Either(
+            value=dict_with_target,
+            monoid=[dict_with_target, not self.data_convertor.is_torchvision_dataset]).either(
             right_function=lambda dict: dict | {'idx': np.arange(dict['features'].shape[0])},
             left_function=lambda dict: dict | {'idx': np.arange(len(dict['features'][0]))})
 
@@ -158,7 +165,7 @@ class DataCheck:
         def non_forecasting_transformation(data): return \
             Either(value=data, monoid=[data, self.data_convertor.is_tuple]).either(
                 right_function=lambda r: self.__check_features_and_target(r, 'tuple'),
-                left_function=lambda l: self.__check_features_and_target(l, 'torchvision'))
+                left_function=lambda item: self.__check_features_and_target(item, 'torchvision'))
 
         self.input_data = Either(value=dict(features=self.input_data,
                                             multivariate=False,
@@ -189,6 +196,8 @@ class DataCheck:
         - Converts features to torch format using NumpyConverter.
 
         """
+        if self.input_data.target is None:
+            return
         if self.task == 'regression':
             self.input_data.target = self.input_data.target.squeeze().astype(float)
         elif self.task == 'classification':
@@ -260,7 +269,10 @@ class DataCheck:
 
         """
 
-        return self.input_data if self.is_already_fedot_type else self._process_input_data()
+        if self.is_already_fedot_type:
+            self._require_training_target(self.input_data.target)
+            return self.input_data
+        return self._process_input_data()
 
     def get_target_encoder(self):
         return self.label_encoder

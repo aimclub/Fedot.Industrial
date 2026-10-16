@@ -242,7 +242,9 @@ def test_real_optimizer_completes_generation_with_builtin_graph_objective(
         {"name": "test", "task": "regression", "operations": ["scaling", "normalization", "ridge", "dtreg"],
          "initial_chain": ["scaling", "ridge"]}, {"max_depth": 4, "max_arity": 3})
     requirements.num_of_generations = 2
-    requirements.timeout = timedelta(seconds=20)
+    # This checks completed generations, not spawn latency on the host running pytest.
+    # Deadline enforcement has separate executor tests with bounded objectives.
+    requirements.timeout = timedelta(minutes=3)
     requirements.agent_dir = str(tmp_path)
     objective = Objective({"size": lambda pipeline: float(len(pipeline.nodes))})
     optimizer = IndustrialEvoOptimizer(
