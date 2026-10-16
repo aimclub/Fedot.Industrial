@@ -133,6 +133,8 @@ def test_cpu_admission_rejects_visible_cuda_before_data_or_training(monkeypatch,
 def test_worker_environment_hides_cuda_with_explicit_windows_safe_value(monkeypatch, tmp_path):
     from benchmark.industrial.experiments.mutation_planning.population_study import runner
     seen = {}
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '0')
+    monkeypatch.setenv('PYTORCH_NVML_BASED_CUDA_CHECK', '0')
 
     class Process:
         returncode = 0
@@ -153,5 +155,69 @@ def test_worker_environment_hides_cuda_with_explicit_windows_safe_value(monkeypa
     monkeypatch.setattr(runner.subprocess, 'Popen', Process)
     assert runner.execute_worker(tmp_path / 'job.json', 1) == 0
     assert seen['CUDA_VISIBLE_DEVICES'] == '-1'
+    assert seen['PYTORCH_NVML_BASED_CUDA_CHECK'] == '1'
     assert seen['command'][1:5] == ['-u', '-X', 'faulthandler', '-m']
     assert all(seen[key] == '1' for key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'))
+    assert runner.os.environ['CUDA_VISIBLE_DEVICES'] == '0'
+    assert runner.os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] == '0'
+
+
+@pytest.mark.parametrize('message', [
+    'Windows fatal exception: access violation', 'Fatal Python error: Aborted',
+])
+def test_native_fault_in_worker_log_is_not_clean_evidence(tmp_path, message):
+    from benchmark.industrial.experiments.mutation_planning.population_study.runner import native_crash_message
+    log = tmp_path / 'run.log'
+    log.write_text('search-finished\n' + message + '\nThread ...\n', encoding='utf-8')
+    assert native_crash_message(log) == message
+
+
+def test_ordinary_worker_log_does_not_imply_a_native_fault(tmp_path):
+    from benchmark.industrial.experiments.mutation_planning.population_study.runner import native_crash_message
+    log = tmp_path / 'run.log'
+    log.write_text('search-finished\nNo Fatal Python error: recorded\n', encoding='utf-8')
+    assert native_crash_message(log) is None
+
+
+@pytest.mark.parametrize('interrupted', [False, True])
+def test_coordinator_preserves_but_rejects_published_result_after_native_fault(monkeypatch, tmp_path, interrupted):
+    from benchmark.industrial.experiments.mutation_planning.population_study import runner
+    protocol = load_protocol()
+    job = experiment_matrix(protocol)[0]
+    key = f"{job['scenario']['name']}:{job['seed']}"
+    monkeypatch.setattr(runner, '_source_snapshot', lambda: {})
+    monkeypatch.setattr(runner, 'freeze_run', lambda *args: {
+        'matrix': [job], 'protocol': protocol.to_record(), 'implementation_sha256': {},
+        'data_sources': {key: {}},
+    })
+
+    def native_fault(job_file, timeout):
+        runner.write_json(job_file.with_name('result.json'), {**job, 'status': 'succeeded', 'source': {}})
+        job_file.with_name('run.log').write_text('Windows fatal exception: access violation\n', encoding='utf-8')
+        return 0
+
+    monkeypatch.setattr(runner, 'execute_worker', native_fault)
+    if interrupted:
+        write_json = runner.write_json
+
+        def interrupt_failure_publication(path, value):
+            if path.name == 'coordinator_failure.json':
+                raise KeyboardInterrupt
+            write_json(path, value)
+
+        monkeypatch.setattr(runner, 'write_json', interrupt_failure_publication)
+        with pytest.raises(KeyboardInterrupt):
+            runner.run_study(tmp_path, worktree=tmp_path, execute=True)
+        monkeypatch.setattr(runner, 'write_json', write_json)
+        monkeypatch.setattr(runner, 'execute_worker', lambda *args: pytest.fail('unexpected retry'))
+    report = runner.run_study(tmp_path, worktree=tmp_path, execute=True)
+    assert report['status'] == 'incomplete'
+    record, = json.loads((tmp_path / 'records.json').read_text(encoding='utf-8'))
+    assert record['status'] == 'failed'
+    assert 'native fault' in record['error_message']
+    directory, = tmp_path.glob('run_*')
+    assert json.loads((directory / 'process.json').read_text(encoding='utf-8'))['exit_code'] == 0
+    assert json.loads((directory / 'result.json').read_text(encoding='utf-8'))['status'] == 'succeeded'
+    # Resume consumes the explicit failure; it must not silently retry or accept the raw result.
+    monkeypatch.setattr(runner, 'execute_worker', lambda *args: pytest.fail('unexpected retry'))
+    assert runner.run_study(tmp_path, worktree=tmp_path, execute=True) == report

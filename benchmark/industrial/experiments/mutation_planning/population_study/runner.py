@@ -52,7 +52,8 @@ def freeze_run(protocol, root, worktree):
                 'environment': {'python': platform.python_version(), 'platform': platform.platform(),
                                 'packages': {name: version(name) for name in
                                              ('numpy', 'scipy', 'pandas', 'statsmodels', 'torch', 'scikit-learn',
-                                              'dask', 'psutil', 'cloudpickle', 'threadpoolctl')}}}
+                                              'thegolem', 'dask', 'psutil', 'cloudpickle', 'threadpoolctl',
+                                              'joblib', 'pymonad')}}}
     path = root / 'frozen_manifest.json'
     if path.exists():
         if canonical(json.loads(path.read_text(encoding='utf-8'))) != canonical(manifest):
@@ -68,6 +69,7 @@ def execute_worker(job_file, timeout):
     environment.update({key: '1' for key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
                                              'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')})
     environment['CUDA_VISIBLE_DEVICES'] = '-1'
+    environment['PYTORCH_NVML_BASED_CUDA_CHECK'] = '1'
     environment['PYTHONHASHSEED'] = '0'
     command = [sys.executable, '-u', '-X', 'faulthandler', '-m',
                'benchmark.industrial.experiments.mutation_planning.population_study.worker', '--job', str(job_file)]
@@ -104,6 +106,15 @@ def execute_worker(job_file, timeout):
     return process.returncode
 
 
+def native_crash_message(log_path):
+    """A recorded native fault is not clean evidence even with a zero exit code."""
+    with Path(log_path).open(encoding='utf-8', errors='replace') as stream:
+        for line in stream:
+            if line.startswith(('Windows fatal exception:', 'Fatal Python error:')):
+                return line.strip()
+    return None
+
+
 def run_study(output_dir, *, config_path=None, worktree=None, execute=False, limit=None):
     if limit is not None and (type(limit) is not int or limit < 1):
         raise ValueError('limit must be a positive integer or null')
@@ -134,6 +145,9 @@ def run_study(output_dir, *, config_path=None, worktree=None, execute=False, lim
                     raise RuntimeError(f'Worker exited {exit_code} without a result')
                 if exit_code != 0:
                     raise RuntimeError(f'Worker exited {exit_code}; published result is not successful evidence')
+                native_crash = native_crash_message(directory / 'run.log')
+                if native_crash:
+                    raise RuntimeError(f'Worker recorded a native fault: {native_crash}')
             except (RuntimeError, TimeoutError, MemoryError) as error:
                 write_json(failure_path, {**job, 'status': 'failed', 'error_type': type(error).__name__,
                                           'error_message': str(error)})
@@ -141,6 +155,12 @@ def run_study(output_dir, *, config_path=None, worktree=None, execute=False, lim
         if record.get('status') == 'succeeded' and (
                 not exit_path.exists() or json.loads(exit_path.read_text(encoding='utf-8'))['exit_code'] != 0):
             raise ValueError('Successful evidence requires a recorded zero process exit code')
+        if record.get('status') == 'succeeded':
+            native_crash = native_crash_message(directory / 'run.log')
+            if native_crash:
+                record = {**job, 'status': 'failed', 'error_type': 'RuntimeError',
+                          'error_message': f'Worker recorded a native fault: {native_crash}'}
+                write_json(failure_path, record)
         source_key = f"{job['scenario']['name']}:{job['seed']}"
         if record.get('status') == 'succeeded' and record.get('source') != manifest['data_sources'][source_key]:
             raise ValueError('Worker data provenance disagrees with the frozen manifest')
