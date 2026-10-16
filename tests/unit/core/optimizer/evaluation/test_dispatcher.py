@@ -11,9 +11,9 @@ from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.extensions import get_registered_extensions
 from golem.core.adapter import DirectAdapter
-from golem.core.optimisers.fitness import SingleObjFitness, null_fitness
+from golem.core.optimisers.fitness import MultiObjFitness, SingleObjFitness, null_fitness
 from golem.core.optimisers.graph import OptGraph, OptNode
-from golem.core.optimisers.opt_history_objects.individual import Individual
+from golem.core.optimisers.opt_history_objects.individual import GraphEvalResult, Individual
 
 from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
 from fedot_ind.core.optimizer.evaluation.dispatcher import LocalEvaluationDispatcher
@@ -87,12 +87,33 @@ def test_expired_timer_and_cancel_do_not_evaluate_objective():
     assert dispatcher.last_results[0].error.error_type == 'Cancelled'
 
 
-def test_invalid_fitness_is_not_in_successful_population():
-    dispatcher = _dispatcher()
-    assert dispatcher.dispatch(lambda graph: null_fitness())([_individual()]) == []
+@pytest.mark.parametrize('backend', [EvaluationBackend.SEQUENTIAL, EvaluationBackend.PROCESS])
+@pytest.mark.parametrize('values', [None, (float('nan'),), (float('inf'),), (float('-inf'),), (0., float('nan'))])
+def test_invalid_fitness_is_not_in_successful_population(backend, values):
+    dispatcher = _dispatcher(backend)
+
+    def objective(graph):
+        if values is None:
+            return null_fitness()
+        return SingleObjFitness(values[0]) if len(values) == 1 else MultiObjFitness(values, weights=(-1., -1.))
+
+    assert dispatcher.dispatch(objective)([_individual()]) == []
+    outcome, = dispatcher.last_results
+    assert not outcome.value.fitness.valid
+    assert outcome.value.metadata['evaluation_failure']['code'] == 'invalid_fitness'
     summary = dispatcher.diagnostics_recorder.snapshot().summary
     assert summary.evaluations_failed == 1
     assert summary.evaluations_succeeded == 0
+
+
+@pytest.mark.parametrize('values', [(float('nan'),), (float('inf'),), (float('-inf'),), (0., float('nan'))])
+def test_nonfinite_existing_fitness_is_not_reused_or_implicitly_retried(values):
+    individual = _individual()
+    fitness = SingleObjFitness(values[0]) if len(values) == 1 else MultiObjFitness(values, weights=(-1., -1.))
+    individual.set_evaluation_result(GraphEvalResult(individual.uid, fitness, individual.graph))
+    dispatcher = _dispatcher()
+    with pytest.raises(ValueError, match='nonfinite fitness'):
+        dispatcher.dispatch(lambda graph: pytest.fail('invalid existing fitness was retried'))([individual])
 
 
 def test_uid_collision_is_rejected_before_objective():

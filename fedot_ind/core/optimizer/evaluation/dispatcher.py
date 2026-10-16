@@ -4,10 +4,11 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 from datetime import datetime
 import gc
+from math import isfinite
 from time import monotonic
 from threading import Lock
 
-from golem.core.optimisers.fitness import null_fitness
+from golem.core.optimisers.fitness import Fitness, null_fitness
 from golem.core.optimisers.genetic.evaluation import BaseGraphEvaluationDispatcher
 from golem.core.optimisers.opt_history_objects.individual import GraphEvalResult
 from golem.utilities.utilities import determine_n_jobs
@@ -29,6 +30,14 @@ from .executors import CancellationToken, execute_plan
 class _GraphJob:
     graph: object
     candidate_id: str
+
+
+def _finite_fitness(fitness: Fitness) -> bool:
+    """GOLEM's validity flag alone admits NaN and infinity."""
+    try:
+        return fitness.valid and bool(fitness.values) and all(isfinite(value) for value in fitness.values)
+    except (TypeError, ValueError):
+        return False
 
 
 @dataclass
@@ -57,13 +66,15 @@ class _GraphEvaluator:
         with industrial_extension_scope():
             fitness, graph = self.adapter.adapt_func(self._evaluate_domain)(job.graph)
             duration, timestamp = monotonic() - started, datetime.now().isoformat()
-            if fitness.valid:
+            if _finite_fitness(fitness):
                 outcome = EvaluationSucceeded(duration, timestamp)
             else:
                 owner = getattr(self.objective, '__self__', None)
                 failure = industrial_failure_from_fedot(getattr(owner, 'last_outcome', None))
                 outcome = EvaluationFailed(duration, timestamp, failure or EvaluationFailure(
-                    EvaluationFailureCode.INVALID_FITNESS, 'InvalidFitness', 'Objective returned invalid fitness'))
+                    EvaluationFailureCode.INVALID_FITNESS, 'InvalidFitness',
+                    'Objective returned invalid or nonfinite fitness'))
+                fitness = null_fitness()
         return GraphEvalResult(job.candidate_id, fitness, graph, evaluation_outcome_to_metadata(outcome))
 
 
@@ -125,6 +136,8 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
             previous = unique.setdefault(str(individual.uid), individual)
             if previous is not individual:
                 raise ValueError('Different candidates cannot share an individual uid')
+            if individual.fitness.valid and not _finite_fitness(individual.fitness):
+                raise ValueError('Existing candidate has nonfinite fitness; clear it before evaluation')
         to_evaluate, reused = self.split_individuals_to_evaluate(list(unique.values()))
         backend = LocalBackend(self.config.backend.value)
         total = self.config.total_timeout_seconds
