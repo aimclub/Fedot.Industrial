@@ -7,10 +7,10 @@ from dataclasses import replace
 from fedot_ind.core.optimizer.graph_validation.contracts import GraphSpec
 from fedot_ind.core.optimizer.graph_validation.validation import validate_graph
 from fedot_ind.core.optimizer.mutation_planning._graph import (
-    apply_edit, budget_excess, drop_allowed, drop_primary_allowed, graph_precondition,
+    apply_edit, budget_excess, drop_allowed, drop_primary_allowed, drop_primary_branch_allowed, graph_precondition,
 )
 from fedot_ind.core.optimizer.mutation_planning.contracts import (
-    DeduplicateParents, DropPrimaryTransform, DropTransform, GraphEdit, MutationLimits,
+    DeduplicateParents, DropPrimaryBranch, DropPrimaryTransform, DropTransform, GraphEdit, MutationLimits,
     MutationRejection, MutationRejectionCode, RawInputSpec, RepairedGraph,
 )
 
@@ -65,8 +65,10 @@ def repair_graph(spec: GraphSpec, *, limits: MutationLimits,
         old_excess = sum(budget_excess(graph, limits))
         accepted = False
         for node in graph.nodes:
-            if drop_allowed(graph, node):
+            if drop_allowed(graph, node, raw_input):
                 edit = DropTransform(node.node_id)
+            elif drop_primary_branch_allowed(graph, node, raw_input):
+                edit = DropPrimaryBranch(node.node_id)
             elif drop_primary_allowed(graph, node, raw_input):
                 edit = DropPrimaryTransform(node.node_id)
             else:

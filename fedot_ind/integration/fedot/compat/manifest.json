@@ -26,6 +26,15 @@
         "fedot/core/pipelines/pipeline_advisor.py": "21878d70d3650433be1342d09ecceecfe57f6abfa5f5b17b78f1eaa8d24b9a6f",
         "test/unit/data/test_evo04_temporal_holdout.py": "8310165308b2d67316439232d63ea1df7ac669a3ba4c2dcea72e9933304be464"
       }
+    },
+    {
+      "name": "aligned-feature-fusion",
+      "resource": "patches/aligned_feature_fusion.patch",
+      "sha256": "7a9fcef427718487fdfefb2aec0e746ba9fd201c72af92944632389bc620080b",
+      "sources": {
+        "fedot/core/data/merge/data_merger.py": "b4b67857fa9f6bedd8e058d64047d52a4f012e37b735e4a87b25baf51f6254d5",
+        "test/unit/data/test_evo04_feature_fusion.py": "a1c7bfc25e3f1a858a6bc5f62567daccae751773b5af0b0ba9a8a655b187c0e8"
+      }
     }
   ]
 }

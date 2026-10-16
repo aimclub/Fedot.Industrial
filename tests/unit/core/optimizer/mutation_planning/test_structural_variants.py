@@ -271,7 +271,8 @@ def test_multimodal_capability_does_not_unlock_actual_source_merge_or_special_co
     assert isinstance(apply_variant(spec, ReplaceOperation("root", alternative)), MutationRejection)
     assert isinstance(apply_variant(spec, AddBranch("a", "root", "branch", capability("branch"))),
                       MutationRejection)
-    assert isinstance(repair_graph(spec, limits=LIMITS, raw_input=RAW), MutationRejection)
+    # An explicit homogeneous input distinguishes feature fusion from multiple data sources.
+    assert isinstance(repair_graph(spec, limits=LIMITS, raw_input=RAW), RepairedGraph)
     source = replace(a, kind=OperationKind.DATA_SOURCE)
     source_spec = GraphSpec("source", (GraphNodeSpec("a", source.name, capabilities=source),
                                        GraphNodeSpec("root", model.name, ("a",), model)),

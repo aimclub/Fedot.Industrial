@@ -34,6 +34,16 @@ def summarize_attempts(records):
     changed = [record for record in valid if record["changed"]]
     unique = {record["graph_id"] for record in changed}
     operations = Counter(name for record in changed for name in record["operations"])
+    reasons, stages, families = Counter(), Counter(), Counter()
+    truncated = 0
+    for record in records:
+        execution = record.get("execution") or {}
+        planning = execution.get("planning") or {}
+        reasons.update(planning.get("reason_counts", {}))
+        families.update(planning.get("family_counts", {}))
+        stages.update(item["stage"] for item in planning.get("decisions", [])
+                      if item["status"] == "rejected")
+        truncated += int(planning.get("truncated", False))
     return {
         "attempts": len(records), "valid_proposals": len(valid), "changed_valid_proposals": len(changed),
         "valid_ratio": len(valid) / len(records) if records else None,
@@ -43,6 +53,10 @@ def summarize_attempts(records):
         "distinct_operations": len(operations), "operation_frequency": dict(sorted(operations.items())),
         "status_counts": dict(Counter(record["status"] for record in records)),
         "elapsed_seconds": sum(record["elapsed_seconds"] for record in records),
+        "candidate_rejection_reasons": dict(sorted(reasons.items())),
+        "candidate_rejection_stages": dict(sorted(stages.items())),
+        "examined_edit_families": dict(sorted(families.items())),
+        "truncated_searches": truncated,
     }
 
 
@@ -121,19 +135,28 @@ def compare_mutations(settings=None):
             subset = [r for r in records if r["scenario"] == scenario["name"] and r["mode"] == mode]
             summaries.append({"scenario": scenario["name"], "mode": mode, **summarize_attempts(subset)})
     return {"schema_version": "industrial_mutation_comparison_report@1", "settings": settings,
-            "scope": "structural_proposals_without_training", "summaries": summaries, "records": records}
+            "scope": "structural_proposals_without_training", "summaries": summaries, "records": records,
+            "acceptance": {"status": "not_assessed", "reason": "quality_and_compute_cost_not_measured"}}
 
 
 def write_comparison(report, output_dir):
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     (output / "comparison.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    rows = ["# Structural Mutation Comparison", "", "This measures graph proposals, not model quality.", "",
+    rows = ["# Structural Mutation Diagnostics", "", "This measures graph proposals, not model quality.",
+            "Acceptance: not_assessed. Graph counts are diagnostics, not an acceptance criterion.", "",
             "| Scenario | Mode | Attempts | Changed Valid | Unique Changed | Distinct Operations | Seconds |",
             "| --- | --- | ---: | ---: | ---: | ---: | ---: |"]
     for item in report["summaries"]:
         rows.append(f"| {item['scenario']} | {item['mode']} | {item['attempts']} | "
                     f"{item['changed_valid_ratio']:.3f} | {item['unique_changed_graphs']} | "
                     f"{item['distinct_operations']} | {item['elapsed_seconds']:.3f} |")
+    rows += ["", "## Candidate rejection and budget diagnostics", ""]
+    for item in report['summaries']:
+        rows += [f"### {item['scenario']} / {item['mode']}",
+                 f"Truncated searches: {item['truncated_searches']}",
+                 "Examined families: " + json.dumps(item['examined_edit_families'], sort_keys=True),
+                 "Rejection stages: " + json.dumps(item['candidate_rejection_stages'], sort_keys=True),
+                 "Reasons: " + json.dumps(item['candidate_rejection_reasons'], sort_keys=True), ""]
     (output / "comparison.md").write_text("\n".join(rows) + "\n", encoding="utf-8")
     return output / "comparison.json"

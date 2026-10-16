@@ -21,8 +21,9 @@ from fedot_ind.core.optimizer.graph_validation import (
 from fedot_ind.core.optimizer.configuration import MutationPlanningPolicy
 from fedot_ind.core.optimizer.mutation import mutation_name
 from fedot_ind.core.optimizer.mutation_planning import (
-    AddBranch, AppliedMutation, DropPrimaryTransform, DropTransform, InsertTransform, RawInputSpec, ReplaceOperation,
-    MutationKind, MutationLimits, MutationRejection,
+    AddBranch, AddPrimaryBranch, AppliedMutation, CandidateStatus, DecisionStage,
+    DropPrimaryBranch, DropPrimaryTransform, DropTransform, InsertTransform, RawInputSpec, ReplaceOperation,
+    MutationCandidates, MutationKind, MutationLimits, MutationRejection,
     apply_mutation_plan, enumerate_mutation_plans, repair_graph, select_mutation_plan,
 )
 
@@ -200,11 +201,24 @@ class MutationExecution:
     repair_edits: int = 0
     issue_codes: tuple[str, ...] = ()
     message: str = ""
+    planning: MutationCandidates | None = None
+    unavailable_operations: tuple[str, ...] = ()
 
     def to_record(self):
         return {"schema_version": "industrial_mutation_execution@1", "status": self.status.value,
                 "action": self.action, "examined": self.examined, "admissible": self.admissible,
-                "repair_edits": self.repair_edits, "issue_codes": list(self.issue_codes), "message": self.message}
+                "repair_edits": self.repair_edits, "issue_codes": list(self.issue_codes), "message": self.message,
+                "planning": self.planning.diagnostics_record() if self.planning is not None else None,
+                "repair_examined": self.examined - (self.planning.examined if self.planning is not None else 0),
+                "unavailable_operations": list(self.unavailable_operations)}
+
+
+def _runtime_diagnostics(candidates, plan, status, codes=()):
+    if plan is None:
+        return candidates
+    return replace(candidates, diagnostics=tuple(
+        replace(item, status=status, stage=DecisionStage.RUNTIME, reason_codes=codes)
+        if item.edit == plan.edits[0] else item for item in candidates.diagnostics))
 
 
 _STRUCTURAL_KINDS = {
@@ -263,7 +277,9 @@ class PlannedMutation:
         repair = repair_graph(before, limits=self._limits(repair=True), raw_input=self.raw_input)
         if isinstance(repair, MutationRejection):
             self._record(MutationExecution(MutationExecutionStatus.REJECTED,
-                         issue_codes=repair.report.error_codes if repair.report else (), message=repair.message))
+                         examined=repair.examined,
+                         issue_codes=repair.report.error_codes if repair.report else (repair.code.value,),
+                         message=repair.message))
             return None
         prepared = repair.graph
         if repair.edits and not advisor_allows_plan(
@@ -272,24 +288,39 @@ class PlannedMutation:
                          examined=repair.examined, message="Advisor rejected input repair"))
             return None
         operations = self.catalog.capabilities
+        actions = tuple(self.operator.agent.available_actions)
+        probabilities = None
+        if isinstance(self.operator.agent, RandomAgent):
+            probabilities = tuple(self.operator.agent.get_action_probs(parent.graph))
+            if len(probabilities) != len(actions):
+                raise ValueError("Mutation probabilities must match configured actions")
+        enabled = tuple(dict.fromkeys(
+            _STRUCTURAL_KINDS[mutation_name(action)] for index, action in enumerate(actions)
+            if mutation_name(action) in _STRUCTURAL_KINDS
+            and (probabilities is None or probabilities[index] > 0)))
         limits = replace(self._limits(), max_candidates=max(0, self.policy.max_candidates - repair.examined))
-        candidates = enumerate_mutation_plans(prepared, operations, limits=limits, raw_input=self.raw_input)
+        candidates = enumerate_mutation_plans(prepared, operations, limits=limits, kinds=enabled,
+                                              raw_input=self.raw_input, catalog_offset=random.getrandbits(64))
         plans_by_kind = {kind: [] for kind in MutationKind}
         edit_kinds = {ReplaceOperation: MutationKind.REPLACE, InsertTransform: MutationKind.ADD,
-                      AddBranch: MutationKind.ADD, DropTransform: MutationKind.DROP,
-                      DropPrimaryTransform: MutationKind.DROP}
+                      AddBranch: MutationKind.ADD, AddPrimaryBranch: MutationKind.ADD,
+                      DropTransform: MutationKind.DROP,
+                      DropPrimaryTransform: MutationKind.DROP, DropPrimaryBranch: MutationKind.DROP}
+        vetoed = set()
         for plan in candidates.plans:
             outcome = apply_mutation_plan(prepared, plan, limits=limits, raw_input=self.raw_input)
             if isinstance(outcome, AppliedMutation) and advisor_allows_plan(
                     before, outcome.graph, parent.graph, self.graph_generation_params.advisor):
                 plans_by_kind[edit_kinds[type(plan.edits[0])]].append(plan)
+            else:
+                vetoed.add(plan.edits[0])
+        candidates = replace(candidates, diagnostics=tuple(
+            replace(item, status=CandidateStatus.REJECTED, stage=DecisionStage.ADVISOR,
+                    reason_codes=("advisor_rejected",)) if item.edit in vetoed else item
+            for item in candidates.diagnostics))
         pools = {kind: replace(candidates, plans=tuple(plans)) for kind, plans in plans_by_kind.items()}
         examined = candidates.examined + repair.examined
-        actions = tuple(self.operator.agent.available_actions)
         if isinstance(self.operator.agent, RandomAgent):
-            probabilities = tuple(self.operator.agent.get_action_probs(parent.graph))
-            if len(probabilities) != len(actions):
-                raise ValueError("Mutation probabilities must match configured actions")
             viable = []
             for action, weight in zip(actions, probabilities):
                 kind = _STRUCTURAL_KINDS.get(mutation_name(action))
@@ -299,6 +330,7 @@ class PlannedMutation:
             if not viable:
                 self._record(MutationExecution(MutationExecutionStatus.NO_ADMISSIBLE_PLAN,
                              examined=examined,
+                             planning=candidates, unavailable_operations=self.catalog.unavailable,
                              message="No configured positive-weight action has an admissible proposal"))
                 return None
             action = random.choices([item[0] for item in viable], [item[1] for item in viable], k=1)[0]
@@ -306,7 +338,8 @@ class PlannedMutation:
             action = self.operator.agent.choose_action(parent.graph)
         name = mutation_name(action)
         if not self.operator._will_mutation_be_applied(action):
-            self._record(MutationExecution(MutationExecutionStatus.SKIPPED, action=name))
+            self._record(MutationExecution(MutationExecutionStatus.SKIPPED, action=name, examined=examined,
+                                           planning=candidates))
             return parent
         plan = None
         if name in _STRUCTURAL_KINDS:
@@ -315,7 +348,7 @@ class PlannedMutation:
             if plan is None:
                 self.operator.agent_experience.collect_experience(parent, action, reward=-1.0)
                 self._record(MutationExecution(MutationExecutionStatus.NO_ADMISSIBLE_PLAN, action=name,
-                                               examined=examined))
+                                               examined=examined, planning=candidates))
                 return None
             outcome = apply_mutation_plan(prepared, plan, limits=self._limits(), raw_input=self.raw_input)
             if not isinstance(outcome, AppliedMutation):
@@ -323,41 +356,56 @@ class PlannedMutation:
             graph = interpret_graph_spec(parent.graph, before, outcome.graph)
             execution = MutationExecution(MutationExecutionStatus.ACCEPTED, action=name,
                                           examined=examined, admissible=len(pool.plans),
-                                          repair_edits=len(repair.edits))
+                                          repair_edits=len(repair.edits), planning=candidates,
+                                          unavailable_operations=self.catalog.unavailable)
         elif callable(action):
             graph = interpret_graph_spec(parent.graph, before, prepared) if repair.edits else deepcopy(parent.graph)
             graph = self.operator._get_mutation_func(action)(
                 graph, requirements=self.operator.requirements,
                 graph_gen_params=self.graph_generation_params, parameters=self.operator.parameters)
             changed = project_for_mutation(graph, self.graph_generation_params)
-            fixed = repair_graph(changed, limits=self._limits(repair=True), raw_input=self.raw_input)
+            repair_limits = replace(self._limits(repair=True),
+                                    max_candidates=max(0, self.policy.max_candidates - examined))
+            fixed = repair_graph(changed, limits=repair_limits, raw_input=self.raw_input)
+            examined += fixed.examined
             if isinstance(fixed, MutationRejection):
                 self._record(MutationExecution(MutationExecutionStatus.REJECTED, action=name,
-                             issue_codes=fixed.report.error_codes if fixed.report else (), message=fixed.message))
+                             examined=examined, planning=candidates,
+                             issue_codes=fixed.report.error_codes if fixed.report else (fixed.code.value,),
+                             message=fixed.message))
                 return None
             if fixed.edits:
                 if not advisor_allows_plan(changed, fixed.graph, graph, self.graph_generation_params.advisor):
                     self._record(MutationExecution(MutationExecutionStatus.REJECTED, action=name,
-                                 examined=fixed.examined, message="Advisor rejected callback repair"))
+                                 examined=examined, planning=candidates,
+                                 issue_codes=("advisor_rejected",), message="Advisor rejected callback repair"))
                     return None
                 graph = interpret_graph_spec(graph, changed, fixed.graph)
             execution = MutationExecution(MutationExecutionStatus.ACCEPTED, action=name,
-                                          examined=examined, repair_edits=len(repair.edits) + len(fixed.edits))
+                                          examined=examined, repair_edits=len(repair.edits) + len(fixed.edits),
+                                          planning=candidates)
         else:
-            self._record(MutationExecution(MutationExecutionStatus.UNSUPPORTED_ACTION, action=name))
+            self._record(MutationExecution(MutationExecutionStatus.UNSUPPORTED_ACTION, action=name,
+                                           examined=examined, planning=candidates))
             return None
         verifier = self.graph_generation_params.verifier
         if not verifier(graph):
             report = getattr(verifier, "last_report", None)
             self._record(replace(execution, status=MutationExecutionStatus.REJECTED,
                                  issue_codes=report.error_codes if report is not None else (),
+                                 planning=_runtime_diagnostics(candidates, plan, CandidateStatus.REJECTED,
+                                                               report.error_codes if report is not None else
+                                                               ("runtime_verifier_rejected",)),
                                  message="Runtime verifier rejected the planned graph"))
             self.operator.agent_experience.collect_experience(parent, action, reward=-1.0)
             return None
         if graph == parent.graph:
             self._record(replace(execution, status=MutationExecutionStatus.REJECTED,
+                                 planning=_runtime_diagnostics(candidates, plan, CandidateStatus.REJECTED,
+                                                               ("unchanged_graph",)),
                                  message="Proposal did not change the graph"))
             return None
+        execution = replace(execution, planning=_runtime_diagnostics(candidates, plan, CandidateStatus.ACCEPTED))
         self._record(execution)
         metadata = {**self.operator.requirements.static_individual_metadata,
                     "mutation_execution": execution.to_record()}
@@ -375,5 +423,6 @@ def install_planned_mutation(optimizer, policy: MutationPlanningPolicy):
     previous = optimizer.mutation
     observer = getattr(optimizer, "_record_mutation_execution", None)
     optimizer.mutation = PlannedMutation(previous, optimizer.graph_generation_params, policy, observer)
-    optimizer.operators = [optimizer.mutation if operator is previous else operator for operator in optimizer.operators]
+    optimizer.operators = [
+        optimizer.mutation if operator is previous else operator for operator in optimizer.operators]
     optimizer.reproducer.mutation = optimizer.mutation

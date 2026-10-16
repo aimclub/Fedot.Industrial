@@ -1,0 +1,17 @@
+{
+  "schema_version": "industrial_mutation_quality_trial@1",
+  "seeds": [42, 123],
+  "tasks": ["classification", "regression"],
+  "sample_count": 48,
+  "series_length": 32,
+  "evaluations_per_mode": 3,
+  "max_candidates": 64,
+  "max_depth": 4,
+  "max_nodes": 5,
+  "max_arity": 2,
+  "generators": ["quantile_extractor_torch", "quantile_extractor"],
+  "models": {
+    "classification": {"name": "pdl_clf", "parameters": {"model": "dt", "max_pairs": 128, "random_state": 42}},
+    "regression": {"name": "pdl_reg", "parameters": {"model": "dtreg", "max_pairs": 128, "random_state": 42}}
+  }
+}

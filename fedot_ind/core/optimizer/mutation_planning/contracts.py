@@ -23,6 +23,13 @@ class MutationRejectionCode(str, Enum):
     STALE_PLAN = "stale_plan"
     BUDGET_EXCEEDED = "budget_exceeded"
     REPAIR_EXHAUSTED = "repair_exhausted"
+    OPERATION_KIND = "operation_kind_not_supported"
+    INPUT_CONTEXT = "input_context_not_confirmed"
+    DATA_TYPE = "data_type_mismatch"
+    TARGET_REQUIRED = "target_required"
+    TASK_NOT_SUPPORTED = "task_not_supported"
+    PROTECTED_OPERATION = "protected_operation"
+    SAME_OPERATION = "same_operation"
 
 
 def _integer(name: str, value: int, minimum: int = 0) -> None:
@@ -131,8 +138,32 @@ class AddBranch:
 
 
 @dataclass(frozen=True)
+class AddPrimaryBranch:
+    """Add a transform of the same confirmed raw input to a feature merge."""
+
+    child_id: str
+    node_id: str
+    operation: OperationCapabilities
+
+    def __post_init__(self) -> None:
+        _node_id(self.child_id)
+        _node_id(self.node_id)
+        _operation(self.operation)
+
+
+@dataclass(frozen=True)
 class DropPrimaryTransform:
     """Remove a primary transform only against a confirmed RawInputSpec."""
+
+    node_id: str
+
+    def __post_init__(self) -> None:
+        _node_id(self.node_id)
+
+
+@dataclass(frozen=True)
+class DropPrimaryBranch:
+    """Remove one unshared feature branch, retaining another feature input."""
 
     node_id: str
 
@@ -150,8 +181,8 @@ class DeduplicateParents:
         _node_id(self.node_id)
 
 
-GraphEdit = (ReplaceOperation | InsertTransform | DropTransform | AddBranch
-             | DropPrimaryTransform | DeduplicateParents)
+GraphEdit = (ReplaceOperation | InsertTransform | DropTransform | AddBranch | AddPrimaryBranch
+             | DropPrimaryTransform | DropPrimaryBranch | DeduplicateParents)
 
 
 def edit_record(edit: GraphEdit) -> dict[str, object]:
@@ -166,8 +197,13 @@ def edit_record(edit: GraphEdit) -> dict[str, object]:
     if isinstance(edit, AddBranch):
         return {"kind": "add_branch", "node_id": edit.node_id, "parent_id": edit.parent_id,
                 "child_id": edit.child_id, "operation": edit.operation.to_record()}
+    if isinstance(edit, AddPrimaryBranch):
+        return {"kind": "add_primary_branch", "node_id": edit.node_id,
+                "child_id": edit.child_id, "operation": edit.operation.to_record()}
     if isinstance(edit, DropPrimaryTransform):
         return {"kind": "drop_primary", "node_id": edit.node_id}
+    if isinstance(edit, DropPrimaryBranch):
+        return {"kind": "drop_primary_branch", "node_id": edit.node_id}
     if isinstance(edit, DeduplicateParents):
         return {"kind": "deduplicate_parents", "node_id": edit.node_id}
     raise TypeError("Unsupported graph edit type")
@@ -185,7 +221,8 @@ class MutationPlan:
         if not isinstance(self.edits, tuple) or not self.edits:
             raise ValueError("edits must be a non-empty tuple")
         if any(not isinstance(edit, (ReplaceOperation, InsertTransform,
-                                     DropTransform, AddBranch, DropPrimaryTransform,
+                                     DropTransform, AddBranch, AddPrimaryBranch,
+                                     DropPrimaryTransform, DropPrimaryBranch,
                                      DeduplicateParents)) for edit in self.edits):
             raise TypeError("Unsupported graph edit type")
         if self.raw_input is not None and not isinstance(self.raw_input, RawInputSpec):
@@ -214,6 +251,59 @@ class MutationCandidates:
     examined: int
     truncated: bool
     rejection: MutationRejection | None = None
+    diagnostics: tuple["CandidateDiagnostic", ...] = ()
+    budget: int = 0
+    enabled_kinds: tuple[MutationKind, ...] = ()
+    catalog_offset: int = 0
+
+    def diagnostics_record(self) -> dict[str, object]:
+        from collections import Counter
+
+        return {
+            "schema_version": "industrial_mutation_search@1",
+            "budget": self.budget, "examined": self.examined, "truncated": self.truncated,
+            "enabled_kinds": [kind.value for kind in self.enabled_kinds],
+            "catalog_offset": self.catalog_offset,
+            "status_counts": dict(Counter(item.status.value for item in self.diagnostics)),
+            "reason_counts": dict(Counter(code for item in self.diagnostics for code in item.reason_codes)),
+            "family_counts": dict(Counter(item.family for item in self.diagnostics)),
+            "decisions": [item.to_record() for item in self.diagnostics],
+        }
+
+
+class CandidateStatus(str, Enum):
+    ADMISSIBLE = "admissible"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    DUPLICATE = "duplicate"
+
+
+class DecisionStage(str, Enum):
+    PLANNING = "planning"
+    ADVISOR = "advisor"
+    RUNTIME = "runtime"
+
+
+@dataclass(frozen=True)
+class CandidateDiagnostic:
+    """One bounded decision per examined edit; no live graphs or data buffers."""
+
+    edit: GraphEdit
+    status: CandidateStatus
+    reason_codes: tuple[str, ...] = ()
+    stage: DecisionStage = DecisionStage.PLANNING
+
+    @property
+    def family(self) -> str:
+        return str(edit_record(self.edit)["kind"])
+
+    def to_record(self) -> dict[str, object]:
+        edit = edit_record(self.edit)
+        operation = edit.get("operation")
+        if operation is not None:
+            edit["operation"] = operation["name"]
+        return {"edit": edit, "status": self.status.value, "stage": self.stage.value,
+                "reason_codes": list(self.reason_codes)}
 
 
 @dataclass(frozen=True)

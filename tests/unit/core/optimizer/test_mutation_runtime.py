@@ -17,7 +17,7 @@ from fedot_ind.core.optimizer.configuration import MutationPlanningPolicy
 from fedot_ind.core.optimizer.mutation import mutation_weights
 from fedot_ind.core.optimizer.randomness import operator_random_scope
 from fedot_ind.core.optimizer.mutation_planning import (
-    AddBranch, AppliedMutation, MutationLimits,
+    AddBranch, AppliedMutation, MutationKind, MutationLimits,
     RawInputSpec, apply_mutation_plan, enumerate_mutation_plans,
 )
 from golem.core.optimisers.adaptive.operator_agent import RandomAgent
@@ -312,3 +312,83 @@ def test_planned_operator_worker_state_does_not_capture_coordinator_callback():
     assert restored.observer is None
     assert operator.observer is not None
     assert isinstance(restored(parent), Individual)
+
+
+def test_budget_is_spent_only_on_positive_weight_enabled_families():
+    operator, parent = _planned([MutationTypesEnum.single_drop])
+    operator.policy = replace(operator.policy, max_candidates=1)
+    operator.raw_input = RawInputSpec('tabular', True)
+    assert isinstance(operator(parent), Individual)
+    report = operator.last_execution.to_record()['planning']
+    assert report['enabled_kinds'] == ['drop']
+    assert report['examined'] == 1
+    assert report['family_counts'] == {'drop_primary': 1}
+    assert report['status_counts'] == {'accepted': 1}
+
+
+def test_zero_weight_family_never_consumes_planning_budget(monkeypatch):
+    operator, parent = _planned()
+    monkeypatch.setattr(operator.agent, 'get_action_probs', lambda graph: [1., 0.])
+    operator(parent)
+    assert operator.last_execution.to_record()['planning']['enabled_kinds'] == ['replace']
+
+
+def test_advisor_and_final_verifier_rejections_are_visible_per_candidate():
+    operator, parent = _planned([MutationTypesEnum.single_change])
+    operator.graph_generation_params.advisor.propose_change = lambda node, candidates: []
+    assert operator(parent) == []
+    report = operator.last_execution.to_record()['planning']
+    assert report['reason_counts']['advisor_rejected'] > 0
+    assert any(row['stage'] == 'advisor' for row in report['decisions'])
+    assert sum(report['status_counts'].values()) == report['examined']
+    operator, parent = _planned(verifier=lambda graph: False)
+    assert operator(parent) == []
+    report = operator.last_execution.to_record()['planning']
+    assert report['reason_counts']['runtime_verifier_rejected'] == 1
+    assert sum(row['stage'] == 'runtime' for row in report['decisions']) == 1
+
+
+def test_primary_feature_branch_is_interpreted_and_respects_advisor():
+    from fedot_ind.core.optimizer.mutation_planning import AddPrimaryBranch
+
+    _, params, original = _environment(
+        {'name': 'features', 'task': 'regression', 'operations': ['pca', 'poly_features', 'ridge'],
+         'initial_chain': ['pca', 'ridge']}, {'max_depth': 5, 'max_arity': 3})
+    raw = RawInputSpec('tabular', True)
+    before = project_for_mutation(original, params)
+    limits = MutationLimits(max_nodes=8, max_depth=5, max_candidates=128, max_arity=3)
+    candidates = enumerate_mutation_plans(before, load_runtime_operation_catalog(params).capabilities, limits=limits,
+                                          raw_input=raw, kinds=(MutationKind.ADD,))
+    plan = next(plan for plan in candidates.plans if isinstance(plan.edits[0], AddPrimaryBranch))
+    outcome = apply_mutation_plan(before, plan, limits=limits, raw_input=raw)
+    assert advisor_allows_plan(before, outcome.graph, original, params.advisor)
+    graph = interpret_graph_spec(original, before, outcome.graph)
+    assert params.verifier(graph)
+    assert len(graph.root_node.nodes_from) == 2
+    assert all(not parent.nodes_from for parent in graph.root_node.nodes_from)
+
+
+def test_callback_repair_shares_the_remaining_budget_with_input_repair():
+    from golem.core.optimisers.graph import OptNode
+
+    def insert_transform(graph, **kwargs):
+        root = graph.root_node
+        root.parameters = {'alpha': 7.0}
+        inserted = SecondaryNode('normalization', nodes_from=root.nodes_from)
+        root.nodes_from = [inserted]
+        graph.add_node(inserted)
+        return graph
+
+    operator, parent = _planned([insert_transform], policy=MutationPlanningPolicy(max_candidates=1, max_nodes=2))
+    child = operator(parent)
+    assert isinstance(child, Individual)
+    assert operator.last_execution.to_record()['repair_examined'] == 1
+    assert operator.last_execution.examined == 1
+    # The same input repair spends the only remaining proposal before the callback.
+    root = parent.graph.root_node
+    inserted = OptNode('normalization', nodes_from=root.nodes_from)
+    root.nodes_from = [inserted]
+    parent.graph.add_node(inserted)
+    assert operator(parent) == []
+    assert operator.last_execution.examined == 1
+    assert operator.last_execution.issue_codes == ('repair_exhausted',)
