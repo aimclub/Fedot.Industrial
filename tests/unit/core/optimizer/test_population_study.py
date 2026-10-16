@@ -139,6 +139,7 @@ def test_worker_environment_hides_cuda_with_explicit_windows_safe_value(monkeypa
 
         def __init__(self, command, **kwargs):
             seen.update(kwargs['env'])
+            seen['command'] = command
 
         def __enter__(self):
             return self
@@ -152,4 +153,5 @@ def test_worker_environment_hides_cuda_with_explicit_windows_safe_value(monkeypa
     monkeypatch.setattr(runner.subprocess, 'Popen', Process)
     assert runner.execute_worker(tmp_path / 'job.json', 1) == 0
     assert seen['CUDA_VISIBLE_DEVICES'] == '-1'
+    assert seen['command'][1:5] == ['-u', '-X', 'faulthandler', '-m']
     assert all(seen[key] == '1' for key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'))

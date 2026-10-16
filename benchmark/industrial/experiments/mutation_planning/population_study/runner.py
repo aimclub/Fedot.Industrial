@@ -51,7 +51,8 @@ def freeze_run(protocol, root, worktree):
                 'fedot_compatibility': audit, 'python_executable': sys.executable,
                 'environment': {'python': platform.python_version(), 'platform': platform.platform(),
                                 'packages': {name: version(name) for name in
-                                             ('numpy', 'torch', 'scikit-learn', 'dask', 'psutil', 'cloudpickle')}}}
+                                             ('numpy', 'scipy', 'pandas', 'statsmodels', 'torch', 'scikit-learn',
+                                              'dask', 'psutil', 'cloudpickle', 'threadpoolctl')}}}
     path = root / 'frozen_manifest.json'
     if path.exists():
         if canonical(json.loads(path.read_text(encoding='utf-8'))) != canonical(manifest):
@@ -68,7 +69,7 @@ def execute_worker(job_file, timeout):
                                              'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')})
     environment['CUDA_VISIBLE_DEVICES'] = '-1'
     environment['PYTHONHASHSEED'] = '0'
-    command = [sys.executable, '-m',
+    command = [sys.executable, '-u', '-X', 'faulthandler', '-m',
                'benchmark.industrial.experiments.mutation_planning.population_study.worker', '--job', str(job_file)]
     deadline = monotonic() + timeout
     with job_file.with_name('run.log').open('w', encoding='utf-8') as log:
