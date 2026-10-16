@@ -1,0 +1,79 @@
+diff --git a/fedot/core/operations/evaluation/classification.py b/fedot/core/operations/evaluation/classification.py
+index 432e9048..db9b0321 100644
+--- a/fedot/core/operations/evaluation/classification.py
++++ b/fedot/core/operations/evaluation/classification.py
+@@ -1,7 +1,10 @@
+ import warnings
+ from typing import Optional
+ 
++import torch
++
+ from fedot.core.data.input_data.data import InputData, OutputData
++from fedot.core.data.tensor_data import TensorData
+ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy, SkLearnEvaluationStrategy
+ from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose \
+     import DecomposerClassImplementation
+@@ -40,6 +43,10 @@ class SkLearnClassificationStrategy(SkLearnEvaluationStrategy):
+             features=predict_data.features
+         )
+ 
++        if isinstance(predict_data, TensorData):
++            prediction = torch.as_tensor(prediction, device=predict_data.device)
++            return self._replace_predict_in_tensor_data(prediction, predict_data)
++
+         converted = self._convert_to_output(prediction, predict_data)
+         return converted
+ 
+diff --git a/test/unit/operations/test_evo04_classification_tensor.py b/test/unit/operations/test_evo04_classification_tensor.py
+new file mode 100644
+index 00000000..a6ddbc8c
+--- /dev/null
++++ b/test/unit/operations/test_evo04_classification_tensor.py
+@@ -0,0 +1,47 @@
++from dataclasses import replace
++
++import fedot
++import numpy as np
++import pytest
++import torch
++from sklearn.linear_model import LogisticRegression
++from sklearn.tree import DecisionTreeClassifier
++
++from fedot.core.operations.evaluation.classification import SkLearnClassificationStrategy
++from fedot.core.operations.operation_parameters import OperationParameters
++from fedot.core.pipelines.pipeline_builder import PipelineBuilder
++
++
++@pytest.mark.parametrize('classes', [2, 3])
++@pytest.mark.parametrize('operation,model', [('logit', LogisticRegression), ('dt', DecisionTreeClassifier)])
++@pytest.mark.parametrize('output_mode', ['labels', 'full_probs'])
++def test_native_classifiers_preserve_tensor_contract_and_match_sklearn(classes, operation, model, output_mode):
++    x = np.random.default_rng(11).normal(size=(60, 4)).astype('float32')
++    y = np.arange(60) % classes
++    data = fedot.create_data(x, target=y, task='classification')
++    features_before, target_before = data.features.clone(), data.target.clone()
++    pipeline = PipelineBuilder().add_node(operation, params={'random_state': 7}).build()
++    pipeline.fit(data)
++    prediction_input = replace(data, target=None, state='predict')
++    output = pipeline.predict(prediction_input, output_mode=output_mode)
++    reference = model(random_state=7).fit(x, y)
++    expected = reference.predict(x) if output_mode == 'labels' else reference.predict_proba(x)
++    np.testing.assert_allclose(output.predict.detach().numpy().squeeze(), expected, rtol=1e-5, atol=1e-6)
++    assert output.idx.tolist() == data.idx.tolist()
++    assert output.task == data.task
++    assert output.predict.device == data.device
++    assert output.target is None
++    torch.testing.assert_close(data.features, features_before)
++    torch.testing.assert_close(data.target, target_before)
++
++
++def test_legacy_input_still_uses_legacy_output_packaging(monkeypatch):
++    strategy = SkLearnClassificationStrategy('dt', OperationParameters())
++    strategy.output_mode = 'labels'
++    x = np.array([[0.], [1.], [2.], [3.]])
++    fitted = DecisionTreeClassifier().fit(x, [0, 0, 1, 1])
++    from types import SimpleNamespace
++    incoming = SimpleNamespace(features=x)
++    expected = object()
++    monkeypatch.setattr(strategy, '_convert_to_output', lambda prediction, data: expected)
++    assert strategy.predict(fitted, incoming) is expected

@@ -47,6 +47,15 @@ def test_manifest_is_valid_and_has_unique_operation_names():
     assert manifest.transforms
 
 
+def test_population_study_runtime_controls_are_declared_in_public_schemas():
+    from fedot.extensions.parameter_rules import resolve_extension_params
+    manifest = build_industrial_extension_manifest()
+    fourier = next(spec for spec in manifest.transforms if spec.name == 'fourier_basis')
+    mssa = next(spec for spec in manifest.models if spec.name == 'mssa_forecaster')
+    assert resolve_extension_params(fourier, {'use_cache': False}).is_right()
+    assert resolve_extension_params(mssa, {'head_policy': 'linear', 'device': 'cpu'}).is_right()
+
+
 @pytest.mark.parametrize("task", ["classification", "regression"])
 def test_bagging_extension_transforms_unlabelled_data_after_fit(task):
     from fedot_ind.integration.fedot.extensions.catalog import load_industrial_extension_catalog

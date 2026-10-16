@@ -38,6 +38,15 @@
         "fedot/core/data/merge/data_merger.py": "b4b67857fa9f6bedd8e058d64047d52a4f012e37b735e4a87b25baf51f6254d5",
         "test/unit/data/test_evo04_feature_fusion.py": "a1c7bfc25e3f1a858a6bc5f62567daccae751773b5af0b0ba9a8a655b187c0e8"
       }
+    },
+    {
+      "name": "classification-tensor",
+      "resource": "patches/classification_tensor.patch",
+      "sha256": "395982736bd4e0a505a485f68e5ef6c1437ac23c3dc368c41ead3835bff24fa1",
+      "sources": {
+        "fedot/core/operations/evaluation/classification.py": "9cd02f1b245a3c8efd16fc6516096673ea143bac83ff38b0606020d522e3a376",
+        "test/unit/operations/test_evo04_classification_tensor.py": "9e6bc96ac52e094758d403ee0be7df43d5cbd58c798863a9e5906cc6c56c1b21"
+      }
     }
   ]
 }

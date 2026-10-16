@@ -110,7 +110,7 @@ def test_packaged_manifest_and_patch_resources_have_matching_hashes():
     for patch in bundle.patches:
         resource = patches.files(patches.__package__).joinpath(patch.resource)
         assert patches.source_digest(resource.read_text(encoding="utf-8")) == patch.digest
-    assert len(bundle.patches) == 3
+    assert len(bundle.patches) == 4
 
 
 def test_cli_has_explicit_apply_and_audit_modes(worktree, capsys):
