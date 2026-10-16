@@ -74,19 +74,22 @@ index 00000000..6d772ba5
 +    test = replace(data, **common, features=history.clone(), target=future.clone(), state=StateEnum.PREDICT)
 +    return train, test
 diff --git a/fedot/core/operations/evaluation/extensions.py b/fedot/core/operations/evaluation/extensions.py
-index c8d693ed..a02abe44 100644
+index c8d693ed..a8e38302 100644
 --- a/fedot/core/operations/evaluation/extensions.py
 +++ b/fedot/core/operations/evaluation/extensions.py
-@@ -5,6 +5,8 @@ import numpy as np
+@@ -5,6 +5,11 @@ import numpy as np
  import torch
  
  from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 +from fedot.core.data.split.temporal import forecast_horizon
 +from fedot.core.repository.tasks import TaskTypesEnum
++from fedot.core.operations.evaluation.temporal_extensions import (
++    apply_temporal_transform, is_temporal_window_transform, temporal_transform_request,
++)
  from fedot.extensions.contracts import ArrayBackend, ExtensionContractError, ExtensionError, unwrap_extension_result
  from fedot.extensions.execution_rules import plan_execution
  from fedot.extensions.parameter_rules import resolve_extension_params
-@@ -39,6 +41,15 @@ class _ExtensionStrategy(EvaluationStrategy):
+@@ -39,6 +44,15 @@ class _ExtensionStrategy(EvaluationStrategy):
          self.output_mode = 'default'
  
      def _prepare(self, data, input_type, fitting=False):
@@ -102,6 +105,29 @@ index c8d693ed..a02abe44 100644
          plan = unwrap_extension_result(plan_execution(
              self.spec, data.task.task_type, data.data_type,
              fitting=fitting, has_target=data.target is not None))
+@@ -63,9 +77,22 @@ class ExtensionModelStrategy(_ExtensionStrategy):
+ class ExtensionTransformStrategy(_ExtensionStrategy):
+     def fit(self, train_data):
+         _, request = self._prepare(train_data, TransformInput, fitting=True)
++        if is_temporal_window_transform(self.spec, train_data):
++            temporal = temporal_transform_request(train_data, self.spec.capabilities.backend, fit_stage=True)
++            request = TransformInput(temporal.features, temporal.features.copy()
++                                     if isinstance(temporal.features, np.ndarray) else temporal.features.clone(),
++                                     temporal.idx)
+         return fit_transformer(self.spec, request, self.params)
+ 
+     def predict(self, trained_operation, predict_data):
++        return self._transform(trained_operation, predict_data, fit_stage=False)
++
++    def predict_for_fit(self, trained_operation, predict_data):
++        return self._transform(trained_operation, predict_data, fit_stage=True)
++
++    def _transform(self, trained_operation, predict_data, *, fit_stage):
++        if is_temporal_window_transform(self.spec, predict_data):
++            return apply_temporal_transform(self.spec, trained_operation, predict_data, fit_stage=fit_stage)
+         plan, request = self._prepare(predict_data, TransformInput)
+         output = transform_features(self.spec, trained_operation, request, self.params)
+         features = _output_tensor(output.features, predict_data)
 diff --git a/fedot/core/operations/evaluation/regression.py b/fedot/core/operations/evaluation/regression.py
 index 799465c1..c8c72c0b 100644
 --- a/fedot/core/operations/evaluation/regression.py
@@ -185,6 +211,90 @@ index 00000000..ac63ad5d
 +    return replace(source, features=tensor, target=target, idx=idx,
 +                   predict=None if is_transform else tensor.clone(), data_type=data_type,
 +                   features_names=None, categorical_idx=[], numerical_idx=[], idx_mapping={},
++                   preparation_state=None, fingerprint=None, trace_uuid=None)
+diff --git a/fedot/core/operations/evaluation/temporal_extensions.py b/fedot/core/operations/evaluation/temporal_extensions.py
+new file mode 100644
+index 00000000..ab9a10f0
+--- /dev/null
++++ b/fedot/core/operations/evaluation/temporal_extensions.py
+@@ -0,0 +1,78 @@
++"""Checked single-series window boundary, separate from row-preserving transforms."""
++from dataclasses import replace
++
++import numpy as np
++import torch
++
++from fedot.core.operations.evaluation.temporal_bridge import legacy_temporal_input
++from fedot.core.data.split.temporal import forecast_horizon
++from fedot.core.repository.dataset_types import DataTypesEnum
++from fedot.core.repository.tasks import TaskTypesEnum
++from fedot.extensions.call_rules import invoke_once
++from fedot.extensions.contracts import ArrayBackend, ExtensionContractError, ExtensionError
++from fedot.extensions.runtime_contracts import TemporalTransformInput, TemporalTransformOutput
++
++
++def is_temporal_window_transform(spec, data):
++    return (data.task.task_type == TaskTypesEnum.ts_forecasting
++            and data.data_type in (DataTypesEnum.ts, DataTypesEnum.multi_ts)
++            and 'ts_to_table' in spec.capabilities.tags)
++
++
++def temporal_transform_request(data, backend, *, fit_stage):
++    legacy = legacy_temporal_input(data, fit_stage=fit_stage)
++    history = legacy.features.copy()
++    if backend is ArrayBackend.torch:
++        history = torch.as_tensor(history, device=data.device).clone()
++    return TemporalTransformInput(history, forecast_horizon(data), fit_stage, legacy.idx.copy())
++
++
++def _fail(message):
++    raise ExtensionContractError(ExtensionError('invalid_temporal_transform_output', message))
++
++
++def _checked_array(value, name):
++    if not isinstance(value, (np.ndarray, torch.Tensor)):
++        _fail(f'{name} must be a numpy array or torch tensor')
++    try:
++        finite = torch.isfinite(value).all().item() if isinstance(value, torch.Tensor) else np.isfinite(value).all()
++    except (TypeError, ValueError, RuntimeError):
++        _fail(f'{name} must be a finite numeric array')
++    if not finite:
++        _fail(f'{name} must be finite')
++    return value
++
++
++def apply_temporal_transform(spec, instance, data, *, fit_stage):
++    request = temporal_transform_request(data, spec.capabilities.backend, fit_stage=fit_stage)
++    method = getattr(instance, 'transform_temporal', None)
++    if not callable(method):
++        raise ExtensionContractError(ExtensionError(
++            'missing_runtime_method', 'A ts_to_table transform must implement transform_temporal'))
++    output = invoke_once(method, (((request,), {}),))
++    if not isinstance(output, TemporalTransformOutput):
++        _fail('A temporal transform must return TemporalTransformOutput')
++    features = _checked_array(output.features, 'features')
++    if features.ndim != 2 or any(size <= 0 for size in features.shape):
++        _fail('Window features must have non-empty (windows, features) axes')
++    if not fit_stage and features.shape[0] != 1:
++        _fail('Forecast inference must return exactly the latest window')
++    target = output.target
++    if fit_stage:
++        target = _checked_array(target, 'target')
++        if tuple(target.shape) != (features.shape[0], request.horizon):
++            _fail('Training targets must align with windows and the task horizon')
++    elif target is not None:
++        _fail('Inference windows must not contain a target')
++    if not isinstance(output.idx, (np.ndarray, torch.Tensor)) or output.idx.ndim != 1:
++        _fail('Window indices must be a one-dimensional array')
++    idx = output.idx.detach().cpu().numpy() if isinstance(output.idx, torch.Tensor) else output.idx
++    if len(idx) != len(features) or len(np.unique(idx)) != len(idx):
++        _fail('Each window must have one unique index')
++    tensor = torch.as_tensor(features, device=data.device, dtype=data.features.dtype).clone()
++    target = None if target is None else torch.as_tensor(
++        target, device=data.device, dtype=data.features.dtype).clone()
++    return replace(data, features=tensor, target=target, idx=idx.copy(), predict=None,
++                   data_type=DataTypesEnum.tabular, features_names=None,
++                   categorical_idx=[], numerical_idx=[], idx_mapping={},
 +                   preparation_state=None, fingerprint=None, trace_uuid=None)
 diff --git a/fedot/core/operations/evaluation/time_series.py b/fedot/core/operations/evaluation/time_series.py
 index f1afcd1f..f566b97a 100644
@@ -301,6 +411,148 @@ index 4d5bbdfd..744445f2 100644
              # lagged transform can be replaced only to lagged
              candidates = set.intersection(
                  {'lagged', 'sparse_lagged'}, set(possible_operations))
+diff --git a/fedot/extensions/runtime_contracts.py b/fedot/extensions/runtime_contracts.py
+index 5854edc1..9eedf50f 100644
+--- a/fedot/extensions/runtime_contracts.py
++++ b/fedot/extensions/runtime_contracts.py
+@@ -53,3 +53,20 @@ class ModelOutput:
+ @dataclass(frozen=True)
+ class TransformOutput:
+     features: Array
++
++
++@dataclass(frozen=True)
++class TemporalTransformInput:
++    """One history, never a hold-out target, for a supervised window transform."""
++
++    features: Array
++    horizon: int
++    fit_stage: bool
++    idx: Array
++
++
++@dataclass(frozen=True)
++class TemporalTransformOutput:
++    features: Array
++    target: Optional[Array]
++    idx: Array
+diff --git a/test/unit/data/test_evo04_temporal_extensions.py b/test/unit/data/test_evo04_temporal_extensions.py
+new file mode 100644
+index 00000000..71a8266b
+--- /dev/null
++++ b/test/unit/data/test_evo04_temporal_extensions.py
+@@ -0,0 +1,111 @@
++from dataclasses import replace
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++import torch
++
++from fedot.core.data.tensor_data import TensorData
++from fedot.core.operations.evaluation.temporal_extensions import (
++    apply_temporal_transform, is_temporal_window_transform, temporal_transform_request,
++)
++from fedot.core.repository.dataset_types import DataTypesEnum
++from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
++from fedot.extensions.contracts import ArrayBackend, ExtensionContractError
++from fedot.extensions.runtime_contracts import TemporalTransformOutput, TransformInput
++from fedot.extensions.runtime_rules import transform_features
++
++
++def _data():
++    return TensorData(task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(3)),
++                      data_type=DataTypesEnum.ts, features=torch.arange(20.)[None, :],
++                      target=torch.full((1, 3), 999.), idx=np.array([0]),
++                      fingerprint='stale', trace_uuid='stale')
++
++
++def _spec(backend=ArrayBackend.numpy):
++    return SimpleNamespace(capabilities=SimpleNamespace(backend=backend, tags=('ts_to_table',)))
++
++
++def _output():
++    return TemporalTransformOutput(np.ones((2, 4)), np.ones((2, 3)), np.array([4, 5]))
++
++
++@pytest.mark.parametrize('backend', [ArrayBackend.numpy, ArrayBackend.torch])
++@pytest.mark.parametrize('fitting', [False, True])
++def test_request_contains_private_history_and_actual_horizon_only(backend, fitting):
++    data = _data()
++    request = temporal_transform_request(data, backend, fit_stage=fitting)
++    assert request.horizon == 3 and request.fit_stage is fitting
++    assert request.features.shape == (20,)
++    assert not hasattr(request, 'target')
++    request.features[0] = -1
++    assert data.features[0, 0].item() == 0
++
++
++def test_window_output_replaces_targets_indices_and_stale_metadata():
++    data = _data()
++    output = _output()
++    instance = SimpleNamespace(transform_temporal=lambda request: output)
++    result = apply_temporal_transform(_spec(), instance, data, fit_stage=True)
++    assert result.features.shape == (2, 4) and result.target.shape == (2, 3)
++    assert result.idx.tolist() == [4, 5]
++    assert result.data_type is DataTypesEnum.tabular
++    assert result.fingerprint is None and result.trace_uuid is None and result.preparation_state is None
++    result.features[0, 0] = -1
++    result.target[0, 0] = -1
++    result.idx[0] = -1
++    assert output.features[0, 0] == 1 and output.target[0, 0] == 1 and output.idx[0] == 4
++    assert data.features.shape == (1, 20) and data.target[0, 0] == 999
++
++
++@pytest.mark.parametrize('changes', [
++    {'features': np.zeros(2)}, {'features': np.zeros((0, 4))}, {'features': np.full((2, 4), np.nan)},
++    {'features': [1, 2]}, {'target': None}, {'target': np.ones((2, 20))},
++    {'target': np.full((2, 3), np.inf)}, {'idx': np.array([1])}, {'idx': np.array([1, 1])},
++    {'idx': np.ones((2, 1))}, {'idx': [1, 2]},
++])
++def test_malformed_temporal_outputs_are_rejected(changes):
++    instance = SimpleNamespace(transform_temporal=lambda request: replace(_output(), **changes))
++    with pytest.raises(ExtensionContractError, match='.') as error:
++        apply_temporal_transform(_spec(), instance, _data(), fit_stage=True)
++    assert error.value.code == 'invalid_temporal_transform_output'
++
++
++@pytest.mark.parametrize('output', [None, _output(), replace(_output(), target=None)])
++def test_inference_requires_one_window_without_target(output):
++    instance = SimpleNamespace(transform_temporal=lambda request: output)
++    with pytest.raises(ExtensionContractError):
++        apply_temporal_transform(_spec(), instance, _data(), fit_stage=False)
++
++
++def test_missing_temporal_method_is_not_silently_replaced_by_ordinary_transform():
++    with pytest.raises(ExtensionContractError) as error:
++        apply_temporal_transform(_spec(), SimpleNamespace(transform=lambda x: x), _data(), fit_stage=True)
++    assert error.value.code == 'missing_runtime_method'
++
++
++@pytest.mark.parametrize('shape', [(2, 20), (1, 2, 20)])
++def test_multiseries_or_multichannel_input_is_rejected_before_flattening(shape):
++    data = replace(_data(), features=torch.zeros(shape), target=None, idx=np.arange(shape[0]))
++    with pytest.raises(ValueError, match='one univariate'):
++        temporal_transform_request(data, ArrayBackend.numpy, fit_stage=True)
++
++
++@pytest.mark.parametrize('task, dtype, tags', [
++    (TaskTypesEnum.regression, DataTypesEnum.ts, ('ts_to_table',)),
++    (TaskTypesEnum.classification, DataTypesEnum.ts, ('ts_to_table',)),
++    (TaskTypesEnum.ts_forecasting, DataTypesEnum.tabular, ('ts_to_table',)),
++    (TaskTypesEnum.ts_forecasting, DataTypesEnum.ts, ()),
++])
++def test_temporal_path_requires_tag_task_and_raw_series_type(task, dtype, tags):
++    spec = SimpleNamespace(capabilities=SimpleNamespace(tags=tags))
++    data = SimpleNamespace(task=Task(task), data_type=dtype)
++    assert not is_temporal_window_transform(spec, data)
++
++
++def test_ordinary_transform_still_cannot_change_sample_count():
++    instance = SimpleNamespace(transform=lambda values: np.ones((2, 3)))
++    with pytest.raises(ExtensionContractError) as error:
++        transform_features(_spec(), instance, TransformInput(np.ones((1, 20))), {})
++    assert error.value.code == 'output_row_mismatch'
 diff --git a/test/unit/data/test_evo04_temporal_holdout.py b/test/unit/data/test_evo04_temporal_holdout.py
 new file mode 100644
 index 00000000..92e63917

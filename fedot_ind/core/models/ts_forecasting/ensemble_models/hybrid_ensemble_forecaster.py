@@ -8,7 +8,9 @@ import torch
 
 try:  # pragma: no cover - benchmark/lightweight envs may not have fedot installed
     from fedot.core.data.input_data.data import InputData, OutputData
-    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import (
+        ModelImplementation,
+    )
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
@@ -254,7 +256,8 @@ class HybridEnsembleForecaster:
             self.ensemble_head_ = WeightedAverageHead(device_policy=self.device_policy_)
             self.ensemble_head_.weights_ = torch.as_tensor(
                 self.branch_calibration_['ensemble_head']['weights'],
-                dtype=torch.float32,
+                dtype=self.device_policy_.resolve_dtype(),
+                device=self.device_policy_.resolve_device(),
             )
         self.diagnostics_ = {
             'model_family': 'hybrid_ensemble',
@@ -279,10 +282,11 @@ class HybridEnsembleForecaster:
         horizon = int(forecast_horizon or self.forecast_horizon)
         if horizon > self.forecast_horizon:
             raise ValueError(
-                f'HybridEnsembleForecaster was trained for horizon={self.forecast_horizon}, got requested horizon={horizon}.'
+                f'HybridEnsembleForecaster was trained for horizon={self.forecast_horizon}, '
+                f'got requested horizon={horizon}.'
             )
-        source_series = self.training_history_ if time_series is None else np.asarray(time_series, dtype=float).reshape(
-            -1)
+        source_series = (self.training_history_ if time_series is None
+                         else np.asarray(time_series, dtype=float).reshape(-1))
         branch_predictions = {}
         branch_diagnostics = {}
         for branch_name, model in self.branch_models_.items():

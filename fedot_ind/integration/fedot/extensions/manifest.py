@@ -104,7 +104,7 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
     optional.update(search_parameters.get(declaration.name, {}))
     optional.update(_pdl_parameter_names(declaration.name, search_parameters))
     if (declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
-            and declaration.tasks == ("ts_forecasting",)):
+            and "ts_forecasting" in declaration.tasks):
         optional.add("forecast_length")
     if declaration.needs_explicit_task_type:
         required.add("task_type")

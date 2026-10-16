@@ -83,6 +83,15 @@ def test_manifest_does_not_shadow_builtin_fedot_operations():
     assert extension_names.isdisjoint(builtin_names)
 
 
+def test_multitask_hankel_schema_declares_forecast_length_before_fit():
+    from fedot.extensions.parameter_rules import resolve_extension_params
+
+    manifest = build_industrial_extension_manifest()
+    spec = next(spec for spec in manifest.transforms if spec.name == 'hankelisation')
+    assert 'forecast_length' in spec.hyperparams_schema.optional
+    assert resolve_extension_params(spec, {'forecast_length': 8}).is_right()
+
+
 def test_registration_is_dry_run_safe_and_idempotent():
     planned = register_industrial_extension(dry_run=True)
     registered = register_industrial_extension()

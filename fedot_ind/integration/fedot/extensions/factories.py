@@ -127,6 +127,31 @@ class DeferredModel(_DeferredRuntime):
 class DeferredTransform(_DeferredRuntime):
     """Array-level transform facade expected by the FEDOT extension runtime."""
 
+    def transform_temporal(self, request):
+        """Keep supervised targets and indices at the explicit window boundary."""
+        from fedot.extensions.runtime_contracts import TemporalTransformInput, TemporalTransformOutput
+        from fedot.core.data.input_data.data import InputData
+        from fedot.core.repository.dataset_types import DataTypesEnum
+        from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+
+        if not isinstance(request, TemporalTransformInput):
+            raise TypeError("Temporal transforms require TemporalTransformInput")
+        if self.params.get("forecast_length", request.horizon) != request.horizon:
+            raise ValueError("Temporal transform horizon differs from its fitted horizon")
+        values = _as_numpy(request.features).copy()
+        if values.ndim != 1:
+            raise ValueError("Temporal transforms require one univariate history")
+        data = InputData(
+            features=values,
+            target=values.copy() if request.fit_stage else None,
+            idx=np.array(request.idx, copy=True),
+            task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(request.horizon)),
+            data_type=DataTypesEnum.ts,
+        )
+        method = self._method("transform_for_fit" if request.fit_stage else "transform")
+        output = _invoke(method, (data,), {}, self.declaration.name)
+        return TemporalTransformOutput(output.features, output.target, output.idx)
+
     def transform(self, features: Any) -> Any:
         method_name = self.declaration.transform_policy.value
         method = self._method(method_name)

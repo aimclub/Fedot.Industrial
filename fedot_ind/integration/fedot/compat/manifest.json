@@ -14,7 +14,7 @@
     {
       "name": "temporal-evaluation",
       "resource": "patches/temporal_evaluation.patch",
-      "sha256": "62987e9e111fcb4ebd24ea9478393bbea7bfbde15dfd53e14bf95b8afe354903",
+      "sha256": "1282409b0dabf7af0a9f064f81271058d35f900f2edd0c9aeec4e28290db9857",
       "sources": {
         "fedot/core/data/split/temporal.py": "c217fdadde3b46f534e3168e9314554bd3944c7b1f419ca5c01004a6f1d89675",
         "fedot/core/data/split/data_split.py": "162bc49b14240899347a5a14db8435dd064d791dbbd36f96d9e118474c8d8d89",
@@ -22,9 +22,12 @@
         "fedot/core/operations/evaluation/temporal_bridge.py": "ca9046517b5079eed06e9823948a964a1c6b754fdebd1e9e112f61973648c09a",
         "fedot/core/operations/evaluation/time_series.py": "8475cd6eee36aca10dd3c6ca59f14a1945547672dfea8084bfc19d386f0d4da5",
         "fedot/core/operations/evaluation/regression.py": "ecaa9ae9b963b5e52c70b474b0e63bf1dc94489383fdfcf212667d4cd532ba2a",
-        "fedot/core/operations/evaluation/extensions.py": "58888d82e5f3990921ed49c24aa22e266a579656d4db8792bf339a04b423b6ed",
+        "fedot/core/operations/evaluation/extensions.py": "f52b9fb08be3c8d6b37b2db51c6cf59b3bcf61f27623b9ea2de3428a1c2e1908",
         "fedot/core/pipelines/pipeline_advisor.py": "21878d70d3650433be1342d09ecceecfe57f6abfa5f5b17b78f1eaa8d24b9a6f",
-        "test/unit/data/test_evo04_temporal_holdout.py": "8310165308b2d67316439232d63ea1df7ac669a3ba4c2dcea72e9933304be464"
+        "test/unit/data/test_evo04_temporal_holdout.py": "8310165308b2d67316439232d63ea1df7ac669a3ba4c2dcea72e9933304be464",
+        "fedot/extensions/runtime_contracts.py": "359f09f918daeac40131878d25706c34c148f3ebfd413588c057db1424ff2813",
+        "fedot/core/operations/evaluation/temporal_extensions.py": "292e9d66e3b8137b18eb85f2913a1c50f8ddb9f00be30fcc53c9883d4ad95fc8",
+        "test/unit/data/test_evo04_temporal_extensions.py": "c11f34f2a1e00c92b17f2075b1d4a732f67802db9cc1d4697357d4c9e0ccdbd3"
       }
     },
     {
