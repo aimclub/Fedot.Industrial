@@ -7,7 +7,9 @@ import numpy as np
 
 try:  # pragma: no cover - benchmark and lightweight environments may not have fedot installed
     from fedot.core.data.input_data.data import InputData, OutputData
-    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+    from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import (
+        ModelImplementation,
+    )
     from fedot.core.operations.operation_parameters import OperationParameters
     from fedot.core.repository.dataset_types import DataTypesEnum
 except Exception:  # pragma: no cover
@@ -82,6 +84,7 @@ class MSSAForecaster:
     device: str = 'auto'
     dtype: str = 'float32'
     progress_policy: dict[str, object] | bool | None = None
+    head_random_seed: int = 42
 
     def __post_init__(self):
         self.device_policy_ = TensorDevicePolicy(device=self.device, dtype=self.dtype)
@@ -187,6 +190,7 @@ class MSSAForecaster:
             hidden_dims=self._resolve_head_hidden_dims(),
             epochs=self.head_epochs,
             learning_rate=self.head_learning_rate,
+            random_seed=self.head_random_seed,
             progress_policy=self.progress_policy_,
             device_policy=self.device_policy_,
         )
@@ -308,6 +312,7 @@ class MSSAForecasterImplementation(ModelImplementation):
         self.head_hidden_layers = int(self.params.get('head_hidden_layers', 2))
         self.head_epochs = int(self.params.get('head_epochs', 120))
         self.head_learning_rate = float(self.params.get('head_learning_rate', 1e-3))
+        self.head_random_seed = int(self.params.get('head_random_seed', 42))
         self.device = str(self.params.get('device', 'auto'))
         self.progress_policy = self.params.get('progress_policy')
         self.model_: MSSAForecaster | None = None
@@ -327,6 +332,7 @@ class MSSAForecasterImplementation(ModelImplementation):
             head_hidden_layers=self.head_hidden_layers,
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
+            head_random_seed=self.head_random_seed,
             device=self.device,
             progress_policy=self.progress_policy,
         )
@@ -358,6 +364,7 @@ class MSSAForecasterImplementation(ModelImplementation):
                 head_hidden_layers=self.head_hidden_layers,
                 head_epochs=self.head_epochs,
                 head_learning_rate=self.head_learning_rate,
+                head_random_seed=self.head_random_seed,
                 device=self.device,
                 progress_policy=self.progress_policy,
             ).fit(np.asarray(input_data.features, dtype=float))
@@ -385,6 +392,7 @@ class MSSAForecasterImplementation(ModelImplementation):
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
+                'head_random_seed': self.head_random_seed,
                 'device': self.device,
             },
         ).to_dict()
@@ -405,6 +413,7 @@ class MSSAForecasterImplementation(ModelImplementation):
                     'head_hidden_layers': self.head_hidden_layers,
                     'head_epochs': self.head_epochs,
                     'head_learning_rate': self.head_learning_rate,
+                    'head_random_seed': self.head_random_seed,
                     'device': self.device,
                 },
             )
@@ -425,6 +434,7 @@ class MSSAForecasterImplementation(ModelImplementation):
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
+                'head_random_seed': self.head_random_seed,
                 'device': self.device,
             },
             stage_updates=stage_updates,
@@ -458,6 +468,7 @@ class MSSAForecasterImplementation(ModelImplementation):
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
+                'head_random_seed': self.head_random_seed,
                 'device': self.device,
             },
             stage_updates=stage_updates,

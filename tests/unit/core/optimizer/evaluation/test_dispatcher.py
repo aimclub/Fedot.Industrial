@@ -81,6 +81,9 @@ def test_expired_timer_and_cancel_do_not_evaluate_objective():
     dispatcher.dispatch(_size, SimpleNamespace(timeout=timedelta(seconds=1), seconds_from_start=2))
     assert dispatcher.evaluate_population([_individual()]) == []
     assert dispatcher.last_results[0].error.error_type == 'EvaluationTimeout'
+    dispatcher.cancel()
+    assert dispatcher.evaluate_population([_individual()]) == []
+    assert dispatcher.last_results[0].error.error_type == 'Cancelled'
     dispatcher.dispatch(_size)
     dispatcher.cancel()
     assert dispatcher.evaluate_population([_individual()]) == []
@@ -141,6 +144,48 @@ def test_local_dispatcher_rejects_legacy_and_implicit_remote_execution():
         LocalEvaluationDispatcher(DirectAdapter(), config=EvaluationExecutionConfig())
     with pytest.raises(ValueError, match='Remote delegation'):
         _dispatcher(delegate_evaluator=SimpleNamespace(is_enabled=True))
+
+
+def test_graph_preparation_cannot_silently_skip_or_extend_the_deadline():
+    from fedot_ind.core.optimizer.evaluation.preparation import PreparedEvaluationGraph, canonical_json
+    clock = SimpleNamespace(timeout=timedelta(seconds=1), seconds_from_start=0.)
+
+    def prepare(graph):
+        clock.seconds_from_start = 2.
+        return PreparedEvaluationGraph(graph, canonical_json({'configured': True}))
+
+    dispatcher = _dispatcher(graph_preparation=prepare)
+    assert dispatcher.dispatch(lambda graph: pytest.fail('Expired request ran'), clock)([_individual()]) == []
+    assert dispatcher.last_results[0].error.error_type == 'EvaluationTimeout'
+    assert dispatcher.last_budget.expired_before_execution
+    assert dispatcher.last_budget.remaining_search_seconds == -1.
+    assert dispatcher.last_budget.execution_budget_seconds is None
+    dispatcher = _dispatcher(graph_preparation=lambda graph: None)
+    with pytest.raises(TypeError, match='PreparedEvaluationGraph'):
+        dispatcher.dispatch(_size)([_individual()])
+    with pytest.raises(ValueError, match='callable'):
+        _dispatcher(graph_preparation=42)
+
+
+def test_preparation_consumes_explicit_batch_timeout_without_a_search_timer(monkeypatch):
+    import fedot_ind.core.optimizer.evaluation.dispatcher as module
+    from fedot_ind.core.optimizer.evaluation.preparation import PreparedEvaluationGraph, canonical_json
+    elapsed = [0.]
+    monkeypatch.setattr(module, 'monotonic', lambda: elapsed[0])
+
+    def prepare(graph):
+        elapsed[0] = 2.
+        return PreparedEvaluationGraph(graph, canonical_json({'configured': True}))
+
+    dispatcher = LocalEvaluationDispatcher(
+        DirectAdapter(), config=EvaluationExecutionConfig(EvaluationBackend.SEQUENTIAL, total_timeout_seconds=1.),
+        graph_preparation=prepare)
+    assert dispatcher.dispatch(lambda graph: pytest.fail('Expired batch ran'))([_individual()]) == []
+    result, = dispatcher.last_results
+    assert result.status.value == 'timed_out'
+    assert result.error.error_type == 'EvaluationTimeout'
+    assert dispatcher.last_budget.preparation_seconds == 2.
+    assert dispatcher.last_budget.expired_before_execution
 
 
 def _fit_ridge(pipeline):

@@ -1,0 +1,25 @@
+{
+  "schema_version": "industrial_winner_ranking@1",
+  "dataset": "NaturalGasPricesSentiment",
+  "samples": 65,
+  "train_sha256": "d87082ecba77425584ed65b6f2c53af184d995783df7284e88464c3593f31341",
+  "audit_sha256": "307f25fafbff3794fc2cf42c83f9a78ac71de2b634d251dba164292757fe006a",
+  "nested_defaults_sha256": "931c807c15a5b1f0a6e7ae56ac61fcec5eb01aac655c4e4014616c730111e721",
+  "run_seed": 42,
+  "tie_break": "exact_mean_then_ascending_candidate_id",
+  "candidates": {
+    "C03": "industrial-evaluation@1:143c181e992accdf387625d207b808196e12a508fc955af6f12849cf8db8ecf1",
+    "C10": "industrial-evaluation@1:3a12dd9e7778add69fd54f4dfe659952f8d2def34818612e360afc1d9e1c5ded",
+    "C16": "industrial-evaluation@1:79ff7fc9be4ad5f3a19edd3f120604b8903dd88c08d27c7beee2b8934c3ba7b7",
+    "C20": "industrial-evaluation@1:88a6743423e28da8ac902b9692cc46d2286439506ecde6d74d9ffce05b639891",
+    "C32": "industrial-evaluation@1:d9bdcad523b6f1916a46520d9d99eb8cd132515ad6bf0e4632b32932a36563a3"
+  },
+  "torch_flags": {
+    "deterministic_algorithms": false,
+    "deterministic_warn_only": false,
+    "float32_matmul_precision": "highest",
+    "cudnn_deterministic": false,
+    "cudnn_benchmark": false,
+    "threads": 1
+  }
+}

@@ -30,6 +30,7 @@ from fedot_ind.core.optimizer.observability import (
     graph_identity,
 )
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+from fedot_ind.core.operation.transformation.representation.statistical.feature_reuse import feature_reuse_scope
 from fedot_ind.integration.fedot.evaluation import industrial_failure_from_fedot
 from fedot_ind.core.optimizer.evaluation.diagnostics import record_evaluation_results
 
@@ -55,6 +56,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             graph_cleanup_fn=None,
             delegate_evaluator=None,
             diagnostics_recorder: Optional[EvolutionDiagnosticsRecorder] = None,
+            completed_evaluation_callback=None,
     ):
         super().__init__(
             adapter=adapter,
@@ -63,11 +65,13 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             delegate_evaluator=delegate_evaluator,
         )
         self.diagnostics_recorder = diagnostics_recorder
+        self.completed_evaluation_callback = completed_evaluation_callback
 
     def __getstate__(self):
         """Keep the coordinator-local recorder out of Dask worker payloads."""
         state = dict(self.__dict__)
         state['diagnostics_recorder'] = None
+        state['completed_evaluation_callback'] = None
         return state
 
     def dispatch(self, objective: ObjectiveFunction,
@@ -136,6 +140,9 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
 
     def _record_evaluation_results(self, evaluation_results) -> None:
         record_evaluation_results(getattr(self, 'diagnostics_recorder', None), evaluation_results)
+        callback = getattr(self, 'completed_evaluation_callback', None)
+        if callback is not None:
+            callback(evaluation_results)
 
     def _record_reused_individuals(self, individuals) -> None:
         recorder = getattr(self, 'diagnostics_recorder', None)
@@ -162,7 +169,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         start_time = timeit.default_timer()
         evaluation_failure = None
         try:
-            with industrial_extension_scope():
+            with industrial_extension_scope(), feature_reuse_scope():
                 adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
                 fitness, graph = adapted_evaluate(graph)
         except EXPECTED_EVALUATION_EXCEPTIONS as ex:

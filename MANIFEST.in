@@ -1,5 +1,6 @@
 include README.rst README_en.rst requirements.txt
 include fedot_ind/core/repository/data/*.json
+include fedot_ind/core/operation/transformation/torch_backend/statistical/batch_defaults.json
 include fedot_ind/core/repository/data/ts_benchmark_metadata.csv
 include fedot_ind/core/architecture/postprocessing/ucr_datasets.json
 include fedot_ind/integration/fedot/extensions/catalog.json

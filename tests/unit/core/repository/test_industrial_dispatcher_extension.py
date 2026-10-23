@@ -66,13 +66,16 @@ def test_dispatcher_records_success_failure_and_reused_evaluations():
 def test_dispatcher_worker_state_excludes_coordinator_recorder():
     dispatcher = object.__new__(IndustrialDispatcher)
     dispatcher.diagnostics_recorder = EvolutionDiagnosticsRecorder()
+    dispatcher.completed_evaluation_callback = lambda results: None
     dispatcher.marker = "kept"
 
     state = dispatcher.__getstate__()
 
     assert state["diagnostics_recorder"] is None
+    assert state["completed_evaluation_callback"] is None
     assert state["marker"] == "kept"
     assert dispatcher.diagnostics_recorder is not None
+    assert dispatcher.completed_evaluation_callback is not None
 
 
 def test_null_fitness_is_recorded_as_structured_evaluation_failure():

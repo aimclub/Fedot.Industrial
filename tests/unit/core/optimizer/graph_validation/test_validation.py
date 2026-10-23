@@ -8,6 +8,7 @@ from fedot_ind.core.optimizer.graph_validation import (
     ComputeDevice,
     GraphNodeSpec,
     GraphSpec,
+    ModelFeatureFlow,
     NodePosition,
     OperationCapabilities,
     OperationKind,
@@ -35,6 +36,7 @@ def _capability(
         identical: bool = True,
         tags: tuple[str, ...] = (),
         structural_role: StructuralRole | None = None,
+        preserves_features: bool = False,
 ) -> OperationCapabilities:
     return OperationCapabilities(
         name=name,
@@ -50,6 +52,7 @@ def _capability(
         allows_identical_parents=identical,
         tags=tags,
         structural_role=structural_role,
+        preserves_input_features=preserves_features,
     )
 
 
@@ -75,6 +78,116 @@ def test_valid_graph_has_empty_serializable_report():
     assert report.is_valid
     assert report.error_codes == ()
     assert json.loads(json.dumps(report.to_record())) == report.to_record()
+
+
+@pytest.mark.parametrize('source', ['ts', 'image'])
+def test_primary_model_must_accept_confirmed_source_type(source):
+    node = GraphNodeSpec('root', 'classifier', capabilities=_capability('classifier', kind=OperationKind.MODEL))
+    spec = GraphSpec('source-model', (node,), input_data_type=source)
+
+    report = validate_graph(spec)
+
+    assert report.error_codes == ('input_data_type_mismatch',)
+    assert report.issues[0].to_record()['context'] == {'input_data_type': source, 'supported': ['tabular']}
+
+
+@pytest.mark.parametrize('source', [None, 'tabular'])
+def test_unknown_or_compatible_source_preserves_primary_model(source):
+    node = GraphNodeSpec('root', 'classifier', capabilities=_capability('classifier', kind=OperationKind.MODEL))
+    assert validate_graph(GraphSpec('source-model', (node,), input_data_type=source)).is_valid
+
+
+def test_source_rule_preserves_explicit_data_sources_and_valid_generator():
+    source = GraphNodeSpec('source', 'source', capabilities=_capability(
+        'source', kind=OperationKind.DATA_SOURCE, inputs=('tabular',), outputs=('ts',)))
+    generator = GraphNodeSpec('features', 'features', ('source',), _capability('features', inputs=('ts',)))
+    root = GraphNodeSpec('root', 'classifier', ('features',), _capability('classifier', kind=OperationKind.MODEL))
+    spec = GraphSpec('explicit-source', (source, generator, root), input_data_type='image')
+    assert validate_graph(spec).is_valid
+
+
+@given(st.sampled_from(['ts', 'image', 'tabular']), st.permutations(('ts', 'image', 'tabular')))
+def test_source_admission_matches_declared_capability_without_mutating_graph(source, accepted):
+    inputs = tuple(accepted[:2])
+    node = GraphNodeSpec('root', 'classifier', capabilities=_capability(
+        'classifier', kind=OperationKind.MODEL, inputs=inputs))
+    spec = GraphSpec('source-model', (node,), input_data_type=source)
+    before = spec.to_record()
+
+    assert validate_graph(spec).is_valid == (source in inputs)
+    assert spec.to_record() == before
+
+
+def test_tensor_models_propagate_features_not_declared_predictions():
+    model = GraphNodeSpec('model', 'pdl', capabilities=_capability(
+        'pdl', kind=OperationKind.MODEL, inputs=('ts', 'tabular'), preserves_features=True))
+    root = GraphNodeSpec('root', 'classifier', ('model',), _capability('classifier', kind=OperationKind.MODEL))
+    spec = GraphSpec('model-features', (model, root), input_data_type='ts',
+                     model_feature_flow=ModelFeatureFlow.TENSOR_FEATURES)
+    assert validate_graph(spec).error_codes == ('feature_type_mismatch',)
+    assert validate_graph(replace(spec, input_data_type='tabular')).is_valid
+    assert validate_graph(replace(spec, model_feature_flow=ModelFeatureFlow.DECLARED_OUTPUT)).is_valid
+    generator = GraphNodeSpec('features', 'features', capabilities=_capability('features', inputs=('ts',)))
+    with_generator = replace(spec, nodes=(generator, replace(model, parent_ids=('features',)), root))
+    assert validate_graph(with_generator).is_valid
+
+
+@pytest.mark.parametrize('source', [None, 'ts'])
+def test_feature_proof_never_replaces_declared_container_type_check(source):
+    pdl = GraphNodeSpec('pdl', 'pdl', capabilities=_capability(
+        'pdl', kind=OperationKind.MODEL, inputs=('ts',), preserves_features=True))
+    generator = GraphNodeSpec('features', 'features', ('pdl',), _capability('features', inputs=('ts',)))
+    root = GraphNodeSpec('root', 'classifier', ('features',), _capability('classifier', kind=OperationKind.MODEL))
+    spec = GraphSpec('container-types', (pdl, generator, root), input_data_type=source,
+                     model_feature_flow=ModelFeatureFlow.TENSOR_FEATURES)
+    assert validate_graph(spec).error_codes == ('data_type_mismatch',)
+
+
+def test_ambiguous_merge_does_not_claim_to_preserve_three_dimensional_input():
+    left = GraphNodeSpec('left', 'left', capabilities=_capability('left', inputs=('ts',), outputs=('ts',)))
+    right = GraphNodeSpec('right', 'right', capabilities=_capability('right', inputs=('ts',), outputs=('ts',)))
+    pdl = GraphNodeSpec('pdl', 'pdl', ('left', 'right'), _capability(
+        'pdl', kind=OperationKind.MODEL, inputs=('ts',), preserves_features=True))
+    root = GraphNodeSpec('root', 'classifier', ('pdl',), _capability('classifier', kind=OperationKind.MODEL))
+    spec = GraphSpec('merge-shape-unknown', (left, right, pdl, root), input_data_type='ts',
+                     model_feature_flow=ModelFeatureFlow.TENSOR_FEATURES)
+    assert validate_graph(spec).is_valid
+
+
+def test_unconfirmed_model_strategy_does_not_claim_feature_preservation():
+    temporal = GraphNodeSpec('ar', 'ar', capabilities=_capability(
+        'ar', kind=OperationKind.MODEL, inputs=('ts',)))
+    root = GraphNodeSpec('root', 'regressor', ('ar',), _capability('regressor', kind=OperationKind.MODEL))
+    assert validate_graph(GraphSpec('temporal-model', (temporal, root), input_data_type='ts',
+                                    model_feature_flow=ModelFeatureFlow.TENSOR_FEATURES)).is_valid
+
+
+@pytest.mark.parametrize('value', ['', ' ', 1, []])
+def test_invalid_graph_source_type_is_rejected(value):
+    with pytest.raises(ValueError, match='input data type'):
+        replace(_valid_spec(), input_data_type=value)
+
+
+def test_model_flow_requires_typed_policy():
+    with pytest.raises(TypeError, match='ModelFeatureFlow'):
+        replace(_valid_spec(), model_feature_flow='tensor_features')
+
+
+@pytest.mark.parametrize('change', [
+    {'input_data_type': 'ts'}, {'model_feature_flow': ModelFeatureFlow.TENSOR_FEATURES},
+])
+def test_mutation_plan_cannot_be_replayed_with_different_source_context(change):
+    from fedot_ind.core.optimizer.mutation_planning import (
+        MutationKind, MutationLimits, MutationRejection, apply_mutation_plan, enumerate_mutation_plans,
+    )
+    spec = replace(_valid_spec(), input_data_type='tabular')
+    limits = MutationLimits(max_nodes=6, max_depth=4, max_candidates=16)
+    alternative = _capability('alternative', kind=OperationKind.MODEL)
+    candidates = enumerate_mutation_plans(spec, (alternative,), limits=limits, kinds=(MutationKind.REPLACE,))
+    assert candidates.plans
+    result = apply_mutation_plan(replace(spec, **change), candidates.plans[0], limits=limits)
+    assert isinstance(result, MutationRejection)
+    assert result.code.value == 'stale_plan'
 
 
 def test_issue_context_is_deeply_immutable_but_serializes_as_json_values():

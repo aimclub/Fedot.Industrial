@@ -25,7 +25,7 @@ from .pairwise_core import (
     predict_similarity_by_chunks,
     resolve_pdl_strategies,
 )
-from .base_models import create_pdl_base_model
+from .base_models import create_pdl_base_model, resolved_base_model_parameters
 
 if TYPE_CHECKING:
     from fedot_ind.integration.fedot.compatibility import InputData
@@ -191,7 +191,7 @@ class PairwiseDifferenceClassifier:
         self.model_name = raw_params.pop("model", "rf")
         self.base_model_params = dict(raw_params)
         self.base_model = create_pdl_base_model(
-            "classification", self.model_name, self.base_model_params
+            "classification", self.model_name, self.base_model_params, random_state=self.config.random_state
         )
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
@@ -249,6 +249,7 @@ class PairwiseDifferenceClassifier:
             "class_labels": [str(label) for label in self.classes_],
             "base_model": self.model_name,
             "base_model_params": deepcopy(self.base_model_params),
+            **resolved_base_model_parameters(self.base_model),
         }
         return self
 
@@ -367,7 +368,7 @@ class PairwiseDifferenceRegressor:
         self.model_name = raw_params.pop("model", "treg")
         self.base_model_params = dict(raw_params)
         self.base_model = create_pdl_base_model(
-            "regression", self.model_name, self.base_model_params
+            "regression", self.model_name, self.base_model_params, random_state=self.config.random_state
         )
         self.pde = PairwiseDifferenceEstimator(self.config)
         self.sample_weight_ = None
@@ -417,6 +418,7 @@ class PairwiseDifferenceRegressor:
             "task": "regression",
             "base_model": self.model_name,
             "base_model_params": deepcopy(self.base_model_params),
+            **resolved_base_model_parameters(self.base_model),
         }
         return self
 

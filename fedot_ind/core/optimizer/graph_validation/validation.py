@@ -8,6 +8,7 @@ from typing import Callable, Iterable, Mapping
 from fedot_ind.core.optimizer.graph_validation.contracts import (
     GraphNodeSpec,
     GraphSpec,
+    ModelFeatureFlow,
     NodePosition,
     OperationKind,
     StructuralRole,
@@ -202,17 +203,30 @@ def validate_capabilities(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
 
 
 def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
-    """Return incompatible parent-output/child-input and duplicate-parent issues.
+    """Check confirmed source inputs, parent feature views and duplicate parents.
 
     Skip type comparisons when either endpoint lacks capabilities or either
-    type declaration is empty.
+    type declaration is empty. TensorData feature transport is an explicit
+    graph context, not an assumption based on the task or operation name.
     """
     issues: list[ValidationIssue] = []
     nodes = _unique_node_map(spec)
+    feature_outputs = _feature_output_types(spec, nodes)
     for child in nodes.values():
         child_capability = child.capabilities
         if child_capability is None:
             continue
+        if (not child.parent_ids and child_capability.kind is not OperationKind.DATA_SOURCE
+                and spec.input_data_type is not None and child_capability.input_data_types
+                and spec.input_data_type not in child_capability.input_data_types):
+            issues.append(_issue(
+                ValidationIssueCode.INPUT_DATA_TYPE_MISMATCH,
+                "Primary operation cannot consume the confirmed graph input type.",
+                node_ids=(child.node_id,),
+                operation_names=(child.operation_name,),
+                context={"input_data_type": spec.input_data_type,
+                         "supported": sorted(child_capability.input_data_types)},
+            ))
         parent_names: list[str] = []
         for parent_id in child.parent_ids:
             parent = nodes.get(parent_id)
@@ -229,6 +243,17 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
                     operation_names=(parent.operation_name, child.operation_name),
                     context={"parent_outputs": sorted(output_types),
                              "child_inputs": sorted(input_types)},
+                ))
+            feature_types = frozenset(feature_outputs[parent.node_id])
+            if (spec.model_feature_flow is ModelFeatureFlow.TENSOR_FEATURES
+                    and feature_types and input_types and feature_types.isdisjoint(input_types)
+                    and not (output_types and output_types.isdisjoint(input_types))):
+                issues.append(_issue(
+                    ValidationIssueCode.FEATURE_TYPE_MISMATCH,
+                    "The confirmed parent feature view is incompatible with the child input.",
+                    node_ids=(parent.node_id, child.node_id),
+                    operation_names=(parent.operation_name, child.operation_name),
+                    context={"parent_features": sorted(feature_types), "child_inputs": sorted(input_types)},
                 ))
         parent_name_counts = Counter(parent_names)
         repeated_transform_names = {
@@ -249,6 +274,41 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
                 operation_names=(child.operation_name, *parent_names),
             ))
     return tuple(issues)
+
+
+def _feature_output_types(spec: GraphSpec, nodes: Mapping[str, GraphNodeSpec]) -> dict[str, tuple[str, ...]]:
+    """Resolve proven feature views; model predictions have a separate field."""
+    outputs: dict[str, tuple[str, ...]] = {}
+    visiting: set[str] = set()
+
+    def resolve(node_id: str) -> tuple[str, ...]:
+        if node_id in outputs:
+            return outputs[node_id]
+        if node_id in visiting:
+            return ()  # Structure validation owns cycle reporting.
+        visiting.add(node_id)
+        node = nodes[node_id]
+        capability = node.capabilities
+        if capability is None:
+            result = ()
+        elif spec.model_feature_flow is ModelFeatureFlow.TENSOR_FEATURES and capability.kind is OperationKind.MODEL:
+            if not capability.preserves_input_features:
+                result = ()
+            elif len(node.parent_ids) == 1 and node.parent_ids[0] in nodes:
+                result = resolve(node.parent_ids[0])
+            elif not node.parent_ids:
+                result = (spec.input_data_type,) if spec.input_data_type is not None else ()
+            else:
+                result = ()  # A merge can change rank; data types do not prove its output shape.
+        else:
+            result = capability.output_data_types
+        visiting.remove(node_id)
+        outputs[node_id] = result
+        return result
+
+    for node_id in sorted(nodes):
+        resolve(node_id)
+    return outputs
 
 
 def validate_special_operations(spec: GraphSpec) -> tuple[ValidationIssue, ...]:

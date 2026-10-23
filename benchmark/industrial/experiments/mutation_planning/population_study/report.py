@@ -5,6 +5,8 @@ from statistics import mean
 import math
 
 from .protocol import experiment_matrix
+from .runtime_contract import runtime_matches
+from .preparation import archive_evidence_matches
 
 
 def assess_study(protocol, records):
@@ -54,7 +56,8 @@ def assess_study(protocol, records):
             generations = row['generations'][:config['generations']]
             checks[f'{mode}_full_populations'] = (
                 len(generations) == config['generations']
-                and all(g['population_size'] >= 1 and g['valid_fitness_count'] == g['population_size']
+                and all(not g.get('is_final', False) and g['population_size'] >= 1
+                        and g['valid_fitness_count'] == g['population_size']
                         for g in generations)
                 and sum(g['new_successes'] > 0 for g in generations[1:]) >= criteria['minimum_evolved_generations'])
             calls = row['objective_calls']
@@ -68,6 +71,8 @@ def assess_study(protocol, records):
             checks[f'{mode}_native_folds'] = all(call['fold_count'] == 1 for call in calls if call['valid'])
             checks[f'{mode}_cpu'] = row['torch_threads'] == 1 and not row['cuda_visible'] and all(
                 item['num_threads'] == 1 for item in row['threadpools'])
+            checks[f'{mode}_frozen_torch'] = runtime_matches(row)
+            checks[f'{mode}_completed_archive'] = archive_evidence_matches(row)
         pair = {'task': task, 'dataset': dataset, 'seed': old['seed'], 'degradation': degradation,
                 'legacy_loss': old['quality_loss'], 'planned_loss': new['quality_loss'],
                 'legacy_baseline_gain': old['baseline_loss'] - old['quality_loss'],

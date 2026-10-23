@@ -1,7 +1,6 @@
 """One isolated full-population trial, including native FEDOT fold evaluation."""
 
 import argparse
-from copy import deepcopy
 from dataclasses import replace
 from datetime import timedelta
 import gc
@@ -23,42 +22,63 @@ from fedot.core.optimisers.objective.data_source_splitter import DataSourceSplit
 from golem.core.optimisers.objective import Objective
 
 from .data import load_study_data, loss_value
+from .runtime_contract import require_runtime
+from .preparation import (
+    StudyGraphPreparation, configure_pipeline, fitted_model_parameters, pipeline_configuration,
+    selected_evaluation, selection_summary,
+)
+from fedot_ind.core.optimizer.evaluation.context import current_evaluation_context
+from fedot_ind.core.optimizer.evaluation.preparation import PreparedEvaluationGraph, canonical_json
+from fedot_ind.core.optimizer.randomness import CandidateRandomness
 
 
 def numpy(value):
     return value.detach().cpu().numpy() if hasattr(value, 'detach') else np.asarray(value)
 
 
-def configure_pipeline(pipeline, parameters):
-    for node in pipeline.nodes:
-        name = node.operation.operation_type
-        if name in parameters:
-            current = node.parameters if isinstance(node.parameters, dict) else {}
-            node.parameters = {**current, **deepcopy(parameters[name])}
-    return pipeline
-
-
 class StudyEvaluator(PipelineObjectiveEvaluateWithTensorData):
-    def __init__(self, *args, parameters, **kwargs):
+    def __init__(self, *args, parameters, task, trace_path=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.parameters = parameters
+        self.task = task
         self.calls = []
+        self._fitted_models = []
+        self.trace_path = trace_path
+
+    def _record_call(self, call):
+        self.calls.append(call)
+        if self.trace_path is not None:
+            with Path(self.trace_path).open('a', encoding='utf-8') as stream:
+                stream.write(json.dumps(call, allow_nan=False) + '\n')
+
+    def prepare_graph(self, graph, train_data, fold_id=None, n_jobs=-1, *, prediction_cache=None):
+        prepared = super().prepare_graph(graph, train_data, fold_id, n_jobs, prediction_cache=prediction_cache)
+        self._fitted_models = fitted_model_parameters(prepared)
+        return prepared
 
     def evaluate(self, graph):
         started = perf_counter()
+        self._fitted_models = []
+        context = current_evaluation_context()
+        evidence = {} if context is None else context.to_record()
         try:
-            configure_pipeline(graph, self.parameters)
+            if context is None or context.configuration_json is None:
+                raise ValueError('Study evaluation requires explicit prepared configuration evidence')
+            snapshot = PreparedEvaluationGraph(graph, canonical_json(pipeline_configuration(graph, self.task)))
+            if snapshot.configuration_id != context.configuration_id:
+                raise ValueError('Evaluated configuration differs from its RNG identity')
             fitness = super().evaluate(graph)
         except Exception as error:
-            self.calls.append({'graph_id': graph.descriptive_id, 'valid': False,
+            self._record_call({**evidence, 'graph_id': graph.descriptive_id, 'valid': False,
                                'seconds': perf_counter() - started, 'outcome': 'RaisedException',
                                'fold_count': 0, 'failure': f'{type(error).__name__}: {error}'})
             raise
-        self.calls.append({'graph_id': graph.descriptive_id, 'valid': bool(fitness.valid),
+        self._record_call({**evidence, 'graph_id': graph.descriptive_id, 'valid': bool(fitness.valid),
                            'fitness': float(fitness.value) if fitness.valid else None,
                            'seconds': perf_counter() - started, 'outcome': type(self.last_outcome).__name__,
                            'fold_count': len(getattr(self.last_outcome, 'folds', ())),
-                           'failure': str(getattr(self.last_outcome, 'failure', ''))})
+                           'failure': str(getattr(self.last_outcome, 'failure', '')),
+                           'fitted_models': self._fitted_models})
         return fitness
 
 
@@ -96,7 +116,7 @@ class PeakRSS:
         self._read()
 
 
-def run_trial(config, job, root):
+def run_trial(config, job, root, *, train_only=False, forecast_horizon=None):
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
     from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
     from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
@@ -108,26 +128,31 @@ def run_trial(config, job, root):
     from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
     from fedot_ind.core.optimizer.randomness import operator_random_scope
     from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+    from fedot_ind.core.operation.transformation.representation.statistical.feature_reuse import run_with_feature_reuse
     from benchmark.industrial.experiments.mutation_planning.runner import _environment
 
     torch.set_num_threads(1)
-    if torch.cuda.is_available():
-        raise RuntimeError('CPU study admission failed: CUDA must be hidden before model training')
+    require_runtime(torch)
     torch.manual_seed(job['seed'])
-    data = load_study_data(config, job['scenario'], job['seed'])
+    if train_only:
+        from .selection_recheck.data import load_training_data
+        data = load_training_data(config, job['scenario'], job['seed'], forecast_horizon=forecast_horizon)
+    else:
+        data = load_study_data(config, job['scenario'], job['seed'])
     task = job['scenario']['task']
     parameters = config['operation_parameters']
-    test_input = replace(data.test, target=None, state='predict')
 
     def metric(pipeline, reference_data, **kwargs):
-        output = pipeline.predict(replace(reference_data, target=None, state='predict'),
-                                  output_mode='labels' if task == 'classification' else 'default')
+        output = run_with_feature_reuse(
+            pipeline.predict, replace(reference_data, target=None, state='predict'),
+            output_mode='labels' if task == 'classification' else 'default')
         return loss_value(task, numpy(reference_data.target), numpy(output.predict), data.scale)
 
     producer = DataSourceSplitter.build_holdout_producer_from_split(data.train, data.validation)
     objective = Objective({'heldout_loss': metric})
     evaluator = StudyEvaluator(objective, producer, expected_folds=1, result_cache_size=0,
-                               eval_n_jobs=1, parameters=parameters)
+                               eval_n_jobs=1, parameters=parameters, task=task,
+                               trace_path=root / 'objective_calls.jsonl')
     scenario = {'name': job['scenario']['name'], 'task': task, 'operations': config['operations'][task],
                 'initial_chain': config['initial_chains'][task][0]}
     with (industrial_extension_scope(), threadpool_limits(limits=1), operator_random_scope(job['seed']),
@@ -146,9 +171,10 @@ def run_trial(config, job, root):
             for name in chain:
                 builder.add_node(name, params=parameters.get(name))
             pipeline = builder.build()
+            configure_pipeline(pipeline, parameters)
             # Identical warmup in both fresh processes, excluded from measured search.
-            pipeline.fit(data.train)
-            pipeline.predict(replace(data.validation, target=None, state='predict'))
+            run_with_feature_reuse(pipeline.fit, data.train)
+            run_with_feature_reuse(pipeline.predict, replace(data.validation, target=None, state='predict'))
             pipeline.unfit()
             graphs.append(params.adapter.adapt(pipeline))
         recorder = EvolutionDiagnosticsRecorder()
@@ -168,7 +194,8 @@ def run_trial(config, job, root):
                             execution_policy=ExecutionPolicy(retry_initial_population_without_timer=False,
                                                              diagnostics_output_dir=str(root / 'diagnostics')),
                             evaluation_execution=EvaluationExecutionConfig(EvaluationBackend.SEQUENTIAL)),
-            diagnostics_recorder=recorder)
+            diagnostics_recorder=recorder,
+            evaluation_graph_preparation=StudyGraphPreparation.from_parameters(params.adapter, parameters, task))
         generations = []
         previous_calls = 0
         previous_events = 0
@@ -178,11 +205,15 @@ def run_trial(config, job, root):
             new_calls = evaluator.calls[previous_calls:]
             events = recorder.snapshot().observations
             evaluations = [event for event in events[previous_events:] if event.event_type.value == 'evaluation']
-            generations.append({'generation': owner.current_generation_num, 'population_size': len(population),
+            generations.append({'generation': owner.current_generation_num,
+                                'is_final': bool(owner.final_individuals), 'population_size': len(population),
                                 'valid_fitness_count': sum(bool(ind.fitness.valid) for ind in population),
                                 'new_successes': sum(event.status == 'succeeded' for event in evaluations),
                                 'objective_attempts': len(new_calls),
-                                'graph_ids': [ind.graph.descriptive_id for ind in population]})
+                                'graph_ids': [ind.graph.descriptive_id for ind in population],
+                                'members': [{'candidate_id': str(ind.uid), 'fitness': float(ind.fitness.value),
+                                             'evaluation_id': ind.metadata['evaluation_context']['evaluation_id']}
+                                            for ind in population]})
             previous_calls = len(evaluator.calls)
             previous_events = len(events)
 
@@ -192,14 +223,53 @@ def run_trial(config, job, root):
             print('search-start', flush=True)
             winner = optimizer.optimise(evaluator.evaluate)[0]
             search_seconds = perf_counter() - started
+            initial_seconds = optimizer.timer.init_time * 60
+            clock_seconds = optimizer.timer.seconds_from_start
+            search_clock = {
+                'initial_population_seconds': initial_seconds,
+                'elapsed_seconds': clock_seconds,
+                'evolution_seconds': clock_seconds - initial_seconds,
+                'completed_evolved_generations': len(optimizer.evaluated_population) - 1,
+                'time_limit_reached': optimizer.timer.process_terminated,
+            }
             print('search-finished', search_seconds, flush=True)
             pipeline = configure_pipeline(params.adapter.restore(winner), parameters)
+            selected_configuration = PreparedEvaluationGraph(
+                winner, canonical_json(pipeline_configuration(pipeline, task)))
+            individual = optimizer.best_individuals[0]
+            selection = {'candidate_id': str(individual.uid), 'fitness': float(individual.fitness.value),
+                         'configuration': json.loads(selected_configuration.configuration_json),
+                         'configuration_id': selected_configuration.configuration_id,
+                         'evaluation_context': individual.metadata.get('evaluation_context')}
+            (root / 'selection.json').write_text(json.dumps(selection, indent=2, allow_nan=False), encoding='utf-8')
+            selected_context = selected_evaluation(individual, selected_configuration, evaluator.calls)
+            entries = [entry.to_record() for entry in optimizer.completed_evaluations.entries]
+            audit = selection_summary(selection, evaluator.calls, generations, completed_entries=entries)
+            if not audit['selected_is_observed_minimum']:
+                raise ValueError('Selected candidate is not the minimum of completed evaluations')
+            selection = {**selection, **audit}
+            (root / 'selection.json').write_text(json.dumps(selection, indent=2, allow_nan=False), encoding='utf-8')
+            if train_only:
+                pipeline.unfit()
+                return {**job, 'status': 'succeeded', 'scope': 'TRAIN-only', 'source': data.source,
+                        'selected_graph': winner.descriptive_id, 'selected_evaluation': selected_context,
+                        'selection': selection,
+                        'completed_archive': entries,
+                        'generation_best_fitness': float(optimizer.generations.best_individuals[0].fitness.value),
+                        'objective_calls': evaluator.calls, 'generations': generations,
+                        'search_seconds': search_seconds, 'search_clock': search_clock,
+                        'diagnostics': optimizer.diagnostics.summary.to_record(), **require_runtime(torch)}
             pipeline.unfit()
+            refit_seed = CandidateRandomness(job['seed'], 'refit:' + selected_configuration.configuration_id, 0).seed
             started = perf_counter()
-            pipeline.fit(data.refit)
+            with operator_random_scope(refit_seed):
+                run_with_feature_reuse(pipeline.fit, data.refit)
             refit_seconds = perf_counter() - started
+            refit_models = fitted_model_parameters(pipeline)
             started = perf_counter()
-            output = pipeline.predict(test_input, output_mode='labels' if task == 'classification' else 'default')
+            output = run_with_feature_reuse(
+                pipeline.predict, replace(data.test, target=None, state='predict'),
+                output_mode='labels' if task == 'classification' else 'default')
             predict_seconds = perf_counter() - started
             predictions = numpy(output.predict)
             quality = loss_value(task, numpy(data.test.target), predictions, data.scale)
@@ -215,16 +285,21 @@ def run_trial(config, job, root):
             pipeline.unfit()
         summary = optimizer.diagnostics.summary.to_record()
         gc.collect()
+        runtime = require_runtime(torch)
         return {**job, 'status': 'succeeded', 'quality_loss': quality, 'baseline_loss': baseline,
-                'search_seconds': search_seconds, 'refit_seconds': refit_seconds,
+                'search_seconds': search_seconds, 'search_clock': search_clock, 'refit_seconds': refit_seconds,
                 'search_budget_overrun_seconds': max(0., search_seconds - config['search_seconds']),
                 'predict_seconds': predict_seconds, 'peak_rss_bytes': memory.peak,
                 'memory_scope': 'process_tree_rss_sampled_10ms', 'source': data.source,
                 'selected_graph': winner.descriptive_id, 'generations': generations,
+                'selected_evaluation': selected_context,
+                'selection': selection, 'completed_archive': entries,
+                'generation_best_fitness': float(optimizer.generations.best_individuals[0].fitness.value),
+                'refit': {'seed': refit_seed, 'configuration_id': selected_configuration.configuration_id,
+                          'fitted_models': refit_models},
                 'objective_calls': evaluator.calls, 'diagnostics': summary,
                 'test_target': numpy(data.test.target).reshape(-1).tolist(),
-                'test_prediction': predictions.tolist(), 'threadpools': threadpool_info(),
-                'torch_threads': torch.get_num_threads(), 'cuda_visible': torch.cuda.is_available()}
+                'test_prediction': predictions.tolist(), 'threadpools': threadpool_info(), **runtime}
 
 
 def main():
@@ -233,11 +308,20 @@ def main():
     args = parser.parse_args()
     payload = json.loads(args.job.read_text(encoding='utf-8'))
     root = args.job.parent
+    accesses = None
     try:
-        result = run_trial(payload['config'], payload['job'], root)
+        if payload.get('scope') == 'TRAIN-only':
+            from .selection_recheck.data import training_data_guard
+            with training_data_guard(payload['config'], payload['job']['scenario']) as accesses:
+                result = run_trial(payload['config'], payload['job'], root, train_only=True,
+                                   forecast_horizon=payload.get('forecast_horizon'))
+        else:
+            result = run_trial(payload['config'], payload['job'], root)
     except Exception as error:
         result = {**payload['job'], 'status': 'failed', 'error_type': type(error).__name__,
                   'error_message': str(error), 'traceback': traceback.format_exc()}
+    if accesses is not None:
+        result['data_access'] = accesses
     temporary = root / 'result.partial'
     temporary.write_text(json.dumps(result, indent=2, allow_nan=False) + '\n', encoding='utf-8')
     temporary.replace(root / 'result.json')

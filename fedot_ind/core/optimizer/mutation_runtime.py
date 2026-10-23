@@ -15,7 +15,7 @@ from golem.core.optimisers.graph import OptGraph, OptNode
 
 from fedot_ind.core.optimizer.graph_validation.adapters import project_runtime_graph
 from fedot_ind.core.optimizer.graph_validation import (
-    GraphSpec, NodePosition, OperationCapabilities, OperationKind,
+    GraphSpec, ModelFeatureFlow, NodePosition, OperationCapabilities, OperationKind,
     capabilities_from_runtime_node, industrial_capability_index, infer_validation_context,
 )
 from fedot_ind.core.optimizer.configuration import MutationPlanningPolicy
@@ -112,8 +112,12 @@ def install_extension_aware_advisor(graph_generation_params) -> None:
 def project_for_mutation(graph, graph_generation_params) -> GraphSpec:
     """Use stable positional addresses rather than freshly generated runtime UUIDs."""
     task, device = infer_validation_context(graph_generation_params)
+    verifier = getattr(graph_generation_params, 'verifier', None)
     _, spec = project_runtime_graph(
-        graph, adapter=graph_generation_params.adapter, task_type=task, requested_device=device)
+        graph, adapter=graph_generation_params.adapter, task_type=task, requested_device=device,
+        input_data_type=getattr(verifier, 'input_data_type', None),
+        model_feature_flow=getattr(verifier, 'model_feature_flow',
+                                   ModelFeatureFlow.DECLARED_OUTPUT))
     identities = {node.node_id: f"node-{index}" for index, node in enumerate(spec.nodes)}
     return replace(spec, graph_id="mutation-input", nodes=tuple(
         replace(node, node_id=identities[node.node_id],

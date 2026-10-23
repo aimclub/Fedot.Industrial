@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+import math
+from numbers import Real
 from typing import Any, Sequence
 
 import numpy as np
@@ -371,25 +373,39 @@ class RidgeForecastingHead:
     intercept_: torch.Tensor | None = None
     input_dim_: int | None = None
     output_dim_: int | None = None
+    feature_mean_: torch.Tensor | None = None
+    target_mean_: torch.Tensor | None = None
+    effective_rank_: int | None = None
 
     def fit(self, features: torch.Tensor, target: torch.Tensor) -> 'RidgeForecastingHead':
         """Fit ridge weights from supervised trajectory features to horizon targets."""
-        X = ensure_tensor_2d(features, self.device_policy)
-        Y = ensure_tensor_2d(target, self.device_policy)
-        design = torch.cat(
-            [torch.ones((X.shape[0], 1), device=X.device, dtype=X.dtype), X],
-            dim=1,
-        )
-        regularizer = torch.eye(design.shape[1], device=X.device, dtype=X.dtype) * float(self.alpha)
-        regularizer[0, 0] = 0.0
-        lhs = design.T @ design + regularizer
-        rhs = design.T @ Y
-        try:
-            solution = torch.linalg.solve(lhs, rhs)
-        except RuntimeError:  # pragma: no cover - defensive fallback
-            solution = torch.linalg.pinv(lhs) @ rhs
-        self.intercept_ = solution[0]
-        self.weights_ = solution[1:]
+        if isinstance(self.alpha, bool) or not isinstance(self.alpha, Real) or not math.isfinite(self.alpha) \
+                or self.alpha < 0:
+            raise ValueError('alpha must be a finite nonnegative number')
+        X = ensure_tensor_2d(features, self.device_policy).to(dtype=torch.float64)
+        Y = ensure_tensor_2d(target, self.device_policy).to(dtype=torch.float64)
+        if (not X.shape[0] or not X.shape[1] or not Y.shape[1] or X.shape[0] != Y.shape[0]
+                or not bool(torch.isfinite(X).all()) or not bool(torch.isfinite(Y).all())):
+            raise ValueError('Ridge training matrices must be nonempty, aligned and finite')
+        x_mean, y_mean = X.mean(dim=0), Y.mean(dim=0)
+        centered = X - x_mean
+        # Direct SVD avoids squaring the condition number in X.T @ X. Centering
+        # keeps the intercept unpenalized and prediction stable at large offsets.
+        left, singular, right_t = torch.linalg.svd(centered, full_matrices=False)
+        cutoff = torch.finfo(X.dtype).eps * max(X.shape) * singular[0]
+        retained = singular > cutoff
+        if self.alpha == 0:
+            factors = torch.zeros_like(singular)
+            factors[retained] = singular[retained].reciprocal()
+        else:
+            factors = singular / (singular.square() + float(self.alpha))
+        weights = right_t.T @ (factors[:, None] * (left.T @ (Y - y_mean)))
+        if not bool(torch.isfinite(weights).all()):
+            raise ValueError('Ridge solution must be finite')
+        self.feature_mean_, self.target_mean_ = x_mean, y_mean
+        self.intercept_ = y_mean - x_mean @ weights
+        self.weights_ = weights
+        self.effective_rank_ = int(retained.sum().item())
         self.input_dim_ = int(X.shape[1])
         self.output_dim_ = int(Y.shape[1])
         return self
@@ -399,7 +415,12 @@ class RidgeForecastingHead:
         if self.weights_ is None or self.intercept_ is None:
             raise ValueError('RidgeForecastingHead is not fitted.')
         X = ensure_tensor_2d(features, self.device_policy).to(device=self.weights_.device, dtype=self.weights_.dtype)
-        return X @ self.weights_ + self.intercept_
+        if X.shape[1] != self.input_dim_:
+            raise ValueError('Prediction feature count differs from the fitted Ridge head')
+        if self.feature_mean_ is None or self.target_mean_ is None:
+            return X @ self.weights_ + self.intercept_
+        return ((X - self.feature_mean_) @ self.weights_ + self.target_mean_).to(
+            dtype=self.device_policy.resolve_dtype())
 
     def get_diagnostics(self) -> dict[str, Any]:
         """Return fitted ridge dimensions and runtime device metadata."""
@@ -407,6 +428,11 @@ class RidgeForecastingHead:
             'alpha': float(self.alpha),
             'input_dim': self.input_dim_,
             'output_dim': self.output_dim_,
+            'solver': ('centered_svd' if self.feature_mean_ is not None else
+                       'legacy_coefficients' if self.weights_ is not None else None),
+            'solve_dtype': (str(self.weights_.dtype).removeprefix('torch.')
+                            if self.weights_ is not None else None),
+            'effective_rank': self.effective_rank_,
             'device': str(self.weights_.device) if self.weights_ is not None else str(self.device_policy.device),
         }
 
@@ -776,6 +802,7 @@ class MLPForecastingHead:
             'min_hidden_dim': int(max(1, self.min_hidden_dim)),
             'epochs': int(self.epochs),
             'learning_rate': float(self.learning_rate),
+            'random_seed': int(self.random_seed),
             'weight_decay': float(self.weight_decay),
             'activation': str(self.activation),
             'validation_fraction': float(self.validation_fraction),

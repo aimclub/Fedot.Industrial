@@ -123,7 +123,9 @@
       "output_data_type": "tabular",
       "tags": ["forecasting", "decomposition", "tensor_native"],
       "problems": ["ts_forecasting"],
-      "defaults_key": "ssa_forecaster"
+      "defaults_key": "ssa_forecaster",
+      "allowed_positions": ["root"],
+      "description": "Terminal horizon forecaster; its predictions are not aligned fit-time features for a downstream model."
     },
     {
       "name": "mssa_forecaster",
@@ -135,6 +137,8 @@
       "tags": ["forecasting", "decomposition", "low_rank", "tensor_native"],
       "problems": ["ts_forecasting"],
       "defaults_key": "mssa_forecaster",
+      "allowed_positions": ["root"],
+      "description": "Terminal horizon forecaster; its predictions are not aligned fit-time features for a downstream model.",
       "supports_multimodal": true
     },
     {

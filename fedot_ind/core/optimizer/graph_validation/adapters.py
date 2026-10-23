@@ -10,6 +10,7 @@ from fedot_ind.core.optimizer.graph_validation.contracts import (
     ComputeDevice,
     GraphNodeSpec,
     GraphSpec,
+    ModelFeatureFlow,
     NodePosition,
     OperationCapabilities,
     OperationKind,
@@ -25,6 +26,8 @@ def graph_spec_from_runtime(
         requested_device: object | None = None,
         require_serializable: bool = False,
         capability_index: Mapping[str, OperationCapabilities] | None = None,
+        input_data_type: object | None = None,
+        model_feature_flow: ModelFeatureFlow = ModelFeatureFlow.DECLARED_OUTPUT,
 ) -> GraphSpec:
     """Restore a runtime graph once and extract only immutable validation data."""
     _, spec = project_runtime_graph(
@@ -34,6 +37,8 @@ def graph_spec_from_runtime(
         requested_device=requested_device,
         require_serializable=require_serializable,
         capability_index=capability_index,
+        input_data_type=input_data_type,
+        model_feature_flow=model_feature_flow,
     )
     return spec
 
@@ -46,6 +51,8 @@ def project_runtime_graph(
         requested_device: object | None = None,
         require_serializable: bool = False,
         capability_index: Mapping[str, OperationCapabilities] | None = None,
+        input_data_type: object | None = None,
+        model_feature_flow: ModelFeatureFlow = ModelFeatureFlow.DECLARED_OUTPUT,
 ) -> tuple[object, GraphSpec]:
     """Return one restored runtime graph and its immutable validation projection."""
     pipeline = _restore_graph(graph, adapter)
@@ -65,6 +72,8 @@ def project_runtime_graph(
         task_type=_enum_name(task_type),
         requested_device=_device(requested_device),
         require_serializable=require_serializable,
+        input_data_type=_enum_name(input_data_type),
+        model_feature_flow=model_feature_flow,
     )
     return pipeline, spec
 
@@ -118,7 +127,19 @@ def capabilities_from_runtime_node(
         # Native forecasting rules limit non-lagged temporal operations to one
         # parent. Multimodal support is a separate capability, not an arity rule.
         max_parents=1 if "non_lagged" in tags else None,
+        preserves_input_features=kind is OperationKind.MODEL and _preserves_tensor_features(metadata),
     )
+
+
+def _preserves_tensor_features(metadata: object) -> bool:
+    from fedot.core.operations.evaluation.classification import SkLearnClassificationStrategy
+    from fedot.core.operations.evaluation.regression import SkLearnRegressionStrategy
+
+    strategies = _metadata_value(metadata, 'supported_strategies', None)
+    values = tuple(strategies.values()) if isinstance(strategies, Mapping) else (strategies,)
+    # Do not infer this property for temporal or arbitrary custom strategies.
+    return bool(values) and all(strategy in (SkLearnClassificationStrategy, SkLearnRegressionStrategy)
+                                for strategy in values)
 
 
 def _restore_graph(graph: object, adapter: object | None) -> object:

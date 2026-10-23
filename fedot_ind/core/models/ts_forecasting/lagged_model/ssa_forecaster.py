@@ -38,6 +38,7 @@ class SSAForecasterImplementation(ModelImplementation):
         self.head_hidden_layers = int(params.get('head_hidden_layers', 2))
         self.head_epochs = int(params.get('head_epochs', 120))
         self.head_learning_rate = float(params.get('head_learning_rate', 1e-3))
+        self.head_random_seed = int(params.get('head_random_seed', 42))
         self.device = str(params.get('device', 'auto'))
         self.progress_policy = params.get('progress_policy')
         self.compatibility_status_ = 'compatibility_wrapper'
@@ -63,6 +64,7 @@ class SSAForecasterImplementation(ModelImplementation):
             head_hidden_layers=self.head_hidden_layers,
             head_epochs=self.head_epochs,
             head_learning_rate=self.head_learning_rate,
+            head_random_seed=self.head_random_seed,
             device=self.device,
             progress_policy=self.progress_policy,
         )
@@ -111,6 +113,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
+                'head_random_seed': self.head_random_seed,
                 'device': self.device,
                 'progress_policy': self.progress_policy,
             },
@@ -132,6 +135,7 @@ class SSAForecasterImplementation(ModelImplementation):
                     'head_hidden_layers': self.head_hidden_layers,
                     'head_epochs': self.head_epochs,
                     'head_learning_rate': self.head_learning_rate,
+                    'head_random_seed': self.head_random_seed,
                     'device': self.device,
                     'progress_policy': self.progress_policy,
                 },
@@ -153,6 +157,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
+                'head_random_seed': self.head_random_seed,
                 'device': self.device,
                 'progress_policy': self.progress_policy,
             },
@@ -187,6 +192,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 'head_hidden_layers': self.head_hidden_layers,
                 'head_epochs': self.head_epochs,
                 'head_learning_rate': self.head_learning_rate,
+                'head_random_seed': self.head_random_seed,
                 'device': self.device,
                 'progress_policy': self.progress_policy,
             },

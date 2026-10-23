@@ -1,9 +1,12 @@
-from contextlib import nullcontext
+from datetime import timedelta
+from copy import deepcopy
 import random
 from types import SimpleNamespace
 
 import pytest
 from golem.core.optimisers.opt_history_objects.individual import Individual
+from golem.core.optimisers.fitness import SingleObjFitness
+from golem.core.optimisers.timer import OptimisationTimer
 from hypothesis import settings, strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
 
@@ -76,7 +79,7 @@ class _Graph:
         return isinstance(other, _Graph) and self.descriptive_id == other.descriptive_id
 
 
-class _UnlimitedTimer(nullcontext):
+class _UnlimitedTimer(OptimisationTimer):
     def is_time_limit_reached(self):
         return False
 
@@ -175,6 +178,214 @@ def test_public_loop_preserves_failure_and_closes_progress(error_type):
     assert optimizer.evolution_state.phase is EvolutionPhase.FAILED
     assert closed == [True]
     assert exported == ["requested-report"]
+
+
+@pytest.mark.parametrize('scores', [(0.2, 0.9), (0.9, 0.2)])
+def test_initial_candidates_own_metadata_and_keep_their_evaluation_identity(scores):
+    optimizer = object.__new__(IndustrialEvoOptimizer)
+    template = {'source': {'labels': ['frozen']}}
+    original = deepcopy(template)
+    optimizer.requirements = SimpleNamespace(static_individual_metadata=template)
+    optimizer.graph_optimizer_params = SimpleNamespace(pop_size=2)
+    optimizer._admissible_initial_graphs = lambda: [_Graph('first'), _Graph('second')]
+    optimizer._update_population = lambda **kwargs: None
+
+    def evaluate(population):
+        for individual, score in zip(population, scores):
+            individual.metadata.update(evaluation_context={'candidate_id': individual.uid, 'fitness': score})
+            individual.metadata['source']['labels'].append(individual.graph.descriptive_id)
+            individual.set_evaluation_result(SingleObjFitness(score))
+        return population
+
+    population, _ = optimizer._initial_population(evaluate)
+    assert template == original
+    first, second = population
+    assert first.metadata is not second.metadata
+    assert first.metadata['source'] is not second.metadata['source']
+    for individual, score in zip(population, scores):
+        assert individual.metadata['evaluation_context'] == {'candidate_id': individual.uid, 'fitness': score}
+        assert individual.metadata['source']['labels'] == ['frozen', individual.graph.descriptive_id]
+
+
+class _ControlledTimer(OptimisationTimer):
+    """Run the real GOLEM stop calculation against a manually advanced clock."""
+
+    def __init__(self, timeout):
+        super().__init__(timeout=timeout)
+        self.elapsed_seconds = 0
+        self.initial_boundaries = []
+        self.entries = 0
+
+    def __enter__(self):
+        self.entries += 1
+        super().__enter__()
+        self.original_start = self.start_time
+        return self
+
+    @property
+    def spent_time(self):
+        return timedelta(seconds=self.elapsed_seconds)
+
+    def set_init_time(self, init_time):
+        self.initial_boundaries.append((init_time, self.start_time))
+        super().set_init_time(init_time)
+
+
+def _timed_harness(initial_seconds, generation_seconds, *, timeout=120):
+    optimizer = _harness(42, lambda parent: Individual(_Graph("candidate")))
+    timer = _ControlledTimer(None if timeout is None else timedelta(seconds=timeout))
+    optimizer.timer = timer
+    initial_population = optimizer._initial_population
+    iterations = iter(generation_seconds)
+
+    def initialise(evaluator):
+        result = initial_population(evaluator)
+        timer.elapsed_seconds += initial_seconds
+        optimizer.generation = 1  # Native GOLEM counts the evaluated initial population.
+        return result
+
+    def evolve(population_to_eval, evaluator):
+        timer.elapsed_seconds += next(iterations)
+        optimizer.generation += 1
+        return optimizer._update_population(population_to_eval, label="evolved")
+
+    optimizer._initial_population = initialise
+    optimizer._optimise_loop = evolve
+    optimizer.stop_optimization = lambda: (
+        timer.is_time_limit_reached(optimizer.generation - 1) or optimizer.generation >= 4)
+    return optimizer, timer
+
+
+def test_initial_population_time_is_not_reused_as_generation_duration():
+    optimizer, timer = _timed_harness(40, [32, 16, 6])
+    optimizer.optimise(lambda population: population)
+
+    # The broken estimate was 72 + 72 > 120; the correct one is 72 + 32 < 120.
+    assert optimizer.labels == ["initial", "evolved", "evolved", "evolved", "final_choices"]
+    assert timer.initial_boundaries == [(40 / 60, timer.start_time)]
+    assert timer.start_time == timer.original_start
+    assert timer.entries == 1
+    assert timer.seconds_from_start == 94
+    assert timer.timeout == timedelta(seconds=120)
+    assert not timer.process_terminated
+
+
+@pytest.mark.parametrize("initial_seconds", [120, 121])
+def test_initial_population_still_consumes_the_total_deadline(initial_seconds):
+    optimizer, timer = _timed_harness(initial_seconds, [])
+    optimizer.optimise(lambda population: population)
+
+    assert optimizer.labels == ["initial", "final_choices"]
+    assert timer.initial_boundaries == [(initial_seconds / 60, timer.start_time)]
+    assert timer.start_time == timer.original_start
+    assert timer.entries == 1
+    assert timer.process_terminated
+    assert len(optimizer.evaluated_population) == 1
+
+
+@pytest.mark.parametrize("initial, duration", [(60, 40), (40, 40)])
+def test_next_generation_prediction_still_stops_before_actual_deadline(initial, duration):
+    optimizer, timer = _timed_harness(initial, [duration])
+    optimizer.optimise(lambda population: population)
+
+    assert timer.seconds_from_start == initial + duration
+    assert timer.seconds_from_start < timer.timeout.total_seconds()
+    assert timer.process_terminated  # Including equality: 80 + 40 cannot fit strictly before 120.
+    assert optimizer.labels == ["initial", "evolved", "final_choices"]
+    assert len(timer.initial_boundaries) == 1
+
+
+def test_time_marker_after_all_generations_is_not_a_missing_evolution_step():
+    optimizer, timer = _timed_harness(40, [32, 16, 12])
+    optimizer.optimise(lambda population: population)
+    assert timer.process_terminated
+    assert optimizer.labels.count("evolved") == 3
+    assert len(optimizer.evaluated_population) == 4
+    assert timer.start_time == timer.original_start
+    assert timer.entries == 1
+
+
+def test_unlimited_timer_uses_the_same_initial_boundary_without_a_deadline():
+    optimizer, timer = _timed_harness(300, [300, 300, 300], timeout=None)
+    optimizer.optimise(lambda population: population)
+
+    assert timer.initial_boundaries == [(5, timer.start_time)]
+    assert optimizer.labels.count("evolved") == 3
+    assert not timer.process_terminated
+
+
+def test_failed_initial_population_does_not_publish_an_evolution_boundary():
+    optimizer, timer = _timed_harness(40, [])
+
+    def fail(evaluator):
+        raise IndustrialPopulationError("initial evaluation failed", timed_out=False)
+
+    optimizer._initial_population = fail
+    with pytest.raises(IndustrialPopulationError, match="initial evaluation failed"):
+        optimizer.optimise(lambda population: population)
+    assert timer.initial_boundaries == []
+    assert optimizer.evolution_state.phase is EvolutionPhase.FAILED
+
+
+def test_native_initial_expansion_and_generation_keeper_share_the_clock(tmp_path):
+    from golem.core.optimisers.fitness import SingleObjFitness
+    from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
+    from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
+    from golem.core.optimisers.objective import Objective
+    from benchmark.industrial.experiments.mutation_planning.runner import _environment
+
+    requirements, params, graph = _environment(
+        {"name": "clock", "task": "regression", "operations": ["scaling", "ridge"],
+         "initial_chain": ["scaling", "ridge"]}, {"max_depth": 4, "max_arity": 2})
+    requirements.num_of_generations = 3
+    requirements.early_stopping_iterations = 100
+    requirements.timeout = timedelta(seconds=120)
+    requirements.agent_dir = str(tmp_path)
+    optimizer = IndustrialEvoOptimizer(
+        Objective({"size": len}), [graph], requirements, params,
+        GPAlgorithmParameters(pop_size=2, max_pop_size=2, mutation_prob=1.,
+                              mutation_types=[MutationTypesEnum.single_drop]))
+    timer = _ControlledTimer(requirements.timeout)
+    optimizer.timer = timer
+    callbacks = []
+
+    class Mutation:
+        agent = SimpleNamespace()
+
+        def __call__(self, parent):
+            from golem.core.optimisers.graph import OptGraph, OptNode
+            timer.elapsed_seconds += 10
+            return Individual(OptGraph(OptNode("ridge")))
+
+    def evaluate(population):
+        timer.elapsed_seconds += 20
+        for individual in population:
+            individual.set_evaluation_result(SingleObjFitness(1.))
+        return population
+
+    def observe(population, owner):
+        callbacks.append((owner.current_generation_num, bool(owner.final_individuals)))
+        if owner.current_generation_num == 1:
+            timer.elapsed_seconds += 10
+
+    def evolve(population_to_eval, evaluator):
+        timer.elapsed_seconds += 40
+        return optimizer._update_population(population_to_eval, evaluator=evaluator)
+
+    optimizer.mutation = Mutation()
+    optimizer.eval_dispatcher = SimpleNamespace(dispatch=lambda objective, clock: evaluate)
+    optimizer._optimise_loop = evolve
+    optimizer.set_iteration_callback(observe)
+    optimizer.optimise(object())
+
+    assert callbacks == [(1, False), (2, False), (2, True)]  # Final choice is not another generation.
+    assert optimizer.current_generation_num == 2
+    assert timer.initial_boundaries == [(40 / 60, timer.original_start)]
+    assert timer.start_time == timer.original_start
+    assert timer.seconds_from_start == 80
+    assert timer.process_terminated  # 80 + 40 equals the original deadline.
+    assert len(optimizer.evaluated_population) == 2
+    assert len(optimizer.evaluated_population[0]) == 2
 
 
 def test_exhausted_attempt_budget_terminates_without_fabricated_candidates():

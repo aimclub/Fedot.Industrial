@@ -97,6 +97,7 @@
     "forcing_decay": 0.85
   },
   "mssa_forecaster": {
+    "head_random_seed": 42,
     "head_policy": "mlp",
     "device": "auto",
     "window_size": 16,
@@ -142,6 +143,8 @@
     "activation": "ReLU"
   },
   "ssa_forecaster": {
+    "head_random_seed": 42,
+    "device": "auto",
     "window_size": 16,
     "rank": 4,
     "explained_variance": 0.95,

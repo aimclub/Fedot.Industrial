@@ -6,6 +6,12 @@ from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
+from fedot_ind.core.operation.transformation.representation.statistical.feature_reuse import (
+    reuse_statistical_features,
+)
+from fedot_ind.core.operation.transformation.representation.statistical.methods import (
+    STAT_METHODS, STAT_METHODS_GLOBAL,
+)
 
 
 class QuantileExtractor(BaseExtractor):
@@ -55,13 +61,29 @@ class QuantileExtractor(BaseExtractor):
         window_stat_features = np.nan_to_num(window_stat_features)
         return window_stat_features
 
+    def _transform(self, input_data: InputData) -> np.ndarray:
+        reference = super()._transform
+        if (type(self) is not QuantileExtractor or type(input_data.features) is not np.ndarray
+                or self.use_feature_filter or self.feature_filter is not None
+                or tuple(STAT_METHODS.items()) != _AUDITED_LOCAL_METHODS
+                or tuple(STAT_METHODS_GLOBAL.items()) != _AUDITED_GLOBAL_METHODS
+                or any(getattr(getattr(self, name), '__func__', None) is not method
+                       for name, method in _AUDITED_IMPLEMENTATION)):
+            return reference(input_data)
+        settings = (self.window_size, self.stride, self.add_global_features, self.use_sliding_window,
+                    self.channel_extraction)
+        self.predict = reuse_statistical_features(input_data.features, settings, lambda: reference(input_data))
+        return self.predict
+
     def extract_stats_features(self, ts: np.array, axis: int) -> InputData:
         global_features = self.get_statistical_features(ts, add_global_features=self.add_global_features, axis=axis)
         window_stat_features = self.get_statistical_features(ts, axis=axis) if self.window_size == 0 else \
             self.apply_window_for_stat_feature(ts_data=ts, feature_generator=self.get_statistical_features,
                                                window_size=self.window_size)
-        return self._concatenate_global_and_local_feature(
-            global_features, window_stat_features) if self.add_global_features else window_stat_features
+        return (
+            self._concatenate_global_and_local_feature(global_features, window_stat_features)
+            if self.add_global_features else window_stat_features
+        )
 
     @dask.delayed
     def generate_features_from_ts(self,
@@ -73,6 +95,17 @@ class QuantileExtractor(BaseExtractor):
         return statistical_representation
 
     def generate_features_from_array(self, array: np.array) -> InputData:
-        statistical_representation = self.get_statistical_features(array,
-                                                                   add_global_features=self.add_global_features, axis=2)
+        statistical_representation = self.get_statistical_features(
+            array, add_global_features=self.add_global_features, axis=2)
         return [x for x in statistical_representation if x is not None]
+
+
+# Callable replacement is an extension point, not evidence of purity. Customized
+# instances/classes keep the reference path even if their class name is unchanged.
+_AUDITED_LOCAL_METHODS = tuple(STAT_METHODS.items())
+_AUDITED_GLOBAL_METHODS = tuple(STAT_METHODS_GLOBAL.items())
+_AUDITED_IMPLEMENTATION = tuple((name, getattr(QuantileExtractor, name)) for name in (
+    'generate_features_from_ts', 'generate_features_from_array', 'extract_stats_features',
+    '_concatenate_global_and_local_feature', 'get_statistical_features',
+    'apply_window_for_stat_feature', '_clean_predict',
+))

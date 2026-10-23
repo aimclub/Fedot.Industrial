@@ -43,7 +43,7 @@ class PDLStrategies:
     pair_aggregator: PairAggregator | None
 
     @property
-    def random_state(self) -> int:
+    def random_state(self) -> int | None:
         return self.config.random_state
 
 

@@ -1,0 +1,12 @@
+{
+  "torch_threads": 1,
+  "cuda_visible": false,
+  "torch_flags": {
+    "deterministic_algorithms": false,
+    "deterministic_warn_only": false,
+    "float32_matmul_precision": "highest",
+    "cudnn_deterministic": false,
+    "cudnn_benchmark": false,
+    "torch_cuda_build": null
+  }
+}
