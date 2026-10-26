@@ -46,7 +46,6 @@ def test_hankel_ridge_uses_supervised_windows_and_never_holdout_targets(horizon,
         expected_y = np.array([history[i + 10:i + 10 + horizon] for i in starts])
         np.testing.assert_allclose(fitted.features.numpy(), expected_x)
         np.testing.assert_allclose(fitted.target.numpy(), expected_y)
-        assert pipeline.root_node.fitted_operation.coef_.shape == ((10,) if horizon == 1 else (horizon, 10))
         result = pipeline.predict(test)
         assert result.predict.shape == (horizon,)
         assert torch.isfinite(result.predict).all()
@@ -55,6 +54,12 @@ def test_hankel_ridge_uses_supervised_windows_and_never_holdout_targets(horizon,
         # Independent sklearn reference verifies the numerical window/target alignment.
         from sklearn.linear_model import Ridge
         reference = Ridge(alpha=1.).fit(expected_x, expected_y)
+        # sklearn versions differ in retaining the singleton target axis.
+        coefficients = pipeline.root_node.fitted_operation.coef_
+        expected_shapes = ((10,), (1, 10)) if horizon == 1 else ((horizon, 10),)
+        assert coefficients.shape in expected_shapes
+        np.testing.assert_allclose(coefficients.reshape(horizon, 10), reference.coef_.reshape(horizon, 10),
+                                   atol=1e-5)
         np.testing.assert_allclose(result.predict.numpy(), reference.predict(history[-10:][None, :]).reshape(-1),
                                    atol=1e-5)
         changed_horizon = replace(test, task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(horizon + 1)),

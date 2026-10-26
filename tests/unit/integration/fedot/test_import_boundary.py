@@ -68,6 +68,7 @@ def test_fedot_imports_stay_in_effectful_boundary_modules():
         "detection.py",
         "evaluation.py",
         "forecasting.py",
+        "multimodal.py",
         "temporal_tensor.py",
         "tensor.py",
     }
@@ -79,6 +80,7 @@ def test_fedot_imports_stay_in_effectful_boundary_modules():
     )
     assert "fedot.core.data.input_data.data" in observed["compatibility.py"]
     assert "fedot.extensions" in observed["tensor.py"]
+    assert "fedot.core.pipelines.pipeline" in observed["multimodal.py"]
 
 
 def test_public_boundary_import_does_not_load_fedot_runtime():
