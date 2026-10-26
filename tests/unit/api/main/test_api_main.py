@@ -59,12 +59,14 @@ def multivariate_regression_data():
 def _bounded_api(task, output_dir):
     model = 'logit' if task == 'classification' else 'ridge'
     metric = 'f1' if task == 'classification' else 'rmse'
-    automl = deepcopy(DEFAULT_CLF_AUTOML_CONFIG if task == 'classification' else DEFAULT_REG_AUTOML_CONFIG)
+    automl = deepcopy(DEFAULT_CLF_AUTOML_CONFIG if task ==
+                      'classification' else DEFAULT_REG_AUTOML_CONFIG)
     with industrial_extension_scope():
         pipeline = (PipelineBuilder().add_node('quantile_extractor', params={
             'use_cache': False, 'use_sliding_window': False, 'window_size': 0,
         }).add_node(model).build())
-    automl.update(initial_assumption=[pipeline], available_operations=['quantile_extractor', model])
+    automl.update(initial_assumption=[pipeline], available_operations=[
+                  'quantile_extractor', model])
     compute = deepcopy(DEFAULT_COMPUTE_CONFIG)
     compute.update(output_folder=str(output_dir), automl_folder={
         'optimisation_history': str(output_dir / 'history'),
@@ -146,7 +148,8 @@ def anomaly_config():
 
 
 def test_generate_anomaly_ts(ts_config, anomaly_config):
-    init_synth_ts, mod_synth_ts, synth_inters = SynthTimeSeriesData(anomaly_config).generate_anomaly_ts(ts_config)
+    init_synth_ts, mod_synth_ts, synth_inters = SynthTimeSeriesData(
+        anomaly_config).generate_anomaly_ts(ts_config)
     assert len(init_synth_ts) == len(mod_synth_ts)
     for anomaly_type in synth_inters:
         for interval in synth_inters[anomaly_type]:
