@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import torch
-import cv2  # noqa: F401
 import pytest
 import fedot
 from fedot.core.pipelines.adapters import PipelineAdapter

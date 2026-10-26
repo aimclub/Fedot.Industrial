@@ -5,7 +5,6 @@ from dataclasses import replace
 import numpy as np
 import pytest
 import torch
-import cv2  # noqa: F401
 
 from fedot import create_data
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder

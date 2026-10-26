@@ -5,7 +5,6 @@ import json
 
 import numpy as np
 import torch
-import cv2  # noqa: F401
 import pytest
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 

@@ -7,7 +7,6 @@ import os
 
 import numpy as np
 import torch
-import cv2  # noqa: F401
 import pytest
 import fedot
 from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
