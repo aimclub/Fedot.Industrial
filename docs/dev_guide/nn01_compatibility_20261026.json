@@ -1,0 +1,153 @@
+{
+  "phase": "verify",
+  "torch": "2.6.0+cpu",
+  "cases": [
+    {
+      "name": "concat",
+      "state_entries": 8,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "gated",
+      "state_entries": 4,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "film",
+      "state_entries": 14,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "raw_centered_residual",
+      "state_entries": 14,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "ordinary_bottleneck",
+      "state_entries": 24,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "raw_residual_bottleneck",
+      "state_entries": 32,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "context_only_residual_bottleneck",
+      "state_entries": 32,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "encoder_raw",
+      "state_entries": 22,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "encoder_stats",
+      "state_entries": 14,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "encoder_gaf",
+      "state_entries": 22,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "encoder_stft",
+      "state_entries": 22,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": true
+    },
+    {
+      "name": "attention",
+      "state_entries": 9,
+      "initialization_matches": true,
+      "output_shape": [
+        2,
+        5,
+        8
+      ],
+      "output_max_absolute_error": 0,
+      "input_gradient_max_absolute_error": 0,
+      "full_module_restored": false
+    }
+  ],
+  "reference_sha256": "fd4a3d1130041527d6eed2a2b091a78fd0e96a37443fde125f7fe2a5fd678865",
+  "scope": "Synthetic forward/backward and trusted local checkpoint compatibility; no training"
+}

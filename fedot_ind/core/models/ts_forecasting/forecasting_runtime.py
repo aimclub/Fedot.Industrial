@@ -10,6 +10,8 @@ from typing import Any, Sequence
 import numpy as np
 import torch
 
+from fedot_ind.neural.device import TensorDevicePolicy
+
 try:  # pragma: no cover - progress bar is optional in lightweight envs
     from tqdm.auto import tqdm
 except Exception:  # pragma: no cover
@@ -37,30 +39,6 @@ class ForecastingSplitKind(str, Enum):
     ROLLING_WINDOW = 'rolling_window'
     ROLLING_ORIGIN = 'rolling_origin'
     BLOCKED = 'blocked'
-
-
-@dataclass(frozen=True)
-class TensorDevicePolicy:
-    """Resolve tensor device and dtype for forecasting runtime operations."""
-
-    device: str = 'auto'
-    dtype: str = 'float32'
-
-    def resolve_device(self) -> torch.device:
-        """Return the concrete torch device, preferring CUDA when policy is auto."""
-        requested = str(self.device).lower()
-        if requested == 'auto':
-            return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-        if requested.startswith('cuda') and torch.cuda.is_available():
-            return torch.device(requested)
-        return torch.device('cpu')
-
-    def resolve_dtype(self) -> torch.dtype:
-        """Return the torch dtype requested by the policy with float32 fallback."""
-        try:
-            return getattr(torch, str(self.dtype))
-        except AttributeError:  # pragma: no cover - defensive fallback
-            return torch.float32
 
 
 @dataclass(frozen=True)

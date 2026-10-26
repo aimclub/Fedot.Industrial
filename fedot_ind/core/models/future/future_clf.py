@@ -23,9 +23,9 @@ from fedot_ind.core.models.future.rules import (
     validate_positive_int,
     validate_supported_fusion_method,
 )
-from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
-from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import LinLnDrop
+from fedot_ind.neural.encoders.builder import build_encoder
+from fedot_ind.neural.blocks.activation import get_activation_fn
+from fedot_ind.neural.blocks.linear import LinLnDrop
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.models.future.tools import (

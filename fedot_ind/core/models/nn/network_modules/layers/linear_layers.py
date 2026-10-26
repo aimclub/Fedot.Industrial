@@ -8,6 +8,7 @@ from fastcore.basics import snake2camel
 from torch import Tensor
 
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.neural.blocks.linear import LinLnDrop as _LinLnDrop
 
 
 def init_lin_zero(m):
@@ -68,18 +69,8 @@ BN1d = partial(get_norm, ndim=1, norm='Batch')
 IN1d = partial(get_norm, ndim=1, norm='Instance')
 
 
-class LinLnDrop(nn.Sequential):
-    """Module grouping `LayerNorm1d`, `Dropout` and `Linear` layers"""
-
-    def __init__(self, n_in, n_out, ln=True, p=0., act=None, lin_first=False):
-        layers = [nn.LayerNorm(n_out if lin_first else n_in)] if ln else []
-        if p != 0:
-            layers.append(nn.Dropout(p))
-        lin = [nn.Linear(n_in, n_out, bias=not ln)]
-        if act is not None:
-            lin.append(act)
-        layers = lin + layers if lin_first else layers + lin
-        super().__init__(*layers)
+class LinLnDrop(_LinLnDrop):
+    """Compatibility class retaining the legacy full-module checkpoint path."""
 
 
 class LambdaPlus(Module):

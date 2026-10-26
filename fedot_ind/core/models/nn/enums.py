@@ -1,8 +1,5 @@
-from enum import Enum
+"""Compatibility exports for encoder families."""
 
+from fedot_ind.neural.encoders.enums import EncoderFamily
 
-class EncoderFamily(str, Enum):
-    """Supported encoder families."""
-
-    cnn = "cnn"
-    mlp = "mlp"
+__all__ = ["EncoderFamily"]

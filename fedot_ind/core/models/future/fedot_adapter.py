@@ -20,7 +20,7 @@ from fedot_ind.core.models.future.rules import (
 )
 from fedot_ind.core.models.future.tools import FutureTrainingConfig
 from fedot_ind.core.models.future.trainer import FutureClassifierTrainer
-from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
+from fedot_ind.neural.blocks.activation import get_activation_fn
 from fedot_ind.core.multimodal.batching import make_bundle_dataloader
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.mapping import MODALITY_CAPABILITIES

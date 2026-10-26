@@ -4,16 +4,16 @@ from dataclasses import dataclass
 
 from fedot_ind.core.models.future.enums import FusionInputsParam
 from fedot_ind.core.models.future.enums import FusionMethod
-from fedot_ind.core.models.future.fusion.base import BaseFusionStrategy
-from fedot_ind.core.models.future.fusion.bottleneck_fusion import (
+from fedot_ind.neural.fusion.base import BaseFusionStrategy
+from fedot_ind.neural.fusion.bottleneck_fusion import (
     ContextOnlyResidualBottleneckFusion,
     OrdinaryBottleneckFusion,
     RawResidualBottleneckFusion,
 )
-from fedot_ind.core.models.future.fusion.concat_fusion import MultiConcatFusionMLP
-from fedot_ind.core.models.future.fusion.film_fusion import FiLMFusion
-from fedot_ind.core.models.future.fusion.gated_fusion import MultiModalGatedFusion
-from fedot_ind.core.models.future.fusion.raw_centered_residual_fusion import (
+from fedot_ind.neural.fusion.concat_fusion import MultiConcatFusionMLP
+from fedot_ind.neural.fusion.film_fusion import FiLMFusion
+from fedot_ind.neural.fusion.gated_fusion import MultiModalGatedFusion
+from fedot_ind.neural.fusion.raw_centered_residual_fusion import (
     RawCenteredResidualFusion,
 )
 
