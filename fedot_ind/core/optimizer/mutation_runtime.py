@@ -89,7 +89,7 @@ def install_extension_aware_advisor(graph_generation_params) -> None:
     from fedot.core.pipelines.pipeline_advisor import PipelineChangeAdvisor
 
     previous = graph_generation_params.advisor
-    if type(previous) is not PipelineChangeAdvisor:
+    if not isinstance(previous, PipelineChangeAdvisor):
         return
     task, _ = infer_validation_context(graph_generation_params)
     declared = industrial_capability_index()

@@ -55,12 +55,12 @@ def load_quality_trial_config(path=None) -> QualityTrialConfig:
         raise ValueError('Unsupported quality trial schema')
     for field in ('sample_count', 'series_length', 'evaluations_per_mode', 'max_candidates',
                   'max_depth', 'max_nodes', 'max_arity'):
-        if type(record.get(field)) is not int or record[field] < 1:
+        if not isinstance(record.get(field), int) or record[field] < 1:
             raise ValueError(f'{field} must be a positive integer')
     if record['sample_count'] < 20 or record['series_length'] < 8:
         raise ValueError('The trial requires at least 20 samples and 8 time points')
     if (not isinstance(record.get('seeds'), list) or not record['seeds']
-            or any(type(seed) is not int or seed < 0 for seed in record['seeds'])
+            or any(not isinstance(seed, int) or seed < 0 for seed in record['seeds'])
             or len(set(record['seeds'])) != len(record['seeds'])):
         raise ValueError('seeds must be unique nonnegative integers')
     if (not isinstance(record.get('tasks'), list) or not record['tasks']

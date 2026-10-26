@@ -24,49 +24,49 @@ class QualityCandidate:
 def parse_config(raw):
     fields = {'schema_version', 'train', 'test', 'datasets', 'horizon', 'folds', 'seeds',
               'test_comparators', 'candidates'}
-    if (type(raw) is not dict or set(raw) != fields
+    if (not isinstance(raw, dict) or set(raw) != fields
             or raw['schema_version'] != 'industrial_forecast_quality_diagnostic@1'):
         raise ValueError('Invalid forecast quality diagnostic schema')
     for key in ('train', 'test'):
-        if type(raw[key]) is not str or not raw[key].strip():
+        if not isinstance(raw[key], str) or not raw[key].strip():
             raise ValueError('Input paths must be nonempty strings')
     for key in ('horizon', 'folds'):
-        if type(raw[key]) is not int or raw[key] < 1:
+        if not isinstance(raw[key], int) or raw[key] < 1:
             raise ValueError('Horizon and fold count must be positive integers')
     for key in ('seeds', 'datasets'):
-        if type(raw[key]) is not list or not raw[key]:
+        if not isinstance(raw[key], list) or not raw[key]:
             raise ValueError('Datasets and seeds must be nonempty lists')
-    if any(type(seed) is not int or seed < 0 for seed in raw['seeds']):
+    if any(not isinstance(seed, int) or seed < 0 for seed in raw['seeds']):
         raise ValueError('Seeds must be nonnegative integers')
-    if any(type(name) is not str or not re.fullmatch(r'[A-Za-z0-9_-]+', name) for name in raw['datasets']):
+    if any(not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', name) for name in raw['datasets']):
         raise ValueError('Invalid dataset identifiers')
     if any(len(set(raw[key])) != len(raw[key]) for key in ('seeds', 'datasets')):
         raise ValueError('Datasets and seeds must be unique')
     candidates = []
     allowed = {'name', 'kind', 'chain', 'parameters', 'period', 'reference_solver', 'denoised_state'}
-    if type(raw['candidates']) is not list or not raw['candidates']:
+    if not isinstance(raw['candidates'], list) or not raw['candidates']:
         raise ValueError('Require diagnostic candidates')
     for item in raw['candidates']:
-        if (type(item) is not dict or not set(item) <= allowed or not {'name', 'kind'} <= set(item)
-                or type(item['name']) is not str or not re.fullmatch(r'[A-Za-z0-9_-]+', item['name'])
+        if (not isinstance(item, dict) or not set(item) <= allowed or not {'name', 'kind'} <= set(item)
+                or not isinstance(item['name'], str) or not re.fullmatch(r'[A-Za-z0-9_-]+', item['name'])
                 or item['kind'] not in ('industrial', 'naive', 'drift')):
             raise ValueError('Invalid diagnostic candidate')
         chain = item.get('chain', [])
-        if (type(chain) is not list or any(type(name) is not str for name in chain)
+        if (not isinstance(chain, list) or any(not isinstance(name, str) for name in chain)
                 or (item['kind'] == 'industrial' and chain not in (
                     ['mssa_forecaster'], ['ssa_forecaster'], ['smoothing', 'mssa_forecaster']))
                 or (item['kind'] != 'industrial' and chain)):
             raise ValueError('Unsupported chain; this diagnostic excludes other forecasting families')
-        if type(item.get('parameters', {})) is not dict:
+        if not isinstance(item.get('parameters', {}), dict):
             raise ValueError('Parameters must be an object')
         if item['kind'] != 'industrial' and item.get('parameters'):
             raise ValueError('Baseline candidates do not consume model parameters')
         if item['kind'] != 'naive' and 'period' in item:
             raise ValueError('Only naive candidates consume a seasonal period')
-        if type(item.get('period', 1)) is not int or item.get('period', 1) < 1:
+        if not isinstance(item.get('period', 1), int) or item.get('period', 1) < 1:
             raise ValueError('Period must be a positive integer')
         for flag in ('reference_solver', 'denoised_state'):
-            if type(item.get(flag, False)) is not bool:
+            if not isinstance(item.get(flag, False), bool):
                 raise ValueError('Diagnostic switches must be booleans')
         if any(item.get(flag, False) for flag in ('reference_solver', 'denoised_state')):
             if item['kind'] != 'industrial' or item.get('parameters', {}).get('head_policy') != 'linear':
@@ -77,8 +77,8 @@ def parse_config(raw):
     names = [candidate.name for candidate in candidates]
     if len(names) != len(set(names)):
         raise ValueError('Duplicate candidate names')
-    if (type(raw['test_comparators']) is not list
-            or any(type(name) is not str for name in raw['test_comparators'])
+    if (not isinstance(raw['test_comparators'], list)
+            or any(not isinstance(name, str) for name in raw['test_comparators'])
             or not set(raw['test_comparators']) <= set(names)
             or len(set(raw['test_comparators'])) != len(raw['test_comparators'])):
         raise ValueError('Unknown or duplicate fixed test comparators')

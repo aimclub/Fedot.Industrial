@@ -8,6 +8,6 @@ from importlib.resources import files
 def cuda_broadcast_max_boundaries() -> int:
     raw = json.loads(files(__package__).joinpath("kernel_defaults.json").read_text(encoding="utf-8"))
     value = raw.get("cuda_broadcast_max_boundaries")
-    if set(raw) != {"cuda_broadcast_max_boundaries"} or type(value) is not int or value < 0:
+    if set(raw) != {"cuda_broadcast_max_boundaries"} or not isinstance(value, int) or value < 0:
         raise ValueError("Invalid image kernel defaults")
     return value

@@ -37,14 +37,14 @@ def admit_candidates(catalogue, expected):
             raise ValueError('Canonical candidate identity differs from the approved audit')
         if (set(raw) != {'schema_version', 'task', 'nodes'}
                 or raw['schema_version'] != 'industrial_study_candidate@1' or raw['task'] != 'regression'
-                or type(raw['nodes']) is not list or not raw['nodes']):
+                or not isinstance(raw['nodes'], list) or not raw['nodes']):
             raise ValueError('Require a regression study configuration')
         nodes = raw['nodes']
         for node in nodes:
-            if (type(node) is not dict or set(node) != {'operation', 'parameters', 'parents'}
-                    or type(node['operation']) is not str or type(node['parameters']) is not dict
-                    or type(node['parents']) is not list
-                    or any(type(index) is not int or not 0 <= index < len(nodes) for index in node['parents'])
+            if (not isinstance(node, dict) or set(node) != {'operation', 'parameters', 'parents'}
+                    or not isinstance(node['operation'], str) or not isinstance(node['parameters'], dict)
+                    or not isinstance(node['parents'], list)
+                    or any(not isinstance(index, int) or not 0 <= index < len(nodes) for index in node['parents'])
                     or len(set(node['parents'])) != len(node['parents'])):
                 raise ValueError('Invalid frozen node shape')
         visiting, visited = set(), set()
@@ -66,7 +66,7 @@ def admit_candidates(catalogue, expected):
 
 
 def rank_scores(scores):
-    if (type(scores) is not dict or len(scores) < 2
+    if (not isinstance(scores, dict) or len(scores) < 2
             or any(type(loss) not in (int, float) or not math.isfinite(loss) or loss < 0
                    for loss in scores.values())):
         raise ValueError('Ranks require at least two finite nonnegative losses')
