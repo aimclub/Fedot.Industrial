@@ -219,7 +219,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         )
 
     devices = _string_tuple(
-        value.get("devices", ["cpu", "cuda"] if backend == "torch" else ["cpu"]),
+        value.get("devices", ["cpu"]),
         f"operations[{index}].devices",
         supported=SUPPORTED_DEVICES,
         index=index,

@@ -108,11 +108,8 @@ def capabilities_from_runtime_node(
         return None
 
     kind = _operation_kind(operation, operation_name)
-    backend = _metadata_value(metadata, "backend", None)
     tags = _string_values(_metadata_value(metadata, "tags", ()))
-    devices = ((ComputeDevice.CPU, ComputeDevice.CUDA)
-               if backend == "torch" or "torch" in tags
-               else (ComputeDevice.CPU,))
+    devices = _devices(_metadata_value(metadata, "devices", (ComputeDevice.CPU,)))
     return OperationCapabilities(
         name=operation_name,
         kind=kind,
@@ -278,6 +275,19 @@ def _positions(values: object) -> tuple[NodePosition, ...]:
         if str(value).strip().lower() in aliases
     ))
     return positions or (NodePosition.ANY,)
+
+
+def _devices(values: object) -> tuple[ComputeDevice, ...]:
+    if isinstance(values, (str, ComputeDevice)):
+        values = (values,)
+    if not isinstance(values, (tuple, list)) or not values:
+        raise ValueError("Operation devices must be a non-empty declaration")
+    names = tuple(_enum_name(value) for value in values)
+    if any(name not in ("cpu", "cuda") for name in names):
+        raise ValueError(f"Unsupported operation devices: {names}")
+    if len(names) != len(set(names)):
+        raise ValueError("Operation devices must be unique")
+    return tuple(ComputeDevice(name) for name in names)
 
 
 def _device(value: object | None) -> ComputeDevice | None:

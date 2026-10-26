@@ -46,6 +46,40 @@ def test_catalog_parsing_is_deterministic_and_adds_boundary_tags():
     assert first.operations[0].max_parents is None
 
 
+@pytest.mark.parametrize("backend", ["numpy", "torch"])
+@pytest.mark.parametrize("tags", [["example"], ["torch"]])
+def test_backend_and_tags_never_imply_cuda(backend, tags):
+    payload = _payload()
+    payload["operations"][0].update(backend=backend, tags=tags)
+    implicit = parse_industrial_extension_catalog(payload)
+    payload["operations"][0]["devices"] = ["cpu"]
+    assert implicit == parse_industrial_extension_catalog(payload)
+
+
+@pytest.mark.parametrize("devices", [["cuda"], ["cpu", "cuda"], ["cuda", "cpu"]])
+def test_explicit_devices_survive_catalog_round_trip(devices):
+    payload = _payload()
+    payload["operations"][0]["devices"] = devices
+    first = parse_industrial_extension_catalog(payload)
+    serialized = first.to_dict()
+    serialized.pop("digest")
+    assert first.operations[0].devices == tuple(devices)
+    assert parse_industrial_extension_catalog(serialized) == first
+
+
+@pytest.mark.parametrize("devices", [
+    None, [], "cuda", ["auto"], ["default"], ["gpu"], ["cuda:0"],
+    ["cpu", "cpu"], ["cpu", None], [False], [["cpu"]],
+])
+def test_catalog_rejects_malformed_device_declarations(devices):
+    payload = _payload()
+    payload["operations"][0]["devices"] = devices
+    with pytest.raises(IndustrialExtensionContractError) as error:
+        parse_industrial_extension_catalog(payload)
+    assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
+    assert error.value.context["field"] == "operations[0].devices"
+
+
 @pytest.mark.parametrize(
     ("mutate", "expected_code"),
     [
