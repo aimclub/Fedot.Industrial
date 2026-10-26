@@ -1,4 +1,13 @@
 {
+  "future_fusion_clf": {
+    "fusion_method": "concat",
+    "d_model": 16,
+    "encoder_kwargs": null,
+    "fusion_kwargs": null,
+    "training_config": null,
+    "head_dropout": 0.0,
+    "head_hidden_dim": null
+  },
   "eigen_basis": {
     "window_size": 20,
     "rank_regularization": "explained_dispersion",

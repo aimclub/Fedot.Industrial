@@ -77,6 +77,25 @@ def test_catalog_rejects_unknown_fields():
     assert error.value.code is IndustrialExtensionErrorCode.INVALID_OPERATION
 
 
+@pytest.mark.parametrize("value", [["shape", "shape"], [""], [None], "shape"])
+def test_catalog_rejects_invalid_required_parameters(value):
+    payload = _payload()
+    payload["operations"][0]["required_parameters"] = value
+    with pytest.raises(IndustrialExtensionContractError):
+        parse_industrial_extension_catalog(payload)
+
+
+def test_catalog_preserves_required_parameters_in_round_trip():
+    payload = _payload()
+    payload["operations"][0]["required_parameters"] = ["shape"]
+    first = parse_industrial_extension_catalog(payload)
+    serialized = first.to_dict()
+    serialized.pop("digest")
+    second = parse_industrial_extension_catalog(serialized)
+    assert first == second
+    assert first.operations[0].required_parameters == ("shape",)
+
+
 def test_catalog_rejects_unknown_runtime_interface():
     payload = _payload()
     payload["operations"][0]["runtime_interface"] = "dataframe"
