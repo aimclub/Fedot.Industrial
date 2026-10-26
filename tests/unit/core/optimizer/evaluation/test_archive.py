@@ -325,7 +325,7 @@ def test_legacy_coordinator_records_fresh_completions_but_worker_does_not_own_ar
     dispatcher.diagnostics_recorder = None
     dispatcher.completed_evaluation_callback = archive.record_results
     dispatcher._evaluate_graph = lambda graph: (SingleObjFitness(.5), graph)
-    result = dispatcher.eval_ind(OptGraph(OptNode('ridge')), 'candidate').compute(scheduler='synchronous')
+    result = dispatcher.eval_ind(OptGraph(OptNode('ridge')), 'candidate')
     assert archive.entries == ()
     dispatcher._record_evaluation_results([result])
     assert len(archive.entries) == 1

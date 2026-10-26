@@ -4,7 +4,6 @@ import timeit
 from datetime import datetime
 from typing import Optional, Tuple
 
-import dask
 from golem.core.log import Log
 from golem.core.optimisers.fitness import null_fitness
 from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher
@@ -68,7 +67,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         self.completed_evaluation_callback = completed_evaluation_callback
 
     def __getstate__(self):
-        """Keep the coordinator-local recorder out of Dask worker payloads."""
+        """Keep coordinator-local observers out of serialized dispatcher state."""
         state = dict(self.__dict__)
         state['diagnostics_recorder'] = None
         state['completed_evaluation_callback'] = None
@@ -82,26 +81,23 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return self.evaluate_with_cache
 
     def _multithread_eval(self, individuals_to_evaluate):
+        """Evaluate legacy candidates sequentially without an implicit scheduler."""
         log = Log().get_parameters()
-        evaluation_results = list(map(lambda ind:
-                                      self.industrial_evaluate_single(self,
-                                                                      graph=ind.graph,
-                                                                      uid_of_individual=ind.uid,
-                                                                      logs_initializer=log),
-                                      individuals_to_evaluate))
-        evaluation_results = dask.compute(*evaluation_results)
-        return evaluation_results
+        return [
+            self.industrial_evaluate_single(
+                self, graph=ind.graph, uid_of_individual=ind.uid, logs_initializer=log)
+            for ind in individuals_to_evaluate
+        ]
 
     def _eval_at_least_one(self, individuals):
         successful_evals = []
         for single_ind in individuals:
-            delayed_result = self.industrial_evaluate_single(
+            evaluation_result = self.industrial_evaluate_single(
                 self,
                 graph=single_ind.graph,
                 uid_of_individual=single_ind.uid,
                 with_time_limit=False,
             )
-            evaluation_result = dask.compute(delayed_result)[0]
             self._record_evaluation_results((evaluation_result,))
             successful_evals = self.apply_evaluation_results(
                 [single_ind], [evaluation_result])
@@ -113,7 +109,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         individuals_to_evaluate, individuals_to_skip = self.split_individuals_to_evaluate(
             individuals)
 
-        # Evaluate individuals without valid fitness in parallel.
+        # Preserve legacy bookkeeping; parallelism requires an explicit evaluation backend.
         self.n_jobs = determine_n_jobs(self._n_jobs, self.logger)
 
         evaluation_results = (
@@ -134,7 +130,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             self._log_evaluation_failures(evaluation_results)
             successful_evals = self._eval_at_least_one(individuals)
 
-        MemoryAnalytics.log(self.logger, additional_info='parallel evaluation of population',
+        MemoryAnalytics.log(self.logger, additional_info='legacy sequential evaluation of population',
                             logging_level=logging.INFO)
         return successful_evals
 
@@ -164,7 +160,6 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         for message in tuple(dict.fromkeys(failures))[:3]:
             self.logger.warning('Industrial graph evaluation failed: %s', message)
 
-    @dask.delayed
     def eval_ind(self, graph, uid_of_individual):
         start_time = timeit.default_timer()
         evaluation_failure = None

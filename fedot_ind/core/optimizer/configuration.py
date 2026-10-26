@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
 from fedot_ind.core.optimizer.evaluation.contracts import positive_seconds
+from fedot_ind.core.optimizer.evaluation.dask_config import DaskConfigError, parse_dask_config
 
 
 EVOLUTION_CONFIG_SCHEMA = "industrial_evolution_config@1"
@@ -223,6 +224,7 @@ _MUTATION_FIELDS = frozenset({"agent", "strategy"})
 _RESOURCE_FIELDS = frozenset(ResourceBudget().to_record())
 _POLICY_FIELDS = frozenset(ExecutionPolicy().to_record())
 _PLANNING_FIELDS = frozenset(MutationPlanningPolicy().to_record())
+_EVALUATION_FIELDS = frozenset({"backend", "candidate_timeout_seconds", "total_timeout_seconds", "dask"})
 
 
 def _mapping_section(
@@ -385,7 +387,7 @@ def normalize_evolution_config(
     _collect_unknown_fields(resources, _RESOURCE_FIELDS, "resource_budget", violations)
     _collect_unknown_fields(policy, _POLICY_FIELDS, "execution_policy", violations)
     _collect_unknown_fields(planning, _PLANNING_FIELDS, "mutation_planning", violations)
-    _collect_unknown_fields(evaluation, frozenset(EvaluationExecutionConfig().to_record()),
+    _collect_unknown_fields(evaluation, _EVALUATION_FIELDS,
                             "evaluation_execution", violations)
 
     defaults = EvolutionConfig()
@@ -530,6 +532,20 @@ def normalize_evolution_config(
     )
     evaluation_backend = _enum_value(EvaluationBackend, evaluation.get("backend", "legacy"),
                                      "evaluation_execution.backend", violations)
+    dask_config = None
+    if evaluation.get("dask") is not None:
+        try:
+            dask_config = parse_dask_config(evaluation["dask"])
+        except DaskConfigError as error:
+            violations.extend(EvolutionConfigViolation(
+                EvolutionConfigViolationCode(item.code),
+                f"evaluation_execution.dask.{item.path}" if item.path else "evaluation_execution.dask",
+                item.message, item.value,
+            ) for item in error.violations)
+        if evaluation_backend is not EvaluationBackend.DASK:
+            violations.append(EvolutionConfigViolation(
+                EvolutionConfigViolationCode.CONFLICTING_FIELDS, "evaluation_execution.dask",
+                "dask options require the dask backend"))
     timeouts = {}
     for name in ("candidate_timeout_seconds", "total_timeout_seconds"):
         value = evaluation.get(name)
@@ -553,5 +569,5 @@ def normalize_evolution_config(
         execution_policy=execution_policy,
         random_seed=random_seed,
         mutation_planning=mutation_planning,
-        evaluation_execution=EvaluationExecutionConfig(backend=evaluation_backend, **timeouts),
+        evaluation_execution=EvaluationExecutionConfig(backend=evaluation_backend, dask=dask_config, **timeouts),
     )

@@ -189,7 +189,7 @@ def test_native_fold_input_guard_rejects_worker_local_mutation(tmp_path, backend
     assert summary.evaluations_succeeded == 0
 
 
-@pytest.mark.parametrize('backend', [EvaluationBackend.SEQUENTIAL, EvaluationBackend.PROCESS])
+@pytest.mark.parametrize('backend', [EvaluationBackend.SEQUENTIAL, EvaluationBackend.PROCESS, EvaluationBackend.DASK])
 @pytest.mark.parametrize('task', ['classification', 'regression', 'ts_forecasting'])
 @pytest.mark.parametrize('reject_second', [False, True])
 def test_native_two_fold_evaluation_is_atomic_and_cleans_fitted_state(tmp_path, backend, task, reject_second):
@@ -209,7 +209,11 @@ def test_native_two_fold_evaluation_is_atomic_and_cleans_fitted_state(tmp_path, 
         graph = adapter.adapt(_pipeline(task))
     individual = Individual(graph)
     recorder = EvolutionDiagnosticsRecorder()
-    dispatcher = LocalEvaluationDispatcher(
+    dispatcher_type = LocalEvaluationDispatcher
+    if backend is EvaluationBackend.DASK:
+        from fedot_ind.core.optimizer.evaluation.dask_dispatcher import DaskEvaluationDispatcher
+        dispatcher_type = DaskEvaluationDispatcher
+    dispatcher = dispatcher_type(
         adapter, n_jobs=1, config=EvaluationExecutionConfig(backend),
         graph_cleanup_fn=_unfit, diagnostics_recorder=recorder, random_seed=42)
 

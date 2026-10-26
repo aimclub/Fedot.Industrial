@@ -89,11 +89,12 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
     """Own one batch at a time. No callback is executed in a shared thread."""
 
     allows_untimed_retry = False
+    supported_backends = (EvaluationBackend.SEQUENTIAL, EvaluationBackend.PROCESS)
 
     def __init__(self, adapter, n_jobs=1, graph_cleanup_fn=None, delegate_evaluator=None,
                  diagnostics_recorder=None, *, config: EvaluationExecutionConfig, random_seed=None,
                  graph_preparation: GraphPreparation | None = None, completed_evaluation_callback=None):
-        if not isinstance(config, EvaluationExecutionConfig) or config.backend is EvaluationBackend.LEGACY:
+        if not isinstance(config, EvaluationExecutionConfig) or config.backend not in self.supported_backends:
             raise ValueError('Local dispatcher requires an explicit local execution config')
         if delegate_evaluator is not None and delegate_evaluator.is_enabled:
             raise ValueError('Remote delegation requires a separate execution strategy')
@@ -154,7 +155,6 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
             if individual.fitness.valid and not _finite_fitness(individual.fitness):
                 raise ValueError('Existing candidate has nonfinite fitness; clear it before evaluation')
         to_evaluate, reused = self.split_individuals_to_evaluate(list(unique.values()))
-        backend = LocalBackend(self.config.backend.value)
         tasks, jobs = [], []
         for individual in to_evaluate:
             graph = self.evaluation_cache.get(individual.uid, individual.graph)
@@ -187,9 +187,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         budget = EvaluationBudget(preparation_seconds, remaining, None if expired else total, expired)
         self.last_budget = budget
         jobs = tuple(replace(job, context=replace(job.context, budget=budget)) for job in jobs)
-        plan = EvaluationPlan(tasks, backend,
-                              1 if backend is LocalBackend.SEQUENTIAL else determine_n_jobs(self._n_jobs, self.logger),
-                              self.config.candidate_timeout_seconds, None if expired else total)
+        plan = self._make_plan(tasks, None if expired else total)
         self.last_plan = plan
         if expired:
             # A tiny positive timeout can still admit a callback on a coarse host clock.
@@ -201,10 +199,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
                                      else 'Total evaluation deadline reached before execution'))
                 for task in tasks)
         else:
-            self.last_results = execute_plan(
-                plan, jobs,
-                _GraphEvaluator(self._adapter, self._objective_eval, self._cleanup, self._post_eval_callback),
-                cancellation=self.cancellation)
+            self.last_results = self._execute_plan(plan, jobs)
         graph_results = []
         for result, individual, job in zip(self.last_results, to_evaluate, jobs):
             if result.status is ExecutionStatus.SUCCEEDED:
@@ -233,3 +228,16 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         successful = [r for r in graph_results if r.fitness.valid]
         evaluated = self.apply_evaluation_results(to_evaluate, successful)
         return evaluated + reused
+
+    def _make_plan(self, tasks, total):
+        backend = LocalBackend(self.config.backend.value)
+        return EvaluationPlan(
+            tasks, backend,
+            1 if backend is LocalBackend.SEQUENTIAL else determine_n_jobs(self._n_jobs, self.logger),
+            self.config.candidate_timeout_seconds, total)
+
+    def _execute_plan(self, plan, jobs):
+        return execute_plan(
+            plan, jobs,
+            _GraphEvaluator(self._adapter, self._objective_eval, self._cleanup, self._post_eval_callback),
+            cancellation=self.cancellation)

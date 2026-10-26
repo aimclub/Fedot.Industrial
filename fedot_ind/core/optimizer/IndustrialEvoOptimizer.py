@@ -122,8 +122,11 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         execution_config = self.evolution_config.evaluation_execution
         dispatcher_type = (IndustrialDispatcher if execution_config.backend is EvaluationBackend.LEGACY
                            else LocalEvaluationDispatcher)
+        if execution_config.backend is EvaluationBackend.DASK:
+            from fedot_ind.core.optimizer.evaluation.dask_dispatcher import DaskEvaluationDispatcher
+            dispatcher_type = DaskEvaluationDispatcher
         if dispatcher_type is IndustrialDispatcher and evaluation_graph_preparation is not None:
-            raise ValueError('Explicit graph preparation requires a local evaluation backend')
+            raise ValueError('Explicit graph preparation requires an explicit evaluation backend')
         execution_args = ({} if dispatcher_type is IndustrialDispatcher else
                           {"config": execution_config, "random_seed": self.evolution_config.random_seed,
                            "graph_preparation": evaluation_graph_preparation})

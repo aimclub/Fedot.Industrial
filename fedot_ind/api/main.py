@@ -37,7 +37,8 @@ class FedotIndustrial(Fedot):
     All arguments are passed as keyword arguments and handled by the ApiManager class.
 
     Args:
-        problem: str. The type of task to solve. Available options: 'ts_forecasting', 'ts_classification', 'ts_regression'.
+        problem: str. The type of task to solve. Available options:
+            'ts_forecasting', 'ts_classification', 'ts_regression'.
         timeout: int. Time for model design (in minutes): ``None`` or ``-1`` means infinite time.
                 logging_level: logging levels are the same as in
             `built-in logging library <https://docs.python.org/3/library/logging.html>`_.
@@ -111,12 +112,7 @@ class FedotIndustrial(Fedot):
             automl_config=self.manager.automl_config.config,
             industrial_config=self.manager.industrial_config.config,
         )
-        runtime = self.dask_runtime.start(
-            distributed_config=self.manager.compute_config.distributed,
-            logger=self.logger,
-        )
-        self.manager.dask_client = runtime.client
-        self.manager.dask_cluster = runtime.cluster
+        # Opt-in evaluation executors own their resources; legacy evaluation is sequential.
         self.logger.info('-' * 50)
         self.logger.info('Initialising solver')
         self.manager.solver = self.solver_factory.create(build_solver_init_plan(self.manager))
@@ -203,7 +199,8 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        with exception_handler(Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
+        with exception_handler(
+                Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
             train_data = self._process_input_data(input_data, fit_stage=True)
             train_data = self.__init_industrial_backend(train_data)
             train_data = self.__init_solver(train_data)
@@ -278,7 +275,8 @@ class FedotIndustrial(Fedot):
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
         tuning_params = {} if tuning_params is None else tuning_params
 
-        with exception_handler(Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
+        with exception_handler(
+                Exception, on_exception=partial(self.shutdown, raise_cleanup_errors=False), suppress=False):
             payload = self.finetune_service.prepare_payload(
                 train_data=train_data,
                 tuning_params=tuning_params,

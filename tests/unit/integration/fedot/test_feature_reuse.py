@@ -194,7 +194,7 @@ def test_dispatchers_own_reuse_storage_per_candidate(backend):
         dispatcher._evaluate_graph = lambda graph: (objective(graph), graph)
 
         def evaluate(index):
-            return dispatcher.eval_ind('graph', str(index)).compute(scheduler='synchronous')
+            return dispatcher.eval_ind('graph', str(index))
     for index in range(2):
         assert evaluate(index).fitness.valid
     assert len(calls) == 2
