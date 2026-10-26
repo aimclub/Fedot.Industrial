@@ -13,7 +13,6 @@ import traceback
 
 import numpy as np
 import torch
-import cv2  # noqa: F401
 from threadpoolctl import threadpool_info, threadpool_limits
 import psutil
 

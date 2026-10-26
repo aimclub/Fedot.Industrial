@@ -4,6 +4,7 @@
   "samples": 65,
   "train_sha256": "d87082ecba77425584ed65b6f2c53af184d995783df7284e88464c3593f31341",
   "audit_sha256": "307f25fafbff3794fc2cf42c83f9a78ac71de2b634d251dba164292757fe006a",
+  "audit_lf_sha256": "5a8d3d9fa63d38444e16f41c764cf521b9dff1f7861e8793eaa42cdb486e777f",
   "nested_defaults_sha256": "931c807c15a5b1f0a6e7ae56ac61fcec5eb01aac655c4e4014616c730111e721",
   "run_seed": 42,
   "tie_break": "exact_mean_then_ascending_candidate_id",

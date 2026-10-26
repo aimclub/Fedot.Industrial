@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 from dataclasses import asdict
+from hashlib import sha256
 from importlib import resources
 from importlib.metadata import version
 import json
@@ -51,9 +52,12 @@ def load_settings(audit_path):
     nested_path = resources.files(nested_validation).joinpath('defaults.json')
     if file_hash(Path(str(nested_path))) != raw['nested_defaults_sha256']:
         raise ValueError('Previously approved split settings changed')
-    if file_hash(Path(audit_path)) != raw['audit_sha256']:
+    audit = Path(audit_path).read_bytes()
+    # Git normalizes text line endings; retain the original evidence digest too.
+    if (sha256(audit).hexdigest() != raw['audit_sha256']
+            and sha256(audit.replace(b'\r\n', b'\n')).hexdigest() != raw['audit_lf_sha256']):
         raise ValueError('Require the frozen TRAIN-only candidate-pool audit')
-    source = json.loads(Path(audit_path).read_text(encoding='utf-8'))
+    source = json.loads(audit)
     choices = admit_candidates(source['catalogue'], raw['candidates'])
     observed_winners = {row['candidate'] for row in source['winners']}
     if observed_winners != set(raw['candidates']):

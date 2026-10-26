@@ -21,6 +21,20 @@ def settings():
     return runner.load_settings(AUDIT)
 
 
+@pytest.mark.parametrize('newline', [b'\n', b'\r\n'])
+def test_frozen_audit_accepts_git_line_endings_and_rejects_content_drift(tmp_path, newline):
+    original = AUDIT.read_bytes().replace(b'\r\n', b'\n')
+    path = tmp_path / 'audit.json'
+    path.write_bytes(original.replace(b'\n', newline))
+    config, _, candidates = runner.load_settings(path)
+    assert {candidate.name for candidate in candidates} == set(config['candidates'])
+    changed = original.replace(b'"schema_version"', b'"schema_versioN"', 1)
+    assert changed != original
+    path.write_bytes(changed.replace(b'\n', newline))
+    with pytest.raises(ValueError, match='frozen TRAIN-only'):
+        runner.load_settings(path)
+
+
 def test_dry_run_does_not_read_dataset_or_fit(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, '_train_arrays', lambda *args: pytest.fail('No dataset access in preview'))
     monkeypatch.setattr(runner, 'build_pipeline', lambda *args: pytest.fail('No model construction in preview'))
