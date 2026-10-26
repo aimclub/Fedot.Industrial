@@ -234,7 +234,7 @@ class TorchQuantileExtractor(BaseExtractor):
 
     def _can_batch_numpy(self, values) -> bool:
         # Windowed, multichannel and customized implementations keep their existing path.
-        if (type(self) is not TorchQuantileExtractor or type(values) is not np.ndarray
+        if (not isinstance(self, TorchQuantileExtractor) or not isinstance(values, np.ndarray)
                 or values.ndim not in (2, 3) or values.shape[0] < 2 or values.shape[-1] < 2
                 or (values.ndim == 3 and values.shape[1] != 1)
                 or not values.flags.c_contiguous or values.dtype.kind not in 'biuf'

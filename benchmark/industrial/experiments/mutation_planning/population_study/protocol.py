@@ -30,27 +30,27 @@ def parse_protocol(raw):
     required = set(integer_fields) | {'schema_version', 'seeds', 'supervised_root', 'classification_root',
                                       'forecast_train', 'forecast_test', 'scenarios', 'operations',
                                       'initial_chains', 'operation_parameters', 'acceptance'}
-    if type(raw) is not dict or set(raw) != required or raw['schema_version'] != 'industrial_population_study@1':
+    if not isinstance(raw, dict) or set(raw) != required or raw['schema_version'] != 'industrial_population_study@1':
         raise ValueError('Population study fields/schema must match the contract')
     for name in integer_fields:
-        if type(raw[name]) is not int or raw[name] < 1:
+        if not isinstance(raw[name], int) or raw[name] < 1:
             raise ValueError(f'{name} must be a positive integer')
     if raw['generations'] < 4 or raw['population_size'] < 4 or raw['run_seconds'] <= raw['search_seconds']:
         raise ValueError('Require a full population, >=3 evolved generations and a larger overall deadline')
     seeds = raw['seeds']
-    if type(seeds) is not list or len(seeds) < 3 or len(set(seeds)) != len(seeds):
+    if not isinstance(seeds, list) or len(seeds) < 3 or len(set(seeds)) != len(seeds):
         raise ValueError('Require at least three unique seeds')
-    if any(type(seed) is not int or seed < 0 for seed in seeds):
+    if any(not isinstance(seed, int) or seed < 0 for seed in seeds):
         raise ValueError('seeds must be nonnegative integers')
     for name in ('supervised_root', 'classification_root', 'forecast_train', 'forecast_test'):
-        if type(raw[name]) is not str or not raw[name].strip():
+        if not isinstance(raw[name], str) or not raw[name].strip():
             raise ValueError(f'{name} must be a non-empty path')
     seen, observed = set(), set()
-    if type(raw['scenarios']) is not list or not raw['scenarios']:
+    if not isinstance(raw['scenarios'], list) or not raw['scenarios']:
         raise ValueError('scenarios must be a non-empty list')
     for scenario in raw['scenarios']:
-        if (type(scenario) is not dict or set(scenario) != {'name', 'task'} or scenario['task'] not in TASKS
-                or type(scenario['name']) is not str or not re.fullmatch(r'[A-Za-z0-9_-]+', scenario['name'])):
+        if (not isinstance(scenario, dict) or set(scenario) != {'name', 'task'} or scenario['task'] not in TASKS
+                or not isinstance(scenario['name'], str) or not re.fullmatch(r'[A-Za-z0-9_-]+', scenario['name'])):
             raise ValueError('Invalid scenario')
         key = scenario['task'], scenario['name']
         if key in seen:
@@ -59,13 +59,13 @@ def parse_protocol(raw):
         observed.add(scenario['task'])
     if observed != set(TASKS):
         raise ValueError('All three tasks must be present')
-    if any(type(raw[name]) is not dict or set(raw[name]) != set(TASKS)
+    if any(not isinstance(raw[name], dict) or set(raw[name]) != set(TASKS)
            for name in ('operations', 'initial_chains')):
         raise ValueError('Operation and chain maps must cover exactly the three tasks')
     for task in TASKS:
         operations = raw['operations'][task]
-        if (type(operations) is not list or not operations
-                or any(type(name) is not str or not name for name in operations)
+        if (not isinstance(operations, list) or not operations
+                or any(not isinstance(name, str) or not name for name in operations)
                 or len(set(operations)) != len(operations)):
             raise ValueError('Operation lists must be non-empty and unique')
         if any('okhs' in name.lower() for name in operations):

@@ -93,9 +93,9 @@ def compare_mutations(settings=None):
     if settings.get("schema_version") != "industrial_mutation_comparison@1":
         raise ValueError("Unsupported mutation comparison schema")
     for field in ("attempts_per_seed", "max_candidates", "max_depth", "max_nodes", "max_arity"):
-        if type(settings[field]) is not int or settings[field] < 1:
+        if not isinstance(settings[field], int) or settings[field] < 1:
             raise ValueError(f"{field} must be a positive integer")
-    if not settings["seeds"] or any(type(seed) is not int or seed < 0 for seed in settings["seeds"]):
+    if not settings["seeds"] or any(not isinstance(seed, int) or seed < 0 for seed in settings["seeds"]):
         raise ValueError("seeds must contain nonnegative integers")
     records, summaries = [], []
     actions = [MutationTypesEnum.single_change, MutationTypesEnum.single_add, MutationTypesEnum.single_drop]
