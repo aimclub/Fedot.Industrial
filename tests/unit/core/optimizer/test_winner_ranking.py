@@ -35,6 +35,23 @@ def test_frozen_audit_accepts_git_line_endings_and_rejects_content_drift(tmp_pat
         runner.load_settings(path)
 
 
+@pytest.mark.parametrize('newline', [b'\n', b'\r\n'])
+def test_frozen_nested_settings_accept_git_line_endings_but_not_content_changes(tmp_path, monkeypatch, newline):
+    files = runner.resources.files
+    original = files(runner.nested_validation).joinpath('defaults.json').read_bytes().replace(b'\r\n', b'\n')
+    path = tmp_path / 'defaults.json'
+    path.write_bytes(original.replace(b'\n', newline))
+    monkeypatch.setattr(runner.resources, 'files', lambda package: tmp_path
+                        if package is runner.nested_validation else files(package))
+    config, _, candidates = settings()
+    assert {candidate.name for candidate in candidates} == set(config['candidates'])
+    changed = original.replace(b'"schema_version"', b'"schema_versioN"', 1)
+    assert changed != original
+    path.write_bytes(changed.replace(b'\n', newline))
+    with pytest.raises(ValueError, match='split settings changed'):
+        settings()
+
+
 def test_dry_run_does_not_read_dataset_or_fit(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, '_train_arrays', lambda *args: pytest.fail('No dataset access in preview'))
     monkeypatch.setattr(runner, 'build_pipeline', lambda *args: pytest.fail('No model construction in preview'))

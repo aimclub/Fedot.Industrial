@@ -50,7 +50,8 @@ def load_settings(audit_path):
     if raw['schema_version'] != 'industrial_winner_ranking@1' or raw['run_seed'] != 42:
         raise ValueError('Frozen ranking settings differ')
     nested_path = resources.files(nested_validation).joinpath('defaults.json')
-    if file_hash(Path(str(nested_path))) != raw['nested_defaults_sha256']:
+    nested_bytes = nested_path.read_bytes()
+    if sha256(nested_bytes.replace(b'\r\n', b'\n')).hexdigest() != raw['nested_defaults_sha256']:
         raise ValueError('Previously approved split settings changed')
     audit = Path(audit_path).read_bytes()
     # Git normalizes text line endings; retain the original evidence digest too.
