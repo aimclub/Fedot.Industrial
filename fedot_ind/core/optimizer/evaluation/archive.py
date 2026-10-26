@@ -42,8 +42,8 @@ def completed_evaluation(result, sequence):
     if context is None:
         evaluation_id, context_json = f'{candidate_id}:archive:{sequence}', None
     else:
-        if (not isinstance(context, dict) or context.get('candidate_id') != candidate_id
-                or not isinstance(context.get('evaluation_id'), str) or not context['evaluation_id']):
+        if (type(context) is not dict or context.get('candidate_id') != candidate_id
+                or type(context.get('evaluation_id')) is not str or not context['evaluation_id']):
             raise ValueError('Completed evaluation context belongs to another candidate')
         configuration = context.get('configuration')
         if configuration is not None:

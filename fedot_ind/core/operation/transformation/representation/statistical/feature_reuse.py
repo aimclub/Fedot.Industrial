@@ -28,9 +28,9 @@ class FeatureReuseSession:
     """Own private snapshots and discard them even when the caller fails."""
 
     def __init__(self, max_bytes: int, max_entries: int) -> None:
-        if not isinstance(max_bytes, int) or max_bytes < 0:
+        if type(max_bytes) is not int or max_bytes < 0:
             raise ValueError('max_bytes must be a nonnegative integer')
-        if not isinstance(max_entries, int) or max_entries < 1:
+        if type(max_entries) is not int or max_entries < 1:
             raise ValueError('max_entries must be a positive integer')
         self.max_bytes, self.max_entries = max_bytes, max_entries
         self._entries = OrderedDict()
@@ -48,7 +48,7 @@ class FeatureReuseSession:
         # retain late worker results. Never hold the lock during native compute:
         # closing a timed-out scope must not wait for that computation to finish.
         with self._lock:
-            bypass = (self._closed or not self.max_bytes or not isinstance(features, np.ndarray)
+            bypass = (self._closed or not self.max_bytes or type(features) is not np.ndarray
                       or not features.flags.c_contiguous or features.dtype.kind not in 'biufc'
                       or features.nbytes > self.max_bytes)
             if bypass:

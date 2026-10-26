@@ -10,15 +10,15 @@ from typing import Callable
 def canonical_json(value: object) -> str:
     """Encode finite JSON values without repr fallbacks or key coercion."""
     def validate(item):
-        if isinstance(item, dict):
-            if any(not isinstance(key, str) for key in item):
+        if type(item) is dict:
+            if any(type(key) is not str for key in item):
                 raise ValueError('Configuration keys must be strings')
             for child in item.values():
                 validate(child)
-        elif isinstance(item, list):
+        elif type(item) is list:
             for child in item:
                 validate(child)
-        elif isinstance(item, float):
+        elif type(item) is float:
             if not isfinite(item):
                 raise ValueError('Configuration numbers must be finite')
         elif item is not None and type(item) not in (str, int, bool):

@@ -93,8 +93,8 @@ def test_primary_addition_rejects_disjoint_implicit_input_and_invented_target():
     candidates = enumerate_mutation_plans(spec, unsafe + (overlapping, safe), limits=LIMITS,
                                           kinds=(MutationKind.ADD,))
     assert [plan.edits[0].operation.name for plan in candidates.plans] == ["overlapping", "safe"]
-    assert isinstance(spec(*InsertTransform(None, "node-0", "new", safe)), AppliedMutation)
-    assert isinstance(chain()(*InsertTransform(None, "node-2", "new", safe)), MutationRejection)
+    assert isinstance(apply(spec, InsertTransform(None, "node-0", "new", safe)), AppliedMutation)
+    assert isinstance(apply(chain(), InsertTransform(None, "node-2", "new", safe)), MutationRejection)
 
 
 def test_replacement_rejects_unsafe_task_role_and_type_changes():
@@ -111,7 +111,7 @@ def test_replacement_rejects_unsafe_task_role_and_type_changes():
     )
     assert [op.name for op in admissible_operations(spec, "node-0", catalog, limits=LIMITS)] == ["safe"]
     for op in catalog[:-1]:
-        assert isinstance(spec(*ReplaceOperation("node-0", op)), MutationRejection)
+        assert isinstance(apply(spec, ReplaceOperation("node-0", op)), MutationRejection)
 
 
 def test_replacement_accepts_overlapping_primary_type_alternatives():
@@ -143,11 +143,11 @@ def test_edge_add_checks_overlapping_alternatives_at_both_endpoints():
                       output_data_types=("tabular", "ts"))
     spec = replace(spec, nodes=(replace(spec.nodes[0], capabilities=scaling), spec.nodes[1]))
     normalization = capability("normalization", output_data_types=("tabular", "ts"))
-    outcome = spec(*InsertTransform("node-0", "node-1", "new", normalization))
+    outcome = apply(spec, InsertTransform("node-0", "node-1", "new", normalization))
     assert isinstance(outcome, AppliedMutation) and outcome.report.is_valid
     for incompatible in (replace(normalization, input_data_types=("image",)),
                          replace(normalization, output_data_types=("image",))):
-        assert isinstance(spec(*InsertTransform("node-0", "node-1", "new", incompatible)),
+        assert isinstance(apply(spec, InsertTransform("node-0", "node-1", "new", incompatible)),
                           MutationRejection)
 
 
@@ -155,12 +155,12 @@ def test_secondary_replacement_accepts_union_types_but_final_edges_are_validated
     spec = chain(2)
     broad = capability("broad", input_data_types=("tabular", "ts"),
                        output_data_types=("tabular", "ts"))
-    outcome = spec(*ReplaceOperation("node-1", broad))
+    outcome = apply(spec, ReplaceOperation("node-1", broad))
     assert isinstance(outcome, AppliedMutation) and outcome.report.is_valid
     # The old/new contracts overlap on ts, but the actual child requires tabular.
     old = replace(spec.nodes[1].capabilities, output_data_types=("tabular", "ts"))
     spec = replace(spec, nodes=(spec.nodes[0], replace(spec.nodes[1], capabilities=old), spec.nodes[2]))
-    outcome = spec(*ReplaceOperation("node-1", replace(broad, output_data_types=("ts",))))
+    outcome = apply(spec, ReplaceOperation("node-1", replace(broad, output_data_types=("ts",))))
     assert isinstance(outcome, MutationRejection)
     assert ValidationIssueCode.DATA_TYPE_MISMATCH.value in outcome.report.error_codes
 
@@ -180,17 +180,17 @@ def test_capability_position_device_serialization_and_arity_constraints():
 def test_add_and_drop_are_checked_against_data_flow():
     spec = chain()
     bad = capability("image", input_data_types=("image",))
-    assert isinstance(spec(*InsertTransform("node-0", "node-1", "new", bad)), MutationRejection)
+    assert isinstance(apply(spec, InsertTransform("node-0", "node-1", "new", bad)), MutationRejection)
     first = replace(spec.nodes[0].capabilities, output_data_types=("ts",))
     bridge = replace(spec.nodes[1].capabilities, input_data_types=("ts",))
     spec = replace(spec, nodes=(replace(spec.nodes[0], capabilities=first),
                                 replace(spec.nodes[1], capabilities=bridge), spec.nodes[2]))
     assert validate_graph(spec).is_valid
-    outcome = spec(*DropTransform("node-1"))
+    outcome = apply(spec, DropTransform("node-1"))
     assert isinstance(outcome, MutationRejection)
     assert ValidationIssueCode.DATA_TYPE_MISMATCH.value in outcome.report.error_codes
-    assert isinstance(spec(*DropTransform("node-0")), MutationRejection)
-    assert isinstance(spec(*DropTransform("node-2")), MutationRejection)
+    assert isinstance(apply(spec, DropTransform("node-0")), MutationRejection)
+    assert isinstance(apply(spec, DropTransform("node-2")), MutationRejection)
 
 
 def test_drop_preserves_parent_order_and_shared_branch():
@@ -200,7 +200,7 @@ def test_drop_preserves_parent_order_and_shared_branch():
                    capabilities=replace(spec.nodes[2].capabilities, max_parents=2))
     spec = replace(spec, nodes=(spec.nodes[0], spec.nodes[1], root,
                                 GraphNodeSpec("other", third.name, ("node-0",), third)))
-    outcome = spec(*DropTransform("node-1"))
+    outcome = apply(spec, DropTransform("node-1"))
     assert isinstance(outcome, AppliedMutation)
     assert outcome.graph.nodes[1].parent_ids == ("other", "node-0")
     assert outcome.graph.nodes[2].parent_ids == ("node-0",)
@@ -322,7 +322,7 @@ def test_missing_context_unknowns_cycles_and_hard_device_errors_do_not_get_rewri
         result = enumerate_mutation_plans(invalid, CATALOG, limits=LIMITS)
         assert result.rejection is not None and not result.plans and result.examined == 0
     gpu = replace(CATALOG[1], devices=(ComputeDevice.CUDA,))
-    outcome = cases[-1](*ReplaceOperation("node-0", gpu))
+    outcome = apply(cases[-1], ReplaceOperation("node-0", gpu))
     assert isinstance(outcome, MutationRejection)
     assert ValidationIssueCode.DEVICE_NOT_SUPPORTED.value in outcome.report.error_codes
 
@@ -335,11 +335,11 @@ def test_multimodal_sources_and_structural_roles_are_conservatively_preserved():
                      task_type="classification")
     assert validate_graph(spec).is_valid
     assert enumerate_mutation_plans(spec, CATALOG, limits=LIMITS).plans == ()
-    assert isinstance(spec(*ReplaceOperation("source", CATALOG[0])), MutationRejection)
+    assert isinstance(apply(spec, ReplaceOperation("source", CATALOG[0])), MutationRejection)
     special = replace(chain().nodes[1].capabilities, structural_role=StructuralRole.RESAMPLING)
     protected = replace(chain(), nodes=(chain().nodes[0],
                                         replace(chain().nodes[1], capabilities=special), chain().nodes[2]))
-    assert isinstance(protected(*DropTransform("node-1")), MutationRejection)
+    assert isinstance(apply(protected, DropTransform("node-1")), MutationRejection)
 
 
 def test_depth_is_node_count_and_detects_ambiguous_graphs():

@@ -26,25 +26,25 @@ class RidgeStudy:
 
 def parse_config(raw):
     fields = set(RidgeStudy.__dataclass_fields__) | {'schema_version'}
-    if (not isinstance(raw, dict) or set(raw) != fields
+    if (type(raw) is not dict or set(raw) != fields
             or raw['schema_version'] != 'industrial_train_ridge_diagnostics@1'
             or raw['dataset'] != 'NaturalGasPricesSentiment'):
         raise ValueError('Require the approved NaturalGas TRAIN diagnostic contract')
     seeds = []
     for key in ('primary_seeds', 'additional_seeds'):
         group = raw[key]
-        if (not isinstance(group, list) or len(group) < 3
-                or any(not isinstance(seed, int) or not 0 <= seed < 2 ** 32 for seed in group)):
+        if (type(group) is not list or len(group) < 3
+                or any(type(seed) is not int or not 0 <= seed < 2 ** 32 for seed in group)):
             raise ValueError('Require at least three uint32 seeds per group')
         seeds.extend(group)
     if len(set(seeds)) != len(seeds):
         raise ValueError('TRAIN split seeds must be unique across groups')
     for key, allowed in (('structures', {'simple', 'composite'}), ('scalings', {'none', 'standard'})):
-        if (not isinstance(raw[key], list) or len(raw[key]) != len(allowed)
-                or any(not isinstance(value, str) for value in raw[key]) or set(raw[key]) != allowed):
+        if (type(raw[key]) is not list or len(raw[key]) != len(allowed)
+                or any(type(value) is not str for value in raw[key]) or set(raw[key]) != allowed):
             raise ValueError(f'{key} must cover the two approved choices once')
     values = raw['alphas']
-    if (not isinstance(values, list) or not values
+    if (type(values) is not list or not values
             or any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0 for value in values)
             or len(set(values)) != len(values)):
         raise ValueError('alphas must be unique finite positive numbers')

@@ -61,7 +61,7 @@ def load_training_data(config, scenario, seed, *, forecast_horizon=None):
     if task == 'ts_forecasting':
         from fedot import create_data
         from fedot.core.data.split.temporal import temporal_tensor_holdout
-        if not isinstance(forecast_horizon, int) or forecast_horizon < 1:
+        if type(forecast_horizon) is not int or forecast_horizon < 1:
             raise ValueError('TRAIN-only forecasting requires an explicit frozen positive horizon')
         path = Path(config['forecast_train'])
         with path.open(newline='', encoding='utf-8') as stream:

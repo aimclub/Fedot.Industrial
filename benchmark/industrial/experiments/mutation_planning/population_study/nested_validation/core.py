@@ -59,17 +59,17 @@ class Selection:
 
 
 def parse_config(raw):
-    if (not isinstance(raw, dict) or set(raw) != set(NestedConfig.__dataclass_fields__) | {'schema_version'}
+    if (type(raw) is not dict or set(raw) != set(NestedConfig.__dataclass_fields__) | {'schema_version'}
             or raw['schema_version'] != 'industrial_nested_train_validation@1'):
         raise ValueError('Nested TRAIN fields/schema must match the contract')
     for key in ('outer_folds', 'inner_folds'):
-        if not isinstance(raw[key], int) or not 2 <= raw[key] <= 10:
+        if type(raw[key]) is not int or not 2 <= raw[key] <= 10:
             raise ValueError(f'{key} must be an integer between 2 and 10')
     for key in ('outer_seed', 'inner_seed', 'feature_seed'):
-        if not isinstance(raw[key], int) or not 0 <= raw[key] < 2 ** 32:
+        if type(raw[key]) is not int or not 0 <= raw[key] < 2 ** 32:
             raise ValueError(f'{key} must be a uint32 seed')
     for key in ('population_protocol_sha256', 'ridge_grid_sha256'):
-        if not isinstance(raw[key], str) or re.fullmatch('[0-9a-f]{64}', raw[key]) is None:
+        if type(raw[key]) is not str or re.fullmatch('[0-9a-f]{64}', raw[key]) is None:
             raise ValueError(f'{key} must be a SHA-256 digest')
     if raw['tie_break'] != 'exact_mean_then_structure_order_scaling_order_descending_alpha':
         raise ValueError('Unsupported tie-breaking rule')
@@ -81,7 +81,7 @@ def _split(training, validation):
 
 
 def make_plan(sample_count, config):
-    if not isinstance(sample_count, int) or sample_count < config.outer_folds:
+    if type(sample_count) is not int or sample_count < config.outer_folds:
         raise ValueError('Require enough original TRAIN samples for the outer folds')
     plan = []
     for ordinal, (training, validation) in enumerate(KFold(

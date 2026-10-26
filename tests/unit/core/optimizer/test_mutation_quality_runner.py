@@ -94,7 +94,7 @@ def test_execution_saves_paired_reports_and_never_overwrites_evidence(tmp_path, 
 
     def measured(task, seed, mode, config, source):
         assert source['fedot_compatibility'] == audit
-        assert all(isinstance(version, str) for version in source['environment'].values())
+        assert all(type(version) is str for version in source['environment'].values())
         assert source['implementation_sha256']
         assert all(len(digest) == 64 for digest in source['implementation_sha256'].values())
         return dict(task=task, scenario='fixture', dataset=task, seed=seed, mode=mode,

@@ -63,7 +63,7 @@ class QuantileExtractor(BaseExtractor):
 
     def _transform(self, input_data: InputData) -> np.ndarray:
         reference = super()._transform
-        if (not isinstance(self, QuantileExtractor) or not isinstance(input_data.features, np.ndarray)
+        if (type(self) is not QuantileExtractor or type(input_data.features) is not np.ndarray
                 or self.use_feature_filter or self.feature_filter is not None
                 or tuple(STAT_METHODS.items()) != _AUDITED_LOCAL_METHODS
                 or tuple(STAT_METHODS_GLOBAL.items()) != _AUDITED_GLOBAL_METHODS

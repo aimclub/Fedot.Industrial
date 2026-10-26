@@ -66,7 +66,7 @@ def test_pdl_seed_rejects_ambiguous_or_out_of_range_values(seed):
 
 def test_numpy_integer_seed_normalizes_to_json_compatible_integer():
     config = PairwiseLearningConfig(random_state=np.int64(123)).normalized()
-    assert isinstance(config.random_state, int)
+    assert type(config.random_state) is int
     assert config.random_state == 123
     json.dumps(config.to_dict())
 
