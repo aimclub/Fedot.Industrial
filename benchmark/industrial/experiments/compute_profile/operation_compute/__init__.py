@@ -1,4 +1,4 @@
-"""Public index for explicit, operation-local tensor compute planning."""
+"""Experimental profiler interpreter, not a public Industrial runtime API."""
 
 from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend
 from fedot_ind.core.optimizer.graph_validation.contracts import ComputeDevice

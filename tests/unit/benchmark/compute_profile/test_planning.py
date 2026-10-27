@@ -7,7 +7,7 @@ import sys
 import pytest
 from hypothesis import given, strategies as st
 
-from fedot_ind.core.optimizer.compute import (
+from benchmark.industrial.experiments.compute_profile.operation_compute import (
     ComputeDevice, ComputeRejection, ComputeRejectionCode, EvaluationBackend,
     MemoryBudget, TensorOperationCapabilities, TensorOperationPlan, TensorSpec,
     plan_tensor_operation,
@@ -83,11 +83,15 @@ def test_cuda_never_enters_process_or_dask_without_admission(backend, source, ta
 
 
 @pytest.mark.parametrize("backend", [EvaluationBackend.SEQUENTIAL, EvaluationBackend.PROCESS, EvaluationBackend.DASK])
-def test_cpu_device_does_not_choose_execution_backend(backend):
+def test_cpu_admission_matches_the_available_interpreter(backend):
     plan = request(backend=backend)
-    assert isinstance(plan, TensorOperationPlan)
-    assert plan.backend is backend
-    assert plan.device is CPU
+    if backend is EvaluationBackend.SEQUENTIAL:
+        assert isinstance(plan, TensorOperationPlan)
+        assert plan.backend is backend
+        assert plan.device is CPU
+    else:
+        assert isinstance(plan, ComputeRejection)
+        assert plan.code is ComputeRejectionCode.BACKEND_NOT_SUPPORTED
 
 
 @pytest.mark.parametrize("change,code", [
@@ -129,7 +133,7 @@ def test_plan_is_immutable_pickleable_and_contains_only_descriptive_data():
 def test_planning_import_does_not_load_tensor_or_distributed_runtimes():
     completed = subprocess.run([
         sys.executable, "-c",
-        "import sys; import fedot_ind.core.optimizer.compute; "
+        "import sys; import benchmark.industrial.experiments.compute_profile.operation_compute; "
         "assert 'torch' not in sys.modules; assert 'distributed' not in sys.modules",
     ], capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stderr

@@ -43,7 +43,7 @@ def fit_predict(payload):
 
 
 def inference_plan(shape, classes, device):
-    from fedot_ind.core.optimizer.compute import (
+    from benchmark.industrial.experiments.compute_profile.operation_compute import (
         ComputeDevice, ComputeRejection, EvaluationBackend, MemoryBudget,
         TensorOperationCapabilities, TensorSpec, plan_tensor_operation,
     )
@@ -64,7 +64,7 @@ def neural_fit_predict(config, train_x, train_y, test_x):
     import torch
     from torch import nn
     from fedot_ind.neural.encoders import build_encoder, raw_encoder_config
-    from fedot_ind.core.optimizer.compute import execute_tensor_operation
+    from benchmark.industrial.experiments.compute_profile.operation_compute import execute_tensor_operation
 
     if config.device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError(

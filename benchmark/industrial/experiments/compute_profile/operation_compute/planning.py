@@ -65,6 +65,9 @@ def plan_tensor_operation(
             and backend is not EvaluationBackend.SEQUENTIAL):
         return ComputeRejection(code.CUDA_BACKEND_NOT_ADMITTED,
                                 "CUDA requires sequential operation-local execution")
+    if backend is not EvaluationBackend.SEQUENTIAL:
+        return ComputeRejection(code.BACKEND_NOT_SUPPORTED,
+                                "The operation-local interpreter supports only sequential execution")
     if device not in capabilities.devices:
         return ComputeRejection(code.DEVICE_NOT_SUPPORTED, "Operation does not declare the target device")
     if any(spec.dtype not in capabilities.dtypes for spec in (input_spec, output_spec)):

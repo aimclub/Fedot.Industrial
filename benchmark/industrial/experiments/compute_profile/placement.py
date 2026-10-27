@@ -4,7 +4,7 @@ from dataclasses import asdict
 import torch
 
 from fedot_ind.core.operation.transformation.torch_backend.image.mtf_transformation import MTF
-from fedot_ind.core.optimizer.compute import (
+from benchmark.industrial.experiments.compute_profile.operation_compute import (
     ComputeRejection, MemoryBudget, TensorOperationCapabilities, TensorSpec,
     execute_tensor_operation, plan_tensor_operation,
 )

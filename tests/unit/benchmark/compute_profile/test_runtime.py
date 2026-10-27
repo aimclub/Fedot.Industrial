@@ -3,11 +3,11 @@ from dataclasses import replace
 import pytest
 import torch
 
-from fedot_ind.core.optimizer.compute import (
+from benchmark.industrial.experiments.compute_profile.operation_compute import (
     ComputeDevice, EvaluationBackend, MemoryBudget, TensorOperationCapabilities,
     TensorOperationPlan, TensorSpec, execute_tensor_operation, plan_tensor_operation,
 )
-from fedot_ind.core.optimizer.compute import runtime
+from benchmark.industrial.experiments.compute_profile.operation_compute import runtime
 
 
 CPU = ComputeDevice.CPU
@@ -101,8 +101,9 @@ def test_scalar_output_and_declared_dtype_conversion_use_their_own_specs():
 @pytest.mark.parametrize("backend", [EvaluationBackend.PROCESS, EvaluationBackend.DASK])
 def test_runtime_does_not_silently_execute_nonsequential_plans(backend):
     calls = []
-    with pytest.raises(ValueError, match="only the sequential backend"):
-        execute_tensor_operation(make_plan(backend=backend), torch.ones(2, 3), lambda value: calls.append(value))
+    with pytest.raises(ValueError, match="backend_not_supported"):
+        execute_tensor_operation(replace(make_plan(), backend=backend), torch.ones(2, 3),
+                                 lambda value: calls.append(value))
     assert calls == []
 
 

@@ -5,7 +5,13 @@
 
 ## Что изменено
 
-Добавлен пакет `fedot_ind.core.optimizer.compute` с отдельными описаниями
+В первоначальной реализации добавлен прототип планирования вычислений. После
+ревью PR #319 он перенесён из `fedot_ind.core.optimizer.compute` в
+`benchmark.industrial.experiments.compute_profile.operation_compute`, рядом с
+его фактическим потребителем. Это экспериментальная часть профилировщика,
+не публичный API библиотеки и не готовый планировщик целого графа.
+
+Прототип содержит отдельные описания
 устройства, способа исполнения, входного и выходного тензоров, возможностей
 операции и бюджета памяти. Планирование не импортирует Torch и Dask, не создаёт
 клиентов и не переносит данные. Результат — неизменяемый `TensorOperationPlan`
@@ -14,8 +20,9 @@
 `execute_tensor_operation` проверяет фактический тензор и исполняет одну
 операцию. Перенос выполняется явно, а CUDA синхронизируется только при измерении.
 Автоматический выбор устройства и незаметный переход на CPU не допускаются.
-Интерпретатор поддерживает последовательное исполнение; CUDA с `process` или
-`dask` отклоняется до запуска. Это не распределитель GPU для целых моделей.
+Интерпретатор поддерживает только последовательное исполнение. `process` и
+`dask` отклоняются уже при планировании и для CPU, и для CUDA; проверка повторяется
+при исполнении. Это не распределитель GPU для целых моделей.
 
 Из каталога расширений и адаптера графов удалён вывод «Torch означает CUDA».
 По умолчанию объявляется только CPU. Поддержка CUDA требует явного `devices`;
@@ -61,11 +68,12 @@ python -m benchmark.industrial.experiments.compute_profile `
 измеряется с ожиданием завершения. Сохраняются отдельные повторы, минимум,
 медиана, максимум, пропускная способность, число переданных байтов и точность.
 
-Артефакты этой проверки:
-
-- [profile.json](evo07_profile_20261026/profile.json): настройки, версии,
-  контрольные суммы исходников, повторы и проверка размещения MTF;
-- [profile.csv](evo07_profile_20261026/profile.csv): сводные измерения.
+Артефакты этой проверки перенесены из документации в локальный архив:
+`examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo07_profile_20261026/`.
+`profile.json` содержит настройки, версии, контрольные суммы исходников и повторы;
+`profile.csv` — сводные измерения. См. [описание доступности и контрольные суммы](../../examples/artifacts/release_1_0.md).
+Новый архив пока не опубликован. Приведённые ниже числа относятся к опыту
+26 октября, а не к новому прогону после переноса пакета.
 
 Поле `revision` указывает базовый HEAD до коммита этой доработки. Фактически
 измеренные файлы рабочей копии определяются по `source_sha256`, а не только
@@ -130,7 +138,7 @@ CUDA. При малом числе границ сохранён исходны�
   сочетания устройства и исполнителя; среда Torch не меняется.
 - Wheel собран из исходного архива. Состав обоих архивов проверен;
   отдельная установка вне рабочей копии загрузила JSON и выполнила MTF через
-  публичный план. Это не чистая установка всех ML-зависимостей.
+  экспериментальный план. Это не чистая установка всех ML-зависимостей.
 - Независимое ревью выявило пропуск квадратичных буферов матрицы переходов
   в оценке памяти примера MTF. Расчёт исправлен; граничный тест подтверждает
   отказ до вычисления при большом числе состояний и недостаточном бюджете.
@@ -139,7 +147,7 @@ CPU-команда:
 
 ```powershell
 python -m pytest tests/unit/core/optimizer/graph_validation `
-    tests/unit/integration/fedot/extensions tests/unit/core/optimizer/compute `
+    tests/unit/integration/fedot/extensions tests/unit/benchmark/compute_profile `
     tests/unit/core/operation/transformation/torch_backend `
     tests/unit/benchmark/industrial/test_compute_profile.py `
     tests/unit/core/optimizer/evaluation/test_configuration.py -q --tb=short
@@ -148,7 +156,7 @@ python -m pytest tests/unit/core/optimizer/graph_validation `
 CUDA-команда использует ту же версию Python с CUDA-сборкой Torch:
 
 ```powershell
-python -m pytest tests/unit/core/optimizer/compute `
+python -m pytest tests/unit/benchmark/compute_profile `
     tests/unit/core/operation/transformation/torch_backend `
     tests/unit/benchmark/industrial/test_compute_profile.py -q --tb=short
 ```

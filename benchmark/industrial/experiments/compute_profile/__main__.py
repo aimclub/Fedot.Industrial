@@ -184,7 +184,8 @@ def main():
     tracked_sources.append(Path(__file__).with_name("placement.py"))
     tracked_sources.extend((source_root / "fedot_ind/core/operation/transformation/torch_backend/image").glob("*.py"))
     tracked_sources.extend((source_root / "fedot_ind/core/operation/transformation/torch_backend/image").glob("*.json"))
-    tracked_sources.extend((source_root / "fedot_ind/core/optimizer/compute").glob("*.py"))
+    tracked_sources.extend(
+        (source_root / "benchmark/industrial/experiments/compute_profile/operation_compute").glob("*.py"))
     tracked_sources.extend(source_root / name for name in (
         "fedot_ind/core/operation/transformation/torch_backend/io.py",
         "fedot_ind/core/operation/transformation/torch_backend/rules.py",
