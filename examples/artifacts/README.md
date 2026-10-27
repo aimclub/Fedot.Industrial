@@ -7,6 +7,11 @@ to the current benchmark and real-world report packs in external storage.
 
 ## What Lives Here
 
+Release-development evidence is indexed separately in
+[`release_1_0_manifest.json`](release_1_0_manifest.json). Full EVO/NN reports
+were moved to the ignored `cloud_bundle/release_1_0_history/`, not copied or
+published. See [storage policy and availability](release_1_0.md).
+
 | Path | Purpose |
 | --- | --- |
 | `artifact_catalog.json` | Declarative map of raw inputs, benchmark history, notebooks, and externally published report assets. |

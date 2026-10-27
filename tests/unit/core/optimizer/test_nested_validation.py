@@ -22,7 +22,8 @@ def test_frozen_configuration_and_approved_fit_counts(tmp_path, monkeypatch):
     with pytest.raises(FrozenInstanceError):
         config.outer_seed = 77
     monkeypatch.setattr(runner, '_train_arrays', lambda *args: pytest.fail('No dataset reads while planning'))
-    protocol = Path(__file__).resolve().parents[4] / 'docs/dev_guide/evo04_population_config_20261019.json'
+    protocol = Path(__file__).resolve(
+    ).parents[4] / 'benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json'
     result = runner.run(protocol, tmp_path / 'absent')
     assert result['inner_grid_fits'] == 360
     assert result['total_ridge_fits'] == 455
@@ -63,7 +64,8 @@ def test_cli_cannot_override_agreed_fold_count_or_grid(tmp_path, monkeypatch):
 
 
 def test_full_protocol_pins_the_pdl_baseline_without_reading_data(tmp_path):
-    path = Path(__file__).resolve().parents[4] / 'docs/dev_guide/evo04_population_config_20261019.json'
+    path = Path(__file__).resolve(
+    ).parents[4] / 'benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json'
     protocol = json.loads(path.read_text())
     protocol['operation_parameters']['pdl_reg']['max_pairs'] = 1024
     changed = tmp_path / 'changed.json'
@@ -242,7 +244,8 @@ def test_invalid_training_scale_is_not_silently_skipped(target):
 
 def test_native_pdl_keeps_anchors_and_base_seed_on_training_subset_only():
     config, _ = settings()
-    path = Path(__file__).resolve().parents[4] / 'docs/dev_guide/evo04_population_config_20261019.json'
+    path = Path(__file__).resolve(
+    ).parents[4] / 'benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json'
     study = runner.load_protocol(path).to_record()
     t = np.linspace(0, 6, 32)
     x = np.asarray([np.sin(t + index / 5) + (index + 1) / 8 for index in range(16)])

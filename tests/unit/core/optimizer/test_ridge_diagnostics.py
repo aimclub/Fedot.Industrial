@@ -167,7 +167,8 @@ def test_plan_does_not_read_datasets_or_create_output(tmp_path, monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError('Dry run must not read datasets')
     monkeypatch.setattr(runner, '_train_arrays', forbidden)
-    protocol = Path(__file__).resolve().parents[4] / 'docs/dev_guide/evo04_population_config_20261019.json'
+    protocol = Path(__file__).resolve(
+    ).parents[4] / 'benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json'
     plan = runner.run(protocol, tmp_path / 'absent')
     assert plan['ridge_fits'] == 192
     assert plan['native_reference_fits'] == 16

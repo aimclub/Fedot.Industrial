@@ -161,7 +161,8 @@ def test_settings_keep_four_searches_and_do_not_replace_the_full_protocol():
     settings = load_settings()
     assert len(settings['jobs']) == 4
     assert settings['forecast_horizon'] == 14
-    protocol = load_protocol('docs/dev_guide/evo04_population_config_20261019.json')
+    protocol = load_protocol(
+        'benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json')
     assert protocol.digest == 'a524f37977ba673a0e35e0e9166de508f38d43206e5ae9ad9478ec90c311e455'
     assert json.loads(json.dumps(settings)) == settings
 

@@ -13,8 +13,27 @@ from benchmark.industrial.experiments.mutation_planning.population_study.winner_
 
 
 ROOT = Path(__file__).resolve().parents[4]
-AUDIT = ROOT / 'docs/dev_guide/evo04_candidate_pool_20261020.json'
-PROTOCOL = ROOT / 'docs/dev_guide/evo04_population_config_20261019.json'
+FIXTURE_ROOT = ROOT / 'tests/fixtures/evolution/winner_ranking'
+AUDIT = FIXTURE_ROOT / 'audit.json'
+PROTOCOL = ROOT / 'benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json'
+
+
+@pytest.fixture(autouse=True)
+def isolated_small_audit_profile(monkeypatch):
+    files = runner.resources.files
+    monkeypatch.setattr(runner.resources, 'files', lambda package: FIXTURE_ROOT
+                        if package == runner.__package__ else files(package))
+
+
+def test_small_fixture_keeps_frozen_parameters_without_historical_results():
+    frozen = json.loads(Path(runner.__file__).with_name('defaults.json').read_text())
+    fixture = json.loads((FIXTURE_ROOT / 'defaults.json').read_text())
+    for name in ('audit_sha256', 'audit_lf_sha256'):
+        frozen.pop(name)
+        fixture.pop(name)
+    assert fixture == frozen
+    assert AUDIT.stat().st_size < 16 * 1024
+    assert set(json.loads(AUDIT.read_text())) == {'catalogue', 'winners'}
 
 
 def settings():
