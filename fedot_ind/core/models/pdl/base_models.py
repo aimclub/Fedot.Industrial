@@ -24,11 +24,6 @@ class BaseModelSpec:
 _CLASSIFICATION_MODELS: Mapping[str, BaseModelSpec] = MappingProxyType(
     {
         "xgboost": BaseModelSpec("sklearn.ensemble", "GradientBoostingClassifier"),
-        "catboost": BaseModelSpec(
-            "fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations",
-            "FedotCatBoostClassificationImplementation",
-            seed_parameter=None,
-        ),
         "logit": BaseModelSpec("sklearn.linear_model", "LogisticRegression"),
         "dt": BaseModelSpec("sklearn.tree", "DecisionTreeClassifier"),
         "rf": BaseModelSpec("sklearn.ensemble", "RandomForestClassifier"),
@@ -46,11 +41,6 @@ _REGRESSION_MODELS: Mapping[str, BaseModelSpec] = MappingProxyType(
         "lasso": BaseModelSpec("sklearn.linear_model", "Lasso"),
         "dtreg": BaseModelSpec("sklearn.tree", "DecisionTreeRegressor"),
         "lgbmreg": BaseModelSpec("lightgbm.sklearn", "LGBMRegressor"),
-        "catboostreg": BaseModelSpec(
-            "fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations",
-            "FedotCatBoostRegressionImplementation",
-            seed_parameter=None,
-        ),
     }
 )
 

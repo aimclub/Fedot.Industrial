@@ -81,7 +81,7 @@ def test_direct_factory_preserves_existing_seed_and_rejects_conflicting_context(
 
 @pytest.mark.parametrize('task,name', [('classification', 'catboost'), ('regression', 'catboostreg')])
 def test_seeded_array_contract_does_not_silently_accept_inputdata_only_wrappers(task, name):
-    with pytest.raises(ValueError, match='seeded array estimator contract'):
+    with pytest.raises(ValueError, match=f'Unknown PDL {task} base model'):
         create_pdl_base_model(task, name, random_state=42)
 
 
