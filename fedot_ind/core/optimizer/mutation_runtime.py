@@ -178,12 +178,17 @@ def advisor_allows_plan(before: GraphSpec, after: GraphSpec, graph, advisor) -> 
     propose_parent = getattr(advisor, "propose_parent", None)
     if callable(propose_parent):
         for node_id, changed in new.items():
-            if node_id not in old:
-                continue
+            previous = old.get(node_id)
+            previous_parents = ({(parent_id, old[parent_id].operation_name) for parent_id in previous.parent_ids}
+                                if previous is not None else set())
+            advisor_node = runtime.get(node_id)
+            if advisor_node is None or advisor_node.content['name'] != changed.operation_name:
+                advisor_node = OptNode(changed.operation_name,
+                                       nodes_from=advisor_node.nodes_from if advisor_node is not None else None)
             for parent_id in changed.parent_ids:
-                if parent_id not in old:
-                    name = new[parent_id].operation_name
-                    if name not in propose_parent(runtime[node_id], [name]):
+                name = new[parent_id].operation_name
+                if (parent_id, name) not in previous_parents:
+                    if name not in propose_parent(advisor_node, [name]):
                         return False
     return True
 

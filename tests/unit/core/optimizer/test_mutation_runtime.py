@@ -231,6 +231,71 @@ def test_new_parent_respects_advisor_veto():
     assert not advisor_allows_plan(before, after, graph, SimpleNamespace(propose_parent=lambda node, candidates: []))
 
 
+@pytest.mark.parametrize('allowed', [False, True])
+def test_unary_removal_checks_rewired_existing_parent(allowed):
+    feature = PrimaryNode('scaling')
+    unary = SecondaryNode('normalization', nodes_from=[feature])
+    graph = PipelineAdapter().adapt(Pipeline(SecondaryNode('ridge', nodes_from=[unary])))
+    before = project_for_mutation(graph, _context())
+    root, removed, parent = before.nodes
+    after = replace(before, nodes=(replace(root, parent_ids=(parent.node_id,)), parent))
+    calls = []
+
+    def propose(node, candidates):
+        calls.append((node.content['name'], candidates))
+        return candidates if allowed else []
+
+    advisor = SimpleNamespace(can_be_removed=lambda node: 'node_rewire', propose_parent=propose)
+    assert advisor_allows_plan(before, after, graph, advisor) is allowed
+    assert calls == [('ridge', ['scaling'])]
+    assert removed.node_id not in after.node_ids
+
+
+@pytest.mark.parametrize('allowed', [False, True])
+def test_existing_parent_operation_change_requires_new_parent_permission(allowed):
+    graph = _graph()
+    before = project_for_mutation(graph, _context())
+    after = replace(before, nodes=(before.nodes[0], replace(before.nodes[1], operation_name='normalization')))
+    calls = []
+
+    def propose(node, candidates):
+        calls.append(candidates)
+        return candidates if allowed else []
+
+    assert advisor_allows_plan(before, after, graph, SimpleNamespace(propose_parent=propose)) is allowed
+    assert calls == [['normalization']]
+
+
+def test_unchanged_edges_do_not_request_fresh_advisor_permission():
+    graph = _graph()
+    before = project_for_mutation(graph, _context())
+    advisor = SimpleNamespace(propose_parent=lambda *args: pytest.fail('Unchanged edge must not be rechecked'))
+    assert advisor_allows_plan(before, before, graph, advisor)
+    after = replace(before, nodes=(replace(before.nodes[0], operation_name='dtreg'), before.nodes[1]))
+    assert advisor_allows_plan(before, after, graph, advisor)
+
+
+def test_new_child_internal_edge_also_respects_advisor_veto():
+    graph = _graph()
+    before = project_for_mutation(graph, _context())
+    extra = replace(before.nodes[1], node_id='extra', operation_name='normalization',
+                    parent_ids=(before.nodes[1].node_id,))
+    after = replace(before, nodes=(*before.nodes, extra))
+    assert not advisor_allows_plan(before, after, graph, SimpleNamespace(propose_parent=lambda *args: []))
+
+
+@pytest.mark.parametrize('name', ['data_source_ts', 'exog_ts', 'custom_model'])
+def test_special_nodes_cannot_be_changed_even_with_permissive_advisor(name):
+    from golem.core.optimisers.graph import OptGraph, OptNode
+
+    graph = OptGraph([OptNode(name)])
+    context = _context()
+    context.adapter = None
+    before = project_for_mutation(graph, context)
+    after = replace(before, nodes=(replace(before.nodes[0], operation_name='ridge'),))
+    assert not advisor_allows_plan(before, after, graph, SimpleNamespace(propose_change=lambda node, names: names))
+
+
 def test_runtime_plan_is_deterministic_replayable_and_does_not_mutate_parent():
     operator, parent = _planned()
     original = deepcopy(parent.graph)
