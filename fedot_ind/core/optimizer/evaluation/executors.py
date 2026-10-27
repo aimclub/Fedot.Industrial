@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from collections import deque
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack
 from dataclasses import dataclass
 import multiprocessing
 from pathlib import Path
-import random
 from tempfile import TemporaryDirectory
 from threading import Event
 from time import monotonic, sleep
 
 import cloudpickle
 
+from fedot_ind.core.optimizer.random_scope import operator_random_scope as _random_scope
 from .contracts import (
     EvaluationPlan, ExecutionError, ExecutionResult, ExecutionStatus, LocalBackend,
 )
@@ -31,23 +31,6 @@ class CancellationToken:
     @property
     def cancelled(self):
         return self._event.is_set()
-
-
-@contextmanager
-def _random_scope(seed):
-    # Serial execution is coordinator-only; no model runs in shared threads.
-    if seed is None:
-        yield
-        return
-    import numpy as np
-    python_state, numpy_state = random.getstate(), np.random.get_state()
-    try:
-        random.seed(seed)
-        np.random.seed(seed)
-        yield
-    finally:
-        random.setstate(python_state)
-        np.random.set_state(numpy_state)
 
 
 def _failure(task, status, started, error_type, message):
@@ -78,12 +61,19 @@ class _Running:
     process: object
     result_path: Path
     started: float
+    input_path: Path
+
+
+def _remove_job_files(input_path, result_path):
+    for path in (input_path, result_path, result_path.with_suffix('.partial')):
+        path.unlink(missing_ok=True)
 
 
 def _dispose(job):
     """Reap every owned child, including interrupted and broken workers."""
     if job.process.pid is None:
         job.process.close()
+        _remove_job_files(job.input_path, job.result_path)
         return
     try:
         if job.process.is_alive():
@@ -97,6 +87,7 @@ def _dispose(job):
     finally:
         if not job.process.is_alive():
             job.process.close()
+            _remove_job_files(job.input_path, job.result_path)
 
 
 def _stop_reason(token, deadline):
@@ -183,13 +174,16 @@ def _run_processes(plan, payloads, evaluate, token, deadline, directory):
                     reason = _stop_reason(token, deadline)
                     if reason:
                         results[task.candidate_id] = _failure(task, reason[0], started, *reason[1:])
+                        _remove_job_files(input_path, result_path)
                         continue
                     process = context.Process(target=_worker, args=(str(input_path), str(result_path)))
-                    active[task.candidate_id] = _Running(task, process, result_path, started)
+                    active[task.candidate_id] = _Running(task, process, result_path, started, input_path)
                     process.start()
                 except Exception as error:
                     if process is not None:
                         _dispose(active.pop(task.candidate_id))
+                    else:
+                        _remove_job_files(input_path, result_path)
                     results[task.candidate_id] = _failure(
                         task, ExecutionStatus.WORKER_FAILED, started, type(error).__name__, str(error))
                     continue

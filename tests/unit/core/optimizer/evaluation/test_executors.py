@@ -1,9 +1,10 @@
 import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
 import os
 import random
 import time
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 
 import numpy as np
 import pytest
@@ -39,6 +40,11 @@ def _signal_then_sleep(path):
 def _partial_worker(input_path, result_path):
     Path(result_path).with_suffix('.partial').write_bytes(b'incomplete')
     time.sleep(30)
+
+
+def _invalid_result_worker(input_path, result_path):
+    import cloudpickle
+    Path(result_path).write_bytes(cloudpickle.dumps('not an evaluation result'))
 
 
 @given(st.lists(st.integers(min_value=0, max_value=1000), unique=True, max_size=20))
@@ -261,3 +267,210 @@ def test_interruption_immediately_after_start_keeps_child_owned(monkeypatch):
     with pytest.raises(KeyboardInterrupt):
         execute_plan(EvaluationPlan((EvaluationTask('startup'),), LocalBackend.PROCESS), [30], _sleep)
     assert not multiprocessing.active_children()
+
+
+@pytest.mark.parametrize('first_seed', [None, 42])
+@pytest.mark.parametrize('second_seed', [None, 7])
+def test_overlapping_sequential_dispatchers_serialize_rng_scopes(first_seed, second_seed):
+    from golem.core.adapter import DirectAdapter
+    from golem.core.optimisers.fitness import SingleObjFitness
+    from golem.core.optimisers.graph import OptGraph, OptNode
+    from golem.core.optimisers.opt_history_objects.individual import Individual
+    from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
+    from fedot_ind.core.optimizer.evaluation.dispatcher import LocalEvaluationDispatcher
+
+    state = random.getstate(), np.random.get_state()
+    entered, release, attempted, second_entered = Event(), Event(), Event(), Event()
+    draws = [[], []]
+
+    def first(graph):
+        draws[0].append(_draw(None)[1:])
+        entered.set()
+        assert release.wait(10)
+        draws[0].append(_draw(None)[1:])
+        return SingleObjFitness(1.)
+
+    def second(graph):
+        second_entered.set()
+        draws[1].extend([_draw(None)[1:], _draw(None)[1:]])
+        return SingleObjFitness(1.)
+
+    def run(seed, objective, signal=False):
+        dispatcher = LocalEvaluationDispatcher(
+            DirectAdapter(), config=EvaluationExecutionConfig(EvaluationBackend.SEQUENTIAL), random_seed=seed)
+        evaluate = dispatcher.dispatch(objective)
+        if signal:
+            attempted.set()
+        result = evaluate([Individual(OptGraph([OptNode('ridge')]))])
+        assert len(result) == 1
+        return dispatcher.last_plan.tasks[0].seed
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a = pool.submit(run, first_seed, first)
+            try:
+                assert entered.wait(10)
+                b = pool.submit(run, second_seed, second, True)
+                assert attempted.wait(10)
+                assert not second_entered.wait(.1)
+            finally:
+                release.set()
+            seeds = [a.result(timeout=15), b.result(timeout=15)]
+        ambient_python, ambient_numpy = random.Random(), np.random.RandomState()
+        ambient_python.setstate(state[0])
+        ambient_numpy.set_state(state[1])
+        for seed, actual in zip(seeds, draws):
+            python_rng = ambient_python if seed is None else random.Random(seed)
+            numpy_rng = ambient_numpy if seed is None else np.random.RandomState(seed)
+            assert actual == [(python_rng.random(), float(numpy_rng.random_sample())) for _ in range(2)]
+        assert _draw(None)[1:] == (ambient_python.random(), float(ambient_numpy.random_sample()))
+    finally:
+        random.setstate(state[0])
+        np.random.set_state(state[1])
+
+
+@pytest.mark.parametrize('workers', [1, 3])
+def test_long_tiny_population_spool_is_bounded_by_active_workers(monkeypatch, tmp_path, workers):
+    from types import SimpleNamespace
+    from fedot_ind.core.optimizer.evaluation import executors
+
+    counts = []
+
+    class CompletedProcess:
+        pid = 123
+        exitcode = 0
+
+        def __init__(self, target, args):
+            self.target, self.args = target, args
+
+        def start(self):
+            self.target(*self.args)
+            counts.append(len(list(tmp_path.iterdir())))
+
+        def is_alive(self):
+            return False
+
+        def join(self, timeout):
+            pass
+
+        def close(self):
+            # The files must survive until their owning process has been reaped.
+            assert all(Path(path).exists() for path in self.args)
+
+    monkeypatch.setattr(executors.multiprocessing, 'get_context',
+                        lambda method: SimpleNamespace(Process=CompletedProcess))
+    tasks = tuple(EvaluationTask(str(i), i) for i in range(60))
+    results = executors._run_processes(EvaluationPlan(tasks, LocalBackend.PROCESS, workers),
+                                       range(60), _draw, CancellationToken(), None, tmp_path)
+    assert all(result.status is ExecutionStatus.SUCCEEDED for result in results)
+    assert len(results) == 60
+    assert max(counts) <= 3 * workers
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_spawn_population_reclaims_spool_before_launching_more_jobs(tmp_path, monkeypatch):
+    from fedot_ind.core.optimizer.evaluation import executors
+
+    counts = []
+    receive = executors._receive
+
+    def tracked_receive(job):
+        counts.append(len(list(tmp_path.iterdir())))
+        return receive(job)
+
+    monkeypatch.setattr(executors, '_receive', tracked_receive)
+    tasks = tuple(EvaluationTask(str(i), i) for i in range(12))
+    plan = EvaluationPlan(tasks, LocalBackend.PROCESS, max_workers=2)
+    results = executors._run_processes(plan, range(12), _draw, CancellationToken(), None, tmp_path)
+    assert all(result.status is ExecutionStatus.SUCCEEDED for result in results)
+    assert len(results) == 12
+    assert max(counts) <= 3 * plan.max_workers
+    assert list(tmp_path.iterdir()) == []
+    assert not multiprocessing.active_children()
+
+
+@pytest.mark.parametrize('case', [
+    'serialization', 'result_serialization', 'invalid_result', 'cancel', 'timeout', 'crash', 'failure'])
+def test_terminal_process_jobs_remove_all_owned_files_before_batch_exit(tmp_path, monkeypatch, case):
+    from threading import Lock
+    from fedot_ind.core.optimizer.evaluation import executors
+
+    task = EvaluationTask('job')
+    token = CancellationToken()
+    callback, payload, kwargs = _draw, None, {}
+    if case == 'serialization':
+        payload = Lock()
+    elif case == 'result_serialization':
+        def callback(payload): return Lock()
+    elif case == 'invalid_result':
+        monkeypatch.setattr(executors, '_worker', _invalid_result_worker)
+    elif case == 'timeout':
+        callback, payload = _sleep, 30
+        kwargs = {'candidate_timeout_seconds': .3}
+        monkeypatch.setattr(executors, '_worker', _partial_worker)
+    elif case == 'cancel':
+        callback, payload = _sleep, 30
+        receive = executors._receive
+
+        def cancel_active(job):
+            token.cancel()
+            return receive(job)
+
+        monkeypatch.setattr(executors, '_receive', cancel_active)
+    elif case == 'crash':
+        callback = _crash
+    elif case == 'failure':
+        callback = _fail
+    result, = executors._run_processes(EvaluationPlan((task,), LocalBackend.PROCESS, **kwargs),
+                                       [payload], callback, token, None, tmp_path)
+    expected = {'cancel': ExecutionStatus.CANCELLED, 'timeout': ExecutionStatus.TIMED_OUT,
+                'failure': ExecutionStatus.FAILED}.get(case, ExecutionStatus.WORKER_FAILED)
+    assert result.status is expected
+    assert list(tmp_path.iterdir()) == []
+    assert not multiprocessing.active_children()
+
+
+def test_cancel_during_serialization_removes_unstarted_input(tmp_path, monkeypatch):
+    from fedot_ind.core.optimizer.evaluation import executors
+
+    token = CancellationToken()
+    dumps = executors.cloudpickle.dumps
+
+    def serialize_and_cancel(value):
+        serialized = dumps(value)
+        token.cancel()
+        return serialized
+
+    monkeypatch.setattr(executors.cloudpickle, 'dumps', serialize_and_cancel)
+    plan = EvaluationPlan((EvaluationTask('unstarted'),), LocalBackend.PROCESS)
+    result, = executors._run_processes(plan, [None], _draw, token, None, tmp_path)
+    assert result.status is ExecutionStatus.CANCELLED
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_worker_start_failure_closes_process_before_removing_input(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from fedot_ind.core.optimizer.evaluation import executors
+
+    closed = []
+
+    class UnstartedProcess:
+        pid = None
+
+        def __init__(self, target, args):
+            self.input_path = Path(args[0])
+
+        def start(self):
+            raise OSError('cannot start worker')
+
+        def close(self):
+            assert self.input_path.exists()
+            closed.append(True)
+
+    monkeypatch.setattr(executors.multiprocessing, 'get_context',
+                        lambda method: SimpleNamespace(Process=UnstartedProcess))
+    plan = EvaluationPlan((EvaluationTask('unstarted'),), LocalBackend.PROCESS)
+    result, = executors._run_processes(plan, [None], _draw, CancellationToken(), None, tmp_path)
+    assert result.status is ExecutionStatus.WORKER_FAILED
+    assert closed == [True]
+    assert list(tmp_path.iterdir()) == []

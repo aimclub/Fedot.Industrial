@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from hashlib import sha256
-import random
-from threading import RLock
 
-import numpy as np
 from golem.core.optimisers.opt_history_objects.individual import Individual
 
-
-_RANDOM_STATE_LOCK = RLock()
+from fedot_ind.core.optimizer.random_scope import operator_random_scope
 
 
 @dataclass(frozen=True)
@@ -43,26 +38,6 @@ class CandidateRandomness:
             "attempt": self.attempt,
             "seed": self.seed,
         }
-
-
-@contextmanager
-def operator_random_scope(seed: int):
-    """Restore ambient RNGs even on failure; serialize participating thread scopes.
-
-    GOLEM currently consumes the module-level Python and NumPy RNGs. Only
-    coordinator-side operators belong in this scope, never model evaluation.
-    Unrelated code that ignores this lock is outside the reproducibility contract.
-    """
-    with _RANDOM_STATE_LOCK:
-        python_state = random.getstate()
-        numpy_state = np.random.get_state()
-        try:
-            random.seed(seed)
-            np.random.seed(seed)
-            yield
-        finally:
-            random.setstate(python_state)
-            np.random.set_state(numpy_state)
 
 
 class SeededOperator:

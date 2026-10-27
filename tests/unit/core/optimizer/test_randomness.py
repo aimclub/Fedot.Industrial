@@ -6,6 +6,7 @@ import pickle
 import random
 import subprocess
 import sys
+from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
@@ -85,6 +86,67 @@ def test_parallel_scopes_match_sequential_draws_without_worker_ids():
     with ThreadPoolExecutor(max_workers=4) as executor:
         assert list(executor.map(_address_draw, addresses)) == expected
     assert expected != [_address_draw(replace(a, run_seed=100)) for a in addresses]
+
+
+@pytest.mark.parametrize('seed', [None, 7])
+def test_evaluation_and_operator_scopes_share_one_lock(seed):
+    from fedot_ind.core.optimizer.evaluation import EvaluationPlan, EvaluationTask, execute_plan
+
+    state = random.getstate(), np.random.get_state()
+    attempted, entered = Event(), Event()
+
+    def evaluate(payload):
+        entered.set()
+        return _draw()
+
+    def run():
+        attempted.set()
+        return execute_plan(EvaluationPlan((EvaluationTask('x', seed),)), [None], evaluate)[0]
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with operator_random_scope(42):
+                first = _draw()
+                future = pool.submit(run)
+                assert attempted.wait(10)
+                assert not entered.wait(.1)
+                second = _draw()
+            result = future.result(timeout=10)
+        python_rng, numpy_rng = random.Random(42), np.random.RandomState(42)
+        assert [first, second] == [(python_rng.random(), float(numpy_rng.random_sample())) for _ in range(2)]
+        assert result.value is not None
+        if seed is None:
+            random.setstate(state[0])
+            np.random.set_state(state[1])
+            assert result.value == _draw()
+        else:
+            assert result.value == (random.Random(seed).random(), float(np.random.RandomState(seed).random_sample()))
+            assert random.getstate() == state[0]
+            np.testing.assert_equal(np.random.get_state(), state[1])
+    finally:
+        random.setstate(state[0])
+        np.random.set_state(state[1])
+
+
+def test_evaluation_nested_in_operator_restores_both_rngs_after_exception():
+    from fedot_ind.core.optimizer.evaluation import EvaluationPlan, EvaluationTask, ExecutionStatus, execute_plan
+
+    state = random.getstate(), np.random.get_state()
+
+    def fail(payload):
+        with operator_random_scope(99):
+            _draw()
+        _draw()
+        raise ValueError('evaluation failed')
+
+    with operator_random_scope(42):
+        outer = random.getstate(), np.random.get_state()
+        result, = execute_plan(EvaluationPlan((EvaluationTask('x', 7),)), [None], fail)
+        assert result.status is ExecutionStatus.FAILED
+        assert random.getstate() == outer[0]
+        np.testing.assert_equal(np.random.get_state(), outer[1])
+    assert random.getstate() == state[0]
+    np.testing.assert_equal(np.random.get_state(), state[1])
 
 
 def test_address_replays_in_fresh_process_with_different_hash_seed():
