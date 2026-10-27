@@ -1,6 +1,8 @@
 """Capture trusted local neural outputs on one checkout, verify on another.
 
 Only synthetic forward/backward calls, never fitting or official benchmark data.
+Both checkouts must expose the canonical neural API. Legacy full-module pickles
+require their original source revision; this tool does not remap removed imports.
 Serialized modules are unsafe for untrusted inputs: verification requires an
 explicit --trust-local-checkpoints flag. Keep the generated tensors out of git.
 """
@@ -24,11 +26,11 @@ def _fusion_case(method, entry, torch):
 def capture(output, torch):
     from fedot_ind.core.models.future.mapping import FUSION_REGISTRY
     from fedot_ind.core.multimodal.enums import MultimodalModality as Modality
-    from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
-    from fedot_ind.core.models.nn.network_impl.encoders.transformation_presets import (
+    from fedot_ind.neural.encoders import build_encoder
+    from fedot_ind.neural.encoders.transformation_presets import (
         raw_encoder_config, stats_encoder_config, gaf_encoder_config, stft_encoder_config,
     )
-    from fedot_ind.core.models.nn.network_modules.layers.attention_layers import MultiHeadAttention
+    from fedot_ind.neural.blocks.attention import MultiHeadAttention
 
     records = {}
     for method, entry in FUSION_REGISTRY.items():

@@ -33,15 +33,6 @@ class FutureEncoderStack(EncoderStack):
         self.encoder_configs = configs
         self.modalities = tuple(configs)
 
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        # Legacy full-module checkpoints predate the neutral stream metadata.
-        # Restore descriptions only; never rebuild layers or draw new weights.
-        if not hasattr(self, "stream_names"):
-            self.stream_names = tuple(modality.value for modality in self.modalities)
-        if not hasattr(self, "_stream_configs"):
-            self._stream_configs = {modality.value: config for modality, config in self.encoder_configs.items()}
-
     def forward(
         self,
         modalities: Mapping[MultimodalModality, torch.Tensor],

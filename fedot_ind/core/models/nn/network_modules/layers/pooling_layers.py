@@ -6,7 +6,8 @@ from fastai.torch_core import Module
 from fastcore.basics import store_attr
 
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import init_lin_zero, LinLnDrop, Reshape, SoftMax
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import init_lin_zero, Reshape, SoftMax
+from fedot_ind.neural.blocks.linear import LinLnDrop
 
 
 class PPV(Module):

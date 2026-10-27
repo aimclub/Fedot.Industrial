@@ -86,20 +86,17 @@ def test_family_encoder_cpu_backward(factory, shape):
 
 @pytest.mark.parametrize("module,names", [
     ("enums", ["EncoderFamily"]),
-    ("network_impl.encoders.config", ["EncoderConfig", "ConvBlockConfig"]),
-    ("network_impl.encoders.encoders", ["CNNEncoder", "MLPEncoder"]),
-    ("network_impl.encoders.builder", ["build_encoder"]),
-    ("network_impl.encoders.rules", ["normalize_encoder_family", "validate_encoder_config"]),
-    ("network_impl.encoders.transformation_presets", [
+    ("config", ["EncoderConfig", "ConvBlockConfig"]),
+    ("encoders", ["CNNEncoder", "MLPEncoder"]),
+    ("builder", ["build_encoder"]),
+    ("transformation_presets", [
         "raw_encoder_config", "stats_encoder_config", "gaf_encoder_config", "stft_encoder_config",
     ]),
-    ("network_impl.mapping", ["ENCODER_BUILDERS_BY_FAMILY", "EncoderPresetEntry", "EncoderShapeArg"]),
 ])
-def test_legacy_exports_are_same_objects(module, names):
-    old = importlib.import_module("fedot_ind.core.models.nn." + module)
-    leaf = module.rsplit(".", 1)[-1]
-    new = importlib.import_module("fedot_ind.neural.encoders." + leaf)
-    assert all(getattr(old, name) is getattr(new, name) for name in names)
+def test_public_encoder_index_exports_canonical_implementations(module, names):
+    public = importlib.import_module("fedot_ind.neural.encoders")
+    implementation = importlib.import_module("fedot_ind.neural.encoders." + module)
+    assert all(getattr(public, name) is getattr(implementation, name) for name in names)
 
 
 def test_neutral_encoder_imports_without_domain_dependencies():

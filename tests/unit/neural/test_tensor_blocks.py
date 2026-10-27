@@ -72,11 +72,10 @@ def test_head_block_keeps_legacy_sequential_weight_names(linear_first):
     torch.testing.assert_close(block(x), reference(x), rtol=0, atol=0)
 
 
-def test_legacy_head_block_remains_a_compatible_public_class():
-    from fedot_ind.core.models.nn.network_modules.layers.linear_layers import LinLnDrop as LegacyHead
-    legacy = LegacyHead(4, 3).eval()
-    neutral = LinLnDrop(4, 3).eval()
-    neutral.load_state_dict(legacy.state_dict(), strict=True)
+def test_head_block_uses_canonical_neural_module_path():
+    head = LinLnDrop(4, 3).eval()
+    restored = LinLnDrop(4, 3).eval()
+    restored.load_state_dict(head.state_dict(), strict=True)
     x = torch.arange(8, dtype=torch.float32).reshape(2, 4)
-    torch.testing.assert_close(neutral(x), legacy(x), rtol=0, atol=0)
-    assert LegacyHead.__module__ == "fedot_ind.core.models.nn.network_modules.layers.linear_layers"
+    torch.testing.assert_close(restored(x), head(x), rtol=0, atol=0)
+    assert type(head).__module__ == "fedot_ind.neural.blocks.linear"

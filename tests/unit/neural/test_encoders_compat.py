@@ -2,7 +2,7 @@ import pytest
 import torch
 import io
 
-from fedot_ind.core.models.nn.network_impl.future_encoder_adapter import FutureEncoderStack
+from fedot_ind.core.multimodal.encoders import FutureEncoderStack
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.neural.encoders import EncoderStack, raw_encoder_config, stats_encoder_config
 
@@ -30,25 +30,12 @@ def test_domain_and_neutral_stacks_strict_state_dict_roundtrip(batch_size):
     assert "active_streams" not in aux
 
 
-def test_domain_classes_and_rules_are_available_through_legacy_paths():
-    from fedot_ind.core.models.nn import models_rules
-    from fedot_ind.core.models.nn.network_impl import future_encoder_adapter
-    from fedot_ind.core.multimodal import encoder_rules, encoders
-
-    assert future_encoder_adapter is encoders
-    assert models_rules.build_encoder_config_map is encoder_rules.build_encoder_config_map
-
-
-def test_full_legacy_stack_checkpoint_restores_only_descriptive_metadata(monkeypatch):
+def test_current_domain_stack_checkpoint_roundtrip_preserves_rng_and_predictions():
     configs = {MultimodalModality.raw: raw_encoder_config(1, d_model=8, hidden_channels=(4,), dropout=0)}
     stack = FutureEncoderStack(configs).eval()
     tensors = {MultimodalModality.raw: torch.randn(2, 1, 12)}
     expected = stack(tensors)[MultimodalModality.raw].detach()
     expected_state = {key: value.clone() for key, value in stack.state_dict().items()}
-    del stack.stream_names
-    del stack._stream_configs
-    monkeypatch.setattr(FutureEncoderStack, "__module__",
-                        "fedot_ind.core.models.nn.network_impl.future_encoder_adapter")
     checkpoint = io.BytesIO()
     torch.save(stack, checkpoint)
     checkpoint.seek(0)

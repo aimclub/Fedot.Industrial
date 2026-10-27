@@ -24,8 +24,9 @@ class MultiModalGatedFusion(BaseFusionStrategy):
     Stacks embeddings into ``(batch, n_inputs, d_model)``, predicts gate
     logits from the flattened stack, and returns their weighted sum.
 
-    When ``gamma=0`` at initialization the fusion is near uniform; during
-    training the model learns to up-weight informative modalities.
+    The gate network produces one logit per modality; softmax converts them
+    to non-negative weights summing to one. No ``gamma`` parameter is used,
+    and initialization does not guarantee uniform weights.
 
     Forward
     -------

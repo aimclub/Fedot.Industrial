@@ -8,7 +8,6 @@ from fastcore.basics import snake2camel
 from torch import Tensor
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.neural.blocks.linear import LinLnDrop as _LinLnDrop
 
 
 def init_lin_zero(m):
@@ -67,10 +66,6 @@ def get_norm(nf, ndim=1, norm='Batch', zero_norm=False, init=True, **kwargs):
 
 BN1d = partial(get_norm, ndim=1, norm='Batch')
 IN1d = partial(get_norm, ndim=1, norm='Instance')
-
-
-class LinLnDrop(_LinLnDrop):
-    """Compatibility class retaining the legacy full-module checkpoint path."""
 
 
 class LambdaPlus(Module):

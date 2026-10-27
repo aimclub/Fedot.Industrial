@@ -38,7 +38,7 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
     resolve_neural_forecasting_device,
     resolve_neural_patch_length,
 )
-from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
+from fedot_ind.neural.blocks.activation import get_activation_fn
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.repository.constanst_repository import MSE
 
