@@ -94,8 +94,12 @@ def test_manifest_does_not_shadow_builtin_fedot_operations():
 
 def test_multitask_hankel_schema_declares_forecast_length_before_fit():
     from fedot.extensions.parameter_rules import resolve_extension_params
+    from fedot_ind.integration.fedot.extensions.temporal import supports_temporal_contract
 
     manifest = build_industrial_extension_manifest()
+    if not supports_temporal_contract():
+        assert 'hankelisation' not in {spec.name for spec in manifest.transforms}
+        return
     spec = next(spec for spec in manifest.transforms if spec.name == 'hankelisation')
     assert 'forecast_length' in spec.hyperparams_schema.optional
     assert resolve_extension_params(spec, {'forecast_length': 8}).is_right()

@@ -6,6 +6,7 @@ from fedot.core.repository.tasks import TaskTypesEnum
 
 from fedot_ind.integration.fedot.extensions.catalog import load_industrial_extension_catalog
 from fedot_ind.integration.fedot.extensions.operation_policy import excluded_operation_names
+from .temporal import supports_temporal_contract, uses_temporal_contract
 
 
 _PROBLEM_TASKS = {
@@ -27,6 +28,7 @@ def catalog_operation_names(problem: str) -> tuple[str, ...]:
                  if normalized in operation.problems
                  and (required_data_type is None or required_data_type in operation.data_types)
                  and not operation.needs_explicit_task_type
+                 and (not uses_temporal_contract(operation) or supports_temporal_contract())
                  and operation.name not in excluded)
 
 

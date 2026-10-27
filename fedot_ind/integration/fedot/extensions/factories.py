@@ -17,6 +17,10 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialConstructorPolicy,
     IndustrialProbabilityPolicy,
 )
+from .temporal import (
+    fit_temporal_operation, require_temporal_contract,
+    transform_temporal_operation, uses_temporal_contract,
+)
 
 
 def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callable[..., object]:
@@ -24,6 +28,8 @@ def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callab
     wrapper_type = DeferredModel if declaration.kind is IndustrialOperationKind.MODEL else DeferredTransform
 
     def factory(params: Mapping[str, Any] | None = None) -> object:
+        if uses_temporal_contract(declaration):
+            require_temporal_contract()
         return wrapper_type(declaration, params)
 
     factory.__name__ = f"create_{declaration.name}"
@@ -67,9 +73,12 @@ class _DeferredRuntime:
         return method
 
     def fit(self, features: Any, target: Any = None) -> object:
-        runtime_features = self._runtime_input(features, target)
-        args = _fit_args(self.declaration, runtime_features, target)
-        fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
+        if uses_temporal_contract(self.declaration):
+            fitted = fit_temporal_operation(self, features, _invoke)
+        else:
+            runtime_features = self._runtime_input(features, target)
+            args = _fit_args(self.declaration, runtime_features, target)
+            fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
         if fitted is not None and fitted is not self.implementation:
             self._implementation = fitted
         return self
@@ -129,28 +138,7 @@ class DeferredTransform(_DeferredRuntime):
 
     def transform_temporal(self, request):
         """Keep supervised targets and indices at the explicit window boundary."""
-        from fedot.extensions.runtime_contracts import TemporalTransformInput, TemporalTransformOutput
-        from fedot.core.data.input_data.data import InputData
-        from fedot.core.repository.dataset_types import DataTypesEnum
-        from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-
-        if not isinstance(request, TemporalTransformInput):
-            raise TypeError("Temporal transforms require TemporalTransformInput")
-        if self.params.get("forecast_length", request.horizon) != request.horizon:
-            raise ValueError("Temporal transform horizon differs from its fitted horizon")
-        values = _as_numpy(request.features).copy()
-        if values.ndim != 1:
-            raise ValueError("Temporal transforms require one univariate history")
-        data = InputData(
-            features=values,
-            target=values.copy() if request.fit_stage else None,
-            idx=np.array(request.idx, copy=True),
-            task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(request.horizon)),
-            data_type=DataTypesEnum.ts,
-        )
-        method = self._method("transform_for_fit" if request.fit_stage else "transform")
-        output = _invoke(method, (data,), {}, self.declaration.name)
-        return TemporalTransformOutput(output.features, output.target, output.idx)
+        return transform_temporal_operation(self, request, _invoke)
 
     def transform(self, features: Any) -> Any:
         method_name = self.declaration.transform_policy.value

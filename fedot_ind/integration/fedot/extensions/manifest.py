@@ -27,6 +27,7 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialRuntimeInterface,
 )
 from fedot_ind.integration.fedot.extensions.factories import make_deferred_factory
+from .temporal import supports_temporal_contract, uses_temporal_contract
 
 
 DEFAULTS_PACKAGE = "fedot_ind.core.repository.data"
@@ -42,6 +43,8 @@ def build_industrial_extension_manifest() -> ExtensionManifest:
     models = []
     transforms = []
     for declaration in catalog.operations:
+        if uses_temporal_contract(declaration) and not supports_temporal_contract():
+            continue
         schema = _hyperparams_schema(declaration, defaults, search_parameters)
         factory = make_deferred_factory(declaration)
         if declaration.kind is IndustrialOperationKind.MODEL:
