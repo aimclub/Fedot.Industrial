@@ -27,9 +27,10 @@ def render_evolution_parallelism_pack(frames, output_dir):
     phases = frames.get('phase_timings')
     if phases is not None and not phases.empty:
         with (root / 'summary.md').open('a', encoding='utf-8') as stream:
-            stream.write('\n## Этапы исполнения\n\n' + dataframe_to_markdown(phases) + '\n\n'
-                         'Создание сеанса входит в исполнение пакетов. Вложенные времена не складываются. '
-                         'Остаток поиска включает диагностику; это не чистое время сериализации.\n')
+            stream.write('\n## Этапы исполнения\n\n' + dataframe_to_markdown(
+                phases.set_index('run').T.rename_axis('phase').reset_index()) + '\n\n'
+                'Создание сеанса входит в исполнение пакетов. Вложенные времена не складываются. '
+                'Остаток поиска включает диагностику; это не чистое время сериализации.\n')
     if 'task' not in comparison:
         return ()
     for task, group in comparison.dropna(subset=['task']).groupby('task'):
