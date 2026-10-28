@@ -222,9 +222,12 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                 break
             session.available_workers(flight.worker for flight in active.values())
             for uid, flight in tuple(active.items()):
+                now = monotonic()
+                expired = (plan.candidate_timeout_seconds is not None
+                           and now - flight.started >= plan.candidate_timeout_seconds)
                 action = flight_action(
-                    now=monotonic(), started=flight.started, timeout=plan.candidate_timeout_seconds,
-                    result_ready=flight.result_path.exists() or flight.future.done(),
+                    now=now, started=flight.started, timeout=plan.candidate_timeout_seconds,
+                    result_ready=not expired and (flight.result_path.exists() or flight.future.done()),
                     worker_available=flight.worker in session.worker_addresses)
                 if action is FlightAction.TIMEOUT:
                     result = _failed(flight.task, ExecutionStatus.TIMED_OUT, flight.started,
