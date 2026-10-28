@@ -1,0 +1,40 @@
+{
+  "schema_version": "industrial_evolution_parallelism@1",
+  "seed": 42,
+  "generations": 15,
+  "population_size": 8,
+  "workers": 4,
+  "budget_seconds": 1100,
+  "candidate_seconds": 120,
+  "max_depth": 3,
+  "max_arity": 2,
+  "tasks": {
+    "classification": {
+      "dataset": "ACSF1",
+      "operations": ["quantile_extractor", "fourier_basis", "wavelet_basis", "rf", "logit"],
+      "initial_chains": [["quantile_extractor", "rf"], ["fourier_basis", "quantile_extractor", "logit"], ["wavelet_basis", "quantile_extractor", "rf"]]
+    },
+    "regression": {
+      "dataset": "Tecator",
+      "operations": ["quantile_extractor", "fourier_basis", "wavelet_basis", "rfr", "ridge"],
+      "initial_chains": [["quantile_extractor", "rfr"], ["fourier_basis", "quantile_extractor", "ridge"], ["wavelet_basis", "quantile_extractor", "rfr"]]
+    },
+    "ts_forecasting": {
+      "dataset": "Airline",
+      "horizon": 12,
+      "operations": ["hankelisation", "ridge", "gaussian_filter", "ar", "ets", "lagged_ridge_forecaster"],
+      "initial_chains": [["hankelisation", "ridge"], ["lagged_ridge_forecaster"], ["ar"], ["ets"]]
+    }
+  },
+  "operation_parameters": {
+    "rf": {"n_estimators": 500, "n_jobs": 1, "random_state": 42},
+    "rfr": {"n_estimators": 500, "n_jobs": 1, "random_state": 42},
+    "logit": {"max_iter": 500, "n_jobs": 1, "random_state": 42},
+    "ridge": {"alpha": 1.0},
+    "quantile_extractor": {"use_cache": false, "use_sliding_window": false, "window_size": 0},
+    "fourier_basis": {"use_cache": false},
+    "wavelet_basis": {"n_components": 2, "wavelet": "mexh", "use_cache": false},
+    "hankelisation": {"window_size": 24, "stride": 1},
+    "lagged_ridge_forecaster": {"window_size": 24, "alpha": 1.0}
+  }
+}

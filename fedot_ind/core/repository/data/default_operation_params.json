@@ -486,6 +486,7 @@
     "selection_strategy": "pairwise"
   },
   "wavelet_basis": {
+    "use_cache": true,
     "wavelet": "mexh",
     "n_components": 2
   },

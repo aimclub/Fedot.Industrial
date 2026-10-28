@@ -7,6 +7,26 @@
   "external_data_manifest": "examples/real_world_examples/external_data_manifest.json",
   "groups": [
     {
+      "key": "evolution_parallelism",
+      "title": "Evolution executor measurements and Dask diagnostics",
+      "category": "viz_artifacts",
+      "task_type": "mixed",
+      "experiment_family": "evolution_parallelism",
+      "local_path": "examples/artifacts/cloud_bundle/evolution_parallelism",
+      "inventory_mode": "deep",
+      "storage_policy": "manifest_only",
+      "cloud_path": "evolution_parallelism",
+      "source_manifest": "benchmark/industrial/experiments/evolution_parallelism/defaults.json",
+      "producer": "examples.release_1_0.evolution",
+      "include_policy": "Keep raw measurements and HTML outside git; publish only after verifying an external archive.",
+      "notes": "Pilots and ABORTED runs are not comparison evidence. Formal reports validate source hashes, candidate multiplicity, fitness and failures.",
+      "owner": "IndustrialTS benchmark maintainers",
+      "last_refreshed": "2026-10-27",
+      "refresh_command": "python -m examples.artifacts --manifest-only",
+      "publication_status": "not_uploaded",
+      "external_archive_url": null
+    },
+    {
       "key": "release_1_0_history",
       "title": "Release 1.0 development evidence",
       "category": "archive_data",
