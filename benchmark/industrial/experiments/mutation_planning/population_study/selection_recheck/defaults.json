@@ -1,0 +1,11 @@
+{
+  "schema_version": "industrial_selection_recheck@1",
+  "forecast_horizon": 14,
+  "horizon_source": "Frozen M4 Daily task metadata; never inferred from TEST",
+  "jobs": [
+    {"dataset": "D1", "seed": 42, "mode": "legacy"},
+    {"dataset": "D1", "seed": 42, "mode": "planned"},
+    {"dataset": "BitcoinSentiment", "seed": 42, "mode": "legacy"},
+    {"dataset": "BitcoinSentiment", "seed": 42, "mode": "planned"}
+  ]
+}

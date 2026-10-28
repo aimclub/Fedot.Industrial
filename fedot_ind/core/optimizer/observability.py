@@ -25,6 +25,7 @@ class EvolutionEventType(str, Enum):
     CANDIDATE_DECISION = "candidate_decision"
     EVALUATION = "evaluation"
     GENERATION = "generation"
+    MUTATION_PLAN = "mutation_plan"
 
 
 class CandidateStatus(str, Enum):
@@ -71,6 +72,9 @@ class EvolutionObservation:
     best_fitness: float | None = None
     label: str | None = None
     validation_issue_codes: tuple[str, ...] = ()
+    plans_examined: int | None = None
+    admissible_plans: int | None = None
+    repair_edits: int | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return a stable JSON-compatible representation."""
@@ -92,6 +96,9 @@ class EvolutionObservation:
             "best_fitness": self.best_fitness,
             "label": self.label,
             "validation_issue_codes": list(self.validation_issue_codes),
+            "plans_examined": self.plans_examined,
+            "admissible_plans": self.admissible_plans,
+            "repair_edits": self.repair_edits,
         }
         return {key: value for key, value in values.items()
                 if value is not None and value != []}
@@ -342,6 +349,13 @@ class EvolutionDiagnosticsRecorder:
             error_type=error_type,
             error_message=error_message,
         )
+
+    def record_mutation_plan(self, *, generation, label, status, plans_examined,
+                             admissible_plans, repair_edits, validation_issue_codes=()):
+        return self._record(EvolutionEventType.MUTATION_PLAN, generation=generation,
+                            label=label, status=status, plans_examined=plans_examined,
+                            admissible_plans=admissible_plans, repair_edits=repair_edits,
+                            validation_issue_codes=tuple(validation_issue_codes))
 
     def record_generation(
             self,

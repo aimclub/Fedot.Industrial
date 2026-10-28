@@ -48,13 +48,17 @@ class PairwiseLearningConfig:
     anchors_per_class: int = 20
     pair_feature_mode: str = "concat_diff"
     chunk_size: int = 8192
-    random_state: int = 42
+    random_state: int | None = 42
     aggregation_policy: str = "mean_similarity"
     symmetric_inference: bool = False
     class_prior_mode: str = "empirical"
 
     def normalized(self) -> "PairwiseLearningConfig":
         """Validate fields, resolve aliases and return a canonical config copy."""
+        seed = self.random_state
+        if seed is not None and (isinstance(seed, bool) or not isinstance(seed, (int, np.integer))
+                                 or not 0 <= seed < 2**32):
+            raise ValueError('random_state must be a uint32 integer or None.')
         if self.max_pairs <= 0:
             raise ValueError("max_pairs must be positive.")
         if self.anchors_per_class <= 0:
@@ -84,7 +88,7 @@ class PairwiseLearningConfig:
             raise ValueError(
                 f"symmetric_inference must be bool, got {type(self.symmetric_inference).__name__}."
             )
-        return replace(self, aggregation_policy=resolved_policy)
+        return replace(self, aggregation_policy=resolved_policy, random_state=None if seed is None else int(seed))
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

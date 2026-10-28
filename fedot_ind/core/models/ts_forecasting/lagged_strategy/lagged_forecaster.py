@@ -54,7 +54,10 @@ class LaggedAR:
         self.ts_patch_len = None
 
     def _resolve_window_size(self, input_data: InputData) -> int:
-        series_length = int(np.asarray(input_data.features).shape[0])
+        features = np.asarray(input_data.features)
+        if features.ndim not in (1, 2) or (features.ndim == 2 and 1 not in features.shape):
+            raise ValueError('LaggedAR supports exactly one univariate series')
+        series_length = int(features.size)
         if self.window_size_percent is not None:
             return resolve_lagged_window_size(series_length, float(self.window_size_percent))
         return resolve_lagged_window_size(series_length, float(self.window_size))
@@ -158,7 +161,8 @@ class LaggedAR:
             fit_stage=False,
             reference_data=self._fedot_train_data,
         )
-        return self.tuned_model.predict(tensor_data)
+        with self._industrial_repository_scope():
+            return self.tuned_model.predict(tensor_data)
 
     def predict_for_fit(self, input_data: InputData):
         return self.predict(input_data)

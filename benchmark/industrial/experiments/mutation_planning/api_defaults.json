@@ -1,0 +1,14 @@
+{
+  "mutation_agent": "random",
+  "mutation_strategy": "growth_mutation_strategy",
+  "random_seed": 42,
+  "resource_budget": {
+    "min_population_size": 2,
+    "mutation_attempts_per_candidate": 2,
+    "population_extension_attempts": 10
+  },
+  "mutation_planning": {
+    "enabled": true,
+    "max_candidates": 32
+  }
+}

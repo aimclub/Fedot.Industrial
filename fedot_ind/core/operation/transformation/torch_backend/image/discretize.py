@@ -4,6 +4,9 @@ import warnings
 
 import torch
 
+from fedot_ind.core.operation.transformation.torch_backend.image.kernel_policy import (
+    cuda_broadcast_max_boundaries,
+)
 from fedot_ind.core.operation.transformation.torch_backend.rules import (
     BinningStrategy,
     validate_kbins_params,
@@ -128,7 +131,16 @@ def _digitize_per_sample_bins_torch(
 ) -> torch.Tensor:
     """Digitize using per-sample bin edges."""
 
-    return (bins[:, None, :] < X[:, :, None]).sum(dim=-1).long()
+    if X.device.type == "cuda" and bins.shape[1] <= cuda_broadcast_max_boundaries():
+        return (bins[:, None, :] < X[:, :, None]).sum(dim=-1).long()
+    # Sorting retains the old count-of-strictly-smaller semantics even for
+    # unordered boundaries. NaN padding contributes no count, including at +inf.
+    edges = bins
+    if bins.is_floating_point():
+        edges = torch.where(torch.isnan(bins), torch.full_like(bins, torch.inf), bins)
+    edges = edges.sort(dim=1).values.contiguous()
+    result = torch.searchsorted(edges, X.contiguous(), right=False)
+    return torch.where(torch.isnan(X), torch.zeros_like(result), result)
 
 
 def _digitize_torch(X: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:

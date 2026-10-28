@@ -105,10 +105,12 @@ def test_hybrid_ensemble_raises_on_branch_failure_by_default(monkeypatch):
         model.fit(_trend_with_oscillation(12))
 
 
-def test_hybrid_ensemble_reports_explicit_last_value_degradation(monkeypatch):
+@pytest.mark.parametrize('device', ['cpu', 'auto'])
+def test_hybrid_ensemble_reports_explicit_last_value_degradation(monkeypatch, device):
     model = HybridEnsembleForecaster(
         forecast_horizon=4,
         branch_failure_policy='last_value',
+        device=device,
     )
     monkeypatch.setattr(model, '_build_branch_models', _branch_models_with_failure)
 
@@ -119,6 +121,7 @@ def test_hybrid_ensemble_reports_explicit_last_value_degradation(monkeypatch):
     assert forecast.shape == (4,)
     assert diagnostics['degraded'] is True
     assert diagnostics['branch_diagnostics']['operator_model']['policy'] == 'last_value'
+    assert model.ensemble_head_.weights_.device == model.device_policy_.resolve_device()
 
 
 def test_okhs_fdmd_forecaster_exposes_stage_aware_diagnostics(monkeypatch):

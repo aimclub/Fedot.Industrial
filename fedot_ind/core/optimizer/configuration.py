@@ -7,6 +7,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
 
+from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
+from fedot_ind.core.optimizer.evaluation.contracts import positive_seconds
+from fedot_ind.core.optimizer.evaluation.dask_config import DaskConfigError, parse_dask_config
+
 
 EVOLUTION_CONFIG_SCHEMA = "industrial_evolution_config@1"
 
@@ -123,6 +127,29 @@ class ExecutionPolicy:
 
 
 @dataclass(frozen=True)
+class MutationPlanningPolicy:
+    """Bounded structural proposals; disabled mode retains the GOLEM baseline."""
+
+    enabled: bool = False
+    max_candidates: int = 128
+    max_repair_edits: int = 2
+    max_nodes: int = 64
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        for name in ("max_candidates", "max_repair_edits", "max_nodes"):
+            value = getattr(self, name)
+            minimum = 0 if name == "max_repair_edits" else 1
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                raise ValueError(f"{name} must be an integer >= {minimum}")
+
+    def to_record(self) -> dict[str, object]:
+        return {"enabled": self.enabled, "max_candidates": self.max_candidates,
+                "max_repair_edits": self.max_repair_edits, "max_nodes": self.max_nodes}
+
+
+@dataclass(frozen=True)
 class EvolutionConfig:
     """Canonical internal configuration for one evolutionary optimiser."""
 
@@ -130,6 +157,9 @@ class EvolutionConfig:
     mutation_strategy: MutationStrategy = MutationStrategy.PARAMS
     resource_budget: ResourceBudget = field(default_factory=ResourceBudget)
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
+    random_seed: int | None = None
+    mutation_planning: MutationPlanningPolicy = field(default_factory=MutationPlanningPolicy)
+    evaluation_execution: EvaluationExecutionConfig = field(default_factory=EvaluationExecutionConfig)
 
     def __post_init__(self) -> None:
         if not isinstance(self.mutation_agent, MutationAgentType):
@@ -140,6 +170,13 @@ class EvolutionConfig:
             raise ValueError("resource_budget must be a ResourceBudget")
         if not isinstance(self.execution_policy, ExecutionPolicy):
             raise ValueError("execution_policy must be an ExecutionPolicy")
+        if not isinstance(self.mutation_planning, MutationPlanningPolicy):
+            raise ValueError("mutation_planning must be a MutationPlanningPolicy")
+        if not isinstance(self.evaluation_execution, EvaluationExecutionConfig):
+            raise ValueError("evaluation_execution must be an EvaluationExecutionConfig")
+        if self.random_seed is not None:
+            if isinstance(self.random_seed, bool) or not isinstance(self.random_seed, int) or self.random_seed < 0:
+                raise ValueError("random_seed must be a non-negative integer or null")
 
     def to_record(self) -> dict[str, object]:
         """Return the canonical JSON-compatible transport shape."""
@@ -151,6 +188,9 @@ class EvolutionConfig:
             },
             "resource_budget": self.resource_budget.to_record(),
             "execution_policy": self.execution_policy.to_record(),
+            "random_seed": self.random_seed,
+            "mutation_planning": self.mutation_planning.to_record(),
+            "evaluation_execution": self.evaluation_execution.to_record(),
         }
 
     def with_initial_graphs_prevalidated(self, value: bool) -> "EvolutionConfig":
@@ -164,6 +204,9 @@ class EvolutionConfig:
 
 
 _ROOT_FIELDS = frozenset({
+    "evaluation_execution",
+    "mutation_planning",
+    "random_seed",
     "schema_version",
     "mutation",
     "resource_budget",
@@ -180,6 +223,8 @@ _ROOT_FIELDS = frozenset({
 _MUTATION_FIELDS = frozenset({"agent", "strategy"})
 _RESOURCE_FIELDS = frozenset(ResourceBudget().to_record())
 _POLICY_FIELDS = frozenset(ExecutionPolicy().to_record())
+_PLANNING_FIELDS = frozenset(MutationPlanningPolicy().to_record())
+_EVALUATION_FIELDS = frozenset({"backend", "candidate_timeout_seconds", "total_timeout_seconds", "dask"})
 
 
 def _mapping_section(
@@ -336,11 +381,27 @@ def normalize_evolution_config(
     mutation = _mapping_section(payload, "mutation", violations)
     resources = _mapping_section(payload, "resource_budget", violations)
     policy = _mapping_section(payload, "execution_policy", violations)
+    planning = _mapping_section(payload, "mutation_planning", violations)
+    evaluation = _mapping_section(payload, "evaluation_execution", violations)
     _collect_unknown_fields(mutation, _MUTATION_FIELDS, "mutation", violations)
     _collect_unknown_fields(resources, _RESOURCE_FIELDS, "resource_budget", violations)
     _collect_unknown_fields(policy, _POLICY_FIELDS, "execution_policy", violations)
+    _collect_unknown_fields(planning, _PLANNING_FIELDS, "mutation_planning", violations)
+    _collect_unknown_fields(evaluation, _EVALUATION_FIELDS,
+                            "evaluation_execution", violations)
 
     defaults = EvolutionConfig()
+    random_seed = payload.get("random_seed")
+    if random_seed is not None and (
+        isinstance(random_seed, bool) or not isinstance(random_seed, int) or random_seed < 0
+    ):
+        violations.append(EvolutionConfigViolation(
+            code=EvolutionConfigViolationCode.INVALID_TYPE,
+            path="random_seed",
+            message="must be a non-negative integer or null",
+            value=random_seed,
+        ))
+        random_seed = None
     agent = _enum_value(
         MutationAgentType,
         _section_or_legacy_value(
@@ -451,6 +512,54 @@ def normalize_evolution_config(
             violations,
         ),
     )
+    repair_edits = planning.get("max_repair_edits", defaults.mutation_planning.max_repair_edits)
+    if isinstance(repair_edits, bool) or not isinstance(repair_edits, int) or repair_edits < 0:
+        violations.append(EvolutionConfigViolation(
+            code=EvolutionConfigViolationCode.INVALID_TYPE,
+            path="mutation_planning.max_repair_edits",
+            message="must be a non-negative integer",
+            value=repair_edits,
+        ))
+        repair_edits = 0
+    mutation_planning = MutationPlanningPolicy(
+        enabled=_boolean(planning.get("enabled", defaults.mutation_planning.enabled),
+                         "mutation_planning.enabled", violations),
+        max_candidates=_positive_integer(planning.get("max_candidates", defaults.mutation_planning.max_candidates),
+                                         "mutation_planning.max_candidates", violations),
+        max_repair_edits=repair_edits,
+        max_nodes=_positive_integer(planning.get("max_nodes", defaults.mutation_planning.max_nodes),
+                                    "mutation_planning.max_nodes", violations),
+    )
+    evaluation_backend = _enum_value(EvaluationBackend, evaluation.get("backend", "legacy"),
+                                     "evaluation_execution.backend", violations)
+    dask_config = None
+    if evaluation.get("dask") is not None:
+        try:
+            dask_config = parse_dask_config(evaluation["dask"])
+        except DaskConfigError as error:
+            violations.extend(EvolutionConfigViolation(
+                EvolutionConfigViolationCode(item.code),
+                f"evaluation_execution.dask.{item.path}" if item.path else "evaluation_execution.dask",
+                item.message, item.value,
+            ) for item in error.violations)
+        if evaluation_backend is not EvaluationBackend.DASK:
+            violations.append(EvolutionConfigViolation(
+                EvolutionConfigViolationCode.CONFLICTING_FIELDS, "evaluation_execution.dask",
+                "dask options require the dask backend"))
+    timeouts = {}
+    for name in ("candidate_timeout_seconds", "total_timeout_seconds"):
+        value = evaluation.get(name)
+        try:
+            positive_seconds(value, name)
+        except ValueError as error:
+            violations.append(EvolutionConfigViolation(
+                EvolutionConfigViolationCode.INVALID_VALUE, f"evaluation_execution.{name}", str(error), value))
+            value = None
+        timeouts[name] = value
+    if evaluation_backend is EvaluationBackend.LEGACY and any(v is not None for v in timeouts.values()):
+        violations.append(EvolutionConfigViolation(
+            EvolutionConfigViolationCode.CONFLICTING_FIELDS, "evaluation_execution",
+            "legacy backend cannot enforce local executor deadlines"))
     if violations:
         raise EvolutionConfigError(tuple(violations))
     return EvolutionConfig(
@@ -458,4 +567,7 @@ def normalize_evolution_config(
         mutation_strategy=strategy,
         resource_budget=resource_budget,
         execution_policy=execution_policy,
+        random_seed=random_seed,
+        mutation_planning=mutation_planning,
+        evaluation_execution=EvaluationExecutionConfig(backend=evaluation_backend, dask=dask_config, **timeouts),
     )

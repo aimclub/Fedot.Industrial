@@ -109,7 +109,7 @@ class AbstractPipeline:
             if self.task == 'ts_forecasting':
                 predict = test_model.predict(self.train_data)
                 predict_proba = predict
-                target = as_numpy(self.train_data.target).flatten()
+                target = as_numpy(self.test_data.target).flatten()
             else:
                 predict = test_model.predict(self.test_data, 'labels')
                 predict_proba = (

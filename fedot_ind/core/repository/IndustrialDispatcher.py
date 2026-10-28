@@ -4,7 +4,6 @@ import timeit
 from datetime import datetime
 from typing import Optional, Tuple
 
-import dask
 from golem.core.log import Log
 from golem.core.optimisers.fitness import null_fitness
 from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher
@@ -21,9 +20,7 @@ from fedot_ind.core.optimizer.domain import (
     EvaluationFailed,
     EvaluationFailure,
     EvaluationFailureCode,
-    EvaluationReused,
     EvaluationSucceeded,
-    evaluation_outcome_from_metadata,
     evaluation_outcome_to_metadata,
 )
 from fedot_ind.core.optimizer.observability import (
@@ -32,6 +29,9 @@ from fedot_ind.core.optimizer.observability import (
     graph_identity,
 )
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+from fedot_ind.core.operation.transformation.representation.statistical.feature_reuse import feature_reuse_scope
+from fedot_ind.integration.fedot.evaluation import industrial_failure_from_fedot
+from fedot_ind.core.optimizer.evaluation.diagnostics import record_evaluation_results
 
 
 EXPECTED_EVALUATION_EXCEPTIONS = (
@@ -55,6 +55,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             graph_cleanup_fn=None,
             delegate_evaluator=None,
             diagnostics_recorder: Optional[EvolutionDiagnosticsRecorder] = None,
+            completed_evaluation_callback=None,
     ):
         super().__init__(
             adapter=adapter,
@@ -63,11 +64,13 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             delegate_evaluator=delegate_evaluator,
         )
         self.diagnostics_recorder = diagnostics_recorder
+        self.completed_evaluation_callback = completed_evaluation_callback
 
     def __getstate__(self):
-        """Keep the coordinator-local recorder out of Dask worker payloads."""
+        """Keep coordinator-local observers out of serialized dispatcher state."""
         state = dict(self.__dict__)
         state['diagnostics_recorder'] = None
+        state['completed_evaluation_callback'] = None
         return state
 
     def dispatch(self, objective: ObjectiveFunction,
@@ -78,26 +81,23 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return self.evaluate_with_cache
 
     def _multithread_eval(self, individuals_to_evaluate):
+        """Evaluate legacy candidates sequentially without an implicit scheduler."""
         log = Log().get_parameters()
-        evaluation_results = list(map(lambda ind:
-                                      self.industrial_evaluate_single(self,
-                                                                      graph=ind.graph,
-                                                                      uid_of_individual=ind.uid,
-                                                                      logs_initializer=log),
-                                      individuals_to_evaluate))
-        evaluation_results = dask.compute(*evaluation_results)
-        return evaluation_results
+        return [
+            self.industrial_evaluate_single(
+                self, graph=ind.graph, uid_of_individual=ind.uid, logs_initializer=log)
+            for ind in individuals_to_evaluate
+        ]
 
     def _eval_at_least_one(self, individuals):
         successful_evals = []
         for single_ind in individuals:
-            delayed_result = self.industrial_evaluate_single(
+            evaluation_result = self.industrial_evaluate_single(
                 self,
                 graph=single_ind.graph,
                 uid_of_individual=single_ind.uid,
                 with_time_limit=False,
             )
-            evaluation_result = dask.compute(delayed_result)[0]
             self._record_evaluation_results((evaluation_result,))
             successful_evals = self.apply_evaluation_results(
                 [single_ind], [evaluation_result])
@@ -109,7 +109,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         individuals_to_evaluate, individuals_to_skip = self.split_individuals_to_evaluate(
             individuals)
 
-        # Evaluate individuals without valid fitness in parallel.
+        # Preserve legacy bookkeeping; parallelism requires an explicit evaluation backend.
         self.n_jobs = determine_n_jobs(self._n_jobs, self.logger)
 
         evaluation_results = (
@@ -130,34 +130,15 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             self._log_evaluation_failures(evaluation_results)
             successful_evals = self._eval_at_least_one(individuals)
 
-        MemoryAnalytics.log(self.logger, additional_info='parallel evaluation of population',
+        MemoryAnalytics.log(self.logger, additional_info='legacy sequential evaluation of population',
                             logging_level=logging.INFO)
         return successful_evals
 
     def _record_evaluation_results(self, evaluation_results) -> None:
-        recorder = getattr(self, 'diagnostics_recorder', None)
-        if recorder is None:
-            return
-        for result in evaluation_results:
-            if result is None:
-                continue
-            metadata = dict(result.metadata or {})
-            outcome = evaluation_outcome_from_metadata(metadata)
-            failure = outcome.failure if isinstance(outcome, EvaluationFailed) else None
-            if isinstance(outcome, EvaluationFailed):
-                status = EvaluationStatus.FAILED
-            elif isinstance(outcome, EvaluationReused):
-                status = EvaluationStatus.REUSED
-            else:
-                status = EvaluationStatus.SUCCEEDED
-            recorder.record_evaluation(
-                individual_id=str(result.uid_of_individual),
-                graph_id=graph_identity(result.graph),
-                status=status,
-                duration_seconds=outcome.duration_seconds,
-                error_type=failure.error_type if failure is not None else None,
-                error_message=failure.message if failure is not None else None,
-            )
+        record_evaluation_results(getattr(self, 'diagnostics_recorder', None), evaluation_results)
+        callback = getattr(self, 'completed_evaluation_callback', None)
+        if callback is not None:
+            callback(evaluation_results)
 
     def _record_reused_individuals(self, individuals) -> None:
         recorder = getattr(self, 'diagnostics_recorder', None)
@@ -179,12 +160,11 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         for message in tuple(dict.fromkeys(failures))[:3]:
             self.logger.warning('Industrial graph evaluation failed: %s', message)
 
-    @dask.delayed
     def eval_ind(self, graph, uid_of_individual):
         start_time = timeit.default_timer()
         evaluation_failure = None
         try:
-            with industrial_extension_scope():
+            with industrial_extension_scope(), feature_reuse_scope():
                 adapted_evaluate = self._adapter.adapt_func(self._evaluate_graph)
                 fitness, graph = adapted_evaluate(graph)
         except EXPECTED_EVALUATION_EXCEPTIONS as ex:
@@ -205,10 +185,17 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                 failure=evaluation_failure,
             )
         elif not fitness.valid:
+            from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
+            evaluator = getattr(getattr(self, '_objective_eval', None), '__self__', None)
+            native_failure = (
+                industrial_failure_from_fedot(evaluator.last_outcome)
+                if isinstance(evaluator, PipelineObjectiveEvaluateWithTensorData)
+                else None
+            )
             outcome = EvaluationFailed(
                 duration_seconds=duration,
                 evaluated_at=eval_time_iso,
-                failure=EvaluationFailure(
+                failure=native_failure or EvaluationFailure(
                     code=EvaluationFailureCode.INVALID_FITNESS,
                     error_type='InvalidFitness',
                     message='Objective returned invalid fitness without raising an exception',

@@ -1,29 +1,29 @@
 import pytest
 import torch
 
-from fedot_ind.core.models.nn.enums import EncoderFamily
-from fedot_ind.core.models.nn.models_rules import (
+from fedot_ind.neural.encoders.enums import EncoderFamily
+from fedot_ind.core.multimodal.encoder_rules import (
     build_encoder_config_map,
 )
 
 from fedot_ind.core.multimodal.rules import normalize_modality
-from fedot_ind.core.models.nn.network_impl.encoders.rules import normalize_encoder_family
-from fedot_ind.core.models.nn.network_impl.encoders.builder import build_encoder
-from fedot_ind.core.models.nn.network_impl.encoders.config import (
+from fedot_ind.neural.encoders.rules import normalize_encoder_family
+from fedot_ind.neural.encoders.builder import build_encoder
+from fedot_ind.neural.encoders.config import (
     ConvBlockConfig,
     EncoderConfig,
 )
-from fedot_ind.core.models.nn.network_impl.encoders.transformation_presets import (
+from fedot_ind.neural.encoders.transformation_presets import (
     gaf_encoder_config,
     raw_encoder_config,
     stats_encoder_config,
     stft_encoder_config,
 )
-from fedot_ind.core.models.nn.network_impl.future_encoder_adapter import (
+from fedot_ind.core.multimodal.encoders import (
     FutureEncoderStack,
     FutureMultimodalEncoderAdapter,
 )
-from fedot_ind.core.models.nn.network_impl.mapping import (
+from fedot_ind.neural.encoders.mapping import (
     ENCODER_BUILDERS_BY_FAMILY,
     EncoderShapeArg,
     normalize_encoder_shape_arg,
@@ -294,7 +294,7 @@ def test_future_encoder_adapter_rejects_registry_gap(monkeypatch):
     patched_registry = dict(MODALITY_CAPABILITIES)
     patched_registry.pop(MultimodalModality.mtf)
     monkeypatch.setattr(
-        "fedot_ind.core.models.nn.network_impl.future_encoder_adapter.MODALITY_CAPABILITIES",
+        "fedot_ind.core.multimodal.encoders.MODALITY_CAPABILITIES",
         patched_registry,
     )
 

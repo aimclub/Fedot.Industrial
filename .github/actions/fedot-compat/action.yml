@@ -1,0 +1,31 @@
+name: Explicit FEDOT compatibility checkout
+description: Prepare an audited pinned source copy for EVO integration tests without patching installed packages.
+runs:
+  using: composite
+  steps:
+    - name: Prepare and audit isolated FEDOT sources
+      shell: bash
+      env:
+        FEDOT_COMPAT_ROOT: ${{ runner.temp }}/industrial-fedot-compat
+      run: |
+        set -euo pipefail
+        test ! -e "$FEDOT_COMPAT_ROOT"
+        base="$(python - <<'PY'
+        import json
+        from importlib.metadata import distribution
+        from fedot_ind.integration.fedot.compat.patches import load_bundle
+        expected = load_bundle().base_revision
+        actual = json.loads(distribution('fedot').read_text('direct_url.json') or '{}').get(
+            'vcs_info', {}).get('commit_id')
+        if actual != expected:
+            raise SystemExit(f'Installed FEDOT revision {actual!r} does not match compatibility base {expected!r}')
+        print(expected)
+        PY
+        )"
+        git init "$FEDOT_COMPAT_ROOT"
+        git -C "$FEDOT_COMPAT_ROOT" remote add origin https://github.com/aimclub/FEDOT.git
+        git -C "$FEDOT_COMPAT_ROOT" fetch --depth=1 origin "$base"
+        git -C "$FEDOT_COMPAT_ROOT" checkout --detach FETCH_HEAD
+        python -m fedot_ind.integration.fedot.compat --worktree "$FEDOT_COMPAT_ROOT" --execute
+        python -m fedot_ind.integration.fedot.compat --worktree "$FEDOT_COMPAT_ROOT" --audit
+        printf 'PYTHONPATH=%s%s\n' "$FEDOT_COMPAT_ROOT" "${PYTHONPATH:+:$PYTHONPATH}" >> "$GITHUB_ENV"

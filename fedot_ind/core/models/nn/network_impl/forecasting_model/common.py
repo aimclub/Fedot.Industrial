@@ -5,10 +5,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
-    TensorDevicePolicy,
-    resolve_window_size,
-)
+from fedot_ind.neural.device import TensorDevicePolicy
 from fedot_ind.core.operation.transformation.data.trajectory_embedding import estimate_window
 
 DEFAULT_FORECASTING_NN_EPOCHS = 150
@@ -49,11 +46,7 @@ def resolve_neural_patch_length(
         return int(max(2, min(int(requested_patch_len), max_patch_len)))
 
     estimated_window = int(estimate_window(len(values), forecast_horizon=resolved_horizon))
-    resolved_window = resolve_window_size(
-        series_length=len(values),
-        forecast_horizon=resolved_horizon,
-        window_size=estimated_window,
-    )
+    resolved_window = max(2, min(estimated_window, max_patch_len))
     scaled_window = int(round(float(multiplier) * resolved_window))
     return int(max(2, min(scaled_window, max_patch_len)))
 

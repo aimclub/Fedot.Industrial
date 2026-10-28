@@ -1,7 +1,9 @@
 """Prevent metadata, dependency resolution, build and CI entrypoints drifting apart."""
 
 import ast
+import json
 from pathlib import Path
+import shlex
 
 from packaging.requirements import Requirement
 import yaml
@@ -128,6 +130,56 @@ def test_unit_and_integration_install_same_ephemeral_resolution():
         assert "uv export --frozen --extra dev" in commands
         assert "pip install --no-deps -e ." in commands
         assert "poetry " not in commands and "pip check" in commands
+
+
+def test_native_training_jobs_prepare_audited_compatibility_before_pytest():
+    for name, job in (("poetry_unit_test.yml", "test"), ("integration_tests.yml", "test"),
+                      ("platform_checks.yml", "fedot-integration")):
+        steps = workflow(name)["jobs"][job]["steps"]
+        compatibility = [i for i, step in enumerate(steps) if step.get("uses") == "./.github/actions/fedot-compat"]
+        assert len(compatibility) == 1
+        first_test = next(i for i, step in enumerate(steps) if "pytest" in step.get("run", ""))
+        assert compatibility[0] < first_test
+    # The installed-package smoke remains independent of the compatibility source profile.
+    install = workflow("platform_checks.yml")["jobs"]["install"]["steps"]
+    assert not any(step.get("uses") == "./.github/actions/fedot-compat" for step in install)
+    assert "python -I tools/runtime_smoke.py" in workflow_commands(install)
+
+
+def test_compatibility_action_is_explicit_pinned_and_does_not_reinstall_fedot():
+    path = ROOT / ".github/actions/fedot-compat/action.yml"
+    action = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    assert action["runs"]["using"] == "composite"
+    commands = workflow_commands(action["runs"]["steps"])
+    assert "load_bundle().base_revision" in commands
+    assert "distribution('fedot').read_text('direct_url.json')" in commands
+    assert "if actual != expected:" in commands
+    assert 'test ! -e "$FEDOT_COMPAT_ROOT"' in commands
+    assert 'fetch --depth=1 origin "$base"' in commands
+    assert "--execute" in commands and "--audit" in commands
+    assert "PYTHONPATH=" in commands and "$GITHUB_ENV" in commands
+    assert "pip install" not in commands and "site-packages" not in commands
+    bundle = json.loads((ROOT / "fedot_ind/integration/fedot/compat/manifest.json").read_text(encoding="utf-8"))
+    current = next(profile for profile in load_compatibility().value.profiles if profile.name == "current")
+    assert bundle["base_revision"] == current.sha
+
+
+def test_preinstalled_cpu_versions_satisfy_the_project_requirements():
+    project = {Requirement(item).name: Requirement(item) for item in project_metadata()["project"]["dependencies"]}
+    checked = 0
+    for name in ("poetry_unit_test.yml", "integration_tests.yml", "platform_checks.yml"):
+        for job in workflow(name)["jobs"].values():
+            for line in workflow_commands(job.get("steps", [])).splitlines():
+                if "https://download.pytorch.org/whl/cpu" not in line:
+                    continue
+                pins = [Requirement(token) for token in shlex.split(line)
+                        if token.startswith(("torch==", "torchvision=="))]
+                assert {pin.name for pin in pins} == {"torch", "torchvision"}
+                for pin in pins:
+                    spec, = pin.specifier
+                    assert spec.operator == "==" and spec.version in project[pin.name].specifier
+                checked += 1
+    assert checked == 4
 
 
 def test_contract_matrix_resolves_only_supported_python_versions():

@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from .errors import BenchmarkConfigurationError
+from .models.forecasting_baselines import (
+    NaiveLastValueModel, NaiveMeanModel, NaiveDriftModel, MovingAverageModel, LinearTrendModel,
+)
+from .evaluation.forecasting_metrics import (
+    _seasonal_naive_forecast, _mase_scale, compute_forecasting_metric, compute_pointwise_metric,
+)
+
 import importlib
 import inspect
 import math
@@ -100,10 +108,6 @@ DEFAULT_LOCAL_M4_LONG_DIRS = (
     PROJECT_ROOT / 'examples' / 'data' / 'benchmark' / 'forecasting',
 )
 DEFAULT_LOCAL_MONASH_DIR = EXAMPLES_DATA_DIR / 'benchmark' / 'forecasting' / 'monash_benchmark'
-
-
-class BenchmarkConfigurationError(ValueError):
-    """Raised when a forecasting benchmark configuration is invalid."""
 
 
 class ModelExecutionError(RuntimeError):
@@ -773,107 +777,6 @@ def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
         task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=series_record.forecast_horizon)),
         data_type=DataTypesEnum.ts,
     )
-
-
-@dataclass
-class NaiveLastValueModel(ForecastingModelAdapter):
-    """Simple baseline that repeats the last observed value."""
-
-    name: str = 'NaiveLastValue'
-    tags: tuple[str, ...] = ('baseline', 'forecasting')
-    optional: bool = False
-
-    def availability(self) -> tuple[RunStatus, str]:
-        """Return readiness for the dependency-free baseline."""
-        return RunStatus.SUCCESS, 'ready'
-
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        """Forecast by repeating the last train value."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'last_value'}
-
-
-@dataclass
-class NaiveMeanModel(ForecastingModelAdapter):
-    """Simple baseline that repeats the train mean."""
-
-    name: str = 'NaiveMean'
-    tags: tuple[str, ...] = ('baseline', 'forecasting')
-    optional: bool = False
-
-    def availability(self) -> tuple[RunStatus, str]:
-        """Return readiness for the dependency-free baseline."""
-        return RunStatus.SUCCESS, 'ready'
-
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        """Forecast by repeating the mean train value."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        return np.full(series_record.forecast_horizon, np.mean(train), dtype=float), {'strategy': 'mean'}
-
-
-@dataclass
-class NaiveDriftModel(ForecastingModelAdapter):
-    """Simple baseline that extrapolates a linear end-to-end drift."""
-
-    name: str = 'NaiveDrift'
-    tags: tuple[str, ...] = ('baseline', 'forecasting')
-    optional: bool = False
-
-    def availability(self) -> tuple[RunStatus, str]:
-        """Return readiness for the dependency-free baseline."""
-        return RunStatus.SUCCESS, 'ready'
-
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        """Forecast a drift line from first to last train value."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        if len(train) <= 1:
-            return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'fallback'}
-        slope = (train[-1] - train[0]) / max(len(train) - 1, 1)
-        horizon = np.arange(1, series_record.forecast_horizon + 1, dtype=float)
-        return train[-1] + slope * horizon, {'strategy': 'drift'}
-
-
-@dataclass
-class MovingAverageModel(ForecastingModelAdapter):
-    """Simple baseline that repeats the trailing moving average."""
-
-    window_size: int = 3
-    name: str = 'MovingAverage'
-    tags: tuple[str, ...] = ('baseline', 'forecasting')
-    optional: bool = False
-
-    def availability(self) -> tuple[RunStatus, str]:
-        """Return readiness for the dependency-free baseline."""
-        return RunStatus.SUCCESS, 'ready'
-
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        """Forecast by repeating the last-window mean."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        window = min(max(self.window_size, 1), len(train))
-        return np.full(series_record.forecast_horizon, np.mean(train[-window:]), dtype=float), {'window_size': window}
-
-
-@dataclass
-class LinearTrendModel(ForecastingModelAdapter):
-    """Simple baseline that extrapolates a fitted linear trend."""
-
-    name: str = 'LinearTrend'
-    tags: tuple[str, ...] = ('baseline', 'forecasting')
-    optional: bool = False
-
-    def availability(self) -> tuple[RunStatus, str]:
-        """Return readiness for the dependency-free baseline."""
-        return RunStatus.SUCCESS, 'ready'
-
-    def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
-        """Fit a linear trend on train values and extrapolate the horizon."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        if len(train) <= 1:
-            return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'constant'}
-        index = np.arange(len(train), dtype=float)
-        slope, intercept = np.polyfit(index, train, deg=1)
-        future_index = np.arange(len(train), len(train) + series_record.forecast_horizon, dtype=float)
-        return intercept + slope * future_index, {'slope': float(slope), 'intercept': float(intercept)}
 
 
 @dataclass
@@ -1845,89 +1748,6 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
             tags=spec.tags or ('baseline', 'forecasting', 'external', 'tft'),
         )
     raise BenchmarkConfigurationError(f'Unsupported forecasting model adapter: {spec.adapter_name}')
-
-
-def _seasonal_naive_forecast(train: np.ndarray, horizon: int, seasonal_period: int) -> np.ndarray:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
-    base = train[-lag:]
-    repeats = int(math.ceil(horizon / lag))
-    return np.tile(base, repeats)[:horizon]
-
-
-def _mase_scale(train: np.ndarray, seasonal_period: int) -> float:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
-    if len(train) <= lag:
-        return 1.0
-    scale = np.mean(np.abs(train[lag:] - train[:-lag]))
-    return float(scale if scale > 1e-8 else 1.0)
-
-
-def compute_forecasting_metric(
-        metric_name: str,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        y_train: np.ndarray,
-        seasonal_period: int,
-) -> float:
-    """Compute an aggregate forecasting metric for one horizon vector."""
-    actual = np.asarray(y_true, dtype=float).reshape(-1)
-    predicted = np.asarray(y_pred, dtype=float).reshape(-1)
-    train = np.asarray(y_train, dtype=float).reshape(-1)
-    if len(actual) != len(predicted):
-        raise BenchmarkConfigurationError('Metric inputs must have the same length.')
-    if metric_name == 'mae':
-        return float(np.mean(np.abs(actual - predicted)))
-    if metric_name == 'rmse':
-        return float(np.sqrt(np.mean((actual - predicted) ** 2)))
-    if metric_name == 'smape':
-        denominator = np.abs(actual) + np.abs(predicted)
-        denominator = np.where(denominator == 0, 1e-8, denominator)
-        return float(100.0 * np.mean(2.0 * np.abs(predicted - actual) / denominator))
-    if metric_name == 'mase':
-        return float(np.mean(np.abs(actual - predicted)) / _mase_scale(train, seasonal_period))
-    if metric_name == 'owa':
-        baseline = _seasonal_naive_forecast(train, len(actual), seasonal_period)
-        smape = compute_forecasting_metric('smape', actual, predicted, train, seasonal_period)
-        mase = compute_forecasting_metric('mase', actual, predicted, train, seasonal_period)
-        baseline_smape = compute_forecasting_metric('smape', actual, baseline, train, seasonal_period)
-        baseline_mase = compute_forecasting_metric('mase', actual, baseline, train, seasonal_period)
-        baseline_smape = baseline_smape if baseline_smape > 1e-8 else 1.0
-        baseline_mase = baseline_mase if baseline_mase > 1e-8 else 1.0
-        return float(0.5 * ((smape / baseline_smape) + (mase / baseline_mase)))
-    raise BenchmarkConfigurationError(f'Unsupported metric: {metric_name}')
-
-
-def compute_pointwise_metric(
-        metric_name: str,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        y_train: np.ndarray,
-        seasonal_period: int,
-) -> np.ndarray:
-    """Compute horizon-wise metric values for publication artifacts."""
-    actual = np.asarray(y_true, dtype=float).reshape(-1)
-    predicted = np.asarray(y_pred, dtype=float).reshape(-1)
-    if metric_name == 'mae':
-        return np.abs(actual - predicted)
-    if metric_name == 'rmse':
-        return np.sqrt((actual - predicted) ** 2)
-    if metric_name == 'smape':
-        denominator = np.abs(actual) + np.abs(predicted)
-        denominator = np.where(denominator == 0, 1e-8, denominator)
-        return 100.0 * 2.0 * np.abs(predicted - actual) / denominator
-    if metric_name == 'mase':
-        return np.abs(actual - predicted) / _mase_scale(np.asarray(y_train, dtype=float), seasonal_period)
-    if metric_name == 'owa':
-        train = np.asarray(y_train, dtype=float)
-        baseline = _seasonal_naive_forecast(train, len(actual), seasonal_period)
-        pointwise_smape = compute_pointwise_metric('smape', actual, predicted, train, seasonal_period)
-        pointwise_mase = compute_pointwise_metric('mase', actual, predicted, train, seasonal_period)
-        baseline_smape = compute_pointwise_metric('smape', actual, baseline, train, seasonal_period)
-        baseline_mase = compute_pointwise_metric('mase', actual, baseline, train, seasonal_period)
-        baseline_smape = np.where(baseline_smape <= 1e-8, 1.0, baseline_smape)
-        baseline_mase = np.where(baseline_mase <= 1e-8, 1.0, baseline_mase)
-        return 0.5 * ((pointwise_smape / baseline_smape) + (pointwise_mase / baseline_mase))
-    raise BenchmarkConfigurationError(f'Unsupported metric: {metric_name}')
 
 
 def _extract_forecast_event_mask(metadata: dict[str, Any], horizon: int) -> np.ndarray | None:

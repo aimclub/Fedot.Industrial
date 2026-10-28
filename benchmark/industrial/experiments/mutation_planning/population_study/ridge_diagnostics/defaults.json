@@ -1,0 +1,13 @@
+{
+  "schema_version": "industrial_train_ridge_diagnostics@1",
+  "dataset": "NaturalGasPricesSentiment",
+  "primary_seeds": [42, 123, 777],
+  "additional_seeds": [17, 29, 101, 211, 307],
+  "validation_fraction": 0.25,
+  "structures": ["simple", "composite"],
+  "scalings": ["none", "standard"],
+  "alphas": [0.01, 0.1, 1, 10, 100, 1000],
+  "reference_alpha": 1,
+  "replay_atol": 0.0000001,
+  "replay_rtol": 0.000001
+}

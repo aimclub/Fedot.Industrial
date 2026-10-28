@@ -614,6 +614,37 @@ def hjorth_complexity_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Te
     return complexity.item() if complexity.numel() == 1 else complexity
 
 
+def _hurst_regression_slope(log_time: torch.Tensor, log_rs: torch.Tensor) -> torch.Tensor:
+    """Slope of the two-column OLS problem, without allocation-sensitive pivoting.
+
+    Accumulate in float64, but keep the original log inputs and output dtype.
+    Inputs are the Hurst grid log(2..T) and one response per row. Nonfinite
+    responses retain the legacy solver/error path instead of becoming successful
+    finite features. The one-point case is the minimum-norm solution.
+    """
+    finite_rows = torch.isfinite(log_rs).all(dim=-1)
+    if not torch.isfinite(log_time).all():
+        finite_rows = torch.zeros_like(finite_rows)
+    if not finite_rows.all():
+        design = torch.stack((log_time, torch.ones_like(log_time)), dim=1)
+        result = log_rs.new_empty(log_rs.shape[0])
+        if finite_rows.any():
+            result[finite_rows] = _hurst_regression_slope(log_time, log_rs[finite_rows])
+        for index in (~finite_rows).nonzero().flatten():
+            result[index] = torch.linalg.lstsq(design, log_rs[index].unsqueeze(1)).solution.squeeze()[0]
+        return result
+    if not log_time.numel():
+        return log_rs.new_zeros(log_rs.shape[:-1])
+    time, response = log_time.to(torch.float64), log_rs.to(torch.float64)
+    if time.numel() == 1:
+        slope = response[..., 0] * time[0] / (time[0].square() + 1)
+    else:
+        centered_time = time - time.mean()
+        centered_response = response - response.mean(dim=-1, keepdim=True)
+        slope = (centered_response * centered_time).sum(dim=-1) / centered_time.square().sum()
+    return slope.to(log_rs.dtype)
+
+
 def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
     """ Compute the Hurst Exponent of the time series. The Hurst exponent is used as a measure of long-term memory of
     time series. It relates to the autocorrelations of the time series, and the rate at which these decrease as the
@@ -648,19 +679,16 @@ def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
     R_T = torch.zeros((B, T), device=device, dtype=dtype)
     for i in range(T):
         segment = x[:, :i + 1]
-        S_T[:, i] = segment.std(dim=-1, unbiased=False)
-        X_T = y - t * ave_t[:, i].unsqueeze(1)
-        R_T[:, i] = X_T[:, :i + 1].amax(dim=-1) - X_T[:, :i + 1].amin(dim=-1)
+        # Batched std can choose a different reduction and alter a near-zero
+        # Hurst feature. Retain the original one-series reduction in every batch.
+        S_T[:, i] = torch.cat([row.std(dim=-1, unbiased=False) for row in segment.split(1)])
+        X_T = y[:, :i + 1] - t[:, :i + 1] * ave_t[:, i].unsqueeze(1)
+        R_T[:, i] = X_T.amax(dim=-1) - X_T.amin(dim=-1)
     RS = R_T / (S_T + 1e-12)
     RS = torch.log(RS[:, 1:])
     n = torch.log(t[:, 1:]).squeeze(0)
 
-    ones = torch.ones_like(n)
-    A = torch.stack([n, ones], dim=1)
-    H = torch.empty(B, device=device, dtype=dtype)
-    for b in range(B):
-        sol = torch.linalg.lstsq(A, RS[b].unsqueeze(1)).solution.squeeze()
-        H[b] = sol[0]
+    H = _hurst_regression_slope(n, RS)
     if X.ndim > 2:
         H = H.reshape(X.shape[0], X.shape[1])
     return H if H.numel() > 1 else H.item()

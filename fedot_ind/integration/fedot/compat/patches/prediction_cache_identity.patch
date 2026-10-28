@@ -1,0 +1,72 @@
+diff --git a/fedot/core/operations/operation.py b/fedot/core/operations/operation.py
+index 519cb2c7..6ac84503 100644
+--- a/fedot/core/operations/operation.py
++++ b/fedot/core/operations/operation.py
+@@ -104,6 +104,7 @@ class Operation:
+             params=params,
+             predictions_cache=predictions_cache,
+             fold_id=fold_id,
++            descriptive_id=descriptive_id,
+         )
+         return self.fitted_operation, output
+ 
+@@ -167,7 +168,7 @@ class Operation:
+ 
+         result_data = None
+ 
+-        if predictions_cache is not None:
++        if predictions_cache is not None and descriptive_id:
+             result_data = predictions_cache.load_node_prediction(
+                 descriptive_id, output_mode, fold_id, is_fit=is_fit_stage)
+ 
+@@ -182,7 +183,7 @@ class Operation:
+                     trained_operation=fitted_operation,
+                     predict_data=data)
+ 
+-        if predictions_cache is not None:
++        if predictions_cache is not None and descriptive_id:
+             predictions_cache.save_node_prediction(
+                 descriptive_id, output_mode, fold_id, result_data, is_fit=is_fit_stage)
+ 
+diff --git a/test/unit/operations/test_evo04_prediction_cache_identity.py b/test/unit/operations/test_evo04_prediction_cache_identity.py
+new file mode 100644
+index 00000000..6ec81cda
+--- /dev/null
++++ b/test/unit/operations/test_evo04_prediction_cache_identity.py
+@@ -0,0 +1,36 @@
++from types import SimpleNamespace
++from unittest.mock import Mock
++
++import pytest
++
++from fedot.core.operations.operation import Operation
++
++
++def operation():
++    value = object.__new__(Operation)
++    value._init = Mock()
++    value._eval_strategy = SimpleNamespace(fit=Mock(return_value='model'),
++                                           predict_for_fit=Mock(return_value='output'))
++    return value
++
++
++def test_fit_forwards_node_identity_to_prediction_cache():
++    value = operation()
++    cache = Mock()
++    cache.load_node_prediction.return_value = None
++    data = SimpleNamespace(task='task', features=SimpleNamespace(shape=(4, 2)))
++    _, output = value.fit(None, data, cache, fold_id=2, descriptive_id='ridge/alpha=1')
++    assert output == 'output'
++    cache.load_node_prediction.assert_called_once_with('ridge/alpha=1', 'default', 2, is_fit=True)
++    cache.save_node_prediction.assert_called_once_with('ridge/alpha=1', 'default', 2, 'output', is_fit=True)
++
++
++@pytest.mark.parametrize('identity', [None, ''])
++def test_missing_identity_skips_cache_instead_of_sharing_none_key(identity):
++    value = operation()
++    cache = Mock()
++    data = SimpleNamespace(task='task', features=SimpleNamespace(shape=(4, 2)))
++    _, output = value.fit(None, data, cache, descriptive_id=identity)
++    assert output == 'output'
++    cache.load_node_prediction.assert_not_called()
++    cache.save_node_prediction.assert_not_called()

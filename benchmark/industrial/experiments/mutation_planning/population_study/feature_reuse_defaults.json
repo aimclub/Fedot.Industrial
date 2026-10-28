@@ -1,0 +1,10 @@
+{
+  "schema_version": "industrial_feature_reuse_diagnostics@1",
+  "datasets": ["ECG200", "ArrowHead", "BitcoinSentiment", "NaturalGasPricesSentiment", "BoronConcentration"],
+  "candidates": ["simple", "composite"],
+  "paired_repeats": 3,
+  "predict_repeats": 3,
+  "seed": 42,
+  "max_bytes": 33554432,
+  "max_entries": 128
+}

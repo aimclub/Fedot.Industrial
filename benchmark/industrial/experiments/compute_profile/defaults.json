@@ -1,0 +1,17 @@
+{
+  "seed": 1729,
+  "warmup": 2,
+  "repeats": 7,
+  "rtol": 0.00001,
+  "atol": 0.00001,
+  "memory_budget_bytes": 536870912,
+  "cases": [
+    {"operation": "digitize", "batch": 8, "length": 128, "bins": 8},
+    {"operation": "digitize", "batch": 64, "length": 2048, "bins": 8},
+    {"operation": "digitize", "batch": 64, "length": 2048, "bins": 64},
+    {"operation": "mtf", "batch": 8, "length": 1024, "bins": 8, "image_size": 64},
+    {"operation": "mtf", "batch": 8, "length": 1023, "bins": 8, "image_size": 64},
+    {"operation": "mtf", "batch": 4, "length": 128, "bins": 8, "image_size": 128},
+    {"operation": "gasf", "batch": 16, "length": 512}
+  ]
+}

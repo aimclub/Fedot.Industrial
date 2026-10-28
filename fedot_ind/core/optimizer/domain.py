@@ -29,6 +29,8 @@ class EvolutionState:
     generation: int = 0
 
     def __post_init__(self) -> None:
+        if not isinstance(self.phase, EvolutionPhase):
+            raise ValueError("phase must be an EvolutionPhase")
         if isinstance(self.generation, bool) or not isinstance(self.generation, int):
             raise ValueError("generation must be an integer")
         if self.generation < 0:
@@ -152,6 +154,10 @@ class EvaluationFailureCode(str, Enum):
 
     OBJECTIVE_EXCEPTION = "objective_exception"
     INVALID_FITNESS = "invalid_fitness"
+    OBJECTIVE_INCOMPLETE = "objective_incomplete"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+    WORKER_FAILED = "worker_failed"
 
 
 @dataclass(frozen=True)

@@ -44,6 +44,13 @@ class NodePosition(str, Enum):
     ROOT = "root"
 
 
+class ModelFeatureFlow(str, Enum):
+    """Distinguish prediction-as-feature merging from TensorData feature merging."""
+
+    DECLARED_OUTPUT = "declared_output"
+    TENSOR_FEATURES = "tensor_features"
+
+
 class ValidationSeverity(str, Enum):
     """Severity of one graph validation issue."""
 
@@ -72,6 +79,8 @@ class ValidationIssueCode(str, Enum):
     TOO_MANY_PARENTS = "too_many_parents"
     ROOT_NOT_MODEL = "root_not_model"
     DATA_TYPE_MISMATCH = "data_type_mismatch"
+    INPUT_DATA_TYPE_MISMATCH = "input_data_type_mismatch"
+    FEATURE_TYPE_MISMATCH = "feature_type_mismatch"
     IDENTICAL_PARENT_OPERATIONS = "identical_parent_operations"
     MIXED_DATA_SOURCES = "mixed_data_sources"
     RESAMPLE_POSITION = "resample_position"
@@ -131,6 +140,7 @@ class OperationCapabilities:
     requires_fit: bool = True
     tags: tuple[str, ...] = ()
     structural_role: StructuralRole | None = None
+    preserves_input_features: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
@@ -176,6 +186,7 @@ class OperationCapabilities:
             self.supports_multimodal,
             self.requires_target,
             self.requires_fit,
+            self.preserves_input_features,
         )
         if any(not isinstance(value, bool) for value in flags):
             raise TypeError("Operation capability flags must be boolean")
@@ -205,6 +216,7 @@ class OperationCapabilities:
             "requires_fit": self.requires_fit,
             "tags": list(self.tags),
             "structural_role": None if self.structural_role is None else self.structural_role.value,
+            "preserves_input_features": self.preserves_input_features,
         }
 
 
@@ -246,6 +258,8 @@ class GraphSpec:
     task_type: str | None = None
     requested_device: ComputeDevice | None = None
     require_serializable: bool = False
+    input_data_type: str | None = None
+    model_feature_flow: ModelFeatureFlow = ModelFeatureFlow.DECLARED_OUTPUT
 
     def __post_init__(self) -> None:
         if not isinstance(self.graph_id, str) or not self.graph_id.strip():
@@ -258,6 +272,11 @@ class GraphSpec:
             raise TypeError("requested_device must be a ComputeDevice or None")
         if not isinstance(self.require_serializable, bool):
             raise TypeError("require_serializable must be boolean")
+        if self.input_data_type is not None and (
+                not isinstance(self.input_data_type, str) or not self.input_data_type.strip()):
+            raise ValueError("Graph input data type must be a non-empty string or None")
+        if not isinstance(self.model_feature_flow, ModelFeatureFlow):
+            raise TypeError("model_feature_flow must be a ModelFeatureFlow")
         if not isinstance(self.nodes, tuple) or any(
                 not isinstance(node, GraphNodeSpec) for node in self.nodes):
             raise TypeError("Graph nodes must be a tuple of GraphNodeSpec values")
@@ -273,6 +292,8 @@ class GraphSpec:
             "task_type": self.task_type,
             "requested_device": None if self.requested_device is None else self.requested_device.value,
             "require_serializable": self.require_serializable,
+            "input_data_type": self.input_data_type,
+            "model_feature_flow": self.model_feature_flow.value,
             "nodes": [node.to_record() for node in self.nodes],
         }
 

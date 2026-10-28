@@ -17,6 +17,10 @@ from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialConstructorPolicy,
     IndustrialProbabilityPolicy,
 )
+from .temporal import (
+    fit_temporal_operation, require_temporal_contract,
+    transform_temporal_operation, uses_temporal_contract,
+)
 
 
 def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callable[..., object]:
@@ -24,6 +28,8 @@ def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callab
     wrapper_type = DeferredModel if declaration.kind is IndustrialOperationKind.MODEL else DeferredTransform
 
     def factory(params: Mapping[str, Any] | None = None) -> object:
+        if uses_temporal_contract(declaration):
+            require_temporal_contract()
         return wrapper_type(declaration, params)
 
     factory.__name__ = f"create_{declaration.name}"
@@ -67,9 +73,12 @@ class _DeferredRuntime:
         return method
 
     def fit(self, features: Any, target: Any = None) -> object:
-        runtime_features = self._runtime_input(features, target)
-        args = _fit_args(self.declaration, runtime_features, target)
-        fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
+        if uses_temporal_contract(self.declaration):
+            fitted = fit_temporal_operation(self, features, _invoke)
+        else:
+            runtime_features = self._runtime_input(features, target)
+            args = _fit_args(self.declaration, runtime_features, target)
+            fitted = _invoke(self._method("fit"), args, {}, self.declaration.name)
         if fitted is not None and fitted is not self.implementation:
             self._implementation = fitted
         return self
@@ -126,6 +135,10 @@ class DeferredModel(_DeferredRuntime):
 
 class DeferredTransform(_DeferredRuntime):
     """Array-level transform facade expected by the FEDOT extension runtime."""
+
+    def transform_temporal(self, request):
+        """Keep supervised targets and indices at the explicit window boundary."""
+        return transform_temporal_operation(self, request, _invoke)
 
     def transform(self, features: Any) -> Any:
         method_name = self.declaration.transform_policy.value

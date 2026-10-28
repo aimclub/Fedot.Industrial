@@ -24,8 +24,10 @@ from fedot_ind.integration.fedot.extensions.catalog import load_industrial_exten
 from fedot_ind.integration.fedot.extensions.contracts import (
     IndustrialOperationDeclaration,
     IndustrialOperationKind,
+    IndustrialRuntimeInterface,
 )
 from fedot_ind.integration.fedot.extensions.factories import make_deferred_factory
+from .temporal import supports_temporal_contract, uses_temporal_contract
 
 
 DEFAULTS_PACKAGE = "fedot_ind.core.repository.data"
@@ -41,6 +43,8 @@ def build_industrial_extension_manifest() -> ExtensionManifest:
     models = []
     transforms = []
     for declaration in catalog.operations:
+        if uses_temporal_contract(declaration) and not supports_temporal_contract():
+            continue
         schema = _hyperparams_schema(declaration, defaults, search_parameters)
         factory = make_deferred_factory(declaration)
         if declaration.kind is IndustrialOperationKind.MODEL:
@@ -98,12 +102,18 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
                         defaults_by_operation: Mapping[str, Mapping[str, Any]],
                         search_parameters: Mapping[str, Mapping[str, Any]]) -> ModelHyperparamsSchema:
     defaults = dict(defaults_by_operation.get(declaration.defaults_key or declaration.name, {}))
-    required = set()
+    required = set(declaration.required_parameters)
     optional = set(defaults)
     optional.update(search_parameters.get(declaration.name, {}))
     optional.update(_pdl_parameter_names(declaration.name, search_parameters))
+    if (declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
+            and "ts_forecasting" in declaration.tasks):
+        optional.add("forecast_length")
     if declaration.needs_explicit_task_type:
         required.add("task_type")
+    elif (declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
+          and len(declaration.tasks) > 1):
+        optional.add("task_type")
     optional.difference_update({"model_fit", "model_predict"})
     return ModelHyperparamsSchema(
         required=tuple(sorted(required)),

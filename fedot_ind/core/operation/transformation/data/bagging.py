@@ -28,7 +28,7 @@ class BaggingEnsemble(DataOperationImplementation):
     def _preprocess_predict_for_task(self, input_data):
         self.is_clf_task = input_data.task.task_type == TaskTypesEnum.classification
         is_forecasting_task = input_data.task.task_type == TaskTypesEnum.ts_forecasting
-        is_target_table = len(input_data.target.shape) > 1
+        is_target_table = input_data.target is not None and len(input_data.target.shape) > 1
         self.is_clf_task_with_regression_ensemble = all([self.is_linreg_ensemble,
                                                          self.is_clf_task])
         is_forecasting_task_with_lagged_target = all([is_target_table,

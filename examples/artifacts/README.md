@@ -5,7 +5,20 @@ It does not move large local data into git. Instead it keeps a catalog,
 inventory, cloud-bundle manifest, and optional local static showcase that point
 to the current benchmark and real-world report packs in external storage.
 
+The explicit-executor example stores real search measurements, native Dask
+HTML, source tables and rendered comparisons under
+`cloud_bundle/evolution_parallelism/`. See
+[`examples/release_1_0/evolution`](../release_1_0/evolution/README.md).
+These new measurements are local only; the existing public archive does not
+imply that they have been uploaded. Pilots and runs marked `ABORTED` must not
+enter formal comparisons.
+
 ## What Lives Here
+
+Release-development evidence is indexed separately in
+[`release_1_0_manifest.json`](release_1_0_manifest.json). Full EVO/NN reports
+were moved to the ignored `cloud_bundle/release_1_0_history/`, not copied or
+published. See [storage policy and availability](release_1_0.md).
 
 | Path | Purpose |
 | --- | --- |

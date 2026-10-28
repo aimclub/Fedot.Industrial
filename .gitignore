@@ -37,6 +37,9 @@ uv.lock
 !examples/utils/current_api/manifests/*.json
 !examples/tools_example/tool_defaults.json
 !examples/artifacts/artifact_catalog.json
+!examples/artifacts/release_1_0_manifest.json
+!benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json
+!tests/fixtures/evolution/winner_ranking/*.json
 !examples/real_world_examples/real_world_defaults.json
 !examples/real_world_examples/external_data_manifest.json
 !examples/real_world_examples/benchmark_example/analysis_of_results/analysis_defaults.json
@@ -243,6 +246,10 @@ examples/utils/data/**
 !examples/utils/data/ts_regression/NaturalGasPricesSentiment/
 !examples/utils/data/ts_regression/NaturalGasPricesSentiment/**
 # Heavy generated artifacts
+docs/dev_guide/evo*.json
+docs/dev_guide/evo*.csv
+docs/dev_guide/evo*_profile_*/
+docs/dev_guide/nn*_compatibility_*.json
 *.7z
 *.zip
 *.pth
@@ -255,3 +262,4 @@ examples/utils/data/**
 .wiki_bare/
 .wiki_pages/
 .wiki_index*
+!benchmark/industrial/experiments/evolution_parallelism/defaults.json

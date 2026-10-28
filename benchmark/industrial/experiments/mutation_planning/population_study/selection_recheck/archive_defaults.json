@@ -1,0 +1,9 @@
+{
+  "schema_version": "industrial_completed_archive_recheck@1",
+  "forecast_horizon": 14,
+  "horizon_source": "Unchanged M4 Daily task metadata; no forecasting runs in this recheck",
+  "jobs": [
+    {"dataset": "BitcoinSentiment", "seed": 42, "mode": "legacy"},
+    {"dataset": "BitcoinSentiment", "seed": 42, "mode": "planned"}
+  ]
+}

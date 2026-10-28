@@ -43,6 +43,8 @@ def capabilities_from_declaration(
         tags=declaration.tags,
         structural_role=(None if declaration.structural_role is None
                          else StructuralRole(declaration.structural_role)),
+        # Industrial model declarations use FEDOT's ExtensionModelStrategy.
+        preserves_input_features=declaration.kind is IndustrialOperationKind.MODEL,
     )
 
 

@@ -25,7 +25,8 @@ def test_scanner_rejects_repository_attributes_and_existing_mutation_calls(tmp_p
     symbol = "assign_repo" if "assign_repo" in source else "__repository_dict__"
 
     assert scan_forbidden_usage(tmp_path) == (
-        BoundaryViolation("fedot_ind/patch.py", 1, "repository mutation", symbol),
+        BoundaryViolation("fedot_ind/patch.py", 1,
+                          "repository mutation", symbol),
     )
 
 
@@ -49,7 +50,8 @@ def test_legacy_integration_modules_and_import_map_are_removed():
     assert not (package / "legacy.py").exists()
     assert not (package / "legacy_repository.py").exists()
     assert not (package / "import_map.json").exists()
-    assert not (ROOT / "fedot_ind/core/repository/initializer_industrial_models.py").exists()
+    assert not (
+        ROOT / "fedot_ind/core/repository/initializer_industrial_models.py").exists()
 
 
 def test_fedot_imports_stay_in_effectful_boundary_modules():
@@ -66,7 +68,9 @@ def test_fedot_imports_stay_in_effectful_boundary_modules():
     effectful_modules = {
         "compatibility.py",
         "detection.py",
+        "evaluation.py",
         "forecasting.py",
+        "multimodal.py",
         "temporal_tensor.py",
         "tensor.py",
     }
@@ -78,6 +82,7 @@ def test_fedot_imports_stay_in_effectful_boundary_modules():
     )
     assert "fedot.core.data.input_data.data" in observed["compatibility.py"]
     assert "fedot.extensions" in observed["tensor.py"]
+    assert "fedot.core.pipelines.pipeline" in observed["multimodal.py"]
 
 
 def test_public_boundary_import_does_not_load_fedot_runtime():

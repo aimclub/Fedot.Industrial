@@ -13,7 +13,7 @@ distances = DistanceTypes.keys()
 
 
 @pytest.mark.parametrize('distance, window', [(d, w) for d in distances for w in [0, 30]])
-def test_explain(distance, window):
+def test_explain(distance, window, tmp_path):
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
     get_backend()
@@ -21,7 +21,7 @@ def test_explain(distance, window):
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     train_data, test_data = get_data_by_task('classification')
 
-    industrial = fedot_industrial_classification()
+    industrial = fedot_industrial_classification(tmp_path)
     industrial.fit(train_data)
 
     distance = distance

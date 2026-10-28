@@ -1,0 +1,52 @@
+{
+  "schema_version": "industrial_fedot_compatibility@1",
+  "base_revision": "d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
+  "patches": [
+    {
+      "name": "prediction-cache-identity",
+      "resource": "patches/prediction_cache_identity.patch",
+      "sha256": "27775d285a50185d42c04555054898f32b6318461ae5a152d32157fb36326c77",
+      "sources": {
+        "fedot/core/operations/operation.py": "4133f7360313fce6155e67b7c912c38594dba4f19846124073756c27c6bc2015",
+        "test/unit/operations/test_evo04_prediction_cache_identity.py": "b3760b2f18a1a67364193b950a5bddfc83e38fd064e22c73c18c2cc0104db8ce"
+      }
+    },
+    {
+      "name": "temporal-evaluation",
+      "resource": "patches/temporal_evaluation.patch",
+      "sha256": "1282409b0dabf7af0a9f064f81271058d35f900f2edd0c9aeec4e28290db9857",
+      "sources": {
+        "fedot/core/data/split/temporal.py": "c217fdadde3b46f534e3168e9314554bd3944c7b1f419ca5c01004a6f1d89675",
+        "fedot/core/data/split/data_split.py": "162bc49b14240899347a5a14db8435dd064d791dbbd36f96d9e118474c8d8d89",
+        "fedot/core/optimisers/objective/data_source_splitter.py": "b5a87c923c6c292b6b0ab9b82da5df92e1466c62109097de783713a6865c33f2",
+        "fedot/core/operations/evaluation/temporal_bridge.py": "ca9046517b5079eed06e9823948a964a1c6b754fdebd1e9e112f61973648c09a",
+        "fedot/core/operations/evaluation/time_series.py": "8475cd6eee36aca10dd3c6ca59f14a1945547672dfea8084bfc19d386f0d4da5",
+        "fedot/core/operations/evaluation/regression.py": "ecaa9ae9b963b5e52c70b474b0e63bf1dc94489383fdfcf212667d4cd532ba2a",
+        "fedot/core/operations/evaluation/extensions.py": "f52b9fb08be3c8d6b37b2db51c6cf59b3bcf61f27623b9ea2de3428a1c2e1908",
+        "fedot/core/pipelines/pipeline_advisor.py": "21878d70d3650433be1342d09ecceecfe57f6abfa5f5b17b78f1eaa8d24b9a6f",
+        "test/unit/data/test_evo04_temporal_holdout.py": "8310165308b2d67316439232d63ea1df7ac669a3ba4c2dcea72e9933304be464",
+        "fedot/extensions/runtime_contracts.py": "359f09f918daeac40131878d25706c34c148f3ebfd413588c057db1424ff2813",
+        "fedot/core/operations/evaluation/temporal_extensions.py": "292e9d66e3b8137b18eb85f2913a1c50f8ddb9f00be30fcc53c9883d4ad95fc8",
+        "test/unit/data/test_evo04_temporal_extensions.py": "c11f34f2a1e00c92b17f2075b1d4a732f67802db9cc1d4697357d4c9e0ccdbd3"
+      }
+    },
+    {
+      "name": "aligned-feature-fusion",
+      "resource": "patches/aligned_feature_fusion.patch",
+      "sha256": "7a9fcef427718487fdfefb2aec0e746ba9fd201c72af92944632389bc620080b",
+      "sources": {
+        "fedot/core/data/merge/data_merger.py": "b4b67857fa9f6bedd8e058d64047d52a4f012e37b735e4a87b25baf51f6254d5",
+        "test/unit/data/test_evo04_feature_fusion.py": "a1c7bfc25e3f1a858a6bc5f62567daccae751773b5af0b0ba9a8a655b187c0e8"
+      }
+    },
+    {
+      "name": "classification-tensor",
+      "resource": "patches/classification_tensor.patch",
+      "sha256": "395982736bd4e0a505a485f68e5ef6c1437ac23c3dc368c41ead3835bff24fa1",
+      "sources": {
+        "fedot/core/operations/evaluation/classification.py": "9cd02f1b245a3c8efd16fc6516096673ea143bac83ff38b0606020d522e3a376",
+        "test/unit/operations/test_evo04_classification_tensor.py": "9e6bc96ac52e094758d403ee0be7df43d5cbd58c798863a9e5906cc6c56c1b21"
+      }
+    }
+  ]
+}
