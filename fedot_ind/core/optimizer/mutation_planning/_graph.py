@@ -236,10 +236,6 @@ def drop_primary_branch_allowed(spec: GraphSpec, node: GraphNodeSpec, raw_input:
 def apply_edit(spec: GraphSpec, edit: GraphEdit, *,
                raw_input: RawInputSpec | None = None) -> GraphSpec | MutationRejection:
     """Check semantic safety before constructing a new immutable graph."""
-    nodes = {node.node_id: node for node in spec.nodes}
-    node = nodes.get(edit.node_id)
-    invalid = MutationRejection(MutationRejectionCode.UNSUPPORTED_EDIT,
-                                "Edit is absent, ambiguous or outside the safe local rules.")
     if isinstance(edit, (InsertTransform, AddPrimaryBranch)) and edit.operation.kind is not OperationKind.TRANSFORM:
         return MutationRejection(MutationRejectionCode.OPERATION_KIND, "Only feature transforms may be inserted.")
     if isinstance(edit, (ReplaceOperation, InsertTransform, AddBranch, AddPrimaryBranch)):
@@ -249,159 +245,220 @@ def apply_edit(spec: GraphSpec, edit: GraphEdit, *,
         if spec.task_type not in edit.operation.task_types:
             return MutationRejection(MutationRejectionCode.TASK_NOT_SUPPORTED, "Operation does not support this task.")
     if isinstance(edit, ReplaceOperation):
-        if node is not None and node.capabilities is not None:
-            if edit.operation.name == node.operation_name:
-                return MutationRejection(MutationRejectionCode.SAME_OPERATION,
-                                         "Replacement must change the operation.")
-            if edit.operation.kind is not node.capabilities.kind:
-                return MutationRejection(MutationRejectionCode.OPERATION_KIND,
-                                         "Replacement must preserve operation kind.")
-            if not unary_context_allowed(spec, node.capabilities, edit.operation, raw_input=raw_input):
-                return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
-                                         "Operation input context is unconfirmed.")
-            if (set(node.capabilities.input_data_types).isdisjoint(edit.operation.input_data_types)
-                    or set(node.capabilities.output_data_types).isdisjoint(edit.operation.output_data_types)):
-                return MutationRejection(MutationRejectionCode.DATA_TYPE,
-                                         "Replacement input/output types do not overlap.")
-        if node is None or not replacement_allowed(spec, node, edit.operation, raw_input):
-            return invalid
-        updated = replace(node, operation_name=edit.operation.name, capabilities=edit.operation)
-        return replace(spec, nodes=tuple(updated if item is node else item for item in spec.nodes))
+        return _apply_replace_operation(spec, edit, raw_input=raw_input)
     if isinstance(edit, InsertTransform):
-        parent, child = nodes.get(edit.parent_id), nodes.get(edit.child_id)
-        operation = edit.operation
-        if child is not None and child.capabilities is not None:
-            if not unary_context_allowed(spec, child.capabilities, operation, raw_input=raw_input):
-                return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
-                                         "Operation input context is unconfirmed.")
-            if set(operation.output_data_types).isdisjoint(child.capabilities.input_data_types):
-                return MutationRejection(MutationRejectionCode.DATA_TYPE, "Inserted output cannot feed the child.")
-            if operation.requires_target and not child.capabilities.requires_target:
-                return MutationRejection(MutationRejectionCode.TARGET_REQUIRED,
-                                         "Insertion introduces a target requirement.")
-        if (parent is not None and parent.capabilities is not None
-                and set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
-            return MutationRejection(MutationRejectionCode.DATA_TYPE, "Inserted operation cannot consume the parent.")
-        if (node is not None or child is None or not ordinary(child.capabilities)
-                or not ordinary(operation) or operation.kind is not OperationKind.TRANSFORM
-                or not unary_context_allowed(spec, child.capabilities, operation, raw_input=raw_input)
-                or spec.task_type not in operation.task_types
-                or spec.task_type not in child.capabilities.task_types
-                or (operation.requires_target and not child.capabilities.requires_target)
-                or set(operation.output_data_types).isdisjoint(child.capabilities.input_data_types)):
-            return invalid
-        if edit.parent_id is None:
-            if (child.parent_ids
-                    or set(child.capabilities.input_data_types).isdisjoint(operation.input_data_types)):
-                return invalid
-            parent_ids, child_parents = (), (edit.node_id,)
-        else:
-            if (parent is None or child.parent_ids.count(edit.parent_id) != 1
-                    or parent.capabilities is None
-                    or parent.capabilities.kind is OperationKind.UNKNOWN
-                    or parent.capabilities.structural_role is not None
-                    or not unary_context_allowed(spec, parent.capabilities, raw_input=raw_input)
-                    or not parent.capabilities.output_data_types
-                    or set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
-                return invalid
-            parent_ids = (edit.parent_id,)
-            child_parents = tuple(edit.node_id if parent_id == edit.parent_id else parent_id
-                                  for parent_id in child.parent_ids)
-        inserted = GraphNodeSpec(edit.node_id, operation.name, parent_ids, operation)
-        updated = replace(child, parent_ids=child_parents)
-        result = tuple(updated if item is child else item for item in spec.nodes)
-        return replace(spec, nodes=result + (inserted,))
+        return _apply_insert_transform(spec, edit, raw_input=raw_input)
     if isinstance(edit, DropTransform):
-        if node is None or not drop_allowed(spec, node, raw_input):
-            return invalid
-        return replace(spec, nodes=tuple(replace(item, parent_ids=tuple(
-            node.parent_ids[0] if parent_id == node.node_id else parent_id
-            for parent_id in item.parent_ids)) for item in spec.nodes if item is not node))
+        return _apply_drop_transform(spec, edit, raw_input=raw_input)
     if isinstance(edit, AddBranch):
-        parent, child, operation = nodes.get(edit.parent_id), nodes.get(edit.child_id), edit.operation
-        multimodal = any(item is not None and item.supports_multimodal for item in (
-            operation, parent.capabilities if parent else None, child.capabilities if child else None))
-        confirmed_features = (homogeneous_input_graph(spec, raw_input)
-                              and operation.kind is OperationKind.TRANSFORM
-                              and operation.output_data_types == ("tabular",)
-                              and parent is not None and parent.capabilities is not None
-                              and parent.capabilities.kind is OperationKind.TRANSFORM
-                              and parent.capabilities.output_data_types == ("tabular",))
-        if multimodal and not confirmed_features:
+        return _apply_add_branch(spec, edit, raw_input=raw_input)
+    if isinstance(edit, AddPrimaryBranch):
+        return _apply_add_primary_branch(spec, edit, raw_input=raw_input)
+    if isinstance(edit, DropPrimaryTransform):
+        return _apply_drop_primary_transform(spec, edit, raw_input=raw_input)
+    if isinstance(edit, DropPrimaryBranch):
+        return _apply_drop_primary_branch(spec, edit, raw_input=raw_input)
+    if isinstance(edit, DeduplicateParents):
+        return _apply_deduplicate_parents(spec, edit, raw_input=raw_input)
+    return _unsupported_edit()
+
+
+def _unsupported_edit():
+    return MutationRejection(MutationRejectionCode.UNSUPPORTED_EDIT,
+                             "Edit is absent, ambiguous or outside the safe local rules.")
+
+
+def _apply_replace_operation(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    if node is not None and node.capabilities is not None:
+        if edit.operation.name == node.operation_name:
+            return MutationRejection(MutationRejectionCode.SAME_OPERATION,
+                                     "Replacement must change the operation.")
+        if edit.operation.kind is not node.capabilities.kind:
+            return MutationRejection(MutationRejectionCode.OPERATION_KIND,
+                                     "Replacement must preserve operation kind.")
+        if not unary_context_allowed(spec, node.capabilities, edit.operation, raw_input=raw_input):
             return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
-                                     "Branching multimodal-capable operations needs a homogeneous feature context.")
-        if (node is not None or parent is None or child is None
-                or child.parent_ids.count(edit.parent_id) != 1
-                or not ordinary(child.capabilities) or not ordinary(operation)
-                or parent.capabilities is None or parent.capabilities.kind is OperationKind.UNKNOWN
+                                     "Operation input context is unconfirmed.")
+        if (set(node.capabilities.input_data_types).isdisjoint(edit.operation.input_data_types)
+                or set(node.capabilities.output_data_types).isdisjoint(edit.operation.output_data_types)):
+            return MutationRejection(MutationRejectionCode.DATA_TYPE,
+                                     "Replacement input/output types do not overlap.")
+    if node is None or not replacement_allowed(spec, node, edit.operation, raw_input):
+        return invalid
+    updated = replace(node, operation_name=edit.operation.name, capabilities=edit.operation)
+    return replace(spec, nodes=tuple(updated if item is node else item for item in spec.nodes))
+
+
+def _apply_insert_transform(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    parent, child = nodes.get(edit.parent_id), nodes.get(edit.child_id)
+    operation = edit.operation
+    if child is not None and child.capabilities is not None:
+        if not unary_context_allowed(spec, child.capabilities, operation, raw_input=raw_input):
+            return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
+                                     "Operation input context is unconfirmed.")
+        if set(operation.output_data_types).isdisjoint(child.capabilities.input_data_types):
+            return MutationRejection(MutationRejectionCode.DATA_TYPE, "Inserted output cannot feed the child.")
+        if operation.requires_target and not child.capabilities.requires_target:
+            return MutationRejection(MutationRejectionCode.TARGET_REQUIRED,
+                                     "Insertion introduces a target requirement.")
+    if (parent is not None and parent.capabilities is not None
+            and set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
+        return MutationRejection(MutationRejectionCode.DATA_TYPE, "Inserted operation cannot consume the parent.")
+    if (node is not None or child is None or not ordinary(child.capabilities)
+            or not ordinary(operation) or operation.kind is not OperationKind.TRANSFORM
+            or not unary_context_allowed(spec, child.capabilities, operation, raw_input=raw_input)
+            or spec.task_type not in operation.task_types
+            or spec.task_type not in child.capabilities.task_types
+            or (operation.requires_target and not child.capabilities.requires_target)
+            or set(operation.output_data_types).isdisjoint(child.capabilities.input_data_types)):
+        return invalid
+    if edit.parent_id is None:
+        if (child.parent_ids
+                or set(child.capabilities.input_data_types).isdisjoint(operation.input_data_types)):
+            return invalid
+        parent_ids, child_parents = (), (edit.node_id,)
+    else:
+        if (parent is None or child.parent_ids.count(edit.parent_id) != 1
+                or parent.capabilities is None
+                or parent.capabilities.kind is OperationKind.UNKNOWN
                 or parent.capabilities.structural_role is not None
+                or not unary_context_allowed(spec, parent.capabilities, raw_input=raw_input)
                 or not parent.capabilities.output_data_types
-                or spec.task_type not in operation.task_types
-                or spec.task_type not in child.capabilities.task_types
-                or (operation.requires_target and not child.capabilities.requires_target)
                 or set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
             return invalid
-        # FEDOT requires one common type at an ordinary merge, not just valid pairs.
-        common_types = set(child.capabilities.input_data_types) & set(operation.output_data_types)
-        for parent_id in child.parent_ids:
-            previous = nodes.get(parent_id)
-            if (previous is None or previous.capabilities is None
-                    or previous.capabilities.structural_role is not None
-                    or (previous.capabilities.supports_multimodal and not confirmed_features)):
-                return invalid
-            common_types.intersection_update(previous.capabilities.output_data_types)
-        if not common_types:
-            return MutationRejection(MutationRejectionCode.DATA_TYPE,
-                                     "All feature branches need one common merge type.")
-        branch = GraphNodeSpec(edit.node_id, operation.name, (edit.parent_id,), operation)
-        updated = replace(child, parent_ids=child.parent_ids + (edit.node_id,))
-        return replace(spec, nodes=tuple(updated if item is child else item
-                                         for item in spec.nodes) + (branch,))
-    if isinstance(edit, AddPrimaryBranch):
-        child, operation = nodes.get(edit.child_id), edit.operation
-        if not homogeneous_input_graph(spec, raw_input):
-            return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
-                                     "Primary branching needs confirmed homogeneous classification/regression input.")
-        if (node is not None or child is None or not ordinary(child.capabilities)
-                or not ordinary(operation) or len(child.parent_ids) != 1):
+        parent_ids = (edit.parent_id,)
+        child_parents = tuple(edit.node_id if parent_id == edit.parent_id else parent_id
+                              for parent_id in child.parent_ids)
+    inserted = GraphNodeSpec(edit.node_id, operation.name, parent_ids, operation)
+    updated = replace(child, parent_ids=child_parents)
+    result = tuple(updated if item is child else item for item in spec.nodes)
+    return replace(spec, nodes=result + (inserted,))
+
+
+def _apply_drop_transform(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    if node is None or not drop_allowed(spec, node, raw_input):
+        return invalid
+    return replace(spec, nodes=tuple(replace(item, parent_ids=tuple(
+        node.parent_ids[0] if parent_id == node.node_id else parent_id
+        for parent_id in item.parent_ids)) for item in spec.nodes if item is not node))
+
+
+def _apply_add_branch(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    parent, child, operation = nodes.get(edit.parent_id), nodes.get(edit.child_id), edit.operation
+    multimodal = any(item is not None and item.supports_multimodal for item in (
+        operation, parent.capabilities if parent else None, child.capabilities if child else None))
+    confirmed_features = (homogeneous_input_graph(spec, raw_input)
+                          and operation.kind is OperationKind.TRANSFORM
+                          and operation.output_data_types == ("tabular",)
+                          and parent is not None and parent.capabilities is not None
+                          and parent.capabilities.kind is OperationKind.TRANSFORM
+                          and parent.capabilities.output_data_types == ("tabular",))
+    if multimodal and not confirmed_features:
+        return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
+                                 "Branching multimodal-capable operations needs a homogeneous feature context.")
+    if (node is not None or parent is None or child is None
+            or child.parent_ids.count(edit.parent_id) != 1
+            or not ordinary(child.capabilities) or not ordinary(operation)
+            or parent.capabilities is None or parent.capabilities.kind is OperationKind.UNKNOWN
+            or parent.capabilities.structural_role is not None
+            or not parent.capabilities.output_data_types
+            or spec.task_type not in operation.task_types
+            or spec.task_type not in child.capabilities.task_types
+            or (operation.requires_target and not child.capabilities.requires_target)
+            or set(parent.capabilities.output_data_types).isdisjoint(operation.input_data_types)):
+        return invalid
+    # FEDOT requires one common type at an ordinary merge, not just valid pairs.
+    common_types = set(child.capabilities.input_data_types) & set(operation.output_data_types)
+    for parent_id in child.parent_ids:
+        previous = nodes.get(parent_id)
+        if (previous is None or previous.capabilities is None
+                or previous.capabilities.structural_role is not None
+                or (previous.capabilities.supports_multimodal and not confirmed_features)):
             return invalid
-        parents = [nodes[parent_id] for parent_id in child.parent_ids]
-        if operation.name in {parent.operation_name for parent in parents}:
-            return MutationRejection(MutationRejectionCode.SAME_OPERATION,
-                                     "A new primary branch must add a distinct transform.")
-        if (raw_input.data_type not in operation.input_data_types
-                or operation.output_data_types != ("tabular",)
-                or "tabular" not in child.capabilities.input_data_types
-                or any(parent.capabilities.kind is not OperationKind.TRANSFORM
-                       or parent.capabilities.output_data_types != ("tabular",) for parent in parents)):
-            return MutationRejection(MutationRejectionCode.DATA_TYPE,
-                                     "Only aligned tabular transform outputs may form a primary feature merge.")
-        if operation.requires_target and not raw_input.has_target:
-            return MutationRejection(MutationRejectionCode.TARGET_REQUIRED, "The new branch requires a target.")
-        branch = GraphNodeSpec(edit.node_id, operation.name, (), operation)
-        updated = replace(child, parent_ids=child.parent_ids + (edit.node_id,))
-        return replace(spec, nodes=tuple(updated if item is child else item
-                                         for item in spec.nodes) + (branch,))
-    if isinstance(edit, DropPrimaryTransform):
-        if raw_input is None:
-            return MutationRejection(MutationRejectionCode.MISSING_CONTEXT,
-                                     "Primary removal requires a confirmed homogeneous raw input.")
-        if node is None or not drop_primary_allowed(spec, node, raw_input):
-            return invalid
-        return replace(spec, nodes=tuple(replace(item, parent_ids=())
-                                         if node.node_id in item.parent_ids else item
-                                         for item in spec.nodes if item is not node))
-    if isinstance(edit, DropPrimaryBranch):
-        if node is None or not drop_primary_branch_allowed(spec, node, raw_input):
-            return invalid
-        return replace(spec, nodes=tuple(replace(item, parent_ids=tuple(
-            parent_id for parent_id in item.parent_ids if parent_id != node.node_id))
-            for item in spec.nodes if item is not node))
-    if isinstance(edit, DeduplicateParents):
-        if (node is None or not ordinary(node.capabilities)
-                or not unary_context_allowed(spec, node.capabilities, raw_input=raw_input)
-                or len(set(node.parent_ids)) == len(node.parent_ids)):
-            return invalid
-        updated = replace(node, parent_ids=tuple(dict.fromkeys(node.parent_ids)))
-        return replace(spec, nodes=tuple(updated if item is node else item for item in spec.nodes))
-    return invalid
+        common_types.intersection_update(previous.capabilities.output_data_types)
+    if not common_types:
+        return MutationRejection(MutationRejectionCode.DATA_TYPE,
+                                 "All feature branches need one common merge type.")
+    branch = GraphNodeSpec(edit.node_id, operation.name, (edit.parent_id,), operation)
+    updated = replace(child, parent_ids=child.parent_ids + (edit.node_id,))
+    return replace(spec, nodes=tuple(updated if item is child else item
+                                     for item in spec.nodes) + (branch,))
+
+
+def _apply_add_primary_branch(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    child, operation = nodes.get(edit.child_id), edit.operation
+    if not homogeneous_input_graph(spec, raw_input):
+        return MutationRejection(MutationRejectionCode.INPUT_CONTEXT,
+                                 "Primary branching needs confirmed homogeneous classification/regression input.")
+    if (node is not None or child is None or not ordinary(child.capabilities)
+            or not ordinary(operation) or len(child.parent_ids) != 1):
+        return invalid
+    parents = [nodes[parent_id] for parent_id in child.parent_ids]
+    if operation.name in {parent.operation_name for parent in parents}:
+        return MutationRejection(MutationRejectionCode.SAME_OPERATION,
+                                 "A new primary branch must add a distinct transform.")
+    if (raw_input.data_type not in operation.input_data_types
+            or operation.output_data_types != ("tabular",)
+            or "tabular" not in child.capabilities.input_data_types
+            or any(parent.capabilities.kind is not OperationKind.TRANSFORM
+                   or parent.capabilities.output_data_types != ("tabular",) for parent in parents)):
+        return MutationRejection(MutationRejectionCode.DATA_TYPE,
+                                 "Only aligned tabular transform outputs may form a primary feature merge.")
+    if operation.requires_target and not raw_input.has_target:
+        return MutationRejection(MutationRejectionCode.TARGET_REQUIRED, "The new branch requires a target.")
+    branch = GraphNodeSpec(edit.node_id, operation.name, (), operation)
+    updated = replace(child, parent_ids=child.parent_ids + (edit.node_id,))
+    return replace(spec, nodes=tuple(updated if item is child else item
+                                     for item in spec.nodes) + (branch,))
+
+
+def _apply_drop_primary_transform(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    if raw_input is None:
+        return MutationRejection(MutationRejectionCode.MISSING_CONTEXT,
+                                 "Primary removal requires a confirmed homogeneous raw input.")
+    if node is None or not drop_primary_allowed(spec, node, raw_input):
+        return invalid
+    return replace(spec, nodes=tuple(replace(item, parent_ids=())
+                                     if node.node_id in item.parent_ids else item
+                                     for item in spec.nodes if item is not node))
+
+
+def _apply_drop_primary_branch(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    if node is None or not drop_primary_branch_allowed(spec, node, raw_input):
+        return invalid
+    return replace(spec, nodes=tuple(replace(item, parent_ids=tuple(
+        parent_id for parent_id in item.parent_ids if parent_id != node.node_id))
+        for item in spec.nodes if item is not node))
+
+
+def _apply_deduplicate_parents(spec, edit, *, raw_input):
+    nodes = {node.node_id: node for node in spec.nodes}
+    node = nodes.get(edit.node_id)
+    invalid = _unsupported_edit()
+    if (node is None or not ordinary(node.capabilities)
+            or not unary_context_allowed(spec, node.capabilities, raw_input=raw_input)
+            or len(set(node.parent_ids)) == len(node.parent_ids)):
+        return invalid
+    updated = replace(node, parent_ids=tuple(dict.fromkeys(node.parent_ids)))
+    return replace(spec, nodes=tuple(updated if item is node else item for item in spec.nodes))
