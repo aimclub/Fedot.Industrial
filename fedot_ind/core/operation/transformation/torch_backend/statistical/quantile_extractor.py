@@ -254,50 +254,6 @@ class TorchQuantileExtractor(BaseExtractor):
                 return False
         return True
 
-    def apply_window_for_stat_feature_torch(self,
-                                            ts_data: torch.Tensor,
-                                            feature_generator: callable,
-                                            window_size: int = None) -> torch.Tensor:
-        """
-        Method for creating windows and extracting base statistical features
-        for a given time series or batch of time series.
-        """
-        axis = ts_data.ndim - 1
-        if window_size is None:
-            window_size = round(ts_data.shape[axis] / 10)
-        else:
-            window_size = round(ts_data.shape[axis] * (window_size / 100))
-        window_size = max(window_size, 5)
-
-        if self.use_sliding_window:
-            if self.stride > 1:
-                subseq_set = HankelMatrix(time_series=ts_data,
-                                          window_size=window_size,
-                                          strides=self.stride).trajectory_matrix
-            else:
-                window_length = ts_data.shape[axis] - window_size
-                subseq_set = ts_data.unfold(
-                    dimension=axis,
-                    size=window_length,
-                    step=self.stride
-                )
-            if subseq_set.ndim > 2:
-                subseq_set = subseq_set.transpose(1, 2)
-            else:
-                subseq_set = subseq_set.T
-        else:
-            T = ts_data.shape[1]
-            num_windows = T // window_size
-            T_eff = num_windows * window_size
-            ts_cut = ts_data[:, :T_eff]
-            subseq_set = ts_cut.reshape(2, num_windows, window_size)
-        features = feature_generator(subseq_set)
-        features = torch.stack(features, dim=0).to(ts_data.device)
-        if features.ndim > 2:
-            features = features.permute(1, 2, 0)
-        else:
-            features = features.T
-        return features
 
     def get_statistical_features_torch(
             self,

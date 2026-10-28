@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .fedot_input import fedot_input_data as _fedot_input_data
+
 import numpy as np
 
 from benchmark.industrial.core import ModelSpec, RunStatus
@@ -169,19 +171,6 @@ def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
     return OperationParameters(payload)
 
 
-def _fedot_input_data(features: np.ndarray, target: np.ndarray, *, task_type: str):
-    from fedot.core.data.input_data.data import InputData
-    from fedot.core.repository.dataset_types import DataTypesEnum
-    from fedot.core.repository.tasks import Task, TaskTypesEnum
-
-    task = Task(TaskTypesEnum.classification if task_type == 'classification' else TaskTypesEnum.regression)
-    return InputData(
-        idx=np.arange(features.shape[0]),
-        features=features,
-        target=target,
-        task=task,
-        data_type=DataTypesEnum.table,
-    )
 
 
 __all__ = [
