@@ -6,7 +6,7 @@ this coordinator may request a bounded infrastructure retry.
 """
 
 from collections import deque
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, replace
 import json
 import logging
@@ -17,6 +17,7 @@ from uuid import uuid4
 
 import cloudpickle
 
+from .dask_transitions import FlightAction, flight_action
 from .contracts import ExecutionError, ExecutionResult, ExecutionStatus
 from .dask_config import DaskEvaluationPlan, DaskExecutionConfig
 from .executors import CancellationToken, _stop_reason
@@ -200,7 +201,7 @@ def _receive(flight):
         return _failed(flight.task, ExecutionStatus.WORKER_FAILED, flight.started, type(error).__name__, str(error))
 
 
-def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt, directory):
+def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt, directory, *, interrupt_active=False):
     from .dask_bootstrap import evaluate_on_worker
 
     pending = deque((task, payload, 0) for task, payload in zip(plan.tasks, payloads))
@@ -221,14 +222,16 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                 break
             session.available_workers(flight.worker for flight in active.values())
             for uid, flight in tuple(active.items()):
-                expired = (plan.candidate_timeout_seconds is not None
-                           and monotonic() - flight.started >= plan.candidate_timeout_seconds)
-                if expired:
+                action = flight_action(
+                    now=monotonic(), started=flight.started, timeout=plan.candidate_timeout_seconds,
+                    result_ready=flight.result_path.exists() or flight.future.done(),
+                    worker_available=flight.worker in session.worker_addresses)
+                if action is FlightAction.TIMEOUT:
                     result = _failed(flight.task, ExecutionStatus.TIMED_OUT, flight.started,
                                      "EvaluationTimeout", "Dask candidate deadline reached")
                     results[uid] = result
                     session.interrupt_worker(flight.worker, flight.future)
-                elif flight.result_path.exists() or flight.future.done():
+                elif action is FlightAction.RECEIVE:
                     result = _receive(flight)
                     if result is None:
                         if flight.worker in session.worker_addresses:
@@ -243,7 +246,7 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                           and monotonic() - flight.started >= plan.candidate_timeout_seconds):
                         result = _failed(flight.task, ExecutionStatus.TIMED_OUT, flight.started,
                                          "EvaluationTimeout", "Result arrived after the Dask candidate deadline")
-                elif flight.worker not in session.worker_addresses:
+                elif action is FlightAction.WORKER_LOST:
                     # A pinned task lost before execution may remain pending in
                     # Dask rather than failing as KilledWorker. Bound it here too.
                     session.client.cancel(flight.future, force=True)
@@ -258,7 +261,10 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                     pending.appendleft((flight.task, flight.payload, flight.attempt + 1))
                 else:
                     results[uid] = result
-                flight.future.release()
+                try:
+                    flight.future.release()
+                except Exception as error:
+                    raise DaskCleanupError('Cannot release a completed Dask evaluation') from error
             workers = session.available_workers(flight.worker for flight in active.values())
             if pending and not workers and not active:
                 no_workers_since = monotonic() if no_workers_since is None else no_workers_since
@@ -266,7 +272,7 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                     raise TimeoutError("No verified Dask worker became available")
             else:
                 no_workers_since = None
-            while pending and workers and not _stop_reason(token, deadline):
+            while pending and workers and len(active) < plan.max_workers and not _stop_reason(token, deadline):
                 task, payload, attempt = pending.popleft()
                 started = first_started.setdefault(task.candidate_id, monotonic())
                 if (plan.candidate_timeout_seconds is not None
@@ -294,6 +300,8 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                 active[task.candidate_id] = _Flight(task, payload, attempt, future, worker, started, result_path)
             if pending or active:
                 sleep(config.poll_interval_seconds)
+    except DaskCleanupError:
+        raise
     except Exception as error:
         for task in plan.tasks:
             if task.candidate_id not in results:
@@ -301,13 +309,12 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                     task, ExecutionStatus.WORKER_FAILED, first_started.get(task.candidate_id, monotonic()),
                     type(error).__name__, str(error))
     finally:
-        for flight in active.values():
-            session.client.cancel(flight.future, force=True)
-            flight.future.release()
+        _cleanup_flights(session, active.values(), interrupt_active=interrupt_active)
     return tuple(results[task.candidate_id] for task in plan.tasks)
 
 
-def execute_dask_plan(plan, payloads, evaluate, *, config=None, cancellation=None, on_attempt=None):
+def execute_dask_plan(plan, payloads, evaluate, *, config=None, cancellation=None, on_attempt=None,
+                      session=None, on_session=None):
     """Run an explicit private cluster; return one terminal result per task.
 
     Infrastructure retries are bounded and opt-in. Model exceptions are never
@@ -317,9 +324,18 @@ def execute_dask_plan(plan, payloads, evaluate, *, config=None, cancellation=Non
     """
     if not isinstance(plan, DaskEvaluationPlan):
         raise TypeError("Dask execution requires DaskEvaluationPlan")
-    config = DaskExecutionConfig() if config is None else config
+    if session is not None:
+        if not isinstance(session, DaskEvaluationSession) or session.client is None:
+            raise ValueError('A caller-owned session must be entered before evaluation')
+        if session.max_workers < plan.max_workers:
+            raise ValueError('The caller-owned session has too few workers')
+    config = (session.config if session is not None else DaskExecutionConfig()) if config is None else config
     if not isinstance(config, DaskExecutionConfig):
         raise TypeError("config must be DaskExecutionConfig")
+    if session is not None and config != session.config:
+        raise ValueError('Session and evaluation Dask settings must match')
+    if on_session is not None and not callable(on_session):
+        raise TypeError('Session observer must be a context-manager factory')
     payloads = tuple(payloads)
     if len(payloads) != len(plan.tasks):
         raise ValueError("Each planned task requires exactly one payload")
@@ -336,9 +352,13 @@ def execute_dask_plan(plan, payloads, evaluate, *, config=None, cancellation=Non
         startup = min(startup, max(0.001, deadline - monotonic()))
     try:
         with _result_directory() as directory:
-            with DaskEvaluationSession(
-                    plan.max_workers, config, startup_timeout=startup, cancellation=token) as session:
-                return _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt, directory)
+            scope = (DaskEvaluationSession(plan.max_workers, config, startup_timeout=startup, cancellation=token)
+                     if session is None else nullcontext(session))
+            with scope as active_session:
+                observation = nullcontext() if on_session is None else on_session(active_session)
+                with observation:
+                    return _run(active_session, plan, payloads, evaluate, token, deadline, config,
+                                on_attempt, directory, interrupt_active=session is not None)
     except DaskCleanupError:
         raise
     except Exception as error:
@@ -349,3 +369,22 @@ def execute_dask_plan(plan, payloads, evaluate, *, config=None, cancellation=Non
             return tuple(_failed(task, reason[0], started, *reason[1:]) for task in plan.tasks)
         return tuple(_failed(task, ExecutionStatus.WORKER_FAILED, started,
                              type(error).__name__, str(error)) for task in plan.tasks)
+
+
+def _cleanup_flights(session, flights, *, interrupt_active):
+    cleanup_errors = []
+    for flight in flights:
+        try:
+            if interrupt_active:
+                session.interrupt_worker(flight.worker, flight.future)
+            else:
+                session.client.cancel(flight.future, force=True)
+        except Exception as error:
+            cleanup_errors.append(error)
+        finally:
+            try:
+                flight.future.release()
+            except Exception as error:
+                cleanup_errors.append(error)
+    if cleanup_errors:
+        raise DaskCleanupError('Cannot confirm interruption of every active Dask evaluation') from cleanup_errors[0]
