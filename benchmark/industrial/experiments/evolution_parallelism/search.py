@@ -109,7 +109,6 @@ def build_environment(settings, task, workers):
 
 def run_search(config, output_dir):
     import torch
-    from functools import partial
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
     from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
     from golem.core.optimisers.objective import Objective

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -533,8 +532,6 @@ def _metric_records_from_run_summary(run_record: BenchmarkRunRecord) -> list[Met
         for metric_name, metric_value in run_record.metrics_summary.items()
         if metric_value is not None
     ]
-
-
 
 
 def _load_value_prediction_records(path: str | None) -> list[ValuePredictionRecord]:

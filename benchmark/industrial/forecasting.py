@@ -110,10 +110,6 @@ DEFAULT_LOCAL_M4_LONG_DIRS = (
 DEFAULT_LOCAL_MONASH_DIR = EXAMPLES_DATA_DIR / 'benchmark' / 'forecasting' / 'monash_benchmark'
 
 
-class BenchmarkConfigurationError(ValueError):
-    """Raised when a forecasting benchmark configuration is invalid."""
-
-
 class ModelExecutionError(RuntimeError):
     """Raised when a model run produces a benchmark-level failure status."""
 
@@ -781,16 +777,6 @@ def _build_fedot_forecasting_input(series_record: ForecastingSeriesRecord):
         task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=series_record.forecast_horizon)),
         data_type=DataTypesEnum.ts,
     )
-
-
-
-
-
-
-
-
-
-
 
 
 @dataclass
@@ -1762,14 +1748,6 @@ def build_model_adapter(spec: ModelSpec) -> ForecastingModelAdapter:
             tags=spec.tags or ('baseline', 'forecasting', 'external', 'tft'),
         )
     raise BenchmarkConfigurationError(f'Unsupported forecasting model adapter: {spec.adapter_name}')
-
-
-
-
-
-
-
-
 
 
 def _extract_forecast_event_mask(metadata: dict[str, Any], horizon: int) -> np.ndarray | None:

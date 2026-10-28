@@ -12,6 +12,15 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
 
 
+def test_metric_error_preserves_public_exception_identity():
+    from benchmark.industrial.errors import BenchmarkConfigurationError
+    from benchmark.industrial.forecasting import BenchmarkConfigurationError as PublicError
+    from benchmark.industrial.evaluation.forecasting_metrics import compute_forecasting_metric
+    assert PublicError is BenchmarkConfigurationError
+    with pytest.raises(PublicError, match='Unsupported metric'):
+        compute_forecasting_metric('unknown', np.array([1]), np.array([1]), np.array([1]), 1)
+
+
 @pytest.mark.parametrize('rows', [1, 2, 3])
 def test_non_sliding_windows_preserve_every_row(rows):
     extractor = TorchQuantileExtractor(OperationParameters(use_sliding_window=False))

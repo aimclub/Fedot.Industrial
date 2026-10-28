@@ -11,7 +11,6 @@ from fedot_ind.integration.fedot.compatibility import InputData
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.torch_backend.enums import (
     STAT_FEATURE_CONFIG,
 )
@@ -253,7 +252,6 @@ class TorchQuantileExtractor(BaseExtractor):
             if getattr(actual, '__func__', actual) is not method:
                 return False
         return True
-
 
     def get_statistical_features_torch(
             self,

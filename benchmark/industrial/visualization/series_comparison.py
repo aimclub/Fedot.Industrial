@@ -1,5 +1,4 @@
 """Rendering effects for an already prepared per-series comparison."""
-from pathlib import Path
 import numpy as np
 from benchmark.industrial.core import ArtifactRecord, RunStatus, ensure_directory, write_json
 

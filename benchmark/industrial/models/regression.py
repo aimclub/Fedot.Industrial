@@ -171,8 +171,6 @@ def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
     return OperationParameters(payload)
 
 
-
-
 __all__ = [
     "KernelEnsembleRegressorAdapter",
     "LinearRegressor",

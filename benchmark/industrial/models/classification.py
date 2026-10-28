@@ -576,8 +576,6 @@ def _operation_parameters(params: dict[str, Any] | None, *, default_model: str):
     return OperationParameters(payload)
 
 
-
-
 def _resolve_future_batch_sizes(training_kwargs: dict[str, Any]) -> tuple[int, int, dict[str, Any]]:
     kwargs = dict(training_kwargs)
     default_batch_size = int(kwargs.pop('batch_size', 32))

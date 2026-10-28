@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -397,8 +396,6 @@ def _load_classification_artifact_records(
     metric_records = _load_metric_records(paths.get("metrics"))
     prediction_records = _load_label_prediction_records(paths.get("predictions"))
     return metric_records, prediction_records
-
-
 
 
 def _load_label_prediction_records(path: str | None) -> list[LabelPredictionRecord]:
