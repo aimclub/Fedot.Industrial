@@ -27,6 +27,7 @@ from .diagnostics import record_evaluation_results
 from .executors import CancellationToken, execute_plan
 from .context import EvaluationBudget, EvaluationContext, evaluation_context_scope
 from .preparation import GraphPreparation, PreparedEvaluationGraph
+from .timing import BatchTiming
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         self.last_plan = None
         self.last_results = ()
         self.last_budget = None
+        self.batch_timings = []
 
     def cancel(self):
         self.cancellation.cancel()
@@ -121,6 +123,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
             raise RuntimeError('Cannot replace objective while a batch is active')
         super().dispatch(objective, timer)
         self.cancellation = CancellationToken()
+        self.batch_timings = []
         return self.evaluate_with_cache
 
     def evaluate_with_cache(self, population):
@@ -189,6 +192,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         jobs = tuple(replace(job, context=replace(job.context, budget=budget)) for job in jobs)
         plan = self._make_plan(tasks, None if expired else total)
         self.last_plan = plan
+        execution_started = monotonic()
         if expired:
             # A tiny positive timeout can still admit a callback on a coarse host clock.
             cancelled = self.cancellation.cancelled
@@ -200,6 +204,8 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
                 for task in tasks)
         else:
             self.last_results = self._execute_plan(plan, jobs)
+        execution_seconds = monotonic() - execution_started
+        application_started = monotonic()
         graph_results = []
         for result, individual, job in zip(self.last_results, to_evaluate, jobs):
             if result.status is ExecutionStatus.SUCCEEDED:
@@ -227,6 +233,8 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         # out of the breeding population, while retaining their typed diagnostics.
         successful = [r for r in graph_results if r.fitness.valid]
         evaluated = self.apply_evaluation_results(to_evaluate, successful)
+        self.batch_timings.append(BatchTiming(
+            preparation_seconds, execution_seconds, monotonic() - application_started, len(tasks)))
         return evaluated + reused
 
     def _make_plan(self, tasks, total):

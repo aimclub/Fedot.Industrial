@@ -138,6 +138,17 @@ def build_search_comparison(run_dirs):
               'evaluations': pd.DataFrame(evaluations), 'profiles': pd.DataFrame(profiles),
               'paired_work': pd.DataFrame(pairs)}
     frames['execution_diagnostics'] = summarize_execution(frames)
+    phase_rows, attempt_rows = [], []
+    for directory in run_dirs:
+        phase_path = directory / 'phase_timings.json'
+        if phase_path.is_file():
+            phase_rows.append({'run': directory.name, **json.loads(phase_path.read_text('utf-8'))})
+        attempts_path = directory / 'dask_attempts.json'
+        if attempts_path.is_file():
+            attempt_rows.extend({'run': directory.name, **row}
+                                for row in json.loads(attempts_path.read_text('utf-8')))
+    frames['phase_timings'] = pd.DataFrame(phase_rows)
+    frames['infrastructure_attempts'] = pd.DataFrame(attempt_rows)
     native = frames['evaluations']
     frames['failure_examples'] = (native[~native.valid].drop_duplicates(['run', 'configuration_id'])
                                   if not native.empty else pd.DataFrame())

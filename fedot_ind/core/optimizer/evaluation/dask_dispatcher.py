@@ -52,6 +52,7 @@ class DaskEvaluationDispatcher(LocalEvaluationDispatcher):
     def search_scope(self):
         """Own a lazy session for this search; an explicit caller session wins."""
         previous = getattr(self, '_search_resources', None)
+        self.attempt_history = []
         with ExitStack() as stack:
             self._search_resources = _SearchResources(stack)
             try:
@@ -108,3 +109,6 @@ class DaskEvaluationDispatcher(LocalEvaluationDispatcher):
                                              else _OBSERVER.get()))
         finally:
             self.last_dask_attempts = tuple(attempts)
+            if not hasattr(self, 'attempt_history'):
+                self.attempt_history = []
+            self.attempt_history.extend(attempts)

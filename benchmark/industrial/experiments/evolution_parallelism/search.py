@@ -174,7 +174,7 @@ def run_search(config, output_dir):
     workers = 1 if config.backend == 'sequential' else config.workers
     dask_config = DaskExecutionConfig(retries=1, memory_limit=4 * 1024**3,
                                       lifecycle=DaskLifecycle(config.lifecycle))
-    batches, generations, dask_records, sessions = [], [], [], []
+    batches, generations, dask_records, sessions, session_resources = [], [], [], [], []
     startup_seconds = 0.
 
     @contextmanager
@@ -182,6 +182,7 @@ def run_search(config, output_dir):
         directory = root / 'dask' / f'batch_{len(batches):03d}'
         batches.append(directory)
         sessions.append(session.client)
+        session_resources.append(session)
         with dask_diagnostics(session.client, directory) as record:
             dask_records.append(record)
             yield record
@@ -263,6 +264,7 @@ def run_search(config, output_dir):
                        [entry.to_record() for entry in optimizer.completed_evaluations.entries])
 
         optimizer.eval_dispatcher.completed_evaluation_callback = record_completions
+        setup_seconds = time() - launch_epoch
         start = perf_counter()
         selected = optimizer.optimise(measured)[0]
         search_seconds = perf_counter() - start
@@ -291,6 +293,22 @@ def run_search(config, output_dir):
     summary['processes'] = memory.summary
     summary['dask_diagnostics'] = [{'path': str(record.output_dir), **record.summary} for record in dask_records]
     summary['owned_sessions_closed'] = all(client.status == 'closed' for client in sessions)
+    batch_rows = [row.to_record() for row in getattr(optimizer.eval_dispatcher, 'batch_timings', ())]
+    session_rows = [{'startup_seconds': item.startup_seconds, 'cleanup_seconds': item.cleanup_seconds}
+                    for item in session_resources]
+    attempt_rows = [{**asdict(item), 'status': item.status.value}
+                    for item in getattr(optimizer.eval_dispatcher, 'attempt_history', ())]
+    write_json(root / 'batch_timings.json', batch_rows)
+    write_json(root / 'session_timings.json', session_rows)
+    write_json(root / 'dask_attempts.json', attempt_rows)
+    from benchmark.industrial.evaluation.search_phases import summarize_search_phases
+    summary['phases'] = summarize_search_phases(
+        setup_seconds=setup_seconds, search_seconds=search_seconds, batches=batch_rows, sessions=session_rows,
+        lifecycle=config.lifecycle, refit_seconds=final.refit_seconds, predict_seconds=final.predict_seconds)
+    summary['startup_seconds'] = summary['phases']['session_startup_seconds']
+    summary['dask_sessions'] = len(session_rows)
+    summary['evaluation_batches'] = len(batch_rows)
+    write_json(root / 'phase_timings.json', summary['phases'])
     write_json(root / 'dask_diagnostics.json', summary['dask_diagnostics'])
     summary['minimum_generations_met'] = search_complete(evolved, config.generations)
     if not summary['minimum_generations_met']:

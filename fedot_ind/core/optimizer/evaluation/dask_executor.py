@@ -87,6 +87,8 @@ class DaskEvaluationSession:
         self.max_workers, self.config = max_workers, config
         self.startup_timeout = config.startup_timeout_seconds if startup_timeout is None else startup_timeout
         self.client = self.cluster = None
+        self.startup_seconds = None
+        self.cleanup_seconds = 0.
         self.worker_pids = set()
         self.digest = None
         self._verified = set()
@@ -94,6 +96,7 @@ class DaskEvaluationSession:
         self.cancellation = CancellationToken() if cancellation is None else cancellation
 
     def __enter__(self):
+        startup_started = monotonic()
         from distributed import Client, LocalCluster
         from distributed.system import MEMORY_LIMIT
         from .dask_bootstrap import IndustrialWorkerBootstrap
@@ -126,8 +129,10 @@ class DaskEvaluationSession:
                 except TimeoutError:
                     continue
             self.available_workers(())
+            self.startup_seconds = monotonic() - startup_started
             return self
         except BaseException:
+            self.startup_seconds = monotonic() - startup_started
             self.close()
             raise
 
@@ -160,6 +165,7 @@ class DaskEvaluationSession:
 
     def close(self):
         # Attempt both even if one cleanup fails. Never close an ambient client.
+        started = monotonic()
         errors = []
         for name in ("client", "cluster"):
             resource = getattr(self, name)
@@ -170,6 +176,7 @@ class DaskEvaluationSession:
                     errors.append(error)
                 else:
                     setattr(self, name, None)
+        self.cleanup_seconds += monotonic() - started
         if errors:
             raise DaskCleanupError("Could not confirm Dask resource cleanup") from errors[0]
 
