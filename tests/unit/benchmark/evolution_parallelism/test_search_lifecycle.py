@@ -66,4 +66,5 @@ def test_coordinator_closes_monitor_and_never_reads_test_for_incomplete_search(m
         assert result['status'] == 'incomplete' and result['test_loss'] is None
         assert json.loads((root / 'summary.json').read_text())['status'] == 'incomplete'
     assert loads == [False] and closed == [True]
-    assert flags == (torch.get_num_threads(), torch.get_num_interop_threads(), torch.are_deterministic_algorithms_enabled())
+    assert flags == (torch.get_num_threads(), torch.get_num_interop_threads(),
+                     torch.are_deterministic_algorithms_enabled())

@@ -46,7 +46,7 @@ jobs:
       - name: Prepare explicit FEDOT compatibility profile
         uses: ./.github/actions/fedot-compat
       - name: Run tests with pytest
-        run: python -m pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit -vv
+        run: python -m pytest --cov=fedot_ind --cov=benchmark.industrial --cov-report xml:coverage.xml tests/unit -vv
       - name: Codecov coverage
         uses: codecov/codecov-action@v4
         with:

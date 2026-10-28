@@ -1,19 +1,31 @@
 from time import time
+from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
 from benchmark.industrial.experiments.evolution_parallelism.clock import absolute_search_timer, search_complete
 
 
-def test_setup_time_is_not_granted_again_at_timer_entry():
-    launch = time() - 40
+def test_setup_time_is_not_granted_again_at_timer_entry(monkeypatch):
+    import golem.core.optimisers.timer as timer_module
+    now = [1000.]
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls):
+            return datetime.fromtimestamp(now[0])
+
+    monkeypatch.setattr(timer_module, 'datetime', SimpleNamespace(datetime=Clock, timedelta=timedelta))
+    launch = now[0] - 40
     timer = absolute_search_timer(launch, launch + 100)
     with timer:
-        assert 40 <= timer.seconds_from_start < 45
-        assert 55 < timer.timeout.total_seconds() - timer.seconds_from_start <= 60
+        assert timer.seconds_from_start == 40
+        assert timer.timeout.total_seconds() - timer.seconds_from_start == 60
         assert not timer.is_time_limit_reached()
+    now[0] += 3
     with timer:
-        assert timer.seconds_from_start >= 40
+        assert timer.seconds_from_start == 43
 
 
 def test_expired_setup_cannot_start_a_new_search_budget():
