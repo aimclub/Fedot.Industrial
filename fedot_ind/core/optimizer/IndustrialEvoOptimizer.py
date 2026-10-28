@@ -1,6 +1,6 @@
 from random import choice, Random
 from copy import deepcopy
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any, Dict, Mapping, Optional, Sequence
 
 from golem.core.dag.graph import Graph
@@ -544,7 +544,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 verifier.model_feature_flow = ModelFeatureFlow.TENSOR_FEATURES
             if isinstance(mutation, PlannedMutation):
                 mutation.raw_input = raw_input
-            return self._optimise(objective)
+            search_scope = getattr(getattr(self, 'eval_dispatcher', None), 'search_scope', nullcontext)
+            with search_scope():
+                return self._optimise(objective)
         finally:
             if isinstance(verifier, IndustrialGraphVerifier):
                 verifier.input_data_type = previous_input_type

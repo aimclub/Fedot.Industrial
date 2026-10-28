@@ -1,9 +1,15 @@
 """Pure configuration and execution plans for the opt-in Dask executor."""
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Mapping
 
 from .contracts import EvaluationTask, positive_seconds
+
+
+class DaskLifecycle(str, Enum):
+    BATCH = 'batch'
+    SEARCH = 'search'
 
 
 @dataclass(frozen=True)
@@ -24,7 +30,10 @@ def _validate_options(options: Mapping) -> tuple[DaskConfigViolation, ...]:
     violations = []
     for name, value in options.items():
         message = None
-        if name == "retries":
+        if name == 'lifecycle':
+            if value not in ('batch', 'search'):
+                message = 'must be batch or search'
+        elif name == "retries":
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 3:
                 message = "must be an integer between 0 and 3"
         elif name == "memory_limit":
@@ -51,8 +60,11 @@ class DaskExecutionConfig:
     restart_timeout_seconds: float = 30
     poll_interval_seconds: float = .05
     memory_limit: str | int = "auto"
+    lifecycle: DaskLifecycle = DaskLifecycle.BATCH
 
     def __post_init__(self):
+        if not isinstance(self.lifecycle, DaskLifecycle):
+            raise DaskConfigError((DaskConfigViolation('invalid_value', 'lifecycle', 'must be DaskLifecycle'),))
         violations = _validate_options(self.to_record())
         if violations:
             raise DaskConfigError(violations)
@@ -64,6 +76,7 @@ class DaskExecutionConfig:
             "restart_timeout_seconds": self.restart_timeout_seconds,
             "poll_interval_seconds": self.poll_interval_seconds,
             "memory_limit": self.memory_limit,
+            'lifecycle': self.lifecycle.value,
         }
 
 
@@ -80,6 +93,8 @@ def parse_dask_config(payload: Mapping[str, object]) -> DaskExecutionConfig:
     violations.extend(_validate_options(options))
     if violations:
         raise DaskConfigError(tuple(violations))
+    if 'lifecycle' in options:
+        options['lifecycle'] = DaskLifecycle(options['lifecycle'])
     return DaskExecutionConfig(**options)
 
 

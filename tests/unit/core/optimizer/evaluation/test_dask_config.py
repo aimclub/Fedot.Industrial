@@ -16,7 +16,7 @@ def test_dask_defaults_are_explicit_and_frozen():
     config = parse_dask_config({})
     assert config.to_record() == {
         'retries': 0, 'startup_timeout_seconds': 60, 'restart_timeout_seconds': 30,
-        'poll_interval_seconds': .05, 'memory_limit': 'auto',
+        'poll_interval_seconds': .05, 'memory_limit': 'auto', 'lifecycle': 'batch',
     }
     with pytest.raises(FrozenInstanceError):
         config.retries = 1

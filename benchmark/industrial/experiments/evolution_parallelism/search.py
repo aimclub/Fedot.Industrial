@@ -117,7 +117,7 @@ def run_search(config, output_dir):
     from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
     from fedot_ind.core.optimizer.configuration import EvolutionConfig, ExecutionPolicy, MutationPlanningPolicy, ResourceBudget
     from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
-    from fedot_ind.core.optimizer.evaluation.dask_config import DaskExecutionConfig
+    from fedot_ind.core.optimizer.evaluation.dask_config import DaskExecutionConfig, DaskLifecycle
     from fedot_ind.core.optimizer.observability import EvolutionDiagnosticsRecorder
     from fedot_ind.core.optimizer.randomness import operator_random_scope
     from fedot_ind.integration.fedot.extensions import industrial_extension_scope
@@ -172,14 +172,16 @@ def run_search(config, output_dir):
         objective, FoldSource(data.folds), expected_folds=len(data.folds), result_cache_size=0, eval_n_jobs=1)
     measured = MeasuredObjective(native, str(traces.resolve()))
     workers = 1 if config.backend == 'sequential' else config.workers
-    dask_config = DaskExecutionConfig(retries=1, memory_limit=4 * 1024**3)
-    batches, generations, dask_records = [], [], []
+    dask_config = DaskExecutionConfig(retries=1, memory_limit=4 * 1024**3,
+                                      lifecycle=DaskLifecycle(config.lifecycle))
+    batches, generations, dask_records, sessions = [], [], [], []
     startup_seconds = 0.
 
     @contextmanager
     def observe(session):
         directory = root / 'dask' / f'batch_{len(batches):03d}'
         batches.append(directory)
+        sessions.append(session.client)
         with dask_diagnostics(session.client, directory) as record:
             dask_records.append(record)
             yield record
@@ -189,18 +191,8 @@ def run_search(config, output_dir):
         stack.enter_context(industrial_extension_scope())
         stack.enter_context(operator_random_scope(config.seed))
         if config.backend == 'dask':
-            from fedot_ind.core.optimizer.evaluation.dask_executor import DaskEvaluationSession
             from fedot_ind.core.optimizer.evaluation.dask_dispatcher import dask_session_scope
-            if config.lifecycle == 'search':
-                start = perf_counter()
-                session = stack.enter_context(DaskEvaluationSession(workers, dask_config))
-                startup_seconds = perf_counter() - start
-                stack.enter_context(dask_session_scope(session))
-                external_client = session.client
-                record = stack.enter_context(dask_diagnostics(session.client, root / 'dask' / 'search'))
-                dask_records.append(record)
-            else:
-                stack.enter_context(dask_session_scope(observer=observe))
+            stack.enter_context(dask_session_scope(observer=observe))
         requirements, params = build_environment(settings, data.refit.task, workers)
         if time() >= deadline_epoch:
             raise TimeoutError('Search budget consumed during setup')
@@ -295,13 +287,10 @@ def run_search(config, output_dir):
                    'diagnostics': optimizer.diagnostics.summary.to_record(), 'dask_batches': len(batches),
                    'parameters': parameters, 'torch_flags_before': flags_before,
                    'versions': runtime_versions}
-        if config.backend == 'dask' and config.lifecycle == 'search':
-            summary['caller_client_still_running_after_search'] = session.client.status == 'running'
     summary['wall_seconds'] = perf_counter() - started_all
     summary['processes'] = memory.summary
     summary['dask_diagnostics'] = [{'path': str(record.output_dir), **record.summary} for record in dask_records]
-    if config.backend == 'dask' and config.lifecycle == 'search':
-        summary['session_closed_by_caller_after_use'] = external_client.status == 'closed'
+    summary['owned_sessions_closed'] = all(client.status == 'closed' for client in sessions)
     write_json(root / 'dask_diagnostics.json', summary['dask_diagnostics'])
     summary['minimum_generations_met'] = search_complete(evolved, config.generations)
     if not summary['minimum_generations_met']:
