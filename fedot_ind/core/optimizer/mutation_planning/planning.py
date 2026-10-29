@@ -50,8 +50,13 @@ def apply_mutation_plan(spec: GraphSpec, plan: MutationPlan, *,
         return MutationRejection(MutationRejectionCode.INVALID_GRAPH,
                                  "Hard task, device, data and structural errors cannot be rewritten.",
                                  original_report)
+    return _apply_edits_to_valid_source(spec, plan.edits, limits=limits, raw_input=raw_input)
+
+
+def _apply_edits_to_valid_source(spec, edits, *, limits, raw_input):
+    """Internal only: caller has checked the immutable source and edit budget."""
     graph = spec
-    for edit in plan.edits:
+    for edit in edits:
         graph = apply_edit(graph, edit, raw_input=raw_input)
         if isinstance(graph, MutationRejection):
             return graph
@@ -150,12 +155,13 @@ def _proposals(spec: GraphSpec, operations: tuple[OperationCapabilities, ...],
                 yield DropPrimaryTransform(node.node_id)
 
 
-def enumerate_mutation_plans(
+def _enumerate_mutation_plans(
         spec: GraphSpec, operations: tuple[OperationCapabilities, ...], *,
         limits: MutationLimits,
         kinds: tuple[MutationKind, ...] = tuple(MutationKind),
         raw_input: RawInputSpec | None = None,
         catalog_offset: int = 0,
+        _validated_outcomes: list | None = None,
 ) -> MutationCandidates:
     """Round-robin finite edit streams; at most max_candidates edits are tested.
 
@@ -203,12 +209,16 @@ def enumerate_mutation_plans(
             remaining.append(stream)
             examined += 1
             plan = MutationPlan(signature, (edit,), raw_input)
-            outcome = apply_mutation_plan(spec, plan, limits=limits, raw_input=raw_input)
+            # This enumeration already validated spec, budgets and raw_input.
+            # The public replay API still checks its source signature each time.
+            outcome = _apply_edits_to_valid_source(spec, plan.edits, limits=limits, raw_input=raw_input)
             if isinstance(outcome, AppliedMutation):
                 key = candidate_signature(outcome.graph)
                 if key not in seen:
                     seen.add(key)
                     plans.append(plan)
+                    if _validated_outcomes is not None:
+                        _validated_outcomes.append((plan, outcome))
                     diagnostics.append(CandidateDiagnostic(edit, CandidateStatus.ADMISSIBLE))
                 else:
                     diagnostics.append(CandidateDiagnostic(edit, CandidateStatus.DUPLICATE, ("duplicate_graph",)))
@@ -218,6 +228,15 @@ def enumerate_mutation_plans(
         streams = remaining
     return MutationCandidates(tuple(plans), examined, bool(streams),
                               diagnostics=tuple(diagnostics), **metadata)
+
+
+def enumerate_mutation_plans(
+        spec: GraphSpec, operations: tuple[OperationCapabilities, ...], *, limits: MutationLimits,
+        kinds: tuple[MutationKind, ...] = (MutationKind.REPLACE, MutationKind.ADD, MutationKind.DROP),
+        raw_input: RawInputSpec | None = None, catalog_offset: int = 0) -> MutationCandidates:
+    """Return bounded proposals without retaining their intermediate graphs."""
+    return _enumerate_mutation_plans(spec, operations, limits=limits, kinds=kinds,
+                                     raw_input=raw_input, catalog_offset=catalog_offset)
 
 
 def select_mutation_plan(candidates: MutationCandidates, seed: int) -> MutationPlan | None:

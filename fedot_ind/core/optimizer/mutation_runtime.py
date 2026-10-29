@@ -24,8 +24,9 @@ from fedot_ind.core.optimizer.mutation_planning import (
     AddBranch, AddPrimaryBranch, AppliedMutation, CandidateStatus, DecisionStage,
     DropPrimaryBranch, DropPrimaryTransform, DropTransform, InsertTransform, RawInputSpec, ReplaceOperation,
     MutationCandidates, MutationKind, MutationLimits, MutationRejection,
-    apply_mutation_plan, enumerate_mutation_plans, repair_graph, select_mutation_plan,
+    apply_mutation_plan, repair_graph, select_mutation_plan,
 )
+from fedot_ind.core.optimizer.mutation_planning.validated import enumerate_validated_mutation_plans
 
 
 @dataclass(frozen=True)
@@ -308,8 +309,9 @@ class PlannedMutation:
             if mutation_name(action) in _STRUCTURAL_KINDS
             and (probabilities is None or probabilities[index] > 0)))
         limits = replace(self._limits(), max_candidates=max(0, self.policy.max_candidates - repair.examined))
-        candidates = enumerate_mutation_plans(prepared, operations, limits=limits, kinds=enabled,
-                                              raw_input=self.raw_input, catalog_offset=random.getrandbits(64))
+        enumeration = enumerate_validated_mutation_plans(prepared, operations, limits=limits, kinds=enabled,
+                                                         raw_input=self.raw_input, catalog_offset=random.getrandbits(64))
+        candidates = enumeration.candidates
         plans_by_kind = {kind: [] for kind in MutationKind}
         edit_kinds = {ReplaceOperation: MutationKind.REPLACE, InsertTransform: MutationKind.ADD,
                       AddBranch: MutationKind.ADD, AddPrimaryBranch: MutationKind.ADD,
@@ -317,7 +319,7 @@ class PlannedMutation:
                       DropPrimaryTransform: MutationKind.DROP, DropPrimaryBranch: MutationKind.DROP}
         vetoed = set()
         for plan in candidates.plans:
-            outcome = apply_mutation_plan(prepared, plan, limits=limits, raw_input=self.raw_input)
+            outcome = enumeration.outcome_for(plan, prepared, limits, self.raw_input)
             if isinstance(outcome, AppliedMutation) and advisor_allows_plan(
                     before, outcome.graph, parent.graph, self.graph_generation_params.advisor):
                 plans_by_kind[edit_kinds[type(plan.edits[0])]].append(plan)
@@ -359,7 +361,9 @@ class PlannedMutation:
                 self._record(MutationExecution(MutationExecutionStatus.NO_ADMISSIBLE_PLAN, action=name,
                                                examined=examined, planning=candidates))
                 return None
-            outcome = apply_mutation_plan(prepared, plan, limits=self._limits(), raw_input=self.raw_input)
+            outcome = enumeration.outcome_for(plan, prepared, self._limits(), self.raw_input)
+            if outcome is None:
+                outcome = apply_mutation_plan(prepared, plan, limits=self._limits(), raw_input=self.raw_input)
             if not isinstance(outcome, AppliedMutation):
                 raise RuntimeError("An enumerated mutation plan could not be applied")
             graph = interpret_graph_spec(parent.graph, before, outcome.graph)
