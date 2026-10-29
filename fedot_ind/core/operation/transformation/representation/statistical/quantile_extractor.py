@@ -70,9 +70,21 @@ class QuantileExtractor(BaseExtractor):
                 or any(getattr(getattr(self, name), '__func__', None) is not method
                        for name, method in _AUDITED_IMPLEMENTATION)):
             return reference(input_data)
+        if (input_data.features.ndim == 3 and input_data.features.shape[0] > 0
+                and input_data.features.shape[1] > 0 and input_data.features.shape[-1] > 1
+                and self.channel_extraction and self.window_size == 0):
+            reference = self._transform_audited_rows
         settings = (self.window_size, self.stride, self.add_global_features, self.use_sliding_window,
                     self.channel_extraction)
         self.predict = reuse_statistical_features(input_data.features, settings, lambda: reference(input_data))
+        return self.predict
+
+    def _transform_audited_rows(self, input_data):
+        # Same axis=0 calls and channel order as generate_features_from_ts, without
+        # constructing a synchronous delayed graph for every observation.
+        features = np.array([[self.extract_stats_features(channel, axis=0) for channel in sample]
+                             for sample in input_data.features])
+        self.predict = self._clean_predict(features)
         return self.predict
 
     def extract_stats_features(self, ts: np.array, axis: int) -> InputData:
@@ -108,4 +120,5 @@ _AUDITED_IMPLEMENTATION = tuple((name, getattr(QuantileExtractor, name)) for nam
     'generate_features_from_ts', 'generate_features_from_array', 'extract_stats_features',
     '_concatenate_global_and_local_feature', 'get_statistical_features',
     'apply_window_for_stat_feature', '_clean_predict',
+    '_transform_audited_rows',
 ))

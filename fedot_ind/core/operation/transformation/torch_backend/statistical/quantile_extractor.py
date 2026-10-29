@@ -108,7 +108,10 @@ class TorchQuantileExtractor(BaseExtractor):
                 selected.append(
                     (
                         method,
-                        self._supported_kwargs(method, dict(feature_kwargs)),
+                        ({} if not feature_kwargs and type(self) is TorchQuantileExtractor
+                         and self._supported_kwargs is _AUDITED_SUPPORTED_KWARGS
+                         and any(method is audited for audited in _AUDITED_METHODS)
+                         else self._supported_kwargs(method, dict(feature_kwargs))),
                     )
                 )
         return selected
@@ -198,33 +201,34 @@ class TorchQuantileExtractor(BaseExtractor):
         if not self._can_batch_numpy(values):
             return super()._transform(input_data)
         rows = values.reshape(-1, values.shape[-1])
+        channels = values.shape[1] if values.ndim == 3 else 1
         batch_size = max(1, min(_BATCH_LIMITS['max_rows'], _BATCH_LIMITS['max_elements'] // rows.shape[-1]))
+        batch_size = max(channels, batch_size // channels * channels)
         batches = []
         for start in range(0, len(rows), batch_size):
             # The old NumPy per-sample path converts to float32, including float64 inputs.
             batch = torch.as_tensor(rows[start:start + batch_size], dtype=torch.float32)
-            batches.append(self._generate_numpy_batch(batch).numpy())
+            batches.append(self._generate_numpy_batch(batch, channels).numpy())
         features = np.concatenate(batches, axis=0)
-        self.predict = self._clean_predict(features.reshape(len(values), 1, -1))
+        self.predict = self._clean_predict(features.reshape(len(values), channels, -1))
         return self.predict
 
-    def _generate_numpy_batch(self, batch: torch.Tensor) -> torch.Tensor:
-        global_features = self._numpy_batch_statistics(batch, self.add_global_features)
-        local_features = self._numpy_batch_statistics(batch, False)
+    def _generate_numpy_batch(self, batch: torch.Tensor, channels: int = 1) -> torch.Tensor:
+        global_features = self._numpy_batch_statistics(batch, self.add_global_features, channels)
+        local_features = self._numpy_batch_statistics(batch, False, channels)
         features = torch.cat((global_features, local_features), dim=-1) if self.add_global_features else local_features
         return torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
 
-    def _numpy_batch_statistics(self, batch: torch.Tensor, global_features: bool) -> torch.Tensor:
+    def _numpy_batch_statistics(self, batch: torch.Tensor, global_features: bool, channels: int = 1) -> torch.Tensor:
         features = []
         for method, kwargs in self._select_methods(global_features):
             if method is _AUDITED_HURST:
                 feature = self._apply_feature_method(method, batch, -1, kwargs)
             else:
                 # Even short reductions can round differently across batch widths.
-                # Keep their original one-observation input, including entropy padding.
+                # Preserve the original per-observation channel group, including entropy padding.
                 parts = []
-                for row in batch:
-                    sample = row.unsqueeze(0)
+                for sample in batch.split(channels):
                     value = self._apply_feature_method(method, sample, -1, kwargs)
                     parts.append(self._as_feature_matrix([value], sample))
                 feature = torch.cat(parts, dim=0)
@@ -232,10 +236,12 @@ class TorchQuantileExtractor(BaseExtractor):
         return self._as_feature_matrix(features, batch)
 
     def _can_batch_numpy(self, values) -> bool:
-        # Windowed, multichannel and customized implementations keep their existing path.
+        # Windowed and customized implementations keep their existing path.
         if (type(self) is not TorchQuantileExtractor or type(values) is not np.ndarray
                 or values.ndim not in (2, 3) or values.shape[0] < 2 or values.shape[-1] < 2
-                or (values.ndim == 3 and values.shape[1] != 1)
+                or (values.ndim == 3 and (values.shape[1] < 1
+                    or values.shape[1] > _BATCH_LIMITS['max_rows']
+                    or values.shape[1] * values.shape[-1] > _BATCH_LIMITS['max_elements']))
                 or not values.flags.c_contiguous or values.dtype.kind not in 'biuf'
                 or not np.isfinite(values).all()
                 or self.window_size != 0 or not self.channel_extraction or self.is_multichanel
@@ -334,6 +340,8 @@ _AUDITED_LOCAL_CONFIG = tuple((key, tuple(value.items())) for key, value in DEFA
 _AUDITED_GLOBAL_CONFIG = tuple((key, tuple(value.items())) for key, value in DEFAULT_GLOBAL_CONFIG.items())
 _AUDITED_LOCAL_METHODS = tuple(method_registry(STAT_METHODS_TORCH).items())
 _AUDITED_GLOBAL_METHODS = tuple(method_registry(STAT_METHODS_GLOBAL_TORCH).items())
+_AUDITED_METHODS = tuple(method for _, method in (*_AUDITED_LOCAL_METHODS, *_AUDITED_GLOBAL_METHODS))
+_AUDITED_SUPPORTED_KWARGS = TorchQuantileExtractor._supported_kwargs
 _AUDITED_HURST = STAT_METHODS_GLOBAL_TORCH['hurst_exponent_']
 _AUDITED_IMPLEMENTATION = tuple((name, getattr(TorchQuantileExtractor, name)) for name in (
     'generate_features_from_ts', 'extract_stats_features_torch', 'get_statistical_features_torch',
