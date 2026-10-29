@@ -37,7 +37,8 @@ def test_coordinator_closes_monitor_and_never_reads_test_for_incomplete_search(m
     class Optimizer:
         def __init__(self, objective, initial, *args, **kwargs):
             self.initial = initial
-            record = {'fitness': [1.], 'evaluation_context': {'configuration_id': 'one'}}
+            record = {'evaluation_id': 'test:0', 'fitness': [1.],
+                      'evaluation_context': {'configuration_id': 'one'}}
             self.completed_evaluations = SimpleNamespace(entries=[SimpleNamespace(to_record=lambda: record)])
             self.eval_dispatcher = SimpleNamespace()
             self.evaluated_population = [None] * 15

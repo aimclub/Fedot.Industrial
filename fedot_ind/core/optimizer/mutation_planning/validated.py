@@ -25,6 +25,6 @@ class ValidatedEnumeration:
 def enumerate_validated_mutation_plans(spec, operations, *, limits, kinds, raw_input=None, catalog_offset=0):
     outcomes = []
     candidates = _enumerate_mutation_plans(spec, operations, limits=limits, kinds=kinds,
-                                          raw_input=raw_input, catalog_offset=catalog_offset,
-                                          _validated_outcomes=outcomes)
+                                           raw_input=raw_input, catalog_offset=catalog_offset,
+                                           _validated_outcomes=outcomes)
     return ValidatedEnumeration(candidates, spec, limits, raw_input, tuple(outcomes))

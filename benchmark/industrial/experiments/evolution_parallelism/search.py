@@ -128,6 +128,8 @@ def run_search(config, output_dir):
 
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=False)
+    from .journal import EvaluationJournal
+    evaluation_journal = EvaluationJournal(root)
     traces = root / 'traces'
     traces.mkdir()
     settings = load_defaults()
@@ -240,8 +242,7 @@ def run_search(config, output_dir):
                    'final': bool(owner.final_individuals), 'population_size': len(population),
                    'best_loss': min(float(ind.fitness.value) for ind in population if ind.fitness.valid),
                    'completed_evaluations': len(owner.completed_evaluations.entries)}
-            row['unique_configurations'] = len({json.loads(entry.context_json)['configuration_id']
-                                                for entry in owner.completed_evaluations.entries})
+            row['unique_configurations'] = evaluation_journal.unique_configurations
             generations.append(row)
             write_json(root / 'generations.json', generations)
             print(json.dumps(row), flush=True)
@@ -260,8 +261,8 @@ def run_search(config, output_dir):
 
         def record_completions(results):
             optimizer.completed_evaluations.record_results(results)
-            write_json(root / 'completed_evaluations.json',
-                       [entry.to_record() for entry in optimizer.completed_evaluations.entries])
+            entries = optimizer.completed_evaluations.entries
+            evaluation_journal.append(entry.to_record() for entry in entries[evaluation_journal.count:])
 
         optimizer.eval_dispatcher.completed_evaluation_callback = record_completions
         setup_seconds = time() - launch_epoch
@@ -270,7 +271,8 @@ def run_search(config, output_dir):
         search_seconds = perf_counter() - start
         search_wall_seconds = time() - launch_epoch
         completed = [entry.to_record() for entry in optimizer.completed_evaluations.entries]
-        write_json(root / 'completed_evaluations.json', completed)
+        evaluation_journal.append(completed[evaluation_journal.count:])
+        evaluation_journal.finalize()
         winner = configure_pipeline(params.adapter.restore(selected), parameters)
         selection = pipeline_configuration(winner, config.task)
         write_json(root / 'selected_graph.json', selection)
