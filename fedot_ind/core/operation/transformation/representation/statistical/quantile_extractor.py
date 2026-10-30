@@ -12,6 +12,7 @@ from fedot_ind.core.operation.transformation.representation.statistical.feature_
 from fedot_ind.core.operation.transformation.representation.statistical.methods import (
     STAT_METHODS, STAT_METHODS_GLOBAL,
 )
+from fedot_ind.core.operation.transformation.representation.statistical.hurst_batch import hurst_rows
 
 
 class QuantileExtractor(BaseExtractor):
@@ -82,6 +83,19 @@ class QuantileExtractor(BaseExtractor):
     def _transform_audited_rows(self, input_data):
         # Same axis=0 calls and channel order as generate_features_from_ts, without
         # constructing a synchronous delayed graph for every observation.
+        values = input_data.features
+        if (self.add_global_features and values.dtype in (np.dtype('float32'), np.dtype('float64'))
+                and values.flags.c_contiguous and np.isfinite(values).all()):
+            rows = values.reshape(-1, values.shape[-1])
+            hurst = hurst_rows(rows)
+            features = []
+            for row, exponent in zip(rows, hurst):
+                global_features = [exponent if method is _AUDITED_HURST else method(row, 0)
+                                   for _, method in _AUDITED_GLOBAL_METHODS]
+                local_features = self.get_statistical_features(row, axis=0)
+                features.append(self._concatenate_global_and_local_feature(global_features, local_features))
+            self.predict = self._clean_predict(np.array(features).reshape(*values.shape[:2], -1))
+            return self.predict
         features = np.array([[self.extract_stats_features(channel, axis=0) for channel in sample]
                              for sample in input_data.features])
         self.predict = self._clean_predict(features)
@@ -116,6 +130,7 @@ class QuantileExtractor(BaseExtractor):
 # instances/classes keep the reference path even if their class name is unchanged.
 _AUDITED_LOCAL_METHODS = tuple(STAT_METHODS.items())
 _AUDITED_GLOBAL_METHODS = tuple(STAT_METHODS_GLOBAL.items())
+_AUDITED_HURST = STAT_METHODS_GLOBAL['hurst_exponent_']
 _AUDITED_IMPLEMENTATION = tuple((name, getattr(QuantileExtractor, name)) for name in (
     'generate_features_from_ts', 'generate_features_from_array', 'extract_stats_features',
     '_concatenate_global_and_local_feature', 'get_statistical_features',
