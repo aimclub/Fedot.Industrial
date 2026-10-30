@@ -91,7 +91,13 @@ def read_source(scenario, root, protocol):
         import sktime
         x, y = load_tecator(split='train', return_type='numpy3d')
         source = dict(provider='sktime.datasets.load_tecator', split='train', sktime_version=sktime.__version__)
-    elif scenario.source == 'wide_csv':
+    elif scenario.source in ('wide_csv', 'monash_train_csv'):
+        if scenario.source == 'monash_train_csv':
+            from .sources import source_catalog, verify_train_provenance
+            spec = source_catalog()['electricity']
+            provenance_path = path.with_suffix('.provenance.json')
+            provenance = verify_train_provenance(path, spec)
+            source.update(provenance=provenance, provenance_sha256=file_digest(provenance_path))
         series_id, x = first_eligible_series(path, protocol.minimum_series_length)
         source.update(series_id=series_id, selection='first finite eligible TRAIN row in file order')
         return x, None, source

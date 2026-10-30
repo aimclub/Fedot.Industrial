@@ -89,7 +89,7 @@ def parse_protocol(value):
         if row['task'] not in ('classification', 'regression', 'ts_forecasting'):
             raise ValueError('Unsupported task')
         allowed = {'classification': ('ts', 'tsv'), 'regression': ('ts', 'tsv', 'sktime_tecator'),
-                   'ts_forecasting': ('airline_snapshot', 'wide_csv', 'pending_external')}
+                   'ts_forecasting': ('airline_snapshot', 'wide_csv', 'monash_train_csv', 'pending_external')}
         if row['source'] not in allowed[row['task']]:
             raise ValueError('Source does not match task')
         if row['source'] in ('sktime_tecator', 'pending_external'):

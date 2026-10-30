@@ -29,7 +29,7 @@
     {"name": "Airline", "task": "ts_forecasting", "source": "airline_snapshot", "path": "examples/artifacts/cloud_bundle/staged_training_20261029/input_snapshots/ts_forecasting.npz", "group": "Airline"},
     {"name": "M4Monthly", "task": "ts_forecasting", "source": "wide_csv", "path": "examples/utils/data/benchmark_history/real_world_archive/data/m4/datasets/Monthly-train.csv", "group": "M4"},
     {"name": "M4Daily", "task": "ts_forecasting", "source": "wide_csv", "path": "examples/utils/data/benchmark_history/real_world_archive/data/m4/datasets/Daily-train.csv", "group": "M4"},
-    {"name": "M4Hourly", "task": "ts_forecasting", "source": "wide_csv", "path": "examples/utils/data/benchmark_history/real_world_archive/data/m4/datasets/Hourly-train.csv", "group": "M4"},
-    {"name": "Electricity", "task": "ts_forecasting", "source": "pending_external", "path": null, "group": "MonashElectricity"}
+    {"name": "M4Hourly", "task": "ts_forecasting", "source": "wide_csv", "path": "examples/artifacts/cloud_bundle/mutation_quality_data_20261030/Hourly-train.csv", "group": "M4"},
+    {"name": "Electricity", "task": "ts_forecasting", "source": "monash_train_csv", "path": "examples/artifacts/cloud_bundle/mutation_quality_data_20261030/electricity-train.csv", "group": "MonashElectricity"}
   ]
 }

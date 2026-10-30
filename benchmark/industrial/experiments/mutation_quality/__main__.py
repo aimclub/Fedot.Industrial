@@ -12,6 +12,10 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--preflight', action='store_true')
     mode.add_argument('--technical', action='store_true')
+    mode.add_argument('--prepare-data', action='store_true')
+    mode.add_argument('--freeze', action='store_true')
+    mode.add_argument('--verify-freeze', action='store_true')
+    parser.add_argument('--expected-seal')
     parser.add_argument('--execute', action='store_true')
     parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--scenario')
@@ -20,6 +24,26 @@ def main():
     args = parser.parse_args()
     from .preflight import preflight, preview
     protocol = load_protocol()
+    if args.prepare_data or args.freeze or args.verify_freeze:
+        if args.expected_seal and not args.verify_freeze:
+            parser.error('--expected-seal requires --verify-freeze')
+        if args.worker or args.scenario or args.arm or args.execute:
+            parser.error('Data preparation and freezing cannot be combined with training flags')
+        if args.output_dir is None:
+            parser.error('Data preparation and freezing require --output-dir')
+        if args.prepare_data:
+            from .sources import prepare_sources
+            result = prepare_sources(args.output_dir)
+        elif args.freeze:
+            from .freeze import freeze_protocol
+            result = freeze_protocol(Path(__file__).resolve().parents[4], args.output_dir)
+        else:
+            from .freeze import verify_freeze
+            result = verify_freeze(args.output_dir, check_current=True, expected_seal_sha256=args.expected_seal)
+        print(json.dumps(result, indent=2))
+        return
+    if args.expected_seal:
+        parser.error('--expected-seal requires --verify-freeze')
     if args.technical:
         from .runner import run_technical, run_trial, technical_jobs, technical_settings
         if not args.execute:
