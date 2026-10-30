@@ -47,6 +47,14 @@ def test_native_prefixes_respect_noncontiguous_row_strides(native, stride):
     assert_prefixes(native, values)
 
 
+def test_native_prefixes_accept_unaligned_float32_storage(native):
+    buffer = bytearray(1025 * 4 + 1)
+    values = np.ndarray((1025,), dtype=np.float32, buffer=buffer, offset=1)
+    values[:] = np.random.default_rng(27).normal(size=1025)
+    assert not values.flags.aligned
+    assert_prefixes(native, values)
+
+
 @given(st.lists(st.floats(width=32, min_value=-1e5, max_value=1e5,
                           allow_nan=False, allow_infinity=False), min_size=8, max_size=257))
 @settings(max_examples=30, deadline=None)

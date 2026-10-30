@@ -59,14 +59,15 @@ def _eight_lane_sum(typing_context, values, start, blocks, mean):
         def load(index):
             if sig.args[0].layout == 'C':
                 pointer = builder.gep(array.data, [index])
-                vector = builder.load(builder.bitcast(pointer, vector_type.as_pointer()), align=4)
+                vector = builder.load(builder.bitcast(pointer, vector_type.as_pointer()), align=1)
             else:
                 vector = ir.Constant(vector_type, ir.Undefined)
                 for lane in range(LANES):
                     item = builder.add(index, context.get_constant(types.intp, lane))
                     pointer = cgutils.get_item_pointer(context, builder, sig.args[0], array, [item],
                                                        wraparound=False, boundscheck=False)
-                    vector = builder.insert_element(vector, builder.load(pointer), ir.Constant(ir.IntType(32), lane))
+                    vector = builder.insert_element(vector, builder.load(
+                        pointer, align=1), ir.Constant(ir.IntType(32), lane))
             if not isinstance(sig.args[3], types.NoneType):
                 delta = builder.fsub(vector, mean_vector)
                 vector = builder.fmul(delta, delta)
