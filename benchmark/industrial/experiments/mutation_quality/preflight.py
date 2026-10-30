@@ -152,8 +152,8 @@ def preview(protocol):
                 search_budget_hours=len(protocol.jobs()) * protocol.budget_seconds / 3600,
                 arms=[arm.value for arm in protocol.arms], seeds=list(protocol.seeds),
                 forecast_horizon=protocol.forecast_horizon,
-                launch_blockers=['No training command is implemented in this preparation package',
-                                 'A must exclude rewrite actions; verify runtime dispatch before training',
+                launch_blockers=['Full quality series is disabled; only bounded technical trials are implemented',
+                                 'Technical A/B/C runtime and data-boundary checks must pass before full training',
                                  'Review and freeze source hashes, selected series, splits and all runtime dependencies'])
 
 

@@ -1,0 +1,9 @@
+{
+  "schema_version": "industrial_mutation_quality_technical@1",
+  "scenarios": ["ECG200", "NaturalGasPricesSentiment", "Airline"],
+  "seed": 42,
+  "generations": 1,
+  "search_seconds": 150,
+  "full_process_seconds": 420,
+  "maximum_trials": 9
+}

@@ -9,11 +9,33 @@ from .config import load_protocol
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('--preflight', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--preflight', action='store_true')
+    mode.add_argument('--technical', action='store_true')
+    parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--scenario')
+    parser.add_argument('--arm', choices=('baseline', 'expanded_fixed', 'expanded_staged'))
     parser.add_argument('--output-dir', type=Path)
     args = parser.parse_args()
     from .preflight import preflight, preview
     protocol = load_protocol()
+    if args.technical:
+        from .runner import run_technical, run_trial, technical_jobs, technical_settings
+        if not args.execute:
+            print(json.dumps(dict(settings=technical_settings(), jobs=technical_jobs(), training_started=False), indent=2))
+            return
+        if args.output_dir is None:
+            parser.error('--technical --execute requires --output-dir')
+        if args.worker:
+            run_trial(args.output_dir, args.scenario, args.arm, technical_settings()['seed'])
+        else:
+            if args.scenario is not None or args.arm is not None:
+                parser.error('Technical supervisor runs only the fixed nine-trial matrix')
+            run_technical(args.output_dir)
+        return
+    if args.execute or args.worker or args.scenario or args.arm:
+        parser.error('Training flags require --technical')
     if not args.preflight:
         print(json.dumps(preview(protocol), indent=2))
         return
