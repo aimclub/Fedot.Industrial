@@ -70,6 +70,7 @@ def test_only_runtime_packages_and_declared_resources_are_distributed():
     paths = expected_resources(ROOT, project_metadata())
     assert len(paths) >= 5
     assert "fedot_ind/integration/fedot/extensions/catalog.json" in paths
+    assert "fedot_ind/core/operation/transformation/representation/statistical/batch_defaults.json" in paths
     assert all(path.startswith("fedot_ind/") for path in paths)
     assert not any("examples/" in path or "artifacts/" in path for path in paths)
 
