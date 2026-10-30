@@ -12,7 +12,12 @@ from fedot_ind.core.operation.transformation.representation.statistical.feature_
 from fedot_ind.core.operation.transformation.representation.statistical.methods import (
     STAT_METHODS, STAT_METHODS_GLOBAL,
 )
-from fedot_ind.core.operation.transformation.representation.statistical.hurst_batch import hurst_rows
+from fedot_ind.core.operation.transformation.representation.statistical.hurst_batch import (
+    hurst_rows, native_hurst_supported,
+)
+from fedot_ind.core.operation.transformation.representation.statistical.long_row_features import (
+    benford_correlation, hjorth_complexity,
+)
 
 
 class QuantileExtractor(BaseExtractor):
@@ -71,8 +76,9 @@ class QuantileExtractor(BaseExtractor):
                 or any(getattr(getattr(self, name), '__func__', None) is not method
                        for name, method in _AUDITED_IMPLEMENTATION)):
             return reference(input_data)
-        if (input_data.features.ndim == 3 and input_data.features.shape[0] > 0
-                and input_data.features.shape[1] > 0 and input_data.features.shape[-1] > 1
+        values = input_data.features
+        if ((values.ndim == 3 or (values.ndim == 2 and native_hurst_supported(values)))
+                and values.shape[0] > 0 and values.shape[1] > 0 and values.shape[-1] > 1
                 and self.channel_extraction and self.window_size == 0):
             reference = self._transform_audited_rows
         settings = (self.window_size, self.stride, self.add_global_features, self.use_sliding_window,
@@ -84,14 +90,25 @@ class QuantileExtractor(BaseExtractor):
         # Same axis=0 calls and channel order as generate_features_from_ts, without
         # constructing a synchronous delayed graph for every observation.
         values = input_data.features
+        values = values[:, None, :] if values.ndim == 2 else values
         if (self.add_global_features and values.dtype in (np.dtype('float32'), np.dtype('float64'))
                 and values.flags.c_contiguous and np.isfinite(values).all()):
             rows = values.reshape(-1, values.shape[-1])
             hurst = hurst_rows(rows)
+            native = native_hurst_supported(rows)
             features = []
             for row, exponent in zip(rows, hurst):
-                global_features = [exponent if method is _AUDITED_HURST else method(row, 0)
-                                   for _, method in _AUDITED_GLOBAL_METHODS]
+                global_features = []
+                for _, method in _AUDITED_GLOBAL_METHODS:
+                    if method is _AUDITED_HURST:
+                        value = exponent
+                    elif native and method is _AUDITED_HJORTH:
+                        value = hjorth_complexity(row)
+                    elif native and method is _AUDITED_BENFORD:
+                        value = benford_correlation(row)
+                    else:
+                        value = method(row, 0)
+                    global_features.append(value)
                 local_features = self.get_statistical_features(row, axis=0)
                 features.append(self._concatenate_global_and_local_feature(global_features, local_features))
             self.predict = self._clean_predict(np.array(features).reshape(*values.shape[:2], -1))
@@ -131,6 +148,8 @@ class QuantileExtractor(BaseExtractor):
 _AUDITED_LOCAL_METHODS = tuple(STAT_METHODS.items())
 _AUDITED_GLOBAL_METHODS = tuple(STAT_METHODS_GLOBAL.items())
 _AUDITED_HURST = STAT_METHODS_GLOBAL['hurst_exponent_']
+_AUDITED_HJORTH = STAT_METHODS_GLOBAL['hjorth_complexity_']
+_AUDITED_BENFORD = STAT_METHODS_GLOBAL['ben_corr_']
 _AUDITED_IMPLEMENTATION = tuple((name, getattr(QuantileExtractor, name)) for name in (
     'generate_features_from_ts', 'generate_features_from_array', 'extract_stats_features',
     '_concatenate_global_and_local_feature', 'get_statistical_features',
