@@ -6,6 +6,7 @@ this coordinator may request a bounded infrastructure retry.
 """
 
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, replace
 import json
@@ -208,7 +209,44 @@ def _receive(flight):
         return _failed(flight.task, ExecutionStatus.WORKER_FAILED, flight.started, type(error).__name__, str(error))
 
 
+class _WorkerInterruptions:
+    """Bounded owned restart threads; polling other candidates must not wait for a nanny."""
+
+    def __init__(self, session, workers):
+        self.session = session
+        self.pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix='industrial-dask-restart')
+        self.pending = {}
+
+    def __enter__(self):
+        return self
+
+    def submit(self, flight):
+        if flight.worker in self.pending:
+            raise DaskCleanupError('An owned worker is already being interrupted')
+        self.pending[flight.worker] = self.pool.submit(self.session.interrupt_worker, flight.worker, flight.future)
+
+    def poll(self):
+        for address, future in tuple(self.pending.items()):
+            if future.done():
+                try:
+                    future.result()
+                except Exception as error:
+                    raise DaskCleanupError('Cannot confirm asynchronous Dask interruption') from error
+                del self.pending[address]
+
+    def __exit__(self, *args):
+        self.pool.shutdown(wait=True)
+        self.poll()
+
+
 def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt, directory, *, interrupt_active=False):
+    with _WorkerInterruptions(session, plan.max_workers) as interruptions:
+        return _run_loop(session, plan, payloads, evaluate, token, deadline, config, on_attempt, directory,
+                         interruptions, interrupt_active=interrupt_active)
+
+
+def _run_loop(session, plan, payloads, evaluate, token, deadline, config, on_attempt, directory,
+              interruptions, *, interrupt_active):
     from .dask_bootstrap import evaluate_on_worker
 
     pending = deque((task, payload, 0) for task, payload in zip(plan.tasks, payloads))
@@ -218,6 +256,7 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
     no_workers_since = None
     try:
         while pending or active:
+            interruptions.poll()
             reason = _stop_reason(token, deadline)
             if reason:
                 for task, _, _ in pending:
@@ -227,7 +266,8 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                     if on_attempt is not None:
                         on_attempt(DaskAttempt(uid, flight.attempt + 1, flight.worker, reason[0]))
                 break
-            session.available_workers(flight.worker for flight in active.values())
+            busy = [flight.worker for flight in active.values()] + list(interruptions.pending)
+            session.available_workers(busy)
             for uid, flight in tuple(active.items()):
                 now = monotonic()
                 expired = (plan.candidate_timeout_seconds is not None
@@ -240,7 +280,7 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                     result = _failed(flight.task, ExecutionStatus.TIMED_OUT, flight.started,
                                      "EvaluationTimeout", "Dask candidate deadline reached")
                     results[uid] = result
-                    session.interrupt_worker(flight.worker, flight.future)
+                    interruptions.submit(flight)
                 elif action is FlightAction.RECEIVE:
                     result = _receive(flight)
                     if result is None:
@@ -275,7 +315,8 @@ def _run(session, plan, payloads, evaluate, token, deadline, config, on_attempt,
                     flight.future.release()
                 except Exception as error:
                     raise DaskCleanupError('Cannot release a completed Dask evaluation') from error
-            workers = session.available_workers(flight.worker for flight in active.values())
+            busy = [flight.worker for flight in active.values()] + list(interruptions.pending)
+            workers = session.available_workers(busy)
             if pending and not workers and not active:
                 no_workers_since = monotonic() if no_workers_since is None else no_workers_since
                 if monotonic() - no_workers_since >= config.startup_timeout_seconds:
