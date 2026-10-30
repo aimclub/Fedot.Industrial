@@ -41,6 +41,23 @@ def test_numpy_buffer_and_pairwise_boundaries(native, length):
     assert_prefixes(native, np.random.default_rng(42).normal(size=length).astype(np.float32))
 
 
+@pytest.mark.parametrize('stride', [2, -1, -3])
+def test_native_prefixes_respect_noncontiguous_row_strides(native, stride):
+    values = np.random.default_rng(52).normal(size=1025).astype(np.float32)[::stride]
+    assert_prefixes(native, values)
+
+
+@given(st.lists(st.floats(width=32, min_value=-1e5, max_value=1e5,
+                          allow_nan=False, allow_infinity=False), min_size=8, max_size=257))
+@settings(max_examples=30, deadline=None)
+def test_simd_lanes_preserve_each_rounded_prefix(values):
+    pytest.importorskip('numba')
+    if np.__version__ != '1.26.4':
+        pytest.skip('Native reduction contract is NumPy 1.26.4')
+    from fedot_ind.core.operation.transformation.representation.statistical import native_statistics
+    assert_prefixes(native_statistics, np.asarray(values, dtype=np.float32))
+
+
 @pytest.mark.parametrize('kind', ['zeros', 'constant', 'ramp', 'offset', 'alternating', 'steps'])
 def test_flat_and_near_collinear_curves(native, kind):
     values = np.random.default_rng(21).normal(size=700).astype(np.float32)

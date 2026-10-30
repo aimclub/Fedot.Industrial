@@ -29,12 +29,61 @@ model parameters. No fastmath, parallel scheduler or global thread mutation.
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-from numba import njit
+from numba import njit, types
+from numba.core import cgutils
+from numba.extending import intrinsic
+from llvmlite import ir
 
 
 BUFFER_SIZE = 8192
 PAIRWISE_BLOCK = 128
 LANES = 8
+
+
+@intrinsic
+def _eight_lane_sum(typing_context, values, start, blocks, mean):
+    """SIMD across independent lanes, never reassociate a lane's additions."""
+    if values.dtype != types.float32:
+        raise TypeError('Native prefix reductions require float32 input')
+    signature = types.float32(values, start, blocks, mean)
+
+    def codegen(context, builder, sig, args):
+        array = context.make_array(sig.args[0])(context, builder, args[0])
+        vector_type = ir.VectorType(ir.FloatType(), LANES)
+        offset, count = args[1:3]
+        mean_vector = ir.Constant(vector_type, ir.Undefined)
+        if not isinstance(sig.args[3], types.NoneType):
+            for lane in range(LANES):
+                mean_vector = builder.insert_element(mean_vector, args[3], ir.Constant(ir.IntType(32), lane))
+
+        def load(index):
+            if sig.args[0].layout == 'C':
+                pointer = builder.gep(array.data, [index])
+                vector = builder.load(builder.bitcast(pointer, vector_type.as_pointer()), align=4)
+            else:
+                vector = ir.Constant(vector_type, ir.Undefined)
+                for lane in range(LANES):
+                    item = builder.add(index, context.get_constant(types.intp, lane))
+                    pointer = cgutils.get_item_pointer(context, builder, sig.args[0], array, [item],
+                                                       wraparound=False, boundscheck=False)
+                    vector = builder.insert_element(vector, builder.load(pointer), ir.Constant(ir.IntType(32), lane))
+            if not isinstance(sig.args[3], types.NoneType):
+                delta = builder.fsub(vector, mean_vector)
+                vector = builder.fmul(delta, delta)
+            return vector
+
+        total = cgutils.alloca_once(builder, vector_type)
+        builder.store(load(offset), total)
+        with cgutils.for_range(builder, builder.sub(count, context.get_constant(types.intp, 1))) as loop:
+            index = builder.add(offset, builder.mul(builder.add(loop.index, context.get_constant(types.intp, 1)),
+                                                    context.get_constant(types.intp, LANES)))
+            builder.store(builder.fadd(builder.load(total), load(index)), total)
+        vector = builder.load(total)
+        lanes = [builder.extract_element(vector, ir.Constant(ir.IntType(32), lane)) for lane in range(LANES)]
+        pairs = [builder.fadd(lanes[lane], lanes[lane + 1]) for lane in range(0, LANES, 2)]
+        return builder.fadd(builder.fadd(pairs[0], pairs[1]), builder.fadd(pairs[2], pairs[3]))
+
+    return signature, codegen
 
 
 @njit(cache=True, fastmath=False, inline='always')
@@ -45,37 +94,27 @@ def _mapped(value, mean):
     return np.float32(delta * delta)
 
 
-@njit(cache=True, fastmath=False)
-def _pairwise(values, start, size, mean):
+@njit(cache=True, fastmath=False, inline='always')
+def _pairwise_leaf(values, start, size, mean):
     if size < LANES:
         value = np.float32(-0.)
         for index in range(start, start + size):
             value = np.float32(value + _mapped(values[index], mean))
         return value
-    if size > PAIRWISE_BLOCK:
-        middle = size // 2 // LANES * LANES
-        return np.float32(_pairwise(values, start, middle, mean)
-                          + _pairwise(values, start + middle, size - middle, mean))
-    a, b = _mapped(values[start], mean), _mapped(values[start + 1], mean)
-    c, d = _mapped(values[start + 2], mean), _mapped(values[start + 3], mean)
-    e, f = _mapped(values[start + 4], mean), _mapped(values[start + 5], mean)
-    g, h = _mapped(values[start + 6], mean), _mapped(values[start + 7], mean)
     full = size // LANES * LANES
-    for offset in range(LANES, full, LANES):
-        a = np.float32(a + _mapped(values[start + offset], mean))
-        b = np.float32(b + _mapped(values[start + offset + 1], mean))
-        c = np.float32(c + _mapped(values[start + offset + 2], mean))
-        d = np.float32(d + _mapped(values[start + offset + 3], mean))
-        e = np.float32(e + _mapped(values[start + offset + 4], mean))
-        f = np.float32(f + _mapped(values[start + offset + 5], mean))
-        g = np.float32(g + _mapped(values[start + offset + 6], mean))
-        h = np.float32(h + _mapped(values[start + offset + 7], mean))
-    left = np.float32(np.float32(a + b) + np.float32(c + d))
-    right = np.float32(np.float32(e + f) + np.float32(g + h))
-    value = np.float32(left + right)
+    value = _eight_lane_sum(values, start, full // LANES, mean)
     for offset in range(full, size):
         value = np.float32(value + _mapped(values[start + offset], mean))
     return value
+
+
+@njit(cache=True, fastmath=False)
+def _pairwise(values, start, size, mean):
+    if size <= PAIRWISE_BLOCK:
+        return _pairwise_leaf(values, start, size, mean)
+    middle = size // 2 // LANES * LANES
+    return np.float32(_pairwise(values, start, middle, mean)
+                      + _pairwise(values, start + middle, size - middle, mean))
 
 
 @njit(cache=True, fastmath=False)
@@ -93,7 +132,7 @@ def _cached_input_sum(values, start, size, cache):
     if stored and not np.isnan(cache[key, size]):
         return cache[key, size]
     if size <= PAIRWISE_BLOCK:
-        result = _pairwise(values, start, size, None)
+        result = _pairwise_leaf(values, start, size, None)
     else:
         middle = size // 2 // LANES * LANES
         result = np.float32(_cached_input_sum(values, start, middle, cache)
