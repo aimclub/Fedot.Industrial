@@ -2,7 +2,9 @@
 
 import json
 import os
+from importlib import import_module
 from pathlib import Path
+from time import monotonic
 
 import cloudpickle
 
@@ -31,6 +33,7 @@ class IndustrialWorkerBootstrap(WorkerPlugin):
             raise ValueError("Industrial evaluation requires one task thread per worker")
         if worker.memory_manager.memory_limit <= 0:
             raise ValueError("Industrial evaluation requires a positive worker memory budget")
+        worker._industrial_evaluation_runtime = prepare_worker_runtime()
         worker._industrial_evaluation_manifest = expected.digest
 
 
@@ -38,7 +41,41 @@ def worker_resources(dask_worker=None):
     worker = dask_worker if dask_worker is not None else get_worker()
     return {"digest": getattr(worker, "_industrial_evaluation_manifest", None),
             "pid": os.getpid(), "threads": worker.state.nthreads,
-            "memory_limit": worker.memory_manager.memory_limit}
+            "memory_limit": worker.memory_manager.memory_limit,
+            "runtime": getattr(worker, '_industrial_evaluation_runtime', None)}
+
+
+def prepare_worker_runtime():
+    """Prepare shared imports/code before admission, never fit a user model.
+
+    This is part of session startup and its total budget. Candidate deadlines
+    still include submission, model execution and delivery; none are reset.
+    """
+    started = monotonic()
+    import_module('fedot_ind.core.optimizer.evaluation.dispatcher')
+    import numpy as np
+    import torch
+    from fedot_ind.core.operation.transformation.representation.statistical.hurst_batch import native_hurst_supported
+
+    flags = (torch.get_num_threads(), torch.get_num_interop_threads(),
+             torch.are_deterministic_algorithms_enabled())
+    values = np.zeros(512, dtype=np.float32)
+    warmed = native_hurst_supported(values)
+    if warmed:
+        import_module('fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor')
+        import_module('fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor')
+        from fedot_ind.core.operation.transformation.representation.statistical.native_statistics import (
+            prefixes, hjorth_m4,
+        )
+        cumulative = np.cumsum(values)
+        prefixes(values, cumulative, cumulative / np.arange(1, len(values) + 1))
+        hjorth_m4(values)
+    after = (torch.get_num_threads(), torch.get_num_interop_threads(),
+             torch.are_deterministic_algorithms_enabled())
+    if flags != after:
+        raise RuntimeError('Worker preparation changed Torch settings')
+    return dict(seconds=monotonic() - started, native_statistics_warmed=warmed,
+                model_fit_calls=0, torch_flags_preserved=True)
 
 
 def evaluate_on_worker(task, payload, evaluate, digest, result_path):
