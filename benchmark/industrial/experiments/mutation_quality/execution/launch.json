@@ -1,7 +1,5 @@
 {
   "schema_version": "industrial_quality_launcher@1",
   "smoke_generations": 1,
-  "smoke_seconds": 150,
-  "smoke_process_seconds": 420,
   "schema_seal": "eccbefbd7e1cc2b6d0d74188369e13c4145c40c9c8a408606b74333c76930d97"
 }

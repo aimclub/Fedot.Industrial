@@ -27,7 +27,7 @@ def test_full_and_smoke_plans_do_not_change_frozen_jobs():
     assert {row.arm for row in smoke} == {'baseline', 'expanded_fixed', 'expanded_staged'}
     assert {row.scenario for row in smoke} == set(tasks)
     assert all(row.seconds == 600 and row.generations == 15 and not row.smoke for row in full)
-    assert all(row.seconds == 150 and row.generations == 1 and row.smoke for row in smoke)
+    assert all(row.seconds == 600 and row.generations == 1 and row.smoke for row in smoke)
 
 
 def container_metadata():
@@ -160,3 +160,46 @@ def test_environment_check_matches_post_import_freeze_and_still_rejects_changes(
     expected['packages']['torch'] = 'not-the-frozen-version'
     with pytest.raises(ProtocolViolation, match='Dependency environment'):
         check_environment(expected)
+
+
+@pytest.mark.parametrize('task', ['classification', 'regression', 'ts_forecasting'])
+def test_real_final_refit_and_control_prediction_on_synthetic_data(tmp_path, task):
+    from fedot import create_data
+    from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+    from fedot.core.data.tensor_data import TensorData
+    from fedot.core.repository.tasks import Task, TaskTypesEnum
+    from fedot.core.repository.dataset_types import DataTypesEnum
+    import torch
+    from benchmark.industrial.experiments.evolution_parallelism.data import SearchData
+    from benchmark.industrial.experiments.mutation_quality.freeze import save_data
+    from benchmark.industrial.experiments.mutation_quality.execution.study import FrozenStudy
+    from benchmark.industrial.experiments.staged_mutations.training import load_training_protocol
+    from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+    settings = load_training_protocol()
+    if task == 'ts_forecasting':
+        from fedot.core.data.split.temporal import temporal_tensor_holdout
+        values = np.arange(132, dtype=float) + np.sin(np.arange(132) / 3)
+        complete = create_data(values, target=values.copy(), task=task, ts_forecast_horizon=12, without_target=True)
+        train, control = temporal_tensor_holdout(complete)
+    else:
+        x = np.arange(320, dtype=np.float32).reshape(20, 1, 16) / 100
+        y = np.arange(20) % 2 if task == 'classification' else np.arange(20, dtype=float)
+
+        def container(left, right):
+            return TensorData(features=torch.as_tensor(x[left:right]), target=torch.as_tensor(y[left:right]),
+                              idx=np.arange(right - left), task=Task(TaskTypesEnum[task]), data_type=DataTypesEnum.multi_ts)
+        train, control = container(0, 16), container(16, 20)
+    (tmp_path / 'inputs').mkdir()
+    data = SearchData(((train, control),) * 3, train, control, {'official_test_used': False})
+    metadata = save_data(tmp_path / 'inputs/synthetic.npz', data)
+    data.test = None
+    study = FrozenStudy('baseline', task, pilot=False, bundle=str(tmp_path), lock={'datasets': {'synthetic': metadata}},
+                        trial=SimpleNamespace(scenario='synthetic'))
+    with industrial_extension_scope():
+        builder = PipelineBuilder()
+        for operation in settings['tasks'][task]['initial_chains'][0]:
+            builder.add_node(operation, params=settings['operation_parameters'].get(operation))
+        pipeline = builder.build()
+        final, loss = study.evaluate_selected(pipeline, data, tmp_path)
+    assert np.isfinite(loss) and final.test_loss is None
+    assert data.test is None and (tmp_path / 'outer_train_predictions.csv').is_file()

@@ -40,7 +40,7 @@ def trial_plan(lock, *, smoke):
     else:
         jobs = lock['jobs']
     return tuple(Trial(index, row['scenario'], row['task'], row['arm'], row['seed'],
-                       settings['smoke_seconds'] if smoke else row['search_seconds'],
+                       row['search_seconds'],
                        settings['smoke_generations'] if smoke else row['minimum_generations'],
-                       settings['smoke_process_seconds'] if smoke else row['full_process_seconds'], smoke)
+                       row['full_process_seconds'], smoke)
                  for index, row in enumerate(jobs))
