@@ -428,7 +428,8 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('logit'),
         'regression': PipelineBuilder().add_node('treg')
     }
-    # mutation order - [param_change,model_change,add_preproc_model,drop_model,add_model]
+    # Canonical legacy slots: parameter_change, replace, drop, add, edge.
+    # Keep numeric profiles unchanged; mutation_weights aligns slots by action name.
     FEDOT_MUTATION_STRATEGY = {
         'params_mutation_strategy': [0.7, 0.3, 0.00, 0.00, 0.0],
         'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],

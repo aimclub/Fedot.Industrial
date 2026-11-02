@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Iterable, TypeVar
+from collections.abc import Mapping
+import math
 
 
 MutationT = TypeVar("MutationT")
@@ -21,11 +23,20 @@ def without_resample_mutations(mutations: Iterable[MutationT]) -> list[MutationT
     return [mutation for mutation in mutations if "resample" not in mutation_name(mutation)]
 
 
-def mutation_weights(actions: Iterable[object], strategy: Iterable[float]) -> list[float]:
+def mutation_weights(actions: Iterable[object], strategy: Iterable[float] | Mapping[str, float]) -> list[float]:
     """Align the five FEDOT strategy weights with enabled actions, not their order."""
-    weights = tuple(strategy)
+    if isinstance(strategy, Mapping):
+        names = ('parameter_change', 'replace', 'drop', 'add', 'edge')
+        if set(strategy) != set(names):
+            raise ValueError('Named mutation weights require exactly the five canonical action kinds')
+        weights = tuple(strategy[name] for name in names)
+    else:
+        weights = tuple(strategy)
     if len(weights) != 5:
         raise ValueError("A FEDOT mutation strategy requires five weights")
+    if any(isinstance(w, bool) or not isinstance(w, (int, float)) or not math.isfinite(w) or w < 0
+           for w in weights):
+        raise ValueError('Mutation weights must be finite nonnegative numbers')
     slots = {
         "parameter_change_mutation": 0,
         "single_change": 1, "simple": 1,

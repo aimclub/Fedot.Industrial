@@ -97,7 +97,8 @@ class CompletedEvaluationArchive:
     Storage is O(completed evaluations * graph size); accessors return copies.
     """
 
-    def __init__(self, objective, keep_n_best=1):
+    def __init__(self, objective, keep_n_best=1, *, on_completed=None):
+        self._on_completed = on_completed
         self._entries = {}
         self._candidates = {}
         self._multi_objective = objective.is_multi_objective
@@ -136,3 +137,5 @@ class CompletedEvaluationArchive:
             self._candidates[entry.evaluation_id] = candidate
             if self._multi_objective:
                 self._best.update([candidate])
+            if self._on_completed is not None:
+                self._on_completed(self._snapshot(candidate))

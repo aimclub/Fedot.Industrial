@@ -107,7 +107,7 @@ def build_environment(settings, task, workers):
     return requirements, params
 
 
-def run_search(config, output_dir):
+def run_search(config, output_dir, *, study=None):
     import torch
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
     from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
@@ -133,6 +133,8 @@ def run_search(config, output_dir):
     traces = root / 'traces'
     traces.mkdir()
     settings = load_defaults()
+    if study is not None:
+        settings = study.search_settings(settings)
     from fedot_ind.integration.fedot.extensions.manifest import build_industrial_extension_manifest
     from fedot.extensions.parameter_rules import resolve_extension_params
     manifest = build_industrial_extension_manifest()
@@ -150,6 +152,8 @@ def run_search(config, output_dir):
                                  Path('fedot_ind/core/repository/data/default_operation_params.json')))
     implementation_paths.append(
         Path('benchmark/industrial/experiments/mutation_planning/population_study/preparation.py'))
+    if study is not None:
+        implementation_paths.extend(study.implementation_paths())
     source_hashes = {str(path.resolve()): sha256(path.read_bytes()).hexdigest() for path in implementation_paths}
     write_json(root / 'implementation.json', source_hashes)
     write_json(root / 'config.json', {'request': asdict(config), 'settings': settings})
@@ -164,7 +168,7 @@ def run_search(config, output_dir):
                                            'packages': runtime_versions, 'torch_flags': flags_before,
                                            'native_thread_environment': {name: os.environ.get(name) for name in
                                                                          ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'NUMEXPR_NUM_THREADS')}})
-    data = load_data(config.task, config.seed, include_test=False)
+    data = (load_data(config.task, config.seed, include_test=False) if study is None else study.load_data())
     write_json(root / 'source.json', data.source)
     parameters = deepcopy(settings['operation_parameters'])
     if config.task == 'ts_forecasting':
@@ -173,6 +177,8 @@ def run_search(config, output_dir):
     native = PipelineObjectiveEvaluateWithTensorData(
         objective, FoldSource(data.folds), expected_folds=len(data.folds), result_cache_size=0, eval_n_jobs=1)
     measured = MeasuredObjective(native, str(traces.resolve()))
+    if study is not None:
+        measured = study.prepare_objective(measured, data)
     workers = 1 if config.backend == 'sequential' else config.workers
     dask_config = DaskExecutionConfig(retries=1, memory_limit=4 * 1024**3,
                                       lifecycle=DaskLifecycle(config.lifecycle))
@@ -197,6 +203,8 @@ def run_search(config, output_dir):
             from fedot_ind.core.optimizer.evaluation.dask_dispatcher import dask_session_scope
             stack.enter_context(dask_session_scope(observer=observe))
         requirements, params = build_environment(settings, data.refit.task, workers)
+        if study is not None:
+            params = study.configure_environment(params)
         if time() >= deadline_epoch:
             raise TimeoutError('Search budget consumed during setup')
         requirements.timeout = timedelta(seconds=deadline_epoch - time())
@@ -223,19 +231,30 @@ def run_search(config, output_dir):
             offspring_rate=1., crossover_prob=0., mutation_prob=1., variable_mutation_num=False,
             max_num_of_operator_attempts=12,
             mutation_types=[MutationTypesEnum.single_change, MutationTypesEnum.single_add, MutationTypesEnum.single_drop])
+        from fedot_ind.core.optimizer.configuration import MutationStrategy
+        preparation = StudyGraphPreparation.from_parameters(params.adapter, parameters, config.task)
+        if study is not None:
+            preparation = study.preparation(preparation, root)
+        evolution_config = EvolutionConfig(random_seed=config.seed,
+                                           mutation_strategy=MutationStrategy.PARAMS if study is None else study.strategy,
+                                           mutation_planning=MutationPlanningPolicy(
+                                               enabled=True, max_candidates=64, max_nodes=6),
+                                           resource_budget=ResourceBudget(settings['population_size'], 12, 32),
+                                           execution_policy=ExecutionPolicy(retry_initial_population_without_timer=False,
+                                                                            diagnostics_output_dir=str(root / 'diagnostics')),
+                                           evaluation_execution=EvaluationExecutionConfig(
+                                               EvaluationBackend(config.backend), candidate_timeout_seconds=settings['candidate_seconds'],
+                                               total_timeout_seconds=config.budget_seconds,
+                                               dask=dask_config if config.backend == 'dask' else None))
+        if study is not None:
+            evolution_config = study.configure_evolution(evolution_config)
         optimizer = IndustrialEvoOptimizer(
-            objective, initial, requirements, params, algorithm,
-            EvolutionConfig(random_seed=config.seed,
-                            mutation_planning=MutationPlanningPolicy(enabled=True, max_candidates=64, max_nodes=6),
-                            resource_budget=ResourceBudget(settings['population_size'], 12, 32),
-                            execution_policy=ExecutionPolicy(retry_initial_population_without_timer=False,
-                                                             diagnostics_output_dir=str(root / 'diagnostics')),
-                            evaluation_execution=EvaluationExecutionConfig(
-                                EvaluationBackend(config.backend), candidate_timeout_seconds=settings['candidate_seconds'],
-                                total_timeout_seconds=config.budget_seconds,
-                                dask=dask_config if config.backend == 'dask' else None)),
+            objective, initial, requirements, params, algorithm, evolution_config,
             diagnostics_recorder=recorder,
-            evaluation_graph_preparation=StudyGraphPreparation.from_parameters(params.adapter, parameters, config.task))
+            evaluation_graph_preparation=preparation)
+        write_json(root / 'mutation_probabilities.json', optimizer.mutation_probability_report)
+        if study is not None:
+            study.observe_mutations(optimizer, root)
 
         def on_generation(population, owner):
             row = {'generation': owner.current_generation_num, 'elapsed_seconds': time() - launch_epoch,
@@ -273,18 +292,24 @@ def run_search(config, output_dir):
         completed = [entry.to_record() for entry in optimizer.completed_evaluations.entries]
         evaluation_journal.append(completed[evaluation_journal.count:])
         evaluation_journal.finalize()
-        winner = configure_pipeline(params.adapter.restore(selected), parameters)
+        restored = params.adapter.restore(selected)
+        winner = (configure_pipeline(restored, parameters) if study is None else
+                  study.configure_selected(restored, parameters))
         selection = pipeline_configuration(winner, config.task)
         write_json(root / 'selected_graph.json', selection)
         evolved = len(optimizer.evaluated_population) - 1
         from .final_evaluation import evaluate_selected
-        final = evaluate_selected(config, evolved, winner, data.source, root)
+        if study is None:
+            final, outer_loss = evaluate_selected(config, evolved, winner, data.source, root), None
+        else:
+            final, outer_loss = study.evaluate_selected(winner, data, root)
         summary = {'status': 'succeeded', 'request': asdict(config), 'source': data.source,
                    'completed_evolved_generations': evolved, 'search_seconds': search_seconds,
                    'search_wall_seconds': search_wall_seconds,
                    'search_budget_overrun_seconds': max(0., search_wall_seconds - config.budget_seconds),
                    'startup_seconds': startup_seconds, 'refit_seconds': final.refit_seconds,
                    'predict_seconds': final.predict_seconds, 'test_loss': final.test_loss,
+                   'outer_train_loss': outer_loss,
                    'validation_loss': min(row['fitness'][0] for row in completed),
                    'completed_evaluations': len(completed),
                    'unique_configurations': len({row['evaluation_context']['configuration_id'] for row in completed}),

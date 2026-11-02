@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
 from fedot_ind.core.optimizer.evaluation.contracts import positive_seconds
 from fedot_ind.core.optimizer.evaluation.dask_config import DaskConfigError, parse_dask_config
+from fedot_ind.core.optimizer.search_policy import StagedSearchPolicy, parse_staged_search
 
 
 EVOLUTION_CONFIG_SCHEMA = "industrial_evolution_config@1"
@@ -32,6 +33,7 @@ class MutationStrategy(str, Enum):
     REGULARIZATION = "regularization_mutation_strategy"
     INITIAL_POPULATION_DIVERSITY = "initial_population_diversity_strategy"
     UNIQUE_POPULATION = "unique_population_strategy"
+    STRUCTURAL_BALANCED = "structural_balanced"
 
 
 class EvolutionConfigViolationCode(str, Enum):
@@ -160,6 +162,7 @@ class EvolutionConfig:
     random_seed: int | None = None
     mutation_planning: MutationPlanningPolicy = field(default_factory=MutationPlanningPolicy)
     evaluation_execution: EvaluationExecutionConfig = field(default_factory=EvaluationExecutionConfig)
+    mutation_schedule: StagedSearchPolicy | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.mutation_agent, MutationAgentType):
@@ -174,13 +177,18 @@ class EvolutionConfig:
             raise ValueError("mutation_planning must be a MutationPlanningPolicy")
         if not isinstance(self.evaluation_execution, EvaluationExecutionConfig):
             raise ValueError("evaluation_execution must be an EvaluationExecutionConfig")
+        if self.mutation_schedule is not None:
+            if not isinstance(self.mutation_schedule, StagedSearchPolicy):
+                raise ValueError('mutation_schedule must be a StagedSearchPolicy or None')
+            if self.mutation_agent is not MutationAgentType.RANDOM or not self.mutation_planning.enabled:
+                raise ValueError('A mutation schedule requires RandomAgent and enabled mutation planning')
         if self.random_seed is not None:
             if isinstance(self.random_seed, bool) or not isinstance(self.random_seed, int) or self.random_seed < 0:
                 raise ValueError("random_seed must be a non-negative integer or null")
 
     def to_record(self) -> dict[str, object]:
         """Return the canonical JSON-compatible transport shape."""
-        return {
+        result = {
             "schema_version": EVOLUTION_CONFIG_SCHEMA,
             "mutation": {
                 "agent": self.mutation_agent.value,
@@ -192,6 +200,9 @@ class EvolutionConfig:
             "mutation_planning": self.mutation_planning.to_record(),
             "evaluation_execution": self.evaluation_execution.to_record(),
         }
+        if self.mutation_schedule is not None:
+            result['mutation_schedule'] = self.mutation_schedule.to_record()
+        return result
 
     def with_initial_graphs_prevalidated(self, value: bool) -> "EvolutionConfig":
         return replace(
@@ -204,6 +215,7 @@ class EvolutionConfig:
 
 
 _ROOT_FIELDS = frozenset({
+    "mutation_schedule",
     "evaluation_execution",
     "mutation_planning",
     "random_seed",
@@ -560,6 +572,16 @@ def normalize_evolution_config(
         violations.append(EvolutionConfigViolation(
             EvolutionConfigViolationCode.CONFLICTING_FIELDS, "evaluation_execution",
             "legacy backend cannot enforce local executor deadlines"))
+    schedule = None
+    if payload.get('mutation_schedule') is not None:
+        try:
+            schedule = parse_staged_search(payload['mutation_schedule'])
+        except ValueError as error:
+            violations.append(EvolutionConfigViolation(EvolutionConfigViolationCode.INVALID_VALUE,
+                                                       'mutation_schedule', str(error)))
+        if agent is not MutationAgentType.RANDOM or not mutation_planning.enabled:
+            violations.append(EvolutionConfigViolation(EvolutionConfigViolationCode.CONFLICTING_FIELDS,
+                                                       'mutation_schedule', 'A schedule requires RandomAgent and enabled mutation planning'))
     if violations:
         raise EvolutionConfigError(tuple(violations))
     return EvolutionConfig(
@@ -570,4 +592,5 @@ def normalize_evolution_config(
         random_seed=random_seed,
         mutation_planning=mutation_planning,
         evaluation_execution=EvaluationExecutionConfig(backend=evaluation_backend, dask=dask_config, **timeouts),
+        mutation_schedule=schedule,
     )

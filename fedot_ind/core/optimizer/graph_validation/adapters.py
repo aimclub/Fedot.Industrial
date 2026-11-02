@@ -98,6 +98,17 @@ def capabilities_from_runtime_node(
     operation_name = _operation_name(node)
     declared = (capability_index or {}).get(operation_name)
     if declared is not None:
+        if operation_name == 'fourier_basis':
+            from dataclasses import replace
+            params = getattr(node, 'parameters', None)
+            if params is None:
+                params = getattr(node, 'content', {}).get('params', {})
+            if hasattr(params, 'to_dict'):
+                params = params.to_dict()
+            if isinstance(params, Mapping):
+                tag = ('tabular_representation' if params.get('compute_heuristic_representation') else
+                       'power_spectrum' if params.get('output_format') == 'spectrum' else 'time_signal')
+                declared = replace(declared, tags=tuple(t for t in declared.tags if t != 'time_signal') + (tag,))
         return declared
     metadata = getattr(operation, "metadata", None)
     if metadata is None:

@@ -91,6 +91,8 @@ class ValidationIssueCode(str, Enum):
     LEGACY_VERIFIER_REJECTED = "legacy_verifier_rejected"
     LEGACY_VERIFIER_FAILED = "legacy_verifier_failed"
     GRAPH_ADAPTATION_FAILED = "graph_adaptation_failed"
+    REPRESENTATION_MISMATCH = "representation_mismatch"
+    FORECAST_BRANCH_CONTRACT = "forecast_branch_contract"
 
 
 def _unique_strings(values: Iterable[object]) -> tuple[str, ...]:

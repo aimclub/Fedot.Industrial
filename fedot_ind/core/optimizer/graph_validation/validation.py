@@ -235,6 +235,16 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
             parent_names.append(parent.operation_name)
             output_types = frozenset(parent.capabilities.output_data_types)
             input_types = frozenset(child_capability.input_data_types)
+            if 'requires_time_axis' in child_capability.tags:
+                parent_tags = parent.capabilities.tags
+                if ('wavelet_coefficients' in parent_tags or 'power_spectrum' in parent_tags
+                        or 'tabular_representation' in parent_tags
+                        or (output_types == {'tabular'} and 'time_signal' not in parent_tags)):
+                    issues.append(_issue(
+                        ValidationIssueCode.REPRESENTATION_MISMATCH,
+                        'A time-axis basis cannot consume coefficients, power bins or unordered feature columns.',
+                        node_ids=(parent.node_id, child.node_id),
+                        operation_names=(parent.operation_name, child.operation_name)))
             if output_types and input_types and output_types.isdisjoint(input_types):
                 issues.append(_issue(
                     ValidationIssueCode.DATA_TYPE_MISMATCH,
@@ -247,6 +257,7 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
             feature_types = frozenset(feature_outputs[parent.node_id])
             if (spec.model_feature_flow is ModelFeatureFlow.TENSOR_FEATURES
                     and feature_types and input_types and feature_types.isdisjoint(input_types)
+                    and 'forecast_prediction_merge' not in child_capability.tags
                     and not (output_types and output_types.isdisjoint(input_types))):
                 issues.append(_issue(
                     ValidationIssueCode.FEATURE_TYPE_MISMATCH,
@@ -273,6 +284,40 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
                 node_ids=(child.node_id,),
                 operation_names=(child.operation_name, *parent_names),
             ))
+    return tuple(issues)
+
+
+def validate_forecast_branches(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
+    """Require explicit merge operators; the adapter checks actual row alignment."""
+    nodes = _unique_node_map(spec)
+    issues = []
+    for node in nodes.values():
+        cap = node.capabilities
+        if cap is None:
+            continue
+        tags = cap.tags
+        prediction_merge = 'forecast_prediction_merge' in tags
+        feature_merge = 'forecast_feature_merge' in tags
+        representation = 'forecast_window_representation' in tags
+        if not (prediction_merge or feature_merge or representation):
+            continue
+        parents = [nodes[key] for key in node.parent_ids if key in nodes]
+        bad = spec.task_type != 'ts_forecasting' or len(parents) != len(node.parent_ids)
+        if prediction_merge:
+            bad |= (feature_merge or len(parents) < 2 or any(
+                p.capabilities is None or p.capabilities.kind is not OperationKind.MODEL for p in parents))
+        elif feature_merge:
+            bad |= len(parents) < 2 or any(
+                p.capabilities is None or p.capabilities.kind is not OperationKind.TRANSFORM
+                or p.capabilities.output_data_types != ('tabular',) for p in parents)
+        elif representation:
+            bad |= len(parents) != 1 or any(
+                p.capabilities is None or not {'ts_to_table', 'forecast_window_representation'}.intersection(
+                    p.capabilities.tags) for p in parents)
+        if bad:
+            issues.append(_issue(ValidationIssueCode.FORECAST_BRANCH_CONTRACT,
+                                 'Forecast branches require window-local features or explicit model predictions.',
+                                 node_ids=(node.node_id,), operation_names=(node.operation_name,)))
     return tuple(issues)
 
 
@@ -388,6 +433,7 @@ DEFAULT_GRAPH_RULES: tuple[GraphRule, ...] = (
     validate_capabilities,
     validate_data_flow,
     validate_special_operations,
+    validate_forecast_branches,
 )
 
 

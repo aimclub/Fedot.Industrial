@@ -1,0 +1,40 @@
+{
+  "schema_version": "industrial_staged_mutation_comparison@1",
+  "training_enabled": false,
+  "seeds": [42, 123, 2026],
+  "budget_seconds": 300,
+  "candidate_seconds": 90,
+  "workers": 4,
+  "family_fraction": 0.5,
+  "max_candidates": 128,
+  "max_nodes": 12,
+  "max_depth": 5,
+  "max_arity": 2,
+  "tasks": {
+    "classification": {
+      "name": "ACSF1",
+      "operations": ["quantile_extractor", "quantile_extractor_torch", "wavelet_basis", "fourier_basis", "rf", "logit"],
+      "initial_chain": ["quantile_extractor", "rf"]
+    },
+    "regression": {
+      "name": "Tecator",
+      "operations": ["quantile_extractor", "quantile_extractor_torch", "wavelet_basis", "fourier_basis", "ridge"],
+      "initial_chain": ["quantile_extractor", "ridge"]
+    },
+    "ts_forecasting": {
+      "name": "Airline",
+      "operations": ["hankelisation", "smoothing", "gaussian_filter", "ridge"],
+      "initial_chain": ["hankelisation", "ridge"]
+    }
+  },
+  "defaults": {
+    "ridge": {"alpha": 1.0},
+    "logit": {"C": 1.0, "max_iter": 500, "n_jobs": 1, "random_state": 42},
+    "rf": {"max_depth": null, "n_estimators": 500, "n_jobs": 1, "random_state": 42},
+    "quantile_extractor": {"use_cache": false, "use_sliding_window": false, "window_size": 0},
+    "quantile_extractor_torch": {"use_cache": false},
+    "wavelet_basis": {"wavelet": "mexh", "n_components": 2, "use_cache": false},
+    "fourier_basis": {"use_cache": false},
+    "hankelisation": {"window_size": 24, "stride": 1, "forecast_length": 12}
+  }
+}

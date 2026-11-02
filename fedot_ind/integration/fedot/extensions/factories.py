@@ -73,6 +73,10 @@ class _DeferredRuntime:
         return method
 
     def fit(self, features: Any, target: Any = None) -> object:
+        from fedot_ind.integration.fedot.forecast_merge_context import require_forecast_merge_context
+        require_forecast_merge_context(self.declaration)
+        if self.declaration.kind is IndustrialOperationKind.TRANSFORM and not self.declaration.requires_fit:
+            return self
         if uses_temporal_contract(self.declaration):
             fitted = fit_temporal_operation(self, features, _invoke)
         else:
@@ -93,6 +97,8 @@ class DeferredModel(_DeferredRuntime):
     """Array-level model facade expected by the FEDOT extension runtime."""
 
     def predict(self, features: Any) -> Any:
+        from fedot_ind.integration.fedot.forecast_merge_context import require_forecast_merge_context
+        require_forecast_merge_context(self.declaration)
         runtime_features = self._runtime_input(features)
         prediction = _unwrap_output(
             _invoke(self._method("predict"), (runtime_features,), {}, self.declaration.name),
@@ -141,6 +147,8 @@ class DeferredTransform(_DeferredRuntime):
         return transform_temporal_operation(self, request, _invoke)
 
     def transform(self, features: Any) -> Any:
+        from fedot_ind.integration.fedot.forecast_merge_context import require_forecast_merge_context
+        require_forecast_merge_context(self.declaration)
         method_name = self.declaration.transform_policy.value
         method = self._method(method_name)
         runtime_features = self._runtime_input(features)
@@ -302,7 +310,8 @@ def _validate_runtime_methods(instance: object,
         return candidate
 
     sample = object()
-    _validate_call(method("fit"), _fit_args(declaration, sample, sample), {}, declaration.name)
+    if declaration.kind is IndustrialOperationKind.MODEL or declaration.requires_fit:
+        _validate_call(method("fit"), _fit_args(declaration, sample, sample), {}, declaration.name)
     if declaration.kind is IndustrialOperationKind.MODEL:
         prediction = method("predict")
         _validate_call(prediction, (sample,), {}, declaration.name)

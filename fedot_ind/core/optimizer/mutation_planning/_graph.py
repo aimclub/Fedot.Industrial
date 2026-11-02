@@ -14,7 +14,7 @@ from fedot_ind.core.optimizer.graph_validation.validation import validate_graph,
 from fedot_ind.core.optimizer.mutation_planning.contracts import (
     AddBranch, AddPrimaryBranch, DeduplicateParents, DropPrimaryBranch, DropPrimaryTransform, DropTransform, GraphEdit,
     InsertTransform, MutationLimits, MutationRejection, MutationRejectionCode,
-    RawInputSpec, ReplaceOperation,
+    RawInputSpec, ReplaceOperation, RewriteChain, ForkFeatureBranch, PruneFeatureBranch, ForkForecastBranch,
 )
 
 
@@ -101,7 +101,10 @@ def single_input_graph(spec: GraphSpec) -> bool:
 
 def homogeneous_input_graph(spec: GraphSpec, raw_input: RawInputSpec | None) -> bool:
     """Multiple primary transforms may still consume one homogeneous sample set."""
-    return bool(raw_input is not None and spec.task_type in ("classification", "regression")
+    forecast = (spec.task_type == 'ts_forecasting' and raw_input is not None and raw_input.data_type == 'ts'
+                and any({'forecast_feature_merge', 'forecast_prediction_merge'}.intersection(node.capabilities.tags)
+                        for node in spec.nodes if node.capabilities is not None))
+    return bool(raw_input is not None and (spec.task_type in ("classification", "regression") or forecast)
                 and all(ordinary(node.capabilities)
                         and (node.parent_ids or raw_input.data_type in node.capabilities.input_data_types)
                         and (raw_input.has_target or not node.capabilities.requires_target)
@@ -235,6 +238,12 @@ def drop_primary_branch_allowed(spec: GraphSpec, node: GraphNodeSpec, raw_input:
 
 def apply_edit(spec: GraphSpec, edit: GraphEdit, *,
                raw_input: RawInputSpec | None = None) -> GraphSpec | MutationRejection:
+    if isinstance(edit, ForkForecastBranch):
+        from .forecast import apply_forecast_fork
+        return apply_forecast_fork(spec, edit, raw_input)
+    if isinstance(edit, (RewriteChain, ForkFeatureBranch, PruneFeatureBranch)):
+        from .rewrites import apply_rewrite
+        return apply_rewrite(spec, edit, raw_input)
     """Check semantic safety before constructing a new immutable graph."""
     if isinstance(edit, (InsertTransform, AddPrimaryBranch)) and edit.operation.kind is not OperationKind.TRANSFORM:
         return MutationRejection(MutationRejectionCode.OPERATION_KIND, "Only feature transforms may be inserted.")

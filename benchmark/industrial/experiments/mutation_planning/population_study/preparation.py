@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 import json
 
-from fedot_ind.core.optimizer.evaluation.preparation import PreparedEvaluationGraph, canonical_json
+from fedot_ind.core.optimizer.evaluation.preparation import PreparedEvaluationGraph, canonical_json, pipeline_configuration
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
 
@@ -15,34 +15,6 @@ def configure_pipeline(pipeline, parameters):
         current = node.parameters if isinstance(node.parameters, dict) else {}
         node.parameters = json.loads(canonical_json({**current, **parameters.get(name, {})}))
     return pipeline
-
-
-def pipeline_configuration(pipeline, task):
-    """Ordered-root traversal preserves shared nodes and runtime parent ordering.
-
-    FEDOT reads parents in descriptive-ID order. Parameters must already be
-    normalized before calling this function; no branch permutations are invented.
-    """
-    order, identifiers, parents = [], {}, {}
-    pending = [pipeline.root_node]
-    while pending:
-        node = pending.pop()
-        key = id(node)
-        if key in identifiers:
-            continue
-        identifiers[key] = len(order)
-        order.append(node)
-        incoming = node._nodes_from_with_fixed_order() if node.nodes_from else []
-        parents[key] = incoming
-        pending.extend(reversed(incoming))
-    if len(order) != len(pipeline.nodes):
-        raise ValueError('Prepared pipeline must be one connected rooted graph')
-    return {
-        'schema_version': 'industrial_study_candidate@1', 'task': task,
-        'nodes': [{'operation': node.operation.operation_type, 'parameters': node.parameters,
-                   'parents': [identifiers[id(parent)] for parent in parents[id(node)]]}
-                  for node in order],
-    }
 
 
 @dataclass(frozen=True)

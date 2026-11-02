@@ -23,6 +23,7 @@ from fedot_ind.core.optimizer.mutation import mutation_name
 from fedot_ind.core.optimizer.mutation_planning import (
     AddBranch, AddPrimaryBranch, AppliedMutation, CandidateStatus, DecisionStage,
     DropPrimaryBranch, DropPrimaryTransform, DropTransform, InsertTransform, RawInputSpec, ReplaceOperation,
+    RewriteChain, ForkFeatureBranch, PruneFeatureBranch, ForkForecastBranch,
     MutationCandidates, MutationKind, MutationLimits, MutationRejection,
     apply_mutation_plan, repair_graph, select_mutation_plan,
 )
@@ -65,6 +66,11 @@ def load_runtime_operation_catalog(graph_generation_params) -> RuntimeOperationC
         if capability is None or capability.kind is OperationKind.UNKNOWN:
             unavailable.append(name)
             continue
+        if {'forecast_feature_merge', 'forecast_prediction_merge'}.intersection(capability.tags):
+            from fedot_ind.integration.fedot.forecast_branches import ForecastPipelineAdapter
+            if not isinstance(getattr(graph_generation_params, 'adapter', None), ForecastPipelineAdapter):
+                unavailable.append(name)
+                continue
         positions = []
         if name in primary and capability.supports_position(NodePosition.PRIMARY):
             positions.append(NodePosition.PRIMARY)
@@ -99,7 +105,9 @@ def install_extension_aware_advisor(graph_generation_params) -> None:
                     if capability.name in declared and task in capability.task_types)
     if not enabled:
         return
-    advisor = deepcopy(previous)
+    from fedot_ind.integration.fedot.forecast_branches import ForecastPipelineAdapter, ForecastChangeAdvisor
+    advisor = (ForecastChangeAdvisor(previous.task)
+               if isinstance(getattr(graph_generation_params, 'adapter', None), ForecastPipelineAdapter) else deepcopy(previous))
     advisor.models = list(dict.fromkeys((*previous.models, *(
         capability.name for capability in enabled if capability.kind is OperationKind.MODEL))))
     advisor.data_operations = list(dict.fromkeys((*previous.data_operations, *(
@@ -232,6 +240,7 @@ def _runtime_diagnostics(candidates, plan, status, codes=()):
 
 
 _STRUCTURAL_KINDS = {
+    "rewrite_subgraph_mutation": MutationKind.REWRITE,
     "single_change": MutationKind.REPLACE, "simple": MutationKind.REPLACE,
     "single_add": MutationKind.ADD, "growth": MutationKind.ADD,
     "local_growth": MutationKind.ADD, "tree_growth": MutationKind.ADD,
@@ -316,7 +325,10 @@ class PlannedMutation:
         edit_kinds = {ReplaceOperation: MutationKind.REPLACE, InsertTransform: MutationKind.ADD,
                       AddBranch: MutationKind.ADD, AddPrimaryBranch: MutationKind.ADD,
                       DropTransform: MutationKind.DROP,
-                      DropPrimaryTransform: MutationKind.DROP, DropPrimaryBranch: MutationKind.DROP}
+                      DropPrimaryTransform: MutationKind.DROP, DropPrimaryBranch: MutationKind.DROP,
+                      RewriteChain: MutationKind.REWRITE, ForkFeatureBranch: MutationKind.REWRITE,
+                      ForkForecastBranch: MutationKind.REWRITE,
+                      PruneFeatureBranch: MutationKind.REWRITE}
         vetoed = set()
         for plan in candidates.plans:
             outcome = enumeration.outcome_for(plan, prepared, limits, self.raw_input)
@@ -333,9 +345,12 @@ class PlannedMutation:
         examined = candidates.examined + repair.examined
         if isinstance(self.operator.agent, RandomAgent):
             viable = []
+            from fedot_ind.core.optimizer.search_policy.parameters import BoundedParameterMutation
             for action, weight in zip(actions, probabilities):
                 kind = _STRUCTURAL_KINDS.get(mutation_name(action))
                 admissible = bool(pools[kind].plans) if kind is not None else callable(action)
+                if isinstance(action, BoundedParameterMutation):
+                    admissible = action.has_candidates(parent.graph)
                 if weight > 0 and admissible:
                     viable.append((action, weight))
             if not viable:

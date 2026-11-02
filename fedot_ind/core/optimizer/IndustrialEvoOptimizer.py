@@ -84,6 +84,17 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  diagnostics_recorder: Optional[EvolutionDiagnosticsRecorder] = None,
                  evaluation_graph_preparation: GraphPreparation | None = None):
         self.evolution_config = normalize_evolution_config(optimisation_params)
+        schedule = self.evolution_config.mutation_schedule
+        if schedule is not None:
+            from fedot_ind.core.optimizer.search_policy.runtime import configure_actions
+            from fedot_ind.core.optimizer.search_policy.planning import stage_for_budget
+            if objective.is_multi_objective:
+                raise ValueError('Staged family selection currently requires a single objective')
+            budget = self.evolution_config.evaluation_execution.total_timeout_seconds
+            if budget is None and requirements.timeout is not None:
+                budget = requirements.timeout.total_seconds()
+            stage_for_budget(schedule, 0., budget)
+            graph_optimizer_params = configure_actions(graph_optimizer_params, schedule)
         execution_policy = self.evolution_config.execution_policy
         self.initial_graphs_prevalidated = execution_policy.initial_graphs_prevalidated
         self.retry_initial_population_without_timer = execution_policy.retry_initial_population_without_timer
@@ -110,6 +121,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             graph_generation_params.verifier = self.graph_verifier
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
+        if self.mutation_probability_report['zero_weight_actions']:
+            self.log.warning('Configured mutation actions have zero weight: %s',
+                             self.mutation_probability_report['zero_weight_actions'])
         install_planned_mutation(self, self.evolution_config.mutation_planning)
         install_seeded_operators(self, self.evolution_config.random_seed)
         self._parent_selection_attempt = 0
@@ -117,7 +131,12 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         # self.operators.remove(self.crossover)
         self.evaluated_population = []
         self.requirements = requirements
-        self.completed_evaluations = CompletedEvaluationArchive(objective, requirements.keep_n_best)
+        self.staged_search = None
+        if schedule is not None:
+            from fedot_ind.core.optimizer.search_policy.runtime import StagedSearchController
+            self.staged_search = StagedSearchController(schedule, graph_generation_params, budget)
+        self.completed_evaluations = CompletedEvaluationArchive(objective, requirements.keep_n_best,
+                                                                on_completed=None if self.staged_search is None else self.staged_search.remember)
         self._final_individuals = ()
         execution_config = self.evolution_config.evaluation_execution
         dispatcher_type = (IndustrialDispatcher if execution_config.backend is EvaluationBackend.LEGACY
@@ -161,7 +180,11 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
     def export_diagnostics(self, output_dir):
         """Persist the current optimisation trace as JSONL, JSON and Markdown."""
-        return write_evolution_diagnostics(self.diagnostics, output_dir)
+        artifacts = write_evolution_diagnostics(self.diagnostics, output_dir)
+        staged = getattr(self, 'staged_search', None)
+        if staged is not None:
+            staged.export(output_dir)
+        return artifacts
 
     def _diagnostic_generation(self) -> Optional[int]:
         try:
@@ -221,8 +244,29 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         return graph_optimizer_params
 
     def _set_optimisation_strategy(self, graph_optimizer_params, config: EvolutionConfig):
-        self.optimisation_mutation_probs = mutation_weights(
-            graph_optimizer_params.mutation_types, FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value])
+        if config.mutation_strategy.value == 'structural_balanced':
+            import json
+            from pathlib import Path
+            profile = json.loads(Path(__file__).with_name('mutation_profiles.json').read_text('utf-8'))[
+                config.mutation_strategy.value]
+        else:
+            profile = FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value]
+        if config.mutation_schedule is None:
+            self.optimisation_mutation_probs = mutation_weights(graph_optimizer_params.mutation_types, profile)
+        else:
+            from fedot_ind.core.optimizer.search_policy.planning import action_weights
+            profile = config.mutation_schedule.stages[0].weights.to_record()
+            self.optimisation_mutation_probs = action_weights(graph_optimizer_params.mutation_types,
+                                                              config.mutation_schedule.stages[0])
+        from fedot_ind.core.optimizer.mutation import mutation_name
+        self.mutation_probability_report = {
+            'strategy': config.mutation_strategy.value if config.mutation_schedule is None else 'staged_search',
+            'requested': profile,
+            'effective': dict(zip(map(mutation_name, graph_optimizer_params.mutation_types),
+                                  self.optimisation_mutation_probs)),
+            'zero_weight_actions': [mutation_name(action) for action, weight in
+                                    zip(graph_optimizer_params.mutation_types, self.optimisation_mutation_probs) if not weight],
+        }
         mutation_agent = self.mutation_agent_dict[config.mutation_agent]
         if config.mutation_agent is MutationAgentType.RANDOM:
             mutation_agent = mutation_agent(actions=graph_optimizer_params.mutation_types,
@@ -239,6 +283,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
     @contextmanager
     def _mutation_probability_strategy(self, strategy):
+        if getattr(self, 'staged_search', None) is not None:
+            yield
+            return
         agent = self.mutation.agent
         if not isinstance(agent, RandomAgent):
             yield
@@ -460,6 +507,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         """ Method realizing full evolution cycle """
 
         def evolve_pop(population, evaluator):
+            staged = getattr(self, 'staged_search', None)
+            if staged is not None:
+                staged.apply(self.mutation, self.timer.minutes_from_start * 60.)
             individuals_to_select = self.regularization(population, evaluator)
             new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
             if new_population is None:
@@ -483,6 +533,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             # Use some part of previous pop in the next pop
             new_population = self.inheritance(population, new_population)
             new_population = self.elitism(self.generations.best_individuals, new_population)
+            if staged is not None:
+                new_population = staged.survivors([*population, *new_population], self.graph_optimizer_params.pop_size)
             return new_population, evaluator
 
         return evolve_pop(population, evaluator)
@@ -563,6 +615,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
     def _optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
         self._transition_evolution(EvolutionPhase.INITIALISING)
         with self.timer:
+            staged = getattr(self, 'staged_search', None)
+            if staged is not None:
+                staged.apply(self.mutation, self.timer.minutes_from_start * 60.)
             pbar = self._progressbar
             try:
                 evaluator = self.eval_dispatcher.dispatch(objective, self.timer)

@@ -76,6 +76,8 @@ namespaces = true
 [tool.setuptools.package-data]
 fedot_ind = [
     "core/repository/data/*.json",
+    "core/optimizer/mutation_profiles.json",
+    "core/optimizer/search_policy/*.json",
     "core/operation/transformation/torch_backend/statistical/batch_defaults.json",
     "core/operation/transformation/representation/statistical/batch_defaults.json",
     "core/operation/transformation/torch_backend/image/kernel_defaults.json",

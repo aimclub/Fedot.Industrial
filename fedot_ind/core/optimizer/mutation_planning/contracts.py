@@ -14,6 +14,7 @@ class MutationKind(str, Enum):
     REPLACE = "replace"
     ADD = "add"
     DROP = "drop"
+    REWRITE = "rewrite"
 
 
 class MutationRejectionCode(str, Enum):
@@ -181,11 +182,94 @@ class DeduplicateParents:
         _node_id(self.node_id)
 
 
+MAX_REWRITE_CHAIN = 3
+
+
+def _chain(operations):
+    if not isinstance(operations, tuple) or not 1 <= len(operations) <= MAX_REWRITE_CHAIN:
+        raise ValueError('A rewrite requires one to three operations')
+    for operation in operations:
+        _operation(operation)
+
+
+@dataclass(frozen=True)
+class RewriteChain:
+    """Replace an unshared unary transform segment, ordered input to output."""
+
+    node_ids: tuple[str, ...]
+    operations: tuple[OperationCapabilities, ...]
+
+    def __post_init__(self):
+        if not isinstance(self.node_ids, tuple) or not 1 <= len(self.node_ids) <= MAX_REWRITE_CHAIN:
+            raise ValueError('A rewrite requires one to three source nodes')
+        if len(set(self.node_ids)) != len(self.node_ids):
+            raise ValueError('Source nodes must be distinct')
+        for node_id in self.node_ids:
+            _node_id(node_id)
+        _chain(self.operations)
+
+
+@dataclass(frozen=True)
+class ForkFeatureBranch:
+    """Attach a complete feature chain; None means confirmed homogeneous raw input."""
+
+    child_id: str
+    parent_id: str | None
+    operations: tuple[OperationCapabilities, ...]
+
+    def __post_init__(self):
+        _node_id(self.child_id)
+        if self.parent_id is not None:
+            _node_id(self.parent_id)
+        _chain(self.operations)
+
+
+@dataclass(frozen=True)
+class PruneFeatureBranch:
+    """Remove a whole unshared transform branch, retaining the other inputs."""
+
+    child_id: str
+    parent_id: str
+
+    def __post_init__(self):
+        _node_id(self.child_id)
+        _node_id(self.parent_id)
+
+
+@dataclass(frozen=True)
+class ForkForecastBranch:
+    """A window-local representation, optionally followed by a forecast model."""
+
+    child_id: str
+    window_id: str
+    operations: tuple[OperationCapabilities, ...]
+    merge_operation: OperationCapabilities
+
+    def __post_init__(self):
+        _node_id(self.child_id)
+        _node_id(self.window_id)
+        _chain(self.operations)
+        _operation(self.merge_operation)
+
+
 GraphEdit = (ReplaceOperation | InsertTransform | DropTransform | AddBranch | AddPrimaryBranch
-             | DropPrimaryTransform | DropPrimaryBranch | DeduplicateParents)
+             | DropPrimaryTransform | DropPrimaryBranch | DeduplicateParents
+             | RewriteChain | ForkFeatureBranch | PruneFeatureBranch | ForkForecastBranch)
 
 
 def edit_record(edit: GraphEdit) -> dict[str, object]:
+    if isinstance(edit, ForkForecastBranch):
+        return {'kind': 'fork_forecast_branch', 'child_id': edit.child_id, 'window_id': edit.window_id,
+                'operations': [op.to_record() for op in edit.operations],
+                'merge_operation': edit.merge_operation.to_record()}
+    if isinstance(edit, RewriteChain):
+        return {'kind': 'rewrite_chain', 'node_ids': list(edit.node_ids),
+                'operations': [operation.to_record() for operation in edit.operations]}
+    if isinstance(edit, ForkFeatureBranch):
+        return {'kind': 'fork_feature_branch', 'child_id': edit.child_id, 'parent_id': edit.parent_id,
+                'operations': [operation.to_record() for operation in edit.operations]}
+    if isinstance(edit, PruneFeatureBranch):
+        return {'kind': 'prune_feature_branch', 'child_id': edit.child_id, 'parent_id': edit.parent_id}
     if isinstance(edit, ReplaceOperation):
         return {"kind": "replace", "node_id": edit.node_id,
                 "operation": edit.operation.to_record()}
@@ -223,7 +307,8 @@ class MutationPlan:
         if any(not isinstance(edit, (ReplaceOperation, InsertTransform,
                                      DropTransform, AddBranch, AddPrimaryBranch,
                                      DropPrimaryTransform, DropPrimaryBranch,
-                                     DeduplicateParents)) for edit in self.edits):
+                                     DeduplicateParents, RewriteChain, ForkFeatureBranch,
+                                     PruneFeatureBranch, ForkForecastBranch)) for edit in self.edits):
             raise TypeError("Unsupported graph edit type")
         if self.raw_input is not None and not isinstance(self.raw_input, RawInputSpec):
             raise TypeError("raw_input must be a RawInputSpec or None")
@@ -302,6 +387,10 @@ class CandidateDiagnostic:
         operation = edit.get("operation")
         if operation is not None:
             edit["operation"] = operation["name"]
+        if 'operations' in edit:
+            edit['operations'] = [operation['name'] for operation in edit['operations']]
+        if 'merge_operation' in edit:
+            edit['merge_operation'] = edit['merge_operation']['name']
         return {"edit": edit, "status": self.status.value, "stage": self.stage.value,
                 "reason_codes": list(self.reason_codes)}
 

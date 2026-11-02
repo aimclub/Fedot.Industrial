@@ -486,12 +486,12 @@
     "selection_strategy": "pairwise"
   },
   "wavelet_basis": {
-    "use_cache": true,
+    "use_cache": false,
     "wavelet": "mexh",
     "n_components": 2
   },
   "fourier_basis": {
-    "use_cache": true,
+    "use_cache": false,
     "spectrum_type": "smoothed",
     "threshold": 0.9
   },

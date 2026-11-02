@@ -4,7 +4,7 @@ import subprocess
 from time import time
 
 
-def run_guarded(command, *, native_threads=1, timeout_seconds=1200, search_seconds=None):
+def run_guarded(command, *, native_threads=1, timeout_seconds=1200, search_seconds=None, output_stream=None):
     import psutil
 
     environment = dict(os.environ)
@@ -15,7 +15,8 @@ def run_guarded(command, *, native_threads=1, timeout_seconds=1200, search_secon
     environment['INDUSTRIAL_SEARCH_START_UNIX'] = str(started)
     if search_seconds is not None:
         environment['INDUSTRIAL_SEARCH_DEADLINE_UNIX'] = str(started + search_seconds)
-    process = subprocess.Popen(command, env=environment)
+    process = subprocess.Popen(command, env=environment, stdout=output_stream,
+                               stderr=subprocess.STDOUT if output_stream is not None else None)
     owned = psutil.Process(process.pid)
     birth = owned.create_time()
     try:

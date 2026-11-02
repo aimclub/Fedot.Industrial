@@ -37,6 +37,16 @@ def _archive(keep=1):
     return CompletedEvaluationArchive(Objective({'loss': lambda _: 0.}), keep_n_best=keep)
 
 
+def test_family_observer_receives_one_detached_snapshot_per_completed_episode():
+    observed = []
+    archive = CompletedEvaluationArchive(Objective({'loss': lambda _: 0.}), on_completed=observed.append)
+    result = _result()
+    archive.record_results([result, deepcopy(result)])
+    assert len(observed) == 1
+    observed[0].graph.nodes[0].content['params']['alpha'] = 999
+    assert archive.best_individuals[0].graph.nodes[0].content['params']['alpha'] == 1.
+
+
 @given(st.lists(st.floats(min_value=-1.e6, max_value=1.e6, allow_nan=False, allow_infinity=False),
                 min_size=1, max_size=35))
 def test_completed_minimum_is_monotonic_and_every_episode_is_retained(scores):

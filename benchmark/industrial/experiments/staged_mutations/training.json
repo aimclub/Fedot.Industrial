@@ -1,0 +1,51 @@
+{
+  "schema_version": "industrial_staged_training@1",
+  "training_enabled": true,
+  "seeds": [42, 123, 2026],
+  "split_seed": 42,
+  "classification_outer_fraction": 0.2,
+  "forecast_outer_horizon": 12,
+  "budget_seconds": 300,
+  "candidate_seconds": 90,
+  "workers": 4,
+  "native_threads": 1,
+  "minimum_generations": 15,
+  "full_process_seconds": 1200,
+  "pilot_seconds": 150,
+  "pilot_candidate_seconds": 90,
+  "population_size": 8,
+  "family_fraction": 0.5,
+  "max_candidates": 128,
+  "max_nodes": 16,
+  "max_depth": 6,
+  "max_arity": 4,
+  "tasks": {
+    "classification": {
+      "dataset": "ACSF1",
+      "operations": ["quantile_extractor", "quantile_extractor_torch", "wavelet_basis", "fourier_basis", "rf", "logit"],
+      "initial_chains": [["quantile_extractor", "rf"]]
+    },
+    "regression": {
+      "dataset": "Tecator",
+      "operations": ["quantile_extractor", "quantile_extractor_torch", "wavelet_basis", "fourier_basis", "ridge"],
+      "initial_chains": [["quantile_extractor", "ridge"]]
+    },
+    "ts_forecasting": {
+      "dataset": "Airline",
+      "horizon": 12,
+      "operations": ["hankelisation", "ridge", "forecast_feature_join", "forecast_mean", "forecast_window_center", "forecast_window_difference", "forecast_window_smooth"],
+      "initial_chains": [["hankelisation", "ridge"]]
+    }
+  },
+  "operation_parameters": {
+    "ridge": {"alpha": 1.0},
+    "logit": {"C": 1.0, "max_iter": 500, "n_jobs": 1, "random_state": 42},
+    "rf": {"max_depth": null, "n_estimators": 500, "n_jobs": 1, "random_state": 42},
+    "quantile_extractor": {"use_cache": false, "use_sliding_window": false, "window_size": 0},
+    "quantile_extractor_torch": {"use_cache": false},
+    "wavelet_basis": {"wavelet": "mexh", "n_components": 2, "use_cache": false},
+    "fourier_basis": {"use_cache": false, "output_format": "signal"},
+    "hankelisation": {"window_size": 24, "stride": 1, "forecast_length": 12},
+    "forecast_mean": {"forecast_length": 12}
+  }
+}

@@ -153,12 +153,15 @@ def _proposals(spec: GraphSpec, operations: tuple[OperationCapabilities, ...],
                 yield DropPrimaryBranch(node.node_id)
             elif drop_primary_allowed(spec, node, raw_input):
                 yield DropPrimaryTransform(node.node_id)
+    elif kind is MutationKind.REWRITE:
+        from .rewrites import rewrite_proposals
+        yield from rewrite_proposals(spec, operations, offset)
 
 
 def _enumerate_mutation_plans(
         spec: GraphSpec, operations: tuple[OperationCapabilities, ...], *,
         limits: MutationLimits,
-        kinds: tuple[MutationKind, ...] = tuple(MutationKind),
+        kinds: tuple[MutationKind, ...] = (MutationKind.REPLACE, MutationKind.ADD, MutationKind.DROP),
         raw_input: RawInputSpec | None = None,
         catalog_offset: int = 0,
         _validated_outcomes: list | None = None,

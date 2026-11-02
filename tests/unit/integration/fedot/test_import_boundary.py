@@ -70,6 +70,7 @@ def test_fedot_imports_stay_in_effectful_boundary_modules():
         "detection.py",
         "evaluation.py",
         "forecasting.py",
+        "forecast_branches.py",
         "multimodal.py",
         "temporal_tensor.py",
         "tensor.py",

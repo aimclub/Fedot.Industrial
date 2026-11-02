@@ -37,6 +37,7 @@ def test_coordinator_closes_monitor_and_never_reads_test_for_incomplete_search(m
     class Optimizer:
         def __init__(self, objective, initial, *args, **kwargs):
             self.initial = initial
+            self.mutation_probability_report = {'strategy': 'test', 'effective': {}}
             record = {'evaluation_id': 'test:0', 'fitness': [1.],
                       'evaluation_context': {'configuration_id': 'one'}}
             self.completed_evaluations = SimpleNamespace(entries=[SimpleNamespace(to_record=lambda: record)])

@@ -1,0 +1,9 @@
+{
+  "structural_balanced": {
+    "parameter_change": 0.0,
+    "replace": 0.4,
+    "drop": 0.2,
+    "add": 0.4,
+    "edge": 0.0
+  }
+}

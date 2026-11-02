@@ -53,6 +53,8 @@ class FedotEvoOptimizer(EvoGraphOptimizer):
         #     delegate_evaluator=graph_generation_params.remote_evaluator)
 
     def _set_optimisation_strategy(self, graph_optimizer_params, config: EvolutionConfig):
+        if config.mutation_schedule is not None:
+            raise ValueError('Staged search is supported only by IndustrialEvoOptimizer')
         mutation_probs = FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value]
         mutation_agent = self.mutation_agent_dict[config.mutation_agent]
         if config.mutation_agent is MutationAgentType.RANDOM:
