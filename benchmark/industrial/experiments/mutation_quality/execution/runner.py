@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 from zipfile import ZipFile, ZIP_DEFLATED
+from uuid import uuid4
 
 from ..preflight import file_digest
 from .frozen_data import read_lock
@@ -121,7 +122,7 @@ def worker(root, bundle, seal, index, *, smoke):
     from benchmark.industrial.experiments.evolution_parallelism.search import run_search
     from .study import FrozenStudy
     root, bundle = Path(root), Path(bundle)
-    check_binding(root, bundle, seal, smoke)
+    binding = check_binding(root, bundle, seal, smoke)
     lock = checked_lock(bundle, seal)
     environment = json.loads((bundle / 'environment.json').read_text('utf-8'))
     check_environment(environment)
@@ -129,6 +130,8 @@ def worker(root, bundle, seal, index, *, smoke):
     jobs = trial_plan(lock, smoke=smoke)
     if type(index) is not int or not 0 <= index < len(jobs):
         raise ProtocolViolation('Unknown job index')
+    if index < binding.get('start_index', 0):
+        raise ProtocolViolation('Worker index is outside the selected suffix')
     trial = jobs[index]
     directory = root / 'trials' / trial.key
     config = SearchConfig(trial.task, 'dask', generations=trial.generations,
@@ -136,7 +139,13 @@ def worker(root, bundle, seal, index, *, smoke):
                           lifecycle='search', protocol='generations' if smoke else 'time', pilot=smoke,
                           native_threads=lock['protocol']['native_threads'])
     study = FrozenStudy(trial.arm, trial.task, pilot=smoke, bundle=str(bundle), lock=lock, trial=trial)
-    run_search(config, directory, study=study)
+    from fedot_ind.core.optimizer.evaluation.dask_executor import DaskCleanupError
+    try:
+        run_search(config, directory, study=study)
+    except DaskCleanupError as error:
+        atomic_json(directory / 'worker_failure.json', dict(
+            error_type=type(error).__name__, message=str(error), resource_cleanup_confirmed=False))
+        raise ProtocolViolation('Worker resource cleanup was not confirmed; stop the series') from error
     result = validate_result(directory, trial, lock)
     check_binding(root, bundle, seal, smoke)
     checked_lock(bundle, seal)
@@ -173,9 +182,20 @@ def verify_gate(gate, bundle, seal, lock):
 
 
 @contextmanager
-def ownership(root):
+def ownership(root, *, recover_stale=False):
     import psutil
     path = root / 'supervisor.lock'
+    if recover_stale and path.exists():
+        original = path.read_bytes()
+        previous = json.loads(original)
+        try:
+            owner = psutil.Process(previous['pid'])
+            alive = owner.is_running() and owner.create_time() == previous['create_time']
+        except psutil.NoSuchProcess:
+            alive = False
+        if alive or path.read_bytes() != original:
+            raise ProtocolViolation('Existing supervisor is alive or its lock changed')
+        path.rename(root / f'supervisor.abandoned.{uuid4().hex}.json')
     value = dict(pid=os.getpid(), create_time=psutil.Process().create_time())
     with path.open('x', encoding='utf-8') as stream:
         json.dump(value, stream)
@@ -186,23 +206,41 @@ def ownership(root):
             path.unlink()
 
 
-def supervise(root, bundle, seal, *, smoke, gate=None):
+@contextmanager
+def terminal_status(root):
+    try:
+        yield
+    except BaseException as error:
+        path = root / 'status.json'
+        previous = json.loads(path.read_text('utf-8')) if path.exists() else {}
+        if previous.get('status') not in ('blocked', 'completed', 'interrupted', 'stopped_between_jobs'):
+            atomic_json(path, {**previous, 'status': 'controller_failed', 'error_type': type(error).__name__,
+                               'message': str(error), 'updated_at': datetime.now(timezone.utc).isoformat()})
+        raise
+
+
+def supervise(root, bundle, seal, *, smoke, gate=None, start_index=0, recover_stale_lock=False):
     from benchmark.industrial.experiments.evolution_parallelism.supervisor import run_guarded
     root, bundle = Path(root).resolve(), Path(bundle).resolve()
     if not smoke and gate is None:
         raise ProtocolViolation('Full series requires an explicit smoke gate')
+    if type(start_index) is not int or start_index < 0 or (smoke and start_index):
+        raise ProtocolViolation('A suffix selection requires a nonnegative full-series index')
     lock = checked_lock(bundle, seal)
-    jobs = trial_plan(lock, smoke=smoke)
+    jobs = trial_plan(lock, smoke=smoke)[start_index:]
+    if not jobs:
+        raise ProtocolViolation('Selected job suffix is empty')
     gate_id = None if smoke else verify_gate(gate, bundle, seal, lock)
     root.mkdir(parents=True, exist_ok=True)
-    with ownership(root) as owner:
+    with ownership(root, recover_stale=recover_stale_lock) as owner, terminal_status(root):
         binding = dict(bundle=str(bundle), seal=seal, smoke=smoke, launcher_id=source_identity(launcher_sources()),
-                       gate_id=gate_id, launch_permission='explicit user request and --execute',
+                       gate_id=gate_id, start_index=start_index,
+                       launch_permission='explicit user request and --execute',
                        created_at=datetime.now(timezone.utc).isoformat())
         if (root / 'binding.json').exists():
             previous = check_binding(root, bundle, seal, smoke)
-            if previous['gate_id'] != gate_id:
-                raise ProtocolViolation('Resume smoke gate differs from original')
+            if previous['gate_id'] != gate_id or previous.get('start_index', 0) != start_index:
+                raise ProtocolViolation('Resume gate or job suffix differs from original')
         else:
             atomic_json(root / 'binding.json', binding)
             with ZipFile(root / 'launcher_sources.zip', 'x', compression=ZIP_DEFLATED) as archive:
@@ -250,6 +288,10 @@ def supervise(root, bundle, seal, *, smoke, gate=None):
             atomic_json(root / 'jobs.json', finished)
             print(json.dumps(dict(completed=len(finished), total=len(jobs), trial=trial.key,
                                   exit_code=row['exit_code'], result=row['result'])), flush=True)
+            if row['exit_code'] < 0 or row['exit_code'] > 255:
+                atomic_json(root / 'status.json', dict(status='interrupted', completed=len(finished),
+                            current=asdict(trial), exit_code=row['exit_code'], **owner))
+                raise ProtocolViolation('External process interruption; inspect before continuing')
             if row['exit_code'] == 2 or (smoke and (row['exit_code'] != 0 or not row['result']['smoke_passed'])):
                 atomic_json(root / 'status.json', dict(status='blocked',
                             completed=len(finished), current=asdict(trial), **owner))
