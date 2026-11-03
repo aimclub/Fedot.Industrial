@@ -21,6 +21,7 @@ from pymonad.either import Either
 
 from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
 from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend
+from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
 from fedot_ind.core.optimizer.evaluation.dispatcher import LocalEvaluationDispatcher
 from fedot_ind.core.optimizer.evaluation.preparation import GraphPreparation
 from fedot_ind.core.optimizer.evaluation.archive import CompletedEvaluationArchive, record_final_history
@@ -646,8 +647,12 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 self._transition_evolution(EvolutionPhase.EVOLVING)
                 self.evaluated_population.append(population_to_eval)
                 while not self.stop_optimization():
-                    population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
-                                                             evaluator=evaluator)
+                    try:
+                        population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
+                                                                 evaluator=evaluator)
+                    except SearchBudgetExhausted:
+                        self.log.info('Search budget exhausted; selecting from completed evaluations')
+                        break
                     self.evaluated_population.append(population_to_eval)
                     pbar.update()
             finally:

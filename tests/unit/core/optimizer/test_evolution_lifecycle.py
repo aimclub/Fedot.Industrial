@@ -163,6 +163,23 @@ def test_public_loop_rejects_duplicate_finishes_budget_and_replays_decisions():
     assert run() == run()
 
 
+def test_budget_exhaustion_preserves_archive_winner_without_retrying_generation():
+    from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
+    optimizer = _harness(42, lambda parent: parent)
+    optimizer.log = SimpleNamespace(info=lambda *args: None)
+    best = Individual(_Graph('best_completed'))
+    optimizer.completed_evaluations = SimpleNamespace(best_individuals=(best,))
+    attempts = []
+    def exhausted(*args, **kwargs):
+        attempts.append(True)
+        raise SearchBudgetExhausted('deadline reached inside reproduction')
+    optimizer._optimise_loop = exhausted
+    assert optimizer.optimise(lambda population: population) == [best.graph]
+    assert attempts == [True]
+    assert optimizer.evolution_state.phase is EvolutionPhase.COMPLETED
+    assert optimizer.labels == ['initial', 'final_choices']
+
+
 @pytest.mark.parametrize("error_type", [ValueError, OSError])
 def test_public_loop_preserves_failure_and_closes_progress(error_type):
     def fail(parent):

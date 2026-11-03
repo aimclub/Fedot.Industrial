@@ -28,6 +28,7 @@ from .executors import CancellationToken, execute_plan
 from .context import EvaluationBudget, EvaluationContext, evaluation_context_scope
 from .preparation import GraphPreparation, PreparedEvaluationGraph
 from .timing import BatchTiming
+from .budget import SearchBudgetExhausted, search_deadline_reached
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         self.last_results = ()
         self.last_budget = None
         self.batch_timings = []
+        self._has_completed_evaluations = False
 
     def cancel(self):
         self.cancellation.cancel()
@@ -124,6 +126,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         super().dispatch(objective, timer)
         self.cancellation = CancellationToken()
         self.batch_timings = []
+        self._has_completed_evaluations = False
         return self.evaluate_with_cache
 
     def evaluate_with_cache(self, population):
@@ -148,6 +151,10 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
             self._evaluation_lock.release()
 
     def _evaluate_population(self, individuals):
+        if self._has_completed_evaluations and self.timer.timeout is not None and search_deadline_reached(
+                self.timer.timeout.total_seconds(),
+                self.timer.seconds_from_start):
+            raise SearchBudgetExhausted('Search deadline reached; no further offspring evaluations admitted')
         preparation_started = monotonic()
         # A repeated reference to the same individual is evaluated/recorded once.
         unique = {}
@@ -232,6 +239,7 @@ class LocalEvaluationDispatcher(BaseGraphEvaluationDispatcher):
         # GOLEM's base method also applies invalid fitness. Keep failed individuals
         # out of the breeding population, while retaining their typed diagnostics.
         successful = [r for r in graph_results if r.fitness.valid]
+        self._has_completed_evaluations |= bool(successful)
         evaluated = self.apply_evaluation_results(to_evaluate, successful)
         self.batch_timings.append(BatchTiming(
             preparation_seconds, execution_seconds, monotonic() - application_started, len(tasks)))
