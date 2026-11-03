@@ -17,6 +17,7 @@ from time import monotonic, sleep
 from uuid import uuid4
 
 import cloudpickle
+import psutil
 
 from .dask_transitions import FlightAction, flight_action
 from .contracts import ExecutionError, ExecutionResult, ExecutionStatus
@@ -91,6 +92,7 @@ class DaskEvaluationSession:
         self.startup_seconds = None
         self.cleanup_seconds = 0.
         self.worker_pids = set()
+        self.worker_processes = {}
         self.digest = None
         self._verified = set()
         self.worker_addresses = set()
@@ -153,16 +155,32 @@ class DaskEvaluationSession:
                         or resource["memory_limit"] <= 0 or not info[address].get("nanny")):
                     raise ValueError("Worker resources or manifest are not suitable for Industrial evaluation")
                 self.worker_pids.add(resource["pid"])
+                try:
+                    self.worker_processes[address] = (resource['pid'], psutil.Process(resource['pid']).create_time())
+                except psutil.NoSuchProcess:
+                    continue
                 self._verified.add(address)
         return sorted((set(info) & self._verified) - set(busy))
 
     def interrupt_worker(self, address, future):
+        identity = self.worker_processes.get(address)
+        if identity is None:
+            raise RuntimeError('Cannot interrupt an unverified worker process')
         self.client.cancel(future, force=True)
-        reply = self.client.restart_workers(
-            [address], timeout=self.config.restart_timeout_seconds, raise_for_error=False)
-        self._verified.discard(address)
-        if reply.get(address) != "OK":
-            raise RuntimeError("Cannot confirm interruption of an owned Dask worker")
+        try:
+            reply = self.client.restart_workers(
+                [address], timeout=self.config.restart_timeout_seconds, raise_for_error=False)
+        except Exception as error:
+            if _worker_process_alive(identity):
+                raise RuntimeError('Cannot confirm interruption of an owned Dask worker') from error
+            reply = {address: type(error).__name__}
+        finally:
+            self._verified.discard(address)
+        if _worker_process_alive(identity):
+            raise RuntimeError('Owned Dask worker process is still alive after interruption')
+        if reply.get(address) != 'OK':
+            logging.getLogger(__name__).warning(
+                'Old worker %s terminated; replacement readiness was not confirmed: %s', address, reply)
 
     def close(self):
         # Attempt both even if one cleanup fails. Never close an ambient client.
@@ -422,12 +440,27 @@ def execute_dask_plan(plan, payloads, evaluate, *, config=None, cancellation=Non
                              type(error).__name__, str(error)) for task in plan.tasks)
 
 
+def _worker_process_alive(identity):
+    pid, born = identity
+    try:
+        process = psutil.Process(pid)
+        return (process.is_running() and process.create_time() == born
+                and process.status() != psutil.STATUS_ZOMBIE)
+    except psutil.NoSuchProcess:
+        return False
+
+
 def _cleanup_flights(session, flights, *, interrupt_active):
+    flights = tuple(flights)
     cleanup_errors = []
+    # Shutdown workers concurrently. Waiting for replacement imports must not
+    # serialize cleanup of unrelated running fits at the search deadline.
+    pool = ThreadPoolExecutor(max_workers=max(1, len(flights))) if interrupt_active and flights else None
+    interruptions = []
     for flight in flights:
         try:
             if interrupt_active:
-                session.interrupt_worker(flight.worker, flight.future)
+                interruptions.append(pool.submit(session.interrupt_worker, flight.worker, flight.future))
             else:
                 session.client.cancel(flight.future, force=True)
         except Exception as error:
@@ -435,6 +468,13 @@ def _cleanup_flights(session, flights, *, interrupt_active):
         finally:
             try:
                 flight.future.release()
+            except Exception as error:
+                cleanup_errors.append(error)
+    if pool is not None:
+        pool.shutdown(wait=True)
+        for future in interruptions:
+            try:
+                future.result()
             except Exception as error:
                 cleanup_errors.append(error)
     if cleanup_errors:

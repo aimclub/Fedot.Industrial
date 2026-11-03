@@ -120,4 +120,4 @@ def test_release_error_cannot_skip_cleanup_of_remaining_workers(tmp_path):
     with pytest.raises(module.DaskCleanupError):
         module._run(session, DaskEvaluationPlan(tasks, max_workers=3), range(3), square,
                     token, None, DaskExecutionConfig(), None, tmp_path, interrupt_active=True)
-    assert interrupted == submitted and released == submitted
+    assert sorted(interrupted) == sorted(submitted) and released == submitted

@@ -134,6 +134,21 @@ def test_candidate_timeout_kills_owned_worker_and_next_candidate_runs(tmp_path):
     assert not psutil.pid_exists(int(marker.read_text()))
 
 
+def test_total_deadline_interrupts_all_fits_but_keeps_borrowed_session_usable(tmp_path):
+    markers = [tmp_path / 'a.pid', tmp_path / 'b.pid']
+    tasks = (EvaluationTask('a'), EvaluationTask('b'))
+    with DaskEvaluationSession(2, DaskExecutionConfig()) as session:
+        results = execute_dask_plan(DaskEvaluationPlan(tasks, 2, 90, 5),
+                                    [str(path) for path in markers], _long_fit, session=session)
+        assert all(row.status is ExecutionStatus.TIMED_OUT for row in results)
+        assert all(row.error.message == 'Total evaluation deadline reached' for row in results)
+        assert all(path.exists() and not psutil.pid_exists(int(path.read_text())) for path in markers)
+        assert session.client.status == 'running'
+        result, = execute_dask_plan(DaskEvaluationPlan((EvaluationTask('next'),), 1, 90, 60),
+                                   [17], _identity, session=session)
+        assert result.status is ExecutionStatus.SUCCEEDED and result.value == 17
+
+
 def test_cancellation_interrupts_running_fit_and_closes_process(tmp_path):
     marker = tmp_path / "cancel.txt"
     token = CancellationToken()
