@@ -39,9 +39,9 @@ def validate_training_bounds(data, grids):
     """Reject a profile that would be silently clamped on an inner TRAIN fold."""
     windows = next(g.values for g in grids if (g.operation, g.parameter) == ('hankelisation', 'window_size'))
     strides = next(g.values for g in grids if (g.operation, g.parameter) == ('hankelisation', 'stride'))
-    if data.refit.task.task_type.value != 'ts_forecasting':
+    if data.refit.task.task_type.name != 'ts_forecasting':
         return
     for train, _ in data.folds:
         horizon = train.task.task_params.forecast_length
-        if max(windows) > len(train.features) - horizon or max(strides) > min(windows) // 2:
+        if max(windows) > train.features.shape[-1] - horizon or max(strides) > min(windows) // 2:
             raise ValueError('Hankel profile would require silent clamping on inner TRAIN')

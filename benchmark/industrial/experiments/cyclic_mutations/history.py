@@ -163,6 +163,8 @@ def render_native_history(history_path, output_dir, *, animations=True):
         try:
             PipelineVisualizer(history.generations[-1][0].graph).visualise(save_path=str(root / 'best_graph.png'))
             records.append(dict(plot='best_graph', status='succeeded', path='best_graph.png'))
+        except (ValueError, KeyError, IndexError, TypeError, RuntimeError) as error:
+            records.append(dict(plot='best_graph', status='failed', error_type=type(error).__name__, message=str(error)))
         finally:
             plt.close('all')
     atomic_text(root / 'render_manifest.json', json.dumps(records, indent=2) + '\n')
