@@ -91,6 +91,9 @@ class FourierBasisImplementation(SpectralBasisImplementation):
             try:
                 estimator = self.estimator(series, order)
                 estimator.run()
+                # Some PEV fits return NaN/negative power without raising. Such
+                # a fit must follow the same bounded retry path as a failed fit.
+                spectral_mask(np.asarray(estimator.psd, dtype=float), self.threshold, self.approximation)
             except (AssertionError, ValueError, np.linalg.LinAlgError) as exc:
                 failures.append(f'order={order}: {type(exc).__name__}: {exc}')
                 continue

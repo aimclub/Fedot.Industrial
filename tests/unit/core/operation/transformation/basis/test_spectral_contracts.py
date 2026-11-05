@@ -80,7 +80,7 @@ def test_spectrum_retry_does_not_change_the_next_samples_rank(monkeypatch):
         orders.append(order)
         if order == 5:
             raise ValueError('This sample needs another rank')
-        return SimpleNamespace(run=lambda: None)
+        return SimpleNamespace(run=lambda: None, psd=np.ones(17))
 
     monkeypatch.setattr(basis, 'estimator', estimator)
     basis._build_spectrum(np.arange(32.))

@@ -17,6 +17,7 @@ from .config import load_defaults
 from .clock import absolute_search_timer, search_complete
 from .data import load_data
 from .operation_timing import operation_trace
+from .objective import SearchObjective
 
 
 def write_json(path, value):
@@ -31,12 +32,17 @@ def to_numpy(value):
 
 
 def loss_value(task, truth, prediction):
-    from sklearn.metrics import balanced_accuracy_score, mean_squared_error
+    from sklearn.metrics import balanced_accuracy_score
     truth, prediction = to_numpy(truth).reshape(-1), to_numpy(prediction).reshape(-1)
-    if len(truth) != len(prediction) or not np.isfinite(prediction).all():
+    if not len(truth) or len(truth) != len(prediction) or not np.isfinite(prediction).all():
         raise ValueError('Invalid prediction shape or nonfinite values')
-    return (1 - float(balanced_accuracy_score(truth, prediction)) if task == 'classification'
-            else float(mean_squared_error(truth, prediction)**.5))
+    if task == 'classification':
+        return 1 - float(balanced_accuracy_score(truth, prediction))
+    # A finite prediction may still overflow when squared, even in float64.
+    with np.errstate(over='raise', invalid='raise'):
+        residual = truth.astype(np.float64) - prediction.astype(np.float64)
+        scale = float(np.max(np.abs(residual)))
+        return scale * float(np.sqrt(np.mean((residual / scale)**2))) if scale else 0.
 
 
 @dataclass
@@ -64,6 +70,10 @@ class Metric:
 class MeasuredObjective:
     native: object
     trace_dir: str
+
+    @property
+    def last_outcome(self):
+        return self.native.last_outcome
 
     def __call__(self, graph):
         import dask
@@ -111,7 +121,6 @@ def run_search(config, output_dir, *, study=None):
     import torch
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
     from fedot.core.optimisers.objective.data_objective_eval import PipelineObjectiveEvaluateWithTensorData
-    from golem.core.optimisers.objective import Objective
     from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
     from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
     from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
@@ -173,7 +182,7 @@ def run_search(config, output_dir, *, study=None):
     parameters = deepcopy(settings['operation_parameters'])
     if config.task == 'ts_forecasting':
         parameters.setdefault('hankelisation', {})['forecast_length'] = 12
-    objective = Objective({'loss': Metric(config.task)})
+    objective = SearchObjective({'loss': Metric(config.task)})
     native = PipelineObjectiveEvaluateWithTensorData(
         objective, FoldSource(data.folds), expected_folds=len(data.folds), result_cache_size=0, eval_n_jobs=1)
     measured = MeasuredObjective(native, str(traces.resolve()))

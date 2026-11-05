@@ -18,7 +18,7 @@ from fedot_ind.core.optimizer.domain import (
 )
 from fedot_ind.core.optimizer.observability import EvaluationStatus, graph_identity
 from fedot_ind.core.optimizer.randomness import CandidateRandomness
-from fedot_ind.integration.fedot.evaluation import industrial_failure_from_fedot
+from fedot_ind.integration.fedot.evaluation import industrial_failure_from_fedot, objective_outcome
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 from fedot_ind.core.operation.transformation.representation.statistical.feature_reuse import feature_reuse_scope
 from .configuration import EvaluationBackend, EvaluationExecutionConfig
@@ -75,8 +75,7 @@ class _GraphEvaluator:
             if _finite_fitness(fitness):
                 outcome = EvaluationSucceeded(duration, timestamp)
             else:
-                owner = getattr(self.objective, '__self__', None)
-                failure = industrial_failure_from_fedot(getattr(owner, 'last_outcome', None))
+                failure = industrial_failure_from_fedot(objective_outcome(self.objective))
                 outcome = EvaluationFailed(duration, timestamp, failure or EvaluationFailure(
                     EvaluationFailureCode.INVALID_FITNESS, 'InvalidFitness',
                     'Objective returned invalid or nonfinite fitness'))

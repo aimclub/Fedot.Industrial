@@ -43,6 +43,16 @@ class ConfirmedObjective:
     def __call__(self, graph):
         return self.objective(graph)
 
+    @property
+    def last_outcome(self):
+        return objective_outcome(self.objective)
+
+
+def objective_outcome(objective):
+    """Read explicit outcome providers, never crawl arbitrary wrapper attributes."""
+    owner = getattr(objective, '__self__', None)
+    return getattr(owner if owner is not None else objective, 'last_outcome', None)
+
 
 def industrial_failure_from_fedot(outcome) -> EvaluationFailure | None:
     """Translate an incomplete evaluation; do not reinterpret other outcomes."""
