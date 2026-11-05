@@ -24,6 +24,7 @@ from fedot_ind.core.operation.transformation.torch_backend.statistical.tools imp
     normalize_feature_key,
 )
 from fedot_ind.core.operation.transformation.representation.statistical.windows import statistical_window_plan
+from .window_batch import window_statistics
 
 
 DEFAULT_CONFIG = build_default_feature_config(STAT_METHODS_TORCH)
@@ -200,8 +201,21 @@ class TorchQuantileExtractor(BaseExtractor):
     def apply_window_for_stat_feature_torch(self, ts_data, feature_generator, window_size=None):
         plan = statistical_window_plan(ts_data.shape[-1], self.window_size if window_size is None else window_size,
                                        self.stride, self.use_sliding_window)
+        if (self._can_batch_windows(ts_data, feature_generator)
+                and ts_data.shape[0] * plan.width <= _BATCH_LIMITS['max_elements']):
+            return window_statistics(ts_data, plan, _BATCH_LIMITS['max_elements'])
         return torch.cat([self._as_feature_matrix(feature_generator(ts_data[..., start:start + plan.width]), ts_data)
                           for start in plan.starts], dim=-1)
+
+    def _can_batch_windows(self, values, generator):
+        return (type(self) is TorchQuantileExtractor and values.ndim == 2 and values.device.type == 'cpu'
+                and values.dtype == torch.float32 and not values.requires_grad and bool(torch.isfinite(values).all())
+                and getattr(generator, '__self__', None) is self
+                and getattr(generator, '__func__', None) is TorchQuantileExtractor.get_statistical_features_torch
+                and tuple((key, tuple(params.items())) for key, params in self.config.items()) == _AUDITED_LOCAL_CONFIG
+                and tuple(self._methods_local.items()) == _AUDITED_LOCAL_METHODS
+                and all(getattr(getattr(self, name), '__func__', getattr(self, name)) is method
+                        for name, method in _AUDITED_IMPLEMENTATION))
 
     def _transform(self, input_data: InputData):
         values = input_data.features
@@ -222,7 +236,11 @@ class TorchQuantileExtractor(BaseExtractor):
 
     def _generate_numpy_batch(self, batch: torch.Tensor, channels: int = 1) -> torch.Tensor:
         global_features = self._numpy_batch_statistics(batch, self.add_global_features, channels)
-        local_features = self._numpy_batch_statistics(batch, False, channels)
+        if self.window_size:
+            local_features = torch.cat([self.apply_window_for_stat_feature_torch(
+                sample, self.get_statistical_features_torch) for sample in batch.split(channels)], dim=0)
+        else:
+            local_features = self._numpy_batch_statistics(batch, False, channels)
         features = torch.cat((global_features, local_features), dim=-1) if self.add_global_features else local_features
         return torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -243,7 +261,7 @@ class TorchQuantileExtractor(BaseExtractor):
         return self._as_feature_matrix(features, batch)
 
     def _can_batch_numpy(self, values) -> bool:
-        # Windowed and customized implementations keep their existing path.
+        # Customized implementations keep their existing path.
         if (type(self) is not TorchQuantileExtractor or type(values) is not np.ndarray
                 or values.ndim not in (2, 3) or values.shape[0] < 2 or values.shape[-1] < 2
                 or (values.ndim == 3 and (values.shape[1] < 1
@@ -251,7 +269,8 @@ class TorchQuantileExtractor(BaseExtractor):
                     or values.shape[1] * values.shape[-1] > _BATCH_LIMITS['max_elements']))
                 or not values.flags.c_contiguous or values.dtype.kind not in 'biuf'
                 or not np.isfinite(values).all()
-                or self.window_size != 0 or not self.channel_extraction or self.is_multichanel
+                or (self.window_size != 0 and values.shape[-1] <= 5)
+                or not self.channel_extraction or self.is_multichanel
                 or self.use_feature_filter or self.feature_filter is not None):
             return False
         if (tuple((key, tuple(params.items())) for key, params in self.config.items()) != _AUDITED_LOCAL_CONFIG
@@ -354,4 +373,5 @@ _AUDITED_IMPLEMENTATION = tuple((name, getattr(TorchQuantileExtractor, name)) fo
     'generate_features_from_ts', 'extract_stats_features_torch', 'get_statistical_features_torch',
     '_select_methods', '_apply_feature_method', '_supported_kwargs', '_as_feature_matrix', '_clean_predict',
     '_generate_numpy_batch', '_numpy_batch_statistics',
+    'apply_window_for_stat_feature_torch', '_can_batch_windows',
 ))
