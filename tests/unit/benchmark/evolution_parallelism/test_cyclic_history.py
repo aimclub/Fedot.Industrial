@@ -45,6 +45,16 @@ def test_native_visuals_render_from_saved_history_without_fit(tmp_path):
     assert all(r['status'] == 'succeeded' for r in records), records
 
 
+def test_lineage_prefers_completed_parent_over_unevaluated_reference():
+    first, child, history = sample()
+    stale = Individual(first.graph, uid=first.uid)
+    from dataclasses import replace
+    child = replace(child, parent_operator=ParentOperator('mutation', 'single_change', stale))
+    result = linked_history(history, {first.uid: first, child.uid: child})
+    assert result.generations[-1][0].parents[0].fitness.valid
+    assert result.generations[-1][0].parents[0].fitness.value == 2.
+
+
 def test_checkpoints_reload_without_training_and_survive_later_write_failure(tmp_path):
     first, child, history = sample()
     owner = SimpleNamespace(staged_search=None, history=history, final_individuals=(child,))

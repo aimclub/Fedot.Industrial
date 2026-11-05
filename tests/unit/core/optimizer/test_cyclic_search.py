@@ -100,3 +100,28 @@ def test_bounded_reproduction_runs_public_optimizer_with_no_model_fit():
     with patch('fedot.core.operations.operation.Operation.fit', side_effect=AssertionError('Fit forbidden')):
         assert owner.optimise(objective)
     assert owner.reproducer.batches and all(row['candidates'] <= 2 for row in owner.reproducer.batches)
+
+
+def test_cycles_carry_improved_minima_for_multiple_families():
+    from copy import deepcopy
+    from golem.core.optimisers.fitness import SingleObjFitness
+    from golem.core.optimisers.opt_history_objects.individual import Individual
+    owner, graph = optimizer_fixture()
+    first = Individual(graph, fitness=SingleObjFitness(2.))
+    other_graph = deepcopy(graph)
+    next(n for n in other_graph.nodes if n.content['name'] == 'scaling').content['name'] = 'normalization'
+    second = Individual(other_graph, fitness=SingleObjFitness(3.))
+    controller = owner.staged_search
+    controller.remember(first)
+    controller.remember(second)
+    controller.apply(owner.mutation, 6.)
+    assert len(controller.locked_families) == 2
+    improved_graph = deepcopy(graph)
+    next(n for n in improved_graph.nodes if n.content['name'] == 'ridge').content['params'] = {'alpha': 10.}
+    improved = Individual(improved_graph, fitness=SingleObjFitness(1.))
+    controller.remember(improved)
+    controller.remember(Individual(graph, fitness=SingleObjFitness(4.)))
+    assert sorted(i.fitness.value for i in controller.refinement_parents(2)) == [1., 3.]
+    controller.apply(owner.mutation, 11.)
+    controller.apply(owner.mutation, 16.)
+    assert sorted(i.fitness.value for i in controller.refinement_parents(2)) == [1., 3.]
