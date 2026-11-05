@@ -15,6 +15,12 @@ from benchmark.industrial.experiments.mutation_quality.preflight import file_dig
 from .freezing import checked_lock
 
 
+def must_stop(exit_code, admission, result):
+    """Windows crash statuses can be unsigned values above the POSIX byte range."""
+    return (exit_code < 0 or exit_code > 255 or exit_code == 2
+            or (admission and (exit_code != 0 or not result or not result['smoke_passed'])))
+
+
 def trials(lock, admission):
     rows = lock['jobs']
     if admission:
@@ -39,6 +45,11 @@ def validate(directory, trial, lock):
     history = OptHistory.load(directory / 'history/opt_history.json')
     if history.generations_count != manifest['generations'] or not history.generations[-1][0].fitness.valid:
         raise ProtocolViolation('Native history round-trip failed')
+    if not history.archive_history or history.archive_history[-1][0].uid != history.generations[-1][0].uid:
+        raise ProtocolViolation('Native archive winner was lost during checkpointing')
+    from golem.visualisation.opt_history.genealogical_path import trace_genealogical_path
+    if not trace_genealogical_path(history.archive_history[-1][0], lambda left, right: 1):
+        raise ProtocolViolation('Native lineage cannot be traced')
     if trial.arm == 'cyclic':
         phases = json.loads((directory / 'diagnostics/mutation_schedule.json').read_text('utf-8'))['events']
         if not any('_refine' in p['name'] for p in phases) or not any('_active' in p['name'] for p in phases):
@@ -67,7 +78,8 @@ def worker(root, bundle, identity, index, admission):
     except DaskCleanupError as error:
         raise ProtocolViolation('Dask cleanup was not confirmed; stop the series') from error
     from .history import render_native_history
-    renders = render_native_history(directory / 'history/opt_history.json', directory / 'native_visuals', animations=False)
+    renders = render_native_history(directory / 'history/opt_history.json',
+                                    directory / 'native_visuals', animations=False)
     if any(row['status'] != 'succeeded' for row in renders if row['plot'] in ('fitness_line', 'best_graph')):
         raise ProtocolViolation('Required native result plots failed')
     result = validate(directory, trial, lock)
@@ -141,8 +153,7 @@ def supervise(root, bundle, identity, admission, gate=None):
             atomic_json(root / 'jobs.json', finished)
             print(json.dumps(dict(completed=len(finished), total=len(plan), trial=trial.key,
                                   exit_code=row['exit_code'], result=row['result'])), flush=True)
-            if row['exit_code'] == 2 or row['exit_code'] < 0 or (admission and (
-                    row['exit_code'] != 0 or not row['result']['smoke_passed'])):
+            if must_stop(row['exit_code'], admission, row['result']):
                 atomic_json(root / 'status.json', dict(status='blocked', completed=len(finished), **owner))
                 raise ProtocolViolation('B/D trial failed; full series remains blocked')
         atomic_json(root / 'status.json', dict(status='completed', completed=len(finished), total=len(plan), **owner))

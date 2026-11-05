@@ -6,6 +6,7 @@ from importlib.metadata import distributions
 from importlib import import_module
 import json
 from pathlib import Path
+import subprocess
 import sys
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -25,6 +26,8 @@ def freeze(base, base_seal, directory):
     original = json.loads((base / 'lock.json').read_text('utf-8'))
     lock = deepcopy(original)
     lock['schema_version'] = 'industrial_bd_lock@1'
+    lock['input_procedure_git_revision_context'] = original['git_revision_context']
+    lock['git_revision_context'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     lock['execution']['full_runner_status'] = 'B/D runner; requires its own successful admission'
     lock['created_at'] = datetime.now(timezone.utc).isoformat()
     lock['base'] = dict(directory=str(base), seal=base_seal, lock_sha256=file_digest(base / 'lock.json'))

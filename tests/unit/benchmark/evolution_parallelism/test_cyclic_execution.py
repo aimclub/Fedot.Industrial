@@ -22,6 +22,31 @@ def test_new_matrix_is_paired_and_admission_has_both_arms_per_task():
     assert all(not r.smoke for r in full)
 
 
+@pytest.mark.parametrize('code', [-15, 2, 256, 3221225477])
+def test_infrastructure_and_windows_crashes_stop_full_series(code):
+    from benchmark.industrial.experiments.cyclic_mutations.execution import must_stop
+    assert must_stop(code, False, None)
+
+
+def test_any_failed_admission_stops_and_valid_full_results_continue():
+    from benchmark.industrial.experiments.cyclic_mutations.execution import must_stop
+    assert must_stop(1, True, None)
+    assert must_stop(0, True, {'smoke_passed': False})
+    assert not must_stop(0, False, {'status': 'succeeded'})
+
+
+def test_chained_execution_never_reaches_full_after_failed_admission(tmp_path):
+    from benchmark.industrial.experiments.cyclic_mutations.__main__ import main
+    argv = ['bd', '--run', '--admission-first', '--gate', str(tmp_path / 'gate'),
+            '--bundle', str(tmp_path), '--seal', 'trusted', '--output-dir', str(tmp_path / 'full'), '--execute']
+    with patch('sys.argv', argv), patch(
+        'benchmark.industrial.experiments.cyclic_mutations.freezing.checked_lock', return_value={}), patch(
+        'benchmark.industrial.experiments.cyclic_mutations.execution.supervise', side_effect=RuntimeError('gate failed')) as run:
+        with pytest.raises(RuntimeError, match='gate failed'):
+            main()
+    assert run.call_count == 1 and run.call_args.args[-1] is True
+
+
 def test_missing_gate_blocks_full_before_creation(tmp_path):
     with patch('benchmark.industrial.experiments.cyclic_mutations.execution.checked_lock', return_value={}):
         with pytest.raises(RuntimeError, match='requires'):

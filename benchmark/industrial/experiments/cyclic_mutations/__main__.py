@@ -15,8 +15,11 @@ def main():
     parser.add_argument('--output-dir', type=Path)
     parser.add_argument('--gate', type=Path)
     parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--admission-first', action='store_true', help='Run a new admission before the full matrix')
     parser.add_argument('--worker', type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.admission_first and (not args.run or args.worker is not None or args.gate is None):
+        parser.error('--admission-first requires --run, --gate and supervision, not --worker')
     if args.freeze:
         if not args.execute or args.output_dir is None:
             parser.error('Freeze requires --execute and a new --output-dir')
@@ -27,11 +30,14 @@ def main():
     from .execution import trials, worker, supervise
     lock = checked_lock(args.bundle, args.seal)
     if not args.execute:
-        print(json.dumps(dict(execution=False, jobs=len(trials(lock, args.admission)), admission=args.admission)))
+        print(json.dumps(dict(execution=False, jobs=len(trials(lock, args.admission)), admission=args.admission,
+                              admission_first=args.admission_first)))
         return
     if args.output_dir is None:
         parser.error('Execution requires --output-dir')
     if args.worker is None:
+        if args.admission_first:
+            supervise(args.gate, args.bundle, args.seal, True)
         supervise(args.output_dir, args.bundle, args.seal, args.admission, gate=args.gate)
     else:
         worker(args.output_dir, args.bundle, args.seal, args.worker, args.admission)
