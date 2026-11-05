@@ -23,6 +23,7 @@ from fedot_ind.core.operation.transformation.torch_backend.statistical.tools imp
     method_registry,
     normalize_feature_key,
 )
+from fedot_ind.core.operation.transformation.representation.statistical.windows import statistical_window_plan
 
 
 DEFAULT_CONFIG = build_default_feature_config(STAT_METHODS_TORCH)
@@ -195,6 +196,12 @@ class TorchQuantileExtractor(BaseExtractor):
         features = self.extract_stats_features_torch(ts, axis=-1)
         features = torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
         return features.cpu()
+
+    def apply_window_for_stat_feature_torch(self, ts_data, feature_generator, window_size=None):
+        plan = statistical_window_plan(ts_data.shape[-1], self.window_size if window_size is None else window_size,
+                                       self.stride, self.use_sliding_window)
+        return torch.cat([self._as_feature_matrix(feature_generator(ts_data[..., start:start + plan.width]), ts_data)
+                          for start in plan.starts], dim=-1)
 
     def _transform(self, input_data: InputData):
         values = input_data.features

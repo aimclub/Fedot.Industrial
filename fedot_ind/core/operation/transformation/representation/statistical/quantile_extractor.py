@@ -18,6 +18,7 @@ from fedot_ind.core.operation.transformation.representation.statistical.hurst_ba
 from fedot_ind.core.operation.transformation.representation.statistical.long_row_features import (
     benford_correlation, hjorth_complexity,
 )
+from .windows import statistical_window_plan
 
 
 class QuantileExtractor(BaseExtractor):
@@ -127,6 +128,15 @@ class QuantileExtractor(BaseExtractor):
             self._concatenate_global_and_local_feature(global_features, window_stat_features)
             if self.add_global_features else window_stat_features
         )
+
+    def apply_window_for_stat_feature(self, ts_data, feature_generator, window_size=None):
+        values = np.asarray(ts_data)
+        if values.ndim != 1:
+            raise ValueError('NumPy statistical windows require one channel at a time')
+        plan = statistical_window_plan(len(values), self.window_size if window_size is None else window_size,
+                                       self.stride, self.use_sliding_window)
+        return np.concatenate([np.asarray(feature_generator(values[start:start + plan.width])).reshape(-1)
+                               for start in plan.starts])
 
     @dask.delayed
     def generate_features_from_ts(self,
