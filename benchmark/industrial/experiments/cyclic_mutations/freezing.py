@@ -66,6 +66,7 @@ def freeze(base, base_seal, directory):
                  deterministic=torch.are_deterministic_algorithms_enabled())
     if flags != lock['execution']['torch_flags']:
         raise ValueError(f'Torch flags differ from the approved runtime: {flags}')
+    lock['freeze_process_torch_flags'] = flags
     write_json(directory / 'lock.json', lock)
     write_json(directory / 'data_preflight.json', dict(scenarios=checked, fit_calls=0, test_used=False))
     write_json(directory / 'environment.json', dict(python=sys.version, executable=sys.executable,

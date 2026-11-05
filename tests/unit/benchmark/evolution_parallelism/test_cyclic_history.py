@@ -36,7 +36,8 @@ def test_linked_history_recovers_archive_winner_lineage_without_changing_native_
     assert len(restored.archive_history) == 2
     assert restored.archive_history[-1][0] is restored.generations[-1][0]
     from golem.visualisation.opt_history.genealogical_path import trace_genealogical_path
-    assert [ind.uid for ind in trace_genealogical_path(restored.archive_history[-1][0], lambda a, b: 1)] == [first.uid, child.uid]
+    assert [ind.uid for ind in trace_genealogical_path(
+        restored.archive_history[-1][0], lambda a, b: 1)] == [first.uid, child.uid]
 
 
 def test_native_visuals_render_from_saved_history_without_fit(tmp_path):

@@ -40,8 +40,8 @@ def test_chained_execution_never_reaches_full_after_failed_admission(tmp_path):
     argv = ['bd', '--run', '--admission-first', '--gate', str(tmp_path / 'gate'),
             '--bundle', str(tmp_path), '--seal', 'trusted', '--output-dir', str(tmp_path / 'full'), '--execute']
     with patch('sys.argv', argv), patch(
-        'benchmark.industrial.experiments.cyclic_mutations.freezing.checked_lock', return_value={}), patch(
-        'benchmark.industrial.experiments.cyclic_mutations.execution.supervise', side_effect=RuntimeError('gate failed')) as run:
+            'benchmark.industrial.experiments.cyclic_mutations.freezing.checked_lock', return_value={}), patch(
+            'benchmark.industrial.experiments.cyclic_mutations.execution.supervise', side_effect=RuntimeError('gate failed')) as run:
         with pytest.raises(RuntimeError, match='gate failed'):
             main()
     assert run.call_count == 1 and run.call_args.args[-1] is True
