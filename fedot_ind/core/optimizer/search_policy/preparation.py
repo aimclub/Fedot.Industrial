@@ -13,8 +13,11 @@ class ParameterSearchPreparation:
     defaults_json: str
     grids: tuple
     task: str
+    normalize_generators: bool = False
 
     def __post_init__(self):
+        if type(self.normalize_generators) is not bool:
+            raise ValueError('normalize_generators must be a boolean')
         if self.task not in ('classification', 'regression', 'ts_forecasting'):
             raise ValueError('Unsupported search task')
         defaults = json.loads(self.defaults_json)
@@ -30,8 +33,12 @@ class ParameterSearchPreparation:
                 raise ValueError('A canonical default must belong to its parameter grid')
 
     @classmethod
-    def from_defaults(cls, adapter, defaults, grids, task):
-        return cls(adapter, canonical_json(defaults), grids, task)
+    def from_defaults(cls, adapter, defaults, grids, task, *, normalize_generators=False):
+        if normalize_generators:
+            from fedot_ind.core.tuning.generator_catalog import generator_space
+            defaults = {name: {**(generator_space(name).defaults if generator_space(name) else {}), **values}
+                        for name, values in defaults.items()}
+        return cls(adapter, canonical_json(defaults), grids, task, normalize_generators)
 
     def __call__(self, graph):
         from fedot_ind.integration.fedot.extensions import industrial_extension_scope
@@ -53,6 +60,11 @@ class ParameterSearchPreparation:
                             raise ValueError(f'Parameter {name}.{grid.parameter} is outside its declared grid')
                         parameters[grid.parameter] = value
                 declaration = declarations.get(name)
+                if self.normalize_generators:
+                    from fedot_ind.core.tuning.generator_catalog import generator_space
+                    space = generator_space(name)
+                    if space is not None:
+                        parameters = space.normalize(parameters)
                 if (declaration is not None and declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
                         and len(declaration.tasks) > 1 and self.task in declaration.tasks):
                     if 'task_type' in parameters and parameters['task_type'] != self.task:

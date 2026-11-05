@@ -13,8 +13,9 @@ class BoundedParameterMutation:
         return 'parameter_change_mutation'
 
     def _choices(self, index, name, current):
+        from fedot_ind.core.tuning.generator_catalog import parameter_is_active
         for grid in self.grids:
-            if grid.operation == name:
+            if grid.operation == name and parameter_is_active(name, grid.parameter, current):
                 for value in grid.values:
                     previous = current.get(grid.parameter)
                     if grid.parameter not in current or (type(previous), previous) != (type(value), value):
@@ -37,6 +38,10 @@ class BoundedParameterMutation:
         node = result.nodes[index]
         current = node.parameters if isinstance(node.parameters, dict) else {}
         node.parameters = {**current, parameter: value}
+        from fedot_ind.core.tuning.generator_catalog import generator_space
+        space = generator_space(node.operation.operation_type)
+        if space is not None:
+            node.parameters = space.normalize(node.parameters)
         return result
 
 

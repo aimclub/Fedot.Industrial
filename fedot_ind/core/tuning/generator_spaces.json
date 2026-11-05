@@ -1,0 +1,27 @@
+{
+  "schema_version": "industrial_generator_spaces@1",
+  "operations": {
+    "quantile_extractor": {
+      "window_size": {"default": 0, "values": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45], "active_when": {}},
+      "use_sliding_window": {"default": false, "values": [false, true], "active_when": {"window_size": [5, 10, 15, 20, 25, 30, 35, 40, 45]}},
+      "stride": {"default": 1, "values": [1, 2, 3, 4, 5, 6, 7, 8, 9], "active_when": {"window_size": [5, 10, 15, 20, 25, 30, 35, 40, 45], "use_sliding_window": [true]}},
+      "add_global_features": {"default": true, "values": [true, false], "active_when": {}}
+    },
+    "wavelet_basis": {
+      "wavelet": {"default": "mexh", "values": ["mexh", "morl", "gaus1", "gaus5", "gaus8"], "active_when": {}},
+      "n_components": {"default": 2, "values": [2, 3, 4, 5, 6, 7, 8, 9, 10], "active_when": {"low_freq": [false]}},
+      "low_freq": {"default": false, "values": [false, true], "active_when": {}}
+    },
+    "fourier_basis": {
+      "threshold": {"default": 0.9, "values": [0.75, 0.8, 0.85, 0.9, 0.95], "active_when": {}},
+      "low_rank": {"default": 5, "values": [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], "active_when": {}},
+      "approximation": {"default": "smooth", "values": ["smooth", "exact"], "active_when": {}},
+      "output_format": {"default": "signal", "values": ["signal", "spectrum"], "active_when": {}}
+    },
+    "hankelisation": {
+      "window_size": {"default": 10, "values": [8, 10, 12, 16, 20, 24, 28, 32, 36, 40, 44], "active_when": {}},
+      "stride": {"default": 1, "values": [1, 2, 3, 4, 5], "active_when": {}}
+    }
+  },
+  "aliases": {"quantile_extractor_torch": "quantile_extractor"}
+}

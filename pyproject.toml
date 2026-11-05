@@ -75,6 +75,7 @@ namespaces = true
 
 [tool.setuptools.package-data]
 fedot_ind = [
+    "core/tuning/*.json",
     "core/repository/data/*.json",
     "core/optimizer/mutation_profiles.json",
     "core/optimizer/search_policy/*.json",
