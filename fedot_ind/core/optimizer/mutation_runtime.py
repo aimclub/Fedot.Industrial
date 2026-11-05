@@ -263,6 +263,7 @@ class PlannedMutation:
         self.policy = policy
         self.catalog = load_runtime_operation_catalog(graph_generation_params)
         self.observer = observer
+        self.candidate_observer = None
         self.raw_input = raw_input
         self.last_execution = MutationExecution(MutationExecutionStatus.SKIPPED)
 
@@ -271,7 +272,7 @@ class PlannedMutation:
 
     def __getstate__(self):
         # The coordinator callback captures an optimizer, never a worker payload.
-        return {**self.__dict__, "observer": None}
+        return {**self.__dict__, "observer": None, "candidate_observer": None}
 
     def _record(self, execution: MutationExecution):
         self.last_execution = execution
@@ -441,8 +442,11 @@ class PlannedMutation:
             metadata["mutation_plan"] = plan.to_record()
             metadata["mutation_input"] = before.to_record()
             metadata["mutation_prepared_input"] = prepared.to_record()
-        return Individual(graph, ParentOperator(type_="mutation", operators=name, parent_individuals=parent),
-                          metadata=metadata)
+        candidate = Individual(graph, ParentOperator(type_="mutation", operators=name, parent_individuals=parent),
+                               metadata=metadata)
+        if self.candidate_observer is not None:
+            self.candidate_observer(candidate)
+        return candidate
 
 
 def install_planned_mutation(optimizer, policy: MutationPlanningPolicy):

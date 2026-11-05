@@ -212,6 +212,8 @@ def run_search(config, output_dir, *, study=None):
             from fedot_ind.core.optimizer.evaluation.dask_dispatcher import dask_session_scope
             stack.enter_context(dask_session_scope(observer=observe))
         requirements, params = build_environment(settings, data.refit.task, workers)
+        keep_history = study is not None and getattr(study, 'keep_history', False)
+        requirements.keep_history = keep_history
         if study is not None:
             params = study.configure_environment(params)
         if time() >= deadline_epoch:
@@ -264,8 +266,15 @@ def run_search(config, output_dir, *, study=None):
         write_json(root / 'mutation_probabilities.json', optimizer.mutation_probability_report)
         if study is not None:
             study.observe_mutations(optimizer, root)
+        history_journal = None
+        if keep_history:
+            from benchmark.industrial.experiments.cyclic_mutations.history import SearchHistoryJournal
+            history_journal = SearchHistoryJournal(root, config.seed)
+            history_journal.attach(optimizer)
 
         def on_generation(population, owner):
+            if history_journal is not None:
+                history_journal.checkpoint(owner)
             row = {'generation': owner.current_generation_num, 'elapsed_seconds': time() - launch_epoch,
                    'final': bool(owner.final_individuals), 'population_size': len(population),
                    'best_loss': min(float(ind.fitness.value) for ind in population if ind.fitness.valid),
@@ -288,6 +297,8 @@ def run_search(config, output_dir, *, study=None):
         })
 
         def record_completions(results):
+            if history_journal is not None:
+                history_journal.completed(results)
             optimizer.completed_evaluations.record_results(results)
             entries = optimizer.completed_evaluations.entries
             evaluation_journal.append(entry.to_record() for entry in entries[evaluation_journal.count:])
@@ -325,6 +336,8 @@ def run_search(config, output_dir, *, study=None):
                    'diagnostics': optimizer.diagnostics.summary.to_record(), 'dask_batches': len(batches),
                    'parameters': parameters, 'torch_flags_before': flags_before,
                    'versions': runtime_versions}
+        if history_journal is not None:
+            summary['history_write_seconds'] = history_journal.write_seconds
     summary['wall_seconds'] = perf_counter() - started_all
     summary['processes'] = memory.summary
     summary['dask_diagnostics'] = [{'path': str(record.output_dir), **record.summary} for record in dask_records]
