@@ -87,7 +87,7 @@ def checked_lock(bundle, identity):
     if lock['schema_version'] != 'industrial_bd_lock@1' or lock['official_test_used'] is not False:
         raise ValueError('Invalid B/D protocol')
     for path, expected in lock['sources'].items():
-        if file_digest(path) != expected['sha256']:
+        if file_digest(Path(path)) != expected['sha256']:
             raise ValueError(f'Current source differs from new B/D seal: {path}')
     base = Path(lock['base']['directory'])
     if file_digest(base / 'lock.json') != lock['base']['lock_sha256']:

@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+import json
 
 from benchmark.industrial.experiments.cyclic_mutations.execution import trials, supervise
 from benchmark.industrial.experiments.cyclic_mutations.profile import validate_training_bounds, parameter_profile
@@ -37,3 +38,32 @@ def test_hankel_bounds_use_actual_train_and_reject_clamping():
         validate_training_bounds(data, parameter_profile())
     data.folds[0][0].features = np.arange(100).reshape(1, -1)
     validate_training_bounds(data, parameter_profile())
+
+
+def test_new_seal_checks_current_sources_and_archived_inputs(tmp_path):
+    from benchmark.industrial.experiments.cyclic_mutations.freezing import checked_lock
+    from benchmark.industrial.experiments.mutation_quality.freeze import seal, write_json
+    from benchmark.industrial.experiments.mutation_quality.preflight import file_digest
+    base, bundle = tmp_path / 'base', tmp_path / 'new'
+    (base / 'inputs').mkdir(parents=True)
+    (base / 'inputs/example.npz').write_bytes(b'fixture bytes; verifier must not load or train')
+    write_json(base / 'lock.json', {})
+    seal(base)
+    source = tmp_path / 'source.py'
+    source.write_text('ORIGINAL = True', encoding='utf-8')
+    bundle.mkdir()
+    lock = dict(schema_version='industrial_bd_lock@1', official_test_used=False, datasets={'example': {}},
+                sources={str(source): dict(sha256=file_digest(source))},
+                base=dict(directory=str(base), seal=file_digest(base / 'seal.json'),
+                          lock_sha256=file_digest(base / 'lock.json')))
+    write_json(bundle / 'lock.json', lock)
+    seal(bundle)
+    identity = file_digest(bundle / 'seal.json')
+    assert checked_lock(bundle, identity) == json.loads((bundle / 'lock.json').read_text())
+    source.write_text('CHANGED = True', encoding='utf-8')
+    with pytest.raises(ValueError, match='Current source'):
+        checked_lock(bundle, identity)
+    source.write_text('ORIGINAL = True', encoding='utf-8')
+    (base / 'inputs/example.npz').write_bytes(b'changed')
+    with pytest.raises(ValueError, match='TRAIN input changed'):
+        checked_lock(bundle, identity)
