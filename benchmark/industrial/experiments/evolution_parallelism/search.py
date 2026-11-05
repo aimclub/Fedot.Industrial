@@ -338,6 +338,7 @@ def run_search(config, output_dir, *, study=None):
                    'versions': runtime_versions}
         if history_journal is not None:
             summary['history_write_seconds'] = history_journal.write_seconds
+            write_json(root / 'reproduction_batches.json', optimizer.reproducer.batches)
     summary['wall_seconds'] = perf_counter() - started_all
     summary['processes'] = memory.summary
     summary['dask_diagnostics'] = [{'path': str(record.output_dir), **record.summary} for record in dask_records]

@@ -11,6 +11,7 @@ from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend,
 from fedot_ind.core.optimizer.evaluation.contracts import positive_seconds
 from fedot_ind.core.optimizer.evaluation.dask_config import DaskConfigError, parse_dask_config
 from fedot_ind.core.optimizer.search_policy import StagedSearchPolicy, parse_staged_search
+from fedot_ind.core.optimizer.search_policy.cyclic import CyclicSearchPolicy, parse_cyclic_search
 
 
 EVOLUTION_CONFIG_SCHEMA = "industrial_evolution_config@1"
@@ -162,7 +163,7 @@ class EvolutionConfig:
     random_seed: int | None = None
     mutation_planning: MutationPlanningPolicy = field(default_factory=MutationPlanningPolicy)
     evaluation_execution: EvaluationExecutionConfig = field(default_factory=EvaluationExecutionConfig)
-    mutation_schedule: StagedSearchPolicy | None = None
+    mutation_schedule: StagedSearchPolicy | CyclicSearchPolicy | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.mutation_agent, MutationAgentType):
@@ -178,8 +179,8 @@ class EvolutionConfig:
         if not isinstance(self.evaluation_execution, EvaluationExecutionConfig):
             raise ValueError("evaluation_execution must be an EvaluationExecutionConfig")
         if self.mutation_schedule is not None:
-            if not isinstance(self.mutation_schedule, StagedSearchPolicy):
-                raise ValueError('mutation_schedule must be a StagedSearchPolicy or None')
+            if not isinstance(self.mutation_schedule, (StagedSearchPolicy, CyclicSearchPolicy)):
+                raise ValueError('mutation_schedule must be a typed staged/cyclic policy or None')
             if self.mutation_agent is not MutationAgentType.RANDOM or not self.mutation_planning.enabled:
                 raise ValueError('A mutation schedule requires RandomAgent and enabled mutation planning')
         if self.random_seed is not None:
@@ -575,7 +576,10 @@ def normalize_evolution_config(
     schedule = None
     if payload.get('mutation_schedule') is not None:
         try:
-            schedule = parse_staged_search(payload['mutation_schedule'])
+            raw_schedule = payload['mutation_schedule']
+            parser = (parse_cyclic_search if type(raw_schedule) is dict
+                      and raw_schedule.get('schema_version') == 'industrial_cyclic_search@1' else parse_staged_search)
+            schedule = parser(raw_schedule)
         except ValueError as error:
             violations.append(EvolutionConfigViolation(EvolutionConfigViolationCode.INVALID_VALUE,
                                                        'mutation_schedule', str(error)))

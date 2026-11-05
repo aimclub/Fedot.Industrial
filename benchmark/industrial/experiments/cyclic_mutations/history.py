@@ -86,9 +86,13 @@ class SearchHistoryJournal:
         mutation = optimizer.mutation
         while isinstance(mutation, SeededOperator):
             mutation = mutation.operator
-        if mutation.candidate_observer is not None:
-            raise ValueError('Candidate history observer already installed')
-        mutation.candidate_observer = self.created
+        previous = mutation.candidate_observer
+
+        def observe(candidate):
+            if previous is not None:
+                previous(candidate)
+            self.created(candidate)
+        mutation.candidate_observer = observe
 
     def created(self, candidate):
         start = perf_counter()

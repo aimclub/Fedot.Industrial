@@ -264,6 +264,7 @@ class PlannedMutation:
         self.catalog = load_runtime_operation_catalog(graph_generation_params)
         self.observer = observer
         self.candidate_observer = None
+        self.structure_locked = False
         self.raw_input = raw_input
         self.last_execution = MutationExecution(MutationExecutionStatus.SKIPPED)
 
@@ -302,6 +303,10 @@ class PlannedMutation:
                          message=repair.message))
             return None
         prepared = repair.graph
+        if self.structure_locked and repair.edits:
+            self._record(MutationExecution(MutationExecutionStatus.REJECTED,
+                         message="Input repair would change a locked structure"))
+            return None
         if repair.edits and not advisor_allows_plan(
                 before, prepared, parent.graph, self.graph_generation_params.advisor):
             self._record(MutationExecution(MutationExecutionStatus.REJECTED,
@@ -404,6 +409,10 @@ class PlannedMutation:
                              message=fixed.message))
                 return None
             if fixed.edits:
+                if self.structure_locked:
+                    self._record(MutationExecution(MutationExecutionStatus.REJECTED, action=name,
+                                 message="Parameter repair would change a locked structure"))
+                    return None
                 if not advisor_allows_plan(changed, fixed.graph, graph, self.graph_generation_params.advisor):
                     self._record(MutationExecution(MutationExecutionStatus.REJECTED, action=name,
                                  examined=examined, planning=candidates,
@@ -418,6 +427,10 @@ class PlannedMutation:
                                            examined=examined, planning=candidates))
             return None
         verifier = self.graph_generation_params.verifier
+        if self.structure_locked:
+            from fedot_ind.core.optimizer.mutation_planning._graph import candidate_signature
+            if candidate_signature(before) != candidate_signature(project_for_mutation(graph, self.graph_generation_params)):
+                raise ValueError('Conservative mutation changed the locked structure')
         if not verifier(graph):
             report = getattr(verifier, "last_report", None)
             self._record(replace(execution, status=MutationExecutionStatus.REJECTED,

@@ -135,7 +135,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         self.staged_search = None
         if schedule is not None:
             from fedot_ind.core.optimizer.search_policy.runtime import StagedSearchController
-            self.staged_search = StagedSearchController(schedule, graph_generation_params, budget)
+            from fedot_ind.core.optimizer.search_policy.cyclic import CyclicSearchPolicy
+            from fedot_ind.core.optimizer.search_policy.cyclic_runtime import CyclicSearchController
+            controller = CyclicSearchController if isinstance(schedule, CyclicSearchPolicy) else StagedSearchController
+            self.staged_search = controller(schedule, graph_generation_params, budget)
         self.completed_evaluations = CompletedEvaluationArchive(objective, requirements.keep_n_best,
                                                                 on_completed=None if self.staged_search is None else self.staged_search.remember)
         self._final_individuals = ()
