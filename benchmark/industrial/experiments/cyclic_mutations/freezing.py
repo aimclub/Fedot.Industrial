@@ -40,7 +40,16 @@ def freeze(base, base_seal, directory):
                          full_process_seconds=1200)
                     for name in lock['datasets'] for seed in lock['protocol']['seeds']
                     for arm in lock['protocol']['arms']]
-    lock['admission_scenarios'] = ['ECG200', 'Tecator', 'Airline']
+    admission = json.loads(Path(__file__).with_name('admission.json').read_text('utf-8'))
+    scenarios = admission.get('scenarios') if type(admission) is dict else None
+    if (type(admission) is not dict or set(admission) != {'schema_version', 'scenarios'}
+            or admission['schema_version'] != 'industrial_bd_admission@1'
+            or type(scenarios) is not list or len(scenarios) != 3
+            or any(type(name) is not str or name not in tasks for name in scenarios)
+            or len(set(scenarios)) != 3
+            or {tasks[name] for name in scenarios} != {'classification', 'regression', 'ts_forecasting'}):
+        raise ValueError('Admission requires three distinct known scenarios covering all tasks')
+    lock['admission_scenarios'] = scenarios
     lock['scoring']['classification'] = 'balanced_accuracy'
     lock['scoring']['comparisons'] = ['cyclic-fixed']
     paths = {Path(p) for p in original['sources']}

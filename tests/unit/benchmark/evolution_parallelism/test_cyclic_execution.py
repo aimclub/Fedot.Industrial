@@ -20,6 +20,9 @@ def test_new_matrix_is_paired_and_admission_has_both_arms_per_task():
     assert len({(r.task, r.arm) for r in gate}) == 6
     assert all(r.generations == 15 and r.seconds == 600 and r.smoke for r in gate)
     assert all(not r.smoke for r in full)
+    lock['admission_scenarios'] = ['Tecator', 'ECG200', 'Airline']
+    assert [r.scenario for r in trials(lock, True)] == ['Tecator', 'Tecator', 'ECG200', 'ECG200', 'Airline', 'Airline']
+    assert trials(lock, False) == full
 
 
 @pytest.mark.parametrize('code', [-15, 2, 256, 3221225477])

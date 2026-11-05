@@ -24,8 +24,8 @@ def must_stop(exit_code, admission, result):
 def trials(lock, admission):
     rows = lock['jobs']
     if admission:
-        rows = [r for r in rows if r['scenario'] in lock['admission_scenarios']
-                and r['seed'] == lock['protocol']['seeds'][0]]
+        rows = [r for name in lock['admission_scenarios'] for r in rows
+                if r['scenario'] == name and r['seed'] == lock['protocol']['seeds'][0]]
     return tuple(Trial(i, r['scenario'], r['task'], r['arm'], r['seed'], r['search_seconds'],
                        r['minimum_generations'], r['full_process_seconds'], admission) for i, r in enumerate(rows))
 
