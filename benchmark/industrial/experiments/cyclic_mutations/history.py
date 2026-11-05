@@ -64,7 +64,7 @@ def linked_history(history, candidates):
 
     for group in result.generations:
         group.data[:] = [resolve(item) for item in group]
-    result.archive_history = [[resolve(item) for item in group] for group in result.archive_history]
+    result.archive_history = [[resolve(item) for item in group] for group in history.archive_history]
     return result
 
 
@@ -135,6 +135,7 @@ def render_native_history(history_path, output_dir, *, animations=True):
     import matplotlib
     matplotlib.use('Agg')
     from matplotlib import pyplot as plt
+    import seaborn as sns
     from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
     from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer, PipelineVisualizer
     from fedot_ind.integration.fedot.extensions import industrial_extension_scope
@@ -143,11 +144,16 @@ def render_native_history(history_path, output_dir, *, animations=True):
     root.mkdir(parents=True, exist_ok=True)
     records = []
     with industrial_extension_scope():
-        visualizer = PipelineHistoryVisualizer(history)
+        operations = sorted({str(node)
+                            for group in history.generations for individual in group for node in individual.graph.nodes})
+        tags = {name: [name] for name in operations}
+        palette = dict(zip(operations, sns.color_palette('tab20', len(operations)).as_hex()))
+        visualizer = PipelineHistoryVisualizer(history, dict(tags_map=tags, palette=palette))
+        atomic_text(root / 'operation_tags.json', json.dumps(tags, indent=2) + '\n')
         plots = [('fitness_line', 'png', {}), ('fitness_box', 'png', {}),
-                 ('operations_kde', 'png', {'use_tags': False}), ('diversity_line', 'png', {'show': False})]
+                 ('operations_kde', 'png', {}), ('diversity_line', 'png', {'show': False})]
         if animations:
-            plots.extend([('operations_animated_bar', 'gif', {'use_tags': False}),
+            plots.extend([('operations_animated_bar', 'gif', {}),
                           ('genealogical_path', 'gif', {'show': False})])
         for name, extension, options in plots:
             target = root / f'{name}.{extension}'
@@ -161,10 +167,12 @@ def render_native_history(history_path, output_dir, *, animations=True):
             finally:
                 plt.close('all')
         try:
-            PipelineVisualizer(history.generations[-1][0].graph).visualise(save_path=str(root / 'best_graph.png'))
+            PipelineVisualizer(history.generations[-1][0].graph).visualise(
+                save_path=str(root / 'best_graph.png'), node_names_placement='legend', figure_size=(12, 8), font_size_scale=.8)
             records.append(dict(plot='best_graph', status='succeeded', path='best_graph.png'))
         except (ValueError, KeyError, IndexError, TypeError, RuntimeError) as error:
-            records.append(dict(plot='best_graph', status='failed', error_type=type(error).__name__, message=str(error)))
+            records.append(dict(plot='best_graph', status='failed',
+                           error_type=type(error).__name__, message=str(error)))
         finally:
             plt.close('all')
     atomic_text(root / 'render_manifest.json', json.dumps(records, indent=2) + '\n')

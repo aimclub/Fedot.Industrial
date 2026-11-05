@@ -17,8 +17,10 @@ def sample():
                        fitness=SingleObjFitness(1.))
     history = OptHistory(Objective({'loss': lambda g: 0.}).get_info())
     history.add_to_history([first], 'initial')
+    history.add_to_archive_history([first])
     # Archive snapshots intentionally omit lineage; the journal must recover it.
     history.add_to_history([Individual(child.graph, uid=child.uid, fitness=child.fitness)], 'final_choices')
+    history.add_to_archive_history([child])
     return first, child, history
 
 
@@ -31,6 +33,10 @@ def test_linked_history_recovers_archive_winner_lineage_without_changing_native_
     restored = OptHistory.load(result.save())
     assert restored.generations[-1][0].parents[0].uid == first.uid
     assert tuple(restored.generations[-1][0].parent_operator.operators) == ('single_change',)
+    assert len(restored.archive_history) == 2
+    assert restored.archive_history[-1][0] is restored.generations[-1][0]
+    from golem.visualisation.opt_history.genealogical_path import trace_genealogical_path
+    assert [ind.uid for ind in trace_genealogical_path(restored.archive_history[-1][0], lambda a, b: 1)] == [first.uid, child.uid]
 
 
 def test_native_visuals_render_from_saved_history_without_fit(tmp_path):
@@ -43,6 +49,9 @@ def test_native_visuals_render_from_saved_history_without_fit(tmp_path):
     with patch('fedot.core.operations.operation.Operation.fit', side_effect=AssertionError('Fit forbidden')):
         records = render_native_history(path, tmp_path / 'plots', animations=False)
     assert all(r['status'] == 'succeeded' for r in records), records
+    import json
+    tags = json.loads((tmp_path / 'plots/operation_tags.json').read_text())
+    assert tags['ridge'] == ['ridge'] and tags['rf'] == ['rf']
 
 
 def test_lineage_prefers_completed_parent_over_unevaluated_reference():
@@ -53,6 +62,17 @@ def test_lineage_prefers_completed_parent_over_unevaluated_reference():
     result = linked_history(history, {first.uid: first, child.uid: child})
     assert result.generations[-1][0].parents[0].fitness.valid
     assert result.generations[-1][0].parents[0].fitness.value == 2.
+
+
+def test_native_genealogical_animation_uses_saved_archive(tmp_path):
+    from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
+    first, child, history = sample()
+    path = tmp_path / 'path.gif'
+    restored = OptHistory.load(linked_history(history, {child.uid: child}).save())
+    with patch('fedot.core.operations.operation.Operation.fit', side_effect=AssertionError('Fit forbidden')):
+        PipelineHistoryVisualizer(restored).genealogical_path(
+            save_path=str(path), show=False, evolution_time_s=.1, hold_result_time_s=.1)
+    assert path.read_bytes().startswith((b'GIF87a', b'GIF89a'))
 
 
 def test_checkpoints_reload_without_training_and_survive_later_write_failure(tmp_path):
