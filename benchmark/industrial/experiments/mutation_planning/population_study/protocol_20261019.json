@@ -1,0 +1,176 @@
+{
+  "acceptance": {
+    "max_failed_evaluation_fraction": 0.1,
+    "memory_allowance_bytes": 134217728,
+    "memory_ratio": 1.25,
+    "minimum_baseline_gain": 0.02,
+    "minimum_evolved_generations": 3,
+    "predict_allowance_seconds": 0.05,
+    "predict_ratio": 1.5,
+    "quality_tolerance": {
+      "classification": 0.03,
+      "regression": 0.05,
+      "ts_forecasting": 0.1
+    },
+    "refit_allowance_seconds": 1,
+    "refit_ratio": 1.5,
+    "time_allowance_seconds": 2,
+    "time_ratio": 1.25,
+    "worst_seed_tolerance": {
+      "classification": 0.1,
+      "regression": 0.15,
+      "ts_forecasting": 0.3
+    }
+  },
+  "classification_root": "data",
+  "forecast_test": "examples/utils/data/forecasting/nbeats/Daily-test.csv",
+  "forecast_train": ".local/m4_daily_official_20261019/Daily-train.csv",
+  "generations": 4,
+  "initial_chains": {
+    "classification": [
+      [
+        "quantile_extractor",
+        "pdl_clf"
+      ],
+      [
+        "fourier_basis",
+        "quantile_extractor",
+        "logit"
+      ]
+    ],
+    "regression": [
+      [
+        "quantile_extractor",
+        "pdl_reg"
+      ],
+      [
+        "fourier_basis",
+        "quantile_extractor",
+        "ridge"
+      ]
+    ],
+    "ts_forecasting": [
+      [
+        "hankelisation",
+        "ridge"
+      ],
+      [
+        "mssa_forecaster"
+      ]
+    ]
+  },
+  "max_arity": 2,
+  "max_candidates": 64,
+  "max_depth": 4,
+  "max_nodes": 8,
+  "mutation_attempts": 8,
+  "operation_parameters": {
+    "dt": {
+      "random_state": 42
+    },
+    "dtreg": {
+      "random_state": 42
+    },
+    "fourier_basis": {
+      "use_cache": false
+    },
+    "mssa_forecaster": {
+      "device": "cpu",
+      "head_policy": "linear"
+    },
+    "pdl_clf": {
+      "max_pairs": 512,
+      "model": "dt",
+      "random_state": 42
+    },
+    "pdl_reg": {
+      "max_pairs": 512,
+      "model": "dtreg",
+      "random_state": 42
+    },
+    "quantile_extractor": {
+      "use_cache": false,
+      "use_sliding_window": false,
+      "window_size": 0
+    },
+    "quantile_extractor_torch": {
+      "use_cache": false,
+      "use_sliding_window": false,
+      "window_size": 0
+    }
+  },
+  "operations": {
+    "classification": [
+      "quantile_extractor",
+      "quantile_extractor_torch",
+      "fourier_basis",
+      "logit",
+      "dt",
+      "pdl_clf"
+    ],
+    "regression": [
+      "quantile_extractor",
+      "quantile_extractor_torch",
+      "fourier_basis",
+      "ridge",
+      "dtreg",
+      "pdl_reg"
+    ],
+    "ts_forecasting": [
+      "hankelisation",
+      "ridge",
+      "smoothing",
+      "gaussian_filter",
+      "mssa_forecaster",
+      "ssa_forecaster"
+    ]
+  },
+  "population_size": 4,
+  "run_seconds": 240,
+  "scenarios": [
+    {
+      "name": "ECG200",
+      "task": "classification"
+    },
+    {
+      "name": "GunPoint",
+      "task": "classification"
+    },
+    {
+      "name": "ArrowHead",
+      "task": "classification"
+    },
+    {
+      "name": "NaturalGasPricesSentiment",
+      "task": "regression"
+    },
+    {
+      "name": "BitcoinSentiment",
+      "task": "regression"
+    },
+    {
+      "name": "BoronConcentration",
+      "task": "regression"
+    },
+    {
+      "name": "D1",
+      "task": "ts_forecasting"
+    },
+    {
+      "name": "D2",
+      "task": "ts_forecasting"
+    },
+    {
+      "name": "D3",
+      "task": "ts_forecasting"
+    }
+  ],
+  "schema_version": "industrial_population_study@1",
+  "search_seconds": 120,
+  "seeds": [
+    42,
+    123,
+    777
+  ],
+  "supervised_root": "fedot_ind/data"
+}

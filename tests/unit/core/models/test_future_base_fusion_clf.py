@@ -4,7 +4,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from fedot_ind.core.models.future.fusion.bottleneck_encoder import (
+from fedot_ind.neural.fusion.bottleneck_encoder import (
     BottleneckRepresentationEncoder,
 )
 from fedot_ind.core.models.future.future_clf import (
@@ -24,7 +24,7 @@ from fedot_ind.core.models.future.rules import (
     validate_positive_int,
     validate_stacked_embeddings_shape,
 )
-from fedot_ind.core.models.nn.network_impl.mapping import EncoderShapeArg
+from fedot_ind.neural.encoders.mapping import EncoderShapeArg
 from fedot_ind.core.multimodal.data_bundle import MultimodalDataBundle
 from fedot_ind.core.multimodal.enums import MultimodalModality
 from fedot_ind.core.multimodal.mapping import MODALITY_CAPABILITIES

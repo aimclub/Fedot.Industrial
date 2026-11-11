@@ -1,0 +1,14 @@
+{
+  "schema_version": "industrial_mutation_diversity@1",
+  "arms": {"baseline": "params_mutation_strategy", "structural": "structural_balanced"},
+  "seeds": [42, 123, 2026],
+  "split_seed": 42,
+  "proposal_attempts": 1000,
+  "budget_seconds": 300,
+  "workers": 4,
+  "classification_outer_fraction": 0.2,
+  "forecast_outer_horizon": 12,
+  "classification_outer_task": "classification",
+  "training_tasks": ["classification", "ts_forecasting"],
+  "generation_tasks": ["classification", "regression", "ts_forecasting"]
+}

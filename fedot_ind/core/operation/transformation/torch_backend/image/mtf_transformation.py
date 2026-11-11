@@ -18,6 +18,51 @@ from fedot_ind.core.operation.transformation.torch_backend.rules import (
 )
 
 
+def _aggregate_transition_field(binned, transition, image_size, overlapping=False):
+    """Average the transition field over the requested time windows."""
+    n_samples, n_timestamps = binned.shape
+    n_bins = transition.shape[-1]
+    if image_size == n_timestamps or n_timestamps <= n_bins:
+        return _dense_transition_field(binned, transition, image_size, overlapping)
+    window_size, remainder = divmod(n_timestamps, image_size)
+    if remainder == 0:
+        start = torch.arange(image_size, device=binned.device) * window_size
+        end = start + window_size
+    else:
+        start, end, _ = segmentation_torch(
+            n_timestamps, window_size + 1, overlapping, image_size, device=binned.device
+        )
+    # A block mean of P[x_t, x_u] is h_block @ P @ h_block.T.
+    # Prefix histograms use O(B*T*K), avoiding the O(B*T*T) field.
+    indicators = transition.new_zeros((n_samples, n_timestamps, n_bins))
+    indicators.scatter_(2, binned.unsqueeze(2), 1)
+    prefix = torch.nn.functional.pad(indicators.cumsum(1), (0, 0, 1, 0))
+    histograms = (prefix[:, end] - prefix[:, start]) / (end - start)[None, :, None]
+    return torch.bmm(torch.bmm(histograms, transition), histograms.transpose(1, 2))
+
+
+def _dense_transition_field(binned, transition, image_size, overlapping):
+    """Keep the direct lookup when there is no worthwhile temporal reduction."""
+    n_samples, n_timestamps = binned.shape
+    sample_ids = torch.arange(n_samples, device=binned.device)[:, None, None]
+    field = transition[sample_ids, binned[:, :, None], binned[:, None, :]]
+    window_size, remainder = divmod(n_timestamps, image_size)
+    if remainder == 0:
+        return field.reshape(
+            n_samples, image_size, window_size, image_size, window_size
+        ).mean(dim=(2, 4))
+    start, end, _ = segmentation_torch(
+        n_timestamps, window_size + 1, overlapping, image_size, device=binned.device
+    )
+    integral = torch.nn.functional.pad(field.cumsum(1).cumsum(2), (1, 0, 1, 0))
+    r0, r1 = start[:, None], end[:, None]
+    c0, c1 = start[None, :], end[None, :]
+    total = (integral[:, r1, c1] - integral[:, r0, c1]
+             - integral[:, r1, c0] + integral[:, r0, c0])
+    area = ((r1 - r0) * (c1 - c0)).to(transition.dtype).clamp_min(1)
+    return total / area
+
+
 class MTF:
     """
     Markov Transition Field (MTF) image transformation for time series.
@@ -85,34 +130,9 @@ class MTF:
         row_sum = torch.where(row_sum == 0, torch.ones_like(row_sum), row_sum)
         X_mtm = X_mtm / row_sum
 
-        # Expand transition matrix back to MTF image.
-        sample_ids = torch.arange(n_samples, device=X.device)[:, None, None]
-        X_mtf = X_mtm[sample_ids, X_binned[:, :, None], X_binned[:, None, :]]
-
-        window_size, remainder = divmod(n_timestamps, image_size)
-        if remainder == 0:
-            X_amtf = X_mtf.reshape(
-                n_samples, image_size, window_size, image_size, window_size
-            ).mean(dim=(2, 4))
-        else:
-            window_size += 1
-            start, end, _ = segmentation_torch(
-                n_timestamps, window_size, self.overlapping, image_size, device=X.device
-            )
-
-            # Rectangle means via integral image: O(N * image_size^2).
-            integral = X_mtf.cumsum(dim=1).cumsum(dim=2)
-            integral = torch.nn.functional.pad(integral, (1, 0, 1, 0), value=0)
-            r0, r1 = start[:, None], end[:, None]
-            c0, c1 = start[None, :], end[None, :]
-            block_sum = (
-                integral[:, r1, c1]
-                - integral[:, r0, c1]
-                - integral[:, r1, c0]
-                + integral[:, r0, c0]
-            )
-            area = ((r1 - r0) * (c1 - c0)).to(X.dtype).clamp_min(1)
-            X_amtf = block_sum / area
+        X_amtf = _aggregate_transition_field(
+            X_binned, X_mtm, image_size, self.overlapping
+        )
 
         if self.flatten:
             return X_amtf.reshape(n_samples, -1)

@@ -1,0 +1,5 @@
+_outputs/
+__pycache__/
+!/motions_graph.json
+!/airline.json
+!/motions_neural.json

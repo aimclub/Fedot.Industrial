@@ -1,0 +1,17 @@
+{
+  "schema_version": "industrial_staged_search@1",
+  "max_families": 16,
+  "stages": [
+    {"name": "explore", "until": 0.3, "family_fraction": 0.75,
+     "weights": {"parameter_change": 0.1, "replace": 0.15, "add": 0.15, "drop": 0.05, "rewrite": 0.55}},
+    {"name": "joint", "until": 0.7, "family_fraction": 0.5,
+     "weights": {"parameter_change": 0.5, "replace": 0.15, "add": 0.1, "drop": 0.05, "rewrite": 0.2}},
+    {"name": "refine", "until": 1.0, "family_fraction": 0.25,
+     "weights": {"parameter_change": 0.8, "replace": 0.05, "add": 0.05, "drop": 0.025, "rewrite": 0.075}}
+  ],
+  "parameters": [
+    {"operation": "ridge", "parameter": "alpha", "values": [0.1, 1.0, 10.0]},
+    {"operation": "logit", "parameter": "C", "values": [0.1, 1.0, 10.0]},
+    {"operation": "rf", "parameter": "max_depth", "values": [null, 5, 10]}
+  ]
+}

@@ -295,7 +295,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             num_windows = T // window_size
             T_eff = num_windows * window_size
             ts_cut = ts_data[:, :T_eff]
-            subseq_set = ts_cut.reshape(2, num_windows, window_size)
+            subseq_set = ts_cut.reshape(ts_data.shape[0], num_windows, window_size)
         features = feature_generator(subseq_set)
         features = torch.stack(features, dim=0).to(ts_data.device)
         if features.ndim > 2:

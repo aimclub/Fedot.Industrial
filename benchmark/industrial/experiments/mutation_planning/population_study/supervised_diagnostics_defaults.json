@@ -1,0 +1,8 @@
+{
+  "schema_version": "industrial_supervised_diagnostics@1",
+  "recheck_ordinals": [0, 1, 20, 21],
+  "profile_datasets": ["ECG200", "ArrowHead", "BitcoinSentiment"],
+  "profile_repeats": 3,
+  "stability_datasets": ["NaturalGasPricesSentiment", "BoronConcentration"],
+  "stability_seeds": [17, 29, 101, 211, 307]
+}

@@ -37,6 +37,8 @@ class ArtifactInventoryRow:
     cloud_path: str
     include_policy: str
     notes: str
+    publication_status: str = "not_declared"
+    external_archive_url: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +61,8 @@ class ArtifactInventoryRow:
             "cloud_path": self.cloud_path,
             "include_policy": self.include_policy,
             "notes": self.notes,
+            "publication_status": self.publication_status,
+            "external_archive_url": self.external_archive_url,
         }
 
 
@@ -104,7 +108,9 @@ def build_artifact_inventory(
                     absolute_path, root, mode=inventory_mode),
                 cloud_path=str(group.get("cloud_path", "")),
                 include_policy=str(group.get("include_policy", "")),
-                notes=str(group.get("notes", "")),))
+                notes=str(group.get("notes", "")),
+                publication_status=str(group.get("publication_status", "not_declared")),
+                external_archive_url=group.get("external_archive_url", catalog.get("external_archive_url")),))
     return rows
 
 

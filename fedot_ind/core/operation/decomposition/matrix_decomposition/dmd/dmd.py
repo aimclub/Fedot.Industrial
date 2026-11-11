@@ -125,6 +125,9 @@ class FractionalDMD:
         self.modes_ = self.modes_[: selected_mode_count]
         self.liouville_operator_.eigenvalues_ = self.eigenvalues_
         self.liouville_operator_.eigenvectors_ = self.eigenvectors_
+        # The core caches its own spectrum during fit; truncate it with the selected modes.
+        self.fdmd_.eigenvalues_ = self.eigenvalues_
+        self.fdmd_.eigenvectors_ = self.eigenvectors_
         self.fdmd_.modes_ = self.modes_
 
     @staticmethod

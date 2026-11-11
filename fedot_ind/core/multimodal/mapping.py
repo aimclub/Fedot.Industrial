@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from fedot_ind.core.models.nn.network_impl.encoders.transformation_presets import (
+from fedot_ind.neural.encoders.transformation_presets import (
     gaf_encoder_config,
     raw_encoder_config,
     stats_encoder_config,
     stft_encoder_config,
 )
-from fedot_ind.core.models.nn.network_impl.mapping import (
+from fedot_ind.neural.encoders.mapping import (
     EncoderPresetEntry,
     EncoderShapeArg,
 )

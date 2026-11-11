@@ -149,8 +149,7 @@ def _per_class_f1(cm: np.ndarray) -> np.ndarray:
 # Public per-class metrics
 
 
-def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, *
-    , labels: Union[np.ndarray, list, None] = None, **_) -> Dict[str, list]:
+def per_class_scores(y_true: np.ndarray, y_pred: np.ndarray, *, labels: Union[np.ndarray, list, None] = None, **_) -> Dict[str, list]:
     """
     Возвращает словарь с массивами:
         'recall', 'precision', 'f1', 'support'

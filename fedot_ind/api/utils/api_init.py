@@ -1,15 +1,19 @@
 import logging
+import warnings
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Union, Callable, List
 
 from fedot.core.repository.tasks import TsForecastingParams
-from joblib import cpu_count
 from pymonad.either import Either
 
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
 from fedot_ind.core.optimizer.FedotEvoOptimizer import FedotEvoOptimizer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from fedot_ind.core.optimizer.configuration import EvolutionConfig, normalize_evolution_config
+from fedot_ind.core.optimizer.search_policy.cyclic import CyclicSearchPolicy
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 from fedot_ind.core.repository.constanst_repository import \
     fedot_init_assumptions, FEDOT_INDUSTRIAL_STRATEGY
 from fedot_ind.integration.fedot.extensions.discovery import default_industrial_availiable_operation
@@ -108,17 +112,19 @@ class ComputationalConfig(ConfigTemplate):
                      'output_folder': self.with_output_folder,
                      'use_cache': self.with_cache,
                      'automl_folder': self.with_automl_folder}
-        self.default_dask_params = dict(processes=False,
-                                        n_workers=1,
-                                        threads_per_worker=round(cpu_count() / 2),
-                                        memory_limit=0.3
-                                        )
+        self.default_dask_params = DEFAULT_COMPUTE_CONFIG['distributed'].copy()
 
     def with_backend(self, backend: str = 'cpu'):
+        if isinstance(backend, str) and backend.strip().lower() == 'dask':
+            raise ValueError('compute_config.backend="dask" is not supported; '
+                             'choose evaluation_execution.backend="dask" in the optimiser settings')
         self.backend = backend
         return self.backend
 
     def with_distributed(self, distributed: dict = None):
+        if distributed is not None and distributed != self.default_dask_params:
+            warnings.warn('compute_config.distributed does not configure candidate evaluation; '
+                          'use evaluation_execution.dask in the optimiser settings', UserWarning, stacklevel=3)
         self.distributed = distributed if distributed is not None else self.default_dask_params
         return self.distributed
 
@@ -168,6 +174,12 @@ class AutomlConfig(ConfigTemplate):
         return self.available_operations
 
     def with_optimisation_strategy(self, optimisation_strategy: dict = None):
+        if isinstance(optimisation_strategy, Mapping):
+            options = optimisation_strategy.get('optimisation_strategy')
+            if isinstance(options, EvolutionConfig) or (isinstance(options, Mapping) and options.get('mutation_schedule')):
+                if isinstance(normalize_evolution_config(options).mutation_schedule, CyclicSearchPolicy):
+                    raise ValueError('FedotIndustrial does not support cyclic search without prepared evaluations; '
+                                     'use the B/D series runner')
         self.optimisation_strategy = optimisation_strategy
         return self.optimisation_strategy
 

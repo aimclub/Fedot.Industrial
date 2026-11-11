@@ -47,12 +47,62 @@ def test_manifest_is_valid_and_has_unique_operation_names():
     assert manifest.transforms
 
 
+def test_population_study_runtime_controls_are_declared_in_public_schemas():
+    from fedot.extensions.parameter_rules import resolve_extension_params
+    manifest = build_industrial_extension_manifest()
+    fourier = next(spec for spec in manifest.transforms if spec.name == 'fourier_basis')
+    mssa = next(spec for spec in manifest.models if spec.name == 'mssa_forecaster')
+    assert resolve_extension_params(fourier, {'use_cache': False}).is_right()
+    assert resolve_extension_params(mssa, {'head_policy': 'linear', 'device': 'cpu'}).is_right()
+
+
+@pytest.mark.parametrize("task", ["classification", "regression"])
+def test_bagging_extension_transforms_unlabelled_data_after_fit(task):
+    from fedot_ind.integration.fedot.extensions.catalog import load_industrial_extension_catalog
+
+    declaration = next(
+        operation for operation in load_industrial_extension_catalog().operations
+        if operation.name == "bagging"
+    )
+    runtime = make_deferred_factory(declaration)({"task_type": task})
+    features = np.arange(24, dtype=float).reshape(6, 4)
+    target = np.arange(6, dtype=float) if task == "regression" else np.array([0, 0, 0, 1, 1, 1])
+    assert runtime.fit(features, target) is runtime
+    result = runtime.transform(features)
+    assert result.shape == (6,)
+    assert np.isfinite(result).all()
+    np.testing.assert_array_equal(runtime.transform(features.copy()), result)
+
+
+@pytest.mark.parametrize("operation", ["bagging", "minirocket_extractor", "wavelet_basis"])
+def test_multitask_transform_schema_accepts_explicit_task(operation):
+    from fedot.extensions.parameter_rules import resolve_extension_params
+
+    manifest = build_industrial_extension_manifest()
+    specification = next(spec for spec in manifest.transforms if spec.name == operation)
+    assert "task_type" in specification.hyperparams_schema.optional
+    assert resolve_extension_params(specification, {"task_type": "regression"}).is_right()
+
+
 def test_manifest_does_not_shadow_builtin_fedot_operations():
     manifest = build_industrial_extension_manifest()
     extension_names = {spec.name for spec in manifest.models + manifest.transforms}
     builtin_names = {operation.id for operation in OperationTypesRepository("all").operations}
 
     assert extension_names.isdisjoint(builtin_names)
+
+
+def test_multitask_hankel_schema_declares_forecast_length_before_fit():
+    from fedot.extensions.parameter_rules import resolve_extension_params
+    from fedot_ind.integration.fedot.extensions.temporal import supports_temporal_contract
+
+    manifest = build_industrial_extension_manifest()
+    if not supports_temporal_contract():
+        assert 'hankelisation' not in {spec.name for spec in manifest.transforms}
+        return
+    spec = next(spec for spec in manifest.transforms if spec.name == 'hankelisation')
+    assert 'forecast_length' in spec.hyperparams_schema.optional
+    assert resolve_extension_params(spec, {'forecast_length': 8}).is_right()
 
 
 def test_registration_is_dry_run_safe_and_idempotent():

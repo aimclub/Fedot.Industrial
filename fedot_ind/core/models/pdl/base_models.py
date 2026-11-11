@@ -14,6 +14,7 @@ class BaseModelSpec:
 
     module: str
     attribute: str
+    seed_parameter: str | None = 'random_state'
 
     def load(self):
         """Import the estimator only when the corresponding model is selected."""
@@ -23,10 +24,6 @@ class BaseModelSpec:
 _CLASSIFICATION_MODELS: Mapping[str, BaseModelSpec] = MappingProxyType(
     {
         "xgboost": BaseModelSpec("sklearn.ensemble", "GradientBoostingClassifier"),
-        "catboost": BaseModelSpec(
-            "fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations",
-            "FedotCatBoostClassificationImplementation",
-        ),
         "logit": BaseModelSpec("sklearn.linear_model", "LogisticRegression"),
         "dt": BaseModelSpec("sklearn.tree", "DecisionTreeClassifier"),
         "rf": BaseModelSpec("sklearn.ensemble", "RandomForestClassifier"),
@@ -44,10 +41,6 @@ _REGRESSION_MODELS: Mapping[str, BaseModelSpec] = MappingProxyType(
         "lasso": BaseModelSpec("sklearn.linear_model", "Lasso"),
         "dtreg": BaseModelSpec("sklearn.tree", "DecisionTreeRegressor"),
         "lgbmreg": BaseModelSpec("lightgbm.sklearn", "LGBMRegressor"),
-        "catboostreg": BaseModelSpec(
-            "fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations",
-            "FedotCatBoostRegressionImplementation",
-        ),
     }
 )
 
@@ -61,6 +54,8 @@ def create_pdl_base_model(
     task: str,
     name: str,
     parameters: Mapping[str, Any] | None = None,
+    *,
+    random_state: int | None = None,
 ):
     """Instantiate one PDL downstream estimator through its lazy specification."""
     registry = _registry_for(task)
@@ -71,7 +66,20 @@ def create_pdl_base_model(
             f"Unknown PDL {task} base model {name!r}. "
             f"Available models: {', '.join(registry)}."
         ) from error
-    return spec.load()(**dict(parameters or {}))
+    resolved = dict(parameters or {})
+    if random_state is not None:
+        if spec.seed_parameter is None:
+            raise ValueError(f'PDL base model {name!r} does not support the seeded array estimator contract')
+        if spec.seed_parameter in resolved and resolved[spec.seed_parameter] != random_state:
+            raise ValueError('Conflicting random_state values for the PDL base model')
+        resolved[spec.seed_parameter] = random_state
+    return spec.load()(**resolved)
+
+
+def resolved_base_model_parameters(model) -> dict[str, Any]:
+    """Record actual estimator parameters separately from requested PDL inputs."""
+    return {'base_model_class': f'{type(model).__module__}.{type(model).__qualname__}',
+            'resolved_base_model_params': model.get_params(deep=False)}
 
 
 def _registry_for(task: str) -> Mapping[str, BaseModelSpec]:

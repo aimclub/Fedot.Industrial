@@ -1,3 +1,7 @@
+class BenchmarkConfigurationError(ValueError):
+    pass
+
+
 class BenchmarkClassificationError(ValueError):
     pass
 

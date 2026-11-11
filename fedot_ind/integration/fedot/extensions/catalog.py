@@ -154,7 +154,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         "devices", "serializable", "allowed_positions", "min_parents", "max_parents",
         "allows_identical_parents",
         "constructor_policy", "probability_policy", "transform_policy",
-        "structural_role",
+        "structural_role", "required_parameters",
     }
     required = {"name", "kind", "factory", "tasks", "data_types", "output_data_type", "tags", "problems"}
     _require_keys(value, required, f"operations[{index}]")
@@ -219,7 +219,7 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         )
 
     devices = _string_tuple(
-        value.get("devices", ["cpu", "cuda"] if backend == "torch" else ["cpu"]),
+        value.get("devices", ["cpu"]),
         f"operations[{index}].devices",
         supported=SUPPORTED_DEVICES,
         index=index,
@@ -294,6 +294,8 @@ def _parse_operation(raw: Any, index: int) -> IndustrialOperationDeclaration:
         max_parents=max_parents,
         allows_identical_parents=allows_identical_parents,
         structural_role=structural_role,
+        required_parameters=_string_tuple(
+            value.get("required_parameters", []), "required_parameters", allow_empty=True, index=index),
         **policies,
     )
 

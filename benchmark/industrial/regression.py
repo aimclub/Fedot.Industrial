@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+from .experiments.metric_records import load_metric_records as _load_metric_records
 
 from .core import (
     ArtifactRecord,
@@ -531,28 +532,6 @@ def _metric_records_from_run_summary(run_record: BenchmarkRunRecord) -> list[Met
         for metric_name, metric_value in run_record.metrics_summary.items()
         if metric_value is not None
     ]
-
-
-def _load_metric_records(path: str | None) -> list[MetricRecord]:
-    if not path or not Path(path).exists():
-        return []
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    records = []
-    for item in payload:
-        records.append(
-            MetricRecord(
-                run_id=str(item["run_id"]),
-                benchmark=str(item["benchmark"]),
-                dataset_name=str(item["dataset_name"]),
-                subset=str(item["subset"]),
-                series_id=str(item["series_id"]),
-                model_name=str(item["model_name"]),
-                metric_name=str(item["metric_name"]),
-                metric_value=float(item["metric_value"]),
-                status=RunStatus(str(item["status"])),
-            )
-        )
-    return records
 
 
 def _load_value_prediction_records(path: str | None) -> list[ValuePredictionRecord]:

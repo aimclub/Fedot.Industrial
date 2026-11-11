@@ -1,5 +1,6 @@
 # from tensorflow.python.keras.layers.convolutional import Conv
 from torch import tensor
+from fedot_ind.neural.blocks.linear import LinLnDrop
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, ConvBlock
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import *
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import (

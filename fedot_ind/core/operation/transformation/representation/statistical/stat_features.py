@@ -111,7 +111,8 @@ def ben_corr(x, axis=None):
 
         data_distribution = np.array([(x == n).mean() for n in range(1, 10)])
 
-        # np.corrcoef outputs the normalized covariance (correlation) between benford_distribution and data_distribution.
+        # np.corrcoef outputs the normalized covariance (correlation) between
+        # benford_distribution and data_distribution.
         # In this case returns a 2x2 matrix, the  [0, 1] and [1, 1] are the values
         # between the two arrays
         return np.corrcoef(benford_distribution, data_distribution)[0, 1]
@@ -265,8 +266,8 @@ def hurst_exponent(array, axis=None):
 
         for i in range(N):
             S_T[i] = np.std(X[:i + 1])
-            X_T = Y - T * Ave_T[i]
-            R_T[i] = np.ptp(X_T[:i + 1])
+            X_T = Y[:i + 1] - T[:i + 1] * Ave_T[i]
+            R_T[i] = np.ptp(X_T)
 
         R_S = R_T / S_T
         R_S = np.log(R_S)[1:]

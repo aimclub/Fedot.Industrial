@@ -9,8 +9,8 @@ from torch import nn, Tensor
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_torch_tensor
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
-from fedot_ind.core.models.nn.network_modules.layers.attention_layers import MultiHeadAttention
+from fedot_ind.neural.blocks.activation import get_activation_fn
+from fedot_ind.neural.blocks.attention import MultiHeadAttention
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, ConvBlock
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Add, BN1d, Concat, Noop, Transpose
 from fedot_ind.core.repository.constanst_repository import PATIENCE_FOR_EARLY_STOP

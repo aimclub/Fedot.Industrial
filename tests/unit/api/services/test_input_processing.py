@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from fedot_ind.api.services import input_processing as input_processing_module
 from fedot_ind.api.services.input_processing import IndustrialInputProcessor
@@ -93,3 +94,33 @@ def test_input_processor_preserves_features_for_industrial_context(monkeypatch):
     )
 
     assert bundle.data.features.shape == (2, 1, 3)
+
+
+def _targetless_input(values, task, container):
+    if container == 'tuple':
+        return values, None
+    from fedot.core.repository.tasks import Task, TaskTypesEnum
+    from fedot.core.repository.dataset_types import DataTypesEnum
+    from fedot_ind.integration.fedot.compatibility import InputData
+    return InputData(idx=np.arange(len(values)), features=values, target=None,
+                     task=Task(TaskTypesEnum[task]), data_type=DataTypesEnum.image)
+
+
+@pytest.mark.parametrize('task', ['classification', 'regression'])
+@pytest.mark.parametrize('container', ['tuple', 'input_data'])
+def test_real_prediction_processing_preserves_absent_target_and_caller_input(task, container):
+    values = np.arange(40, dtype=float).reshape(5, 1, 8)
+    original = values.copy()
+    bundle = IndustrialInputProcessor().process(_targetless_input(values, task, container), task=task, fit_stage=False)
+    assert bundle.data.target is None
+    assert bundle.data.features.shape == (5, 1, 8)
+    np.testing.assert_array_equal(values, original)
+    assert bundle.target_encoder is None
+
+
+@pytest.mark.parametrize('task', ['classification', 'regression'])
+@pytest.mark.parametrize('container', ['tuple', 'input_data'])
+def test_real_training_processing_rejects_missing_target(task, container):
+    with pytest.raises(ValueError, match='Training data requires a target'):
+        IndustrialInputProcessor().process(_targetless_input(np.ones((5, 1, 8)), task, container),
+                                           task=task, fit_stage=True)

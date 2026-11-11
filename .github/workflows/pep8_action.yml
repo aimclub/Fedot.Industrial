@@ -22,7 +22,8 @@ jobs:
         id: autopep8
         uses: peter-evans/autopep8@v2
         with:
-          args: --exit-code --recursive --in-place --max-line-length 120 --experimental  --aggressive --aggressive .
+          # Exact type guards and locally defined apply() are not Python 2 fixes.
+          args: --exit-code --recursive --in-place --max-line-length 120 --ignore E721 .
       - name: Commit autopep8 changes
         if: steps.autopep8.outputs.exit-code == 2
         run: |

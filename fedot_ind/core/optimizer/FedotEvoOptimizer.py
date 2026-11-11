@@ -17,6 +17,7 @@ from fedot_ind.core.optimizer.configuration import (
     normalize_evolution_config,
 )
 from fedot_ind.core.optimizer.mutation import without_resample_mutations
+from fedot_ind.core.optimizer.randomness import install_seeded_operators
 from fedot_ind.core.repository.constanst_repository import FEDOT_MUTATION_STRATEGY
 
 
@@ -42,6 +43,8 @@ class FedotEvoOptimizer(EvoGraphOptimizer):
                                                                                             evolution_config)
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
+        if optimisation_params is not None:
+            install_seeded_operators(self, evolution_config.random_seed)
         self.requirements = requirements
         # self.eval_dispatcher = IndustrialDispatcher(
         #     adapter=graph_generation_params.adapter,
@@ -50,6 +53,8 @@ class FedotEvoOptimizer(EvoGraphOptimizer):
         #     delegate_evaluator=graph_generation_params.remote_evaluator)
 
     def _set_optimisation_strategy(self, graph_optimizer_params, config: EvolutionConfig):
+        if config.mutation_schedule is not None:
+            raise ValueError('Staged search is supported only by IndustrialEvoOptimizer')
         mutation_probs = FEDOT_MUTATION_STRATEGY[config.mutation_strategy.value]
         mutation_agent = self.mutation_agent_dict[config.mutation_agent]
         if config.mutation_agent is MutationAgentType.RANDOM:

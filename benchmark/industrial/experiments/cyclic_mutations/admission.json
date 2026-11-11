@@ -1,0 +1,4 @@
+{
+  "schema_version": "industrial_bd_admission@1",
+  "scenarios": ["Tecator", "ECG200", "Airline"]
+}

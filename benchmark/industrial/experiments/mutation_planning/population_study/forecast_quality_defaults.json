@@ -1,0 +1,25 @@
+{
+  "schema_version": "industrial_forecast_quality_diagnostic@1",
+  "train": "examples/utils/data/forecasting/nbeats/Daily-train.csv",
+  "test": "examples/utils/data/forecasting/nbeats/Daily-test.csv",
+  "datasets": ["D1", "D2", "D3"],
+  "horizon": 14,
+  "folds": 3,
+  "seeds": [42, 123, 777],
+  "test_comparators": ["naive", "seasonal7", "drift", "mssa_linear", "ssa_default"],
+  "candidates": [
+    {"name": "naive", "kind": "naive", "period": 1},
+    {"name": "seasonal7", "kind": "naive", "period": 7},
+    {"name": "drift", "kind": "drift"},
+    {"name": "mssa_linear", "kind": "industrial", "chain": ["mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu"}},
+    {"name": "mssa_lstsq64", "kind": "industrial", "chain": ["mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu"}, "reference_solver": true},
+    {"name": "smooth_linear", "kind": "industrial", "chain": ["smoothing", "mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu"}},
+    {"name": "smooth_lstsq64", "kind": "industrial", "chain": ["smoothing", "mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu"}, "reference_solver": true},
+    {"name": "mssa_rank2", "kind": "industrial", "chain": ["mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu", "rank": 2}},
+    {"name": "mssa_fullrank", "kind": "industrial", "chain": ["mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu", "rank": 16}},
+    {"name": "mssa_denoised", "kind": "industrial", "chain": ["mssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu"}, "denoised_state": true},
+    {"name": "mssa_mlp", "kind": "industrial", "chain": ["mssa_forecaster"], "parameters": {"head_policy": "mlp", "device": "cpu"}},
+    {"name": "ssa_default", "kind": "industrial", "chain": ["ssa_forecaster"], "parameters": {"device": "cpu"}},
+    {"name": "ssa_linear", "kind": "industrial", "chain": ["ssa_forecaster"], "parameters": {"head_policy": "linear", "device": "cpu"}}
+  ]
+}

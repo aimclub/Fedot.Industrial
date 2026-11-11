@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 
 import numpy as np
+import pytest
 from fedot.core.data.input_data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
@@ -28,6 +29,20 @@ def _build_ts_input(horizon: int = 14):
 
 def test_resolve_lagged_window_size_clips_small_values():
     assert resolve_lagged_window_size(50, 1) == 2
+
+
+@pytest.mark.parametrize('shape', [(160,), (160, 1), (1, 160)])
+def test_lagged_window_percent_uses_time_length_not_sample_axis(shape):
+    data = _build_ts_input()
+    data.features = np.arange(160, dtype=float).reshape(shape)
+    assert LaggedAR({'window_size_percent': 10})._resolve_window_size(data) == 16
+
+
+def test_lagged_window_rejects_multiple_channels_instead_of_flattening():
+    data = _build_ts_input()
+    data.features = np.ones((2, 80))
+    with pytest.raises(ValueError, match='one univariate'):
+        LaggedAR()._resolve_window_size(data)
 
 
 def test_lagged_forecaster_builds_forecasting_pipeline_with_lagged_node():

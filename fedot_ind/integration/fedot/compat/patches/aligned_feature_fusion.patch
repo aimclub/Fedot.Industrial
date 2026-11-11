@@ -1,0 +1,68 @@
+diff --git a/fedot/core/data/merge/data_merger.py b/fedot/core/data/merge/data_merger.py
+index 0b8b6db8..1bc84175 100644
+--- a/fedot/core/data/merge/data_merger.py
++++ b/fedot/core/data/merge/data_merger.py
+@@ -202,6 +202,17 @@ class TensorDataMerger:
+             self._check_equal_rows([output.features for output in self.outputs])
+             return self.main_output.idx
+ 
++        # Sample-preserving feature branches share exactly the same row order.
++        # intersect1d would sort their labels without reordering feature rows.
++        if len(idx_list) > 1 and all(np.array_equal(idx_list[0], idx) for idx in idx_list[1:]):
++            indices = np.asarray(idx_list[0])
++            self._check_equal_rows([output.features for output in self.outputs])
++            if len(np.unique(indices)) != len(indices):
++                raise DataMergeError('Feature fusion requires unique sample indices')
++            if len(indices) != self.main_output.features.shape[0]:
++                raise DataMergeError('Feature fusion indices must match the sample count')
++            return indices
++
+         common_indices = find_common_elements(*[np.asarray(idx) for idx in idx_list])
+         if len(common_indices) == 0:
+             raise ValueError('There are no common indices for TensorData outputs')
+diff --git a/test/unit/data/test_evo04_feature_fusion.py b/test/unit/data/test_evo04_feature_fusion.py
+new file mode 100644
+index 00000000..3ca59167
+--- /dev/null
++++ b/test/unit/data/test_evo04_feature_fusion.py
+@@ -0,0 +1,40 @@
++"""Feature-fusion fixes transferable with the FEDOT compatibility patch."""
++
++import numpy as np
++import pytest
++import torch
++
++from fedot.core.data.merge.data_merger import TensorDataMerger, DataMergeError
++from fedot.core.data.tensor_data.tensor_data import TensorData
++from fedot.core.repository.dataset_types import DataTypesEnum
++from fedot.core.repository.tasks import Task, TaskTypesEnum
++
++
++def branch(indices, features):
++    return TensorData(task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table,
++                      idx=np.asarray(indices), features=torch.as_tensor(features, dtype=torch.float32),
++                      target=torch.tensor([1, 0, 1]))
++
++
++@pytest.mark.parametrize('indices', [[9, 2, 7], ['z', 'a', 'm']])
++def test_aligned_fusion_keeps_non_sorted_index_feature_target_correspondence(indices):
++    left, right = branch(indices, [[10], [20], [30]]), branch(indices, [[11, 12], [21, 22], [31, 32]])
++    result = TensorDataMerger([left, right]).merge()
++    np.testing.assert_array_equal(result.idx, indices)
++    torch.testing.assert_close(result.features, torch.tensor([[10., 11., 12.], [20., 21., 22.], [30., 31., 32.]]))
++    torch.testing.assert_close(result.target, left.target)
++    assert result.predict is None
++    torch.testing.assert_close(left.features, torch.tensor([[10.], [20.], [30.]]))
++
++
++def test_duplicate_sample_ids_cannot_silently_drop_feature_rows():
++    left, right = branch([1, 1, 2], [[1], [2], [3]]), branch([1, 1, 2], [[4], [5], [6]])
++    with pytest.raises(DataMergeError, match='unique'):
++        TensorDataMerger([left, right]).merge()
++
++
++def test_aligned_indices_must_describe_all_feature_rows():
++    left, right = branch([1, 2, 3], [[1], [2], [3]]), branch([1, 2, 3], [[4], [5], [6]])
++    left.idx = right.idx = np.array([1, 2])
++    with pytest.raises(DataMergeError, match='sample count'):
++        TensorDataMerger([left, right]).merge()

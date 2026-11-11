@@ -1,0 +1,11 @@
+{
+  "schema_version": "industrial_nested_train_validation@1",
+  "outer_folds": 5,
+  "inner_folds": 3,
+  "outer_seed": 42,
+  "inner_seed": 123,
+  "feature_seed": 42,
+  "population_protocol_sha256": "a524f37977ba673a0e35e0e9166de508f38d43206e5ae9ad9478ec90c311e455",
+  "ridge_grid_sha256": "9fbce7f4794f1625cc455bfa034752b822159c566f00910b8e7fb05a5c3a5fc8",
+  "tie_break": "exact_mean_then_structure_order_scaling_order_descending_alpha"
+}

@@ -1,4 +1,6 @@
 import numpy as np
+import pytest
+from hypothesis import given, strategies as st
 
 from fedot_ind.core.models.kernel.okhs_runtime import (
     build_okhs_dmd_model,
@@ -19,6 +21,7 @@ from fedot_ind.core.models.ts_forecasting.dmd_models.okhs_fdmd_forecaster import
     OKHSFDMDForecasterRunResult,
     OKHSFDMDForecasterSpec,
     build_okhs_fdmd_spec,
+    build_okhs_fdmd_forecaster,
     build_okhs_fdmd_runtime_diagnostics,
     normalize_okhs_fdmd_params,
     normalize_okhs_fdmd_prediction,
@@ -484,6 +487,37 @@ def test_normalize_okhs_fdmd_params_keeps_default_vocabulary():
     assert params['trajectory_representation_policy'] == 'projected'
     assert params['prediction_mode_selection_policy'] == 'adaptive_tail_energy'
     assert params['device'] == 'cpu'
+
+
+@given(horizon=st.integers(1, 40), window=st.integers(4, 60))
+def test_okhs_fdmd_transport_horizon_preserves_construction_and_caller_params(horizon, window):
+    parameters = {'forecast_length': horizon, 'window_size': window, 'q': .8}
+    snapshot = parameters.copy()
+    spec = build_okhs_fdmd_spec(forecast_horizon=horizon, params=parameters)
+    reference = build_okhs_fdmd_spec(forecast_horizon=horizon, params={'window_size': window, 'q': .8})
+    assert spec == reference
+    assert parameters == snapshot
+    model = build_okhs_fdmd_forecaster(spec=spec)
+    assert model.forecast_horizon == horizon and model.window_size == window
+    assert 'forecast_length' not in spec.params
+    normalized = normalize_okhs_fdmd_params(parameters, forecast_horizon=horizon)
+    assert normalize_okhs_fdmd_params(normalized, forecast_horizon=horizon) == normalized
+
+
+@pytest.mark.parametrize('value', [None, True, False, 0, -1, 3, 8.0, '8', float('nan')])
+def test_okhs_fdmd_rejects_conflicting_or_invalid_transport_horizon(value):
+    with pytest.raises(ValueError, match='matching forecast_horizon'):
+        build_okhs_fdmd_spec(forecast_horizon=8, params={'forecast_length': value})
+
+
+def test_okhs_fdmd_transport_horizon_accepts_numpy_integer():
+    model = build_okhs_fdmd_forecaster(forecast_horizon=8, params={'forecast_length': np.int64(8)})
+    assert model.forecast_horizon == 8
+
+
+def test_okhs_fdmd_does_not_silently_drop_unrecognized_model_parameters():
+    with pytest.raises(TypeError, match='unexpected keyword'):
+        build_okhs_fdmd_forecaster(forecast_horizon=8, params={'unrecognized_parameter': 1})
 
 
 def test_normalize_okhs_fdmd_prediction_squeezes_and_clips_horizon():

@@ -77,7 +77,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
     def transform(
             self,
             input_data: InputData,
-            use_cache: bool = True) -> OutputData:
+            use_cache: Optional[bool] = None) -> OutputData:
         """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
 
         Args:
@@ -88,6 +88,10 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             OutputData - transformed data
 
         """
+        if use_cache is None:
+            use_cache = self.params.get('use_cache', True)
+        if not isinstance(use_cache, bool):
+            raise ValueError('use_cache must be a boolean')
         self.__check_compute_model(input_data)
         if use_cache:
             self.dict_keys = {k: v for k, v in self.__dict__.items()}

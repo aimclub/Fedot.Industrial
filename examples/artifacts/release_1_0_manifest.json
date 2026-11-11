@@ -1,0 +1,76 @@
+{
+  "schema_version": "industrial_release_artifacts@1",
+  "source_revision": "0ac052088d886084d0660bad12a73b83327ff6b3",
+  "last_updated": "2026-10-27",
+  "external_archive_url": null,
+  "publication_status": "not_uploaded",
+  "note": "Original experiment bytes were moved, not copied. Public upload is a separate owner action; no remote availability is claimed.",
+  "files": [
+    {
+      "original_path": "docs/dev_guide/evo04_verification.md",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo04_verification.md",
+      "sha256": "7a5c970e7d615eca1bbdd7750e8845620c714d86571854ab65c133cbef714f6d",
+      "bytes": 72383,
+      "role": "historical_document",
+      "availability": "local_only",
+      "replacement": "concise_implementation_and_acceptance_summary"
+    },
+    {
+      "original_path": "docs/dev_guide/evo04_candidate_pool_20261020.json",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo04_candidate_pool_20261020.json",
+      "sha256": "307f25fafbff3794fc2cf42c83f9a78ac71de2b634d251dba164292757fe006a",
+      "bytes": 551720,
+      "role": "experimental_evidence",
+      "availability": "local_only"
+    },
+    {
+      "original_path": "docs/dev_guide/evo04_population_config_20261019.json",
+      "local_path": "benchmark/industrial/experiments/mutation_planning/population_study/protocol_20261019.json",
+      "sha256": "f3d79ea57c61c1314457f72b4a1a313084a4a16bf8f1f99b82f38a6c15e8d938",
+      "sha256_lf": "d4a1b301ea26cec5d856586ea9061108a9e1087c8848f00fa333033a57893166",
+      "bytes": 3686,
+      "role": "frozen_configuration",
+      "availability": "repository"
+    },
+    {
+      "original_path": "docs/dev_guide/evo04_population_results_20261016.csv",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo04_population_results_20261016.csv",
+      "sha256": "e60f1ad2453b0bf4fe148466d82a2b66e6a31cc79eba77ab1046bfec873892ba",
+      "bytes": 19361,
+      "role": "experimental_evidence",
+      "availability": "local_only"
+    },
+    {
+      "original_path": "docs/dev_guide/evo04_population_results_20261016.json",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo04_population_results_20261016.json",
+      "sha256": "2ef025116afeda74b5c18f224071db59aa0bf28ea7e0c16128c336d90e1cb6fe",
+      "bytes": 96803,
+      "role": "experimental_evidence",
+      "availability": "local_only"
+    },
+    {
+      "original_path": "docs/dev_guide/evo07_profile_20261026/profile.csv",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo07_profile_20261026/profile.csv",
+      "sha256": "ae58373b0a0dd7a516ee3919a814efab641a27dd79495fc9373154aa159a2c4b",
+      "bytes": 9411,
+      "role": "experimental_evidence",
+      "availability": "local_only"
+    },
+    {
+      "original_path": "docs/dev_guide/evo07_profile_20261026/profile.json",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/evo07_profile_20261026/profile.json",
+      "sha256": "c5f3953f31303806e1ae08e226e821ad940bffd1fa381692c680605e50033c3f",
+      "bytes": 53864,
+      "role": "experimental_evidence",
+      "availability": "local_only"
+    },
+    {
+      "original_path": "docs/dev_guide/nn01_compatibility_20261026.json",
+      "local_path": "examples/artifacts/cloud_bundle/release_1_0_history/docs/dev_guide/nn01_compatibility_20261026.json",
+      "sha256": "fa98682d3968ae82c4dc2d714f20994147376865c2a4aa8e4ee4afcc4bc7bdb6",
+      "bytes": 3808,
+      "role": "experimental_evidence",
+      "availability": "local_only"
+    }
+  ]
+}

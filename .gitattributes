@@ -1,1 +1,2 @@
 *.ts linguist-vendored
+fedot_ind/integration/fedot/compat/patches/*.patch whitespace=-blank-at-eol

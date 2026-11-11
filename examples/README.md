@@ -9,6 +9,7 @@ repository contract.
 | Path | Status | Notes |
 | --- | --- | --- |
 | `utils/current_api/` | current | Lightweight examples backed by `benchmark.industrial` typed configs. These are the recommended starting point. |
+| `release_1_0/` | applied release examples | [BasicMotions graph/neural classification and Airline forecasting](release_1_0/README.md), packaged real data, explicit executors/devices, preview by default. |
 | `utils/data/` | current support data | Small local fixtures used by examples and tests. Keep these deterministic and repository-local. |
 | `artifacts/` | artifact hub | Central catalog, cloud-bundle manifest, and static showcase for benchmark/domain `vis_artifacts`, local inputs, and historical archives. |
 | `tools_example/` | tool-ready wrappers | JSON-friendly Industrial scenarios that expose `list_tool_specs()` and `invoke_tool()` for external agents or MCP tool adapters. Local inputs are documented in `tool_defaults.json` and README. |

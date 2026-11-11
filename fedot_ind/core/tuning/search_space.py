@@ -2,6 +2,7 @@ from copy import deepcopy
 
 import numpy as np
 from hyperopt import hp
+from fedot_ind.core.tuning.generator_catalog import generator_hyperopt_space
 
 from fedot_ind.core.repository.forecasting_registry import FORECASTING_MODEL_ALIASES
 
@@ -14,17 +15,6 @@ industrial_search_space = {
              ['hard_thresholding', 'explained_dispersion']]},
          'decomposition_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['svd', 'random_svd']]}
          },
-    'wavelet_basis':
-        {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
-         'wavelet': {'hyperopt-dist': hp.choice,
-                     'sampling-scope': [['mexh', 'morl', 'gaus1', 'gaus8', 'gaus5']]},
-         'low_freq': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
-    'fourier_basis':
-        {'threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
-         'low_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(2, 30, 3)]]},
-         'approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [['smooth', 'exact']]},
-         'output_format': {'hyperopt-dist': hp.choice, 'sampling-scope': [['signal', 'spectrum']]}
-         },
     'topological_extractor':
         {'window_size_as_share': {'hyperopt-dist': hp.uniform, 'sampling-scope': [0.05, 0.5]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4, 5]]},
@@ -32,10 +22,6 @@ industrial_search_space = {
          'filtration_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['vietoris-rips', 'alpha']]},
          'multivariate_strategy': {'hyperopt-dist': hp.choice, 'sampling-scope': [['independent', 'joint']]},
          },
-    'quantile_extractor':
-        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
-         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         'add_global_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'riemann_extractor':
         {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
                                                                        'cov', 'lwf', 'mcd', 'hub']]},
@@ -128,9 +114,6 @@ industrial_search_space = {
          'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(4, 24, 2)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[1, 2, 3, 4]]},
          'alpha': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.1, 0.5, 1.0, 2.0, 5.0]]}},
-    'hankelisation':
-        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 48, 4)]]},
-         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 6, 1)]]}},
     'svd_decomposition': {},
     'randomized_svd_decomposition':
         {'n_oversamples': {'hyperopt-dist': hp.choice,
@@ -277,6 +260,8 @@ industrial_search_space = {
 
 pdl_base_model = {'pdl_clf': 'rf',
                   'pdl_reg': 'treg'}
+
+industrial_search_space.update(generator_hyperopt_space(hp))
 
 for _forecasting_alias, _canonical_name in FORECASTING_MODEL_ALIASES.items():
     if _canonical_name in industrial_search_space and _forecasting_alias not in industrial_search_space:

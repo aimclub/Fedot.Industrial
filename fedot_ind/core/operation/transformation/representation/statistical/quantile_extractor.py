@@ -6,6 +6,19 @@ from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
+from fedot_ind.core.operation.transformation.representation.statistical.feature_reuse import (
+    reuse_statistical_features,
+)
+from fedot_ind.core.operation.transformation.representation.statistical.methods import (
+    STAT_METHODS, STAT_METHODS_GLOBAL,
+)
+from fedot_ind.core.operation.transformation.representation.statistical.hurst_batch import (
+    hurst_rows, native_hurst_supported,
+)
+from fedot_ind.core.operation.transformation.representation.statistical.long_row_features import (
+    benford_correlation, hjorth_complexity,
+)
+from .windows import statistical_window_plan
 
 
 class QuantileExtractor(BaseExtractor):
@@ -55,13 +68,75 @@ class QuantileExtractor(BaseExtractor):
         window_stat_features = np.nan_to_num(window_stat_features)
         return window_stat_features
 
+    def _transform(self, input_data: InputData) -> np.ndarray:
+        reference = super()._transform
+        if (type(self) is not QuantileExtractor or type(input_data.features) is not np.ndarray
+                or self.use_feature_filter or self.feature_filter is not None
+                or tuple(STAT_METHODS.items()) != _AUDITED_LOCAL_METHODS
+                or tuple(STAT_METHODS_GLOBAL.items()) != _AUDITED_GLOBAL_METHODS
+                or any(getattr(getattr(self, name), '__func__', None) is not method
+                       for name, method in _AUDITED_IMPLEMENTATION)):
+            return reference(input_data)
+        values = input_data.features
+        if ((values.ndim == 3 or (values.ndim == 2 and native_hurst_supported(values)))
+                and values.shape[0] > 0 and values.shape[1] > 0 and values.shape[-1] > 1
+                and self.channel_extraction and self.window_size == 0):
+            reference = self._transform_audited_rows
+        settings = (self.window_size, self.stride, self.add_global_features, self.use_sliding_window,
+                    self.channel_extraction)
+        self.predict = reuse_statistical_features(input_data.features, settings, lambda: reference(input_data))
+        return self.predict
+
+    def _transform_audited_rows(self, input_data):
+        # Same axis=0 calls and channel order as generate_features_from_ts, without
+        # constructing a synchronous delayed graph for every observation.
+        values = input_data.features
+        values = values[:, None, :] if values.ndim == 2 else values
+        if (self.add_global_features and values.dtype in (np.dtype('float32'), np.dtype('float64'))
+                and values.flags.c_contiguous and np.isfinite(values).all()):
+            rows = values.reshape(-1, values.shape[-1])
+            hurst = hurst_rows(rows)
+            native = native_hurst_supported(rows)
+            features = []
+            for row, exponent in zip(rows, hurst):
+                global_features = []
+                for _, method in _AUDITED_GLOBAL_METHODS:
+                    if method is _AUDITED_HURST:
+                        value = exponent
+                    elif native and method is _AUDITED_HJORTH:
+                        value = hjorth_complexity(row)
+                    elif native and method is _AUDITED_BENFORD:
+                        value = benford_correlation(row)
+                    else:
+                        value = method(row, 0)
+                    global_features.append(value)
+                local_features = self.get_statistical_features(row, axis=0)
+                features.append(self._concatenate_global_and_local_feature(global_features, local_features))
+            self.predict = self._clean_predict(np.array(features).reshape(*values.shape[:2], -1))
+            return self.predict
+        features = np.array([[self.extract_stats_features(channel, axis=0) for channel in sample]
+                             for sample in input_data.features])
+        self.predict = self._clean_predict(features)
+        return self.predict
+
     def extract_stats_features(self, ts: np.array, axis: int) -> InputData:
         global_features = self.get_statistical_features(ts, add_global_features=self.add_global_features, axis=axis)
         window_stat_features = self.get_statistical_features(ts, axis=axis) if self.window_size == 0 else \
             self.apply_window_for_stat_feature(ts_data=ts, feature_generator=self.get_statistical_features,
                                                window_size=self.window_size)
-        return self._concatenate_global_and_local_feature(
-            global_features, window_stat_features) if self.add_global_features else window_stat_features
+        return (
+            self._concatenate_global_and_local_feature(global_features, window_stat_features)
+            if self.add_global_features else window_stat_features
+        )
+
+    def apply_window_for_stat_feature(self, ts_data, feature_generator, window_size=None):
+        values = np.asarray(ts_data)
+        if values.ndim != 1:
+            raise ValueError('NumPy statistical windows require one channel at a time')
+        plan = statistical_window_plan(len(values), self.window_size if window_size is None else window_size,
+                                       self.stride, self.use_sliding_window)
+        return np.concatenate([np.asarray(feature_generator(values[start:start + plan.width])).reshape(-1)
+                               for start in plan.starts])
 
     @dask.delayed
     def generate_features_from_ts(self,
@@ -73,6 +148,21 @@ class QuantileExtractor(BaseExtractor):
         return statistical_representation
 
     def generate_features_from_array(self, array: np.array) -> InputData:
-        statistical_representation = self.get_statistical_features(array,
-                                                                   add_global_features=self.add_global_features, axis=2)
+        statistical_representation = self.get_statistical_features(
+            array, add_global_features=self.add_global_features, axis=2)
         return [x for x in statistical_representation if x is not None]
+
+
+# Callable replacement is an extension point, not evidence of purity. Customized
+# instances/classes keep the reference path even if their class name is unchanged.
+_AUDITED_LOCAL_METHODS = tuple(STAT_METHODS.items())
+_AUDITED_GLOBAL_METHODS = tuple(STAT_METHODS_GLOBAL.items())
+_AUDITED_HURST = STAT_METHODS_GLOBAL['hurst_exponent_']
+_AUDITED_HJORTH = STAT_METHODS_GLOBAL['hjorth_complexity_']
+_AUDITED_BENFORD = STAT_METHODS_GLOBAL['ben_corr_']
+_AUDITED_IMPLEMENTATION = tuple((name, getattr(QuantileExtractor, name)) for name in (
+    'generate_features_from_ts', 'generate_features_from_array', 'extract_stats_features',
+    '_concatenate_global_and_local_feature', 'get_statistical_features',
+    'apply_window_for_stat_feature', '_clean_predict',
+    '_transform_audited_rows',
+))

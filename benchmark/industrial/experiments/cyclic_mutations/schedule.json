@@ -1,0 +1,10 @@
+{
+  "schema_version": "industrial_bd_schedule@1",
+  "cycles": 3,
+  "active_fraction": 0.5,
+  "family_fraction": 0.5,
+  "max_families": 16,
+  "batch_size": 4,
+  "exploration": {"parameter_change": 0.0, "replace": 0.4, "add": 0.3, "drop": 0.1, "rewrite": 0.2},
+  "mixed": {"parameter_change": 0.5, "replace": 0.2, "add": 0.15, "drop": 0.05, "rewrite": 0.1}
+}

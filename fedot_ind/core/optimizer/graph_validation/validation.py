@@ -8,6 +8,7 @@ from typing import Callable, Iterable, Mapping
 from fedot_ind.core.optimizer.graph_validation.contracts import (
     GraphNodeSpec,
     GraphSpec,
+    ModelFeatureFlow,
     NodePosition,
     OperationKind,
     StructuralRole,
@@ -202,17 +203,30 @@ def validate_capabilities(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
 
 
 def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
-    """Return incompatible parent-output/child-input and duplicate-parent issues.
+    """Check confirmed source inputs, parent feature views and duplicate parents.
 
     Skip type comparisons when either endpoint lacks capabilities or either
-    type declaration is empty.
+    type declaration is empty. TensorData feature transport is an explicit
+    graph context, not an assumption based on the task or operation name.
     """
     issues: list[ValidationIssue] = []
     nodes = _unique_node_map(spec)
+    feature_outputs = _feature_output_types(spec, nodes)
     for child in nodes.values():
         child_capability = child.capabilities
         if child_capability is None:
             continue
+        if (not child.parent_ids and child_capability.kind is not OperationKind.DATA_SOURCE
+                and spec.input_data_type is not None and child_capability.input_data_types
+                and spec.input_data_type not in child_capability.input_data_types):
+            issues.append(_issue(
+                ValidationIssueCode.INPUT_DATA_TYPE_MISMATCH,
+                "Primary operation cannot consume the confirmed graph input type.",
+                node_ids=(child.node_id,),
+                operation_names=(child.operation_name,),
+                context={"input_data_type": spec.input_data_type,
+                         "supported": sorted(child_capability.input_data_types)},
+            ))
         parent_names: list[str] = []
         for parent_id in child.parent_ids:
             parent = nodes.get(parent_id)
@@ -221,6 +235,16 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
             parent_names.append(parent.operation_name)
             output_types = frozenset(parent.capabilities.output_data_types)
             input_types = frozenset(child_capability.input_data_types)
+            if 'requires_time_axis' in child_capability.tags:
+                parent_tags = parent.capabilities.tags
+                if ('wavelet_coefficients' in parent_tags or 'power_spectrum' in parent_tags
+                        or 'tabular_representation' in parent_tags
+                        or (output_types == {'tabular'} and 'time_signal' not in parent_tags)):
+                    issues.append(_issue(
+                        ValidationIssueCode.REPRESENTATION_MISMATCH,
+                        'A time-axis basis cannot consume coefficients, power bins or unordered feature columns.',
+                        node_ids=(parent.node_id, child.node_id),
+                        operation_names=(parent.operation_name, child.operation_name)))
             if output_types and input_types and output_types.isdisjoint(input_types):
                 issues.append(_issue(
                     ValidationIssueCode.DATA_TYPE_MISMATCH,
@@ -229,6 +253,18 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
                     operation_names=(parent.operation_name, child.operation_name),
                     context={"parent_outputs": sorted(output_types),
                              "child_inputs": sorted(input_types)},
+                ))
+            feature_types = frozenset(feature_outputs[parent.node_id])
+            if (spec.model_feature_flow is ModelFeatureFlow.TENSOR_FEATURES
+                    and feature_types and input_types and feature_types.isdisjoint(input_types)
+                    and 'forecast_prediction_merge' not in child_capability.tags
+                    and not (output_types and output_types.isdisjoint(input_types))):
+                issues.append(_issue(
+                    ValidationIssueCode.FEATURE_TYPE_MISMATCH,
+                    "The confirmed parent feature view is incompatible with the child input.",
+                    node_ids=(parent.node_id, child.node_id),
+                    operation_names=(parent.operation_name, child.operation_name),
+                    context={"parent_features": sorted(feature_types), "child_inputs": sorted(input_types)},
                 ))
         parent_name_counts = Counter(parent_names)
         repeated_transform_names = {
@@ -249,6 +285,75 @@ def validate_data_flow(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
                 operation_names=(child.operation_name, *parent_names),
             ))
     return tuple(issues)
+
+
+def validate_forecast_branches(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
+    """Require explicit merge operators; the adapter checks actual row alignment."""
+    nodes = _unique_node_map(spec)
+    issues = []
+    for node in nodes.values():
+        cap = node.capabilities
+        if cap is None:
+            continue
+        tags = cap.tags
+        prediction_merge = 'forecast_prediction_merge' in tags
+        feature_merge = 'forecast_feature_merge' in tags
+        representation = 'forecast_window_representation' in tags
+        if not (prediction_merge or feature_merge or representation):
+            continue
+        parents = [nodes[key] for key in node.parent_ids if key in nodes]
+        bad = spec.task_type != 'ts_forecasting' or len(parents) != len(node.parent_ids)
+        if prediction_merge:
+            bad |= (feature_merge or len(parents) < 2 or any(
+                p.capabilities is None or p.capabilities.kind is not OperationKind.MODEL for p in parents))
+        elif feature_merge:
+            bad |= len(parents) < 2 or any(
+                p.capabilities is None or p.capabilities.kind is not OperationKind.TRANSFORM
+                or p.capabilities.output_data_types != ('tabular',) for p in parents)
+        elif representation:
+            bad |= len(parents) != 1 or any(
+                p.capabilities is None or not {'ts_to_table', 'forecast_window_representation'}.intersection(
+                    p.capabilities.tags) for p in parents)
+        if bad:
+            issues.append(_issue(ValidationIssueCode.FORECAST_BRANCH_CONTRACT,
+                                 'Forecast branches require window-local features or explicit model predictions.',
+                                 node_ids=(node.node_id,), operation_names=(node.operation_name,)))
+    return tuple(issues)
+
+
+def _feature_output_types(spec: GraphSpec, nodes: Mapping[str, GraphNodeSpec]) -> dict[str, tuple[str, ...]]:
+    """Resolve proven feature views; model predictions have a separate field."""
+    outputs: dict[str, tuple[str, ...]] = {}
+    visiting: set[str] = set()
+
+    def resolve(node_id: str) -> tuple[str, ...]:
+        if node_id in outputs:
+            return outputs[node_id]
+        if node_id in visiting:
+            return ()  # Structure validation owns cycle reporting.
+        visiting.add(node_id)
+        node = nodes[node_id]
+        capability = node.capabilities
+        if capability is None:
+            result = ()
+        elif spec.model_feature_flow is ModelFeatureFlow.TENSOR_FEATURES and capability.kind is OperationKind.MODEL:
+            if not capability.preserves_input_features:
+                result = ()
+            elif len(node.parent_ids) == 1 and node.parent_ids[0] in nodes:
+                result = resolve(node.parent_ids[0])
+            elif not node.parent_ids:
+                result = (spec.input_data_type,) if spec.input_data_type is not None else ()
+            else:
+                result = ()  # A merge can change rank; data types do not prove its output shape.
+        else:
+            result = capability.output_data_types
+        visiting.remove(node_id)
+        outputs[node_id] = result
+        return result
+
+    for node_id in sorted(nodes):
+        resolve(node_id)
+    return outputs
 
 
 def validate_special_operations(spec: GraphSpec) -> tuple[ValidationIssue, ...]:
@@ -328,6 +433,7 @@ DEFAULT_GRAPH_RULES: tuple[GraphRule, ...] = (
     validate_capabilities,
     validate_data_flow,
     validate_special_operations,
+    validate_forecast_branches,
 )
 
 

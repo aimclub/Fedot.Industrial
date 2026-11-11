@@ -1,0 +1,13 @@
+{
+  "schema_version": "industrial_forecast_branches_example@1",
+  "training_enabled": false,
+  "forecast_length": 12,
+  "window_size": 24,
+  "stride": 1,
+  "max_nodes": 16,
+  "max_depth": 6,
+  "max_arity": 4,
+  "representations": ["forecast_window_center", "forecast_window_difference", "forecast_window_smooth"],
+  "models": ["ridge"],
+  "merges": ["forecast_feature_join", "forecast_mean"]
+}

@@ -18,8 +18,8 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
     normalize_neural_forecasting_params,
     resolve_neural_forecasting_device,
 )
-from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
-from fedot_ind.core.models.nn.network_modules.layers.attention_layers import \
+from fedot_ind.neural.blocks.activation import get_activation_fn
+from fedot_ind.neural.blocks.attention import \
     MultiHeadAttention
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Flatten, Transpose

@@ -63,7 +63,7 @@ jobs:
       - name: Install resolver and CPU PyTorch
         run: |
           python -m pip install "uv==0.8.17"
-          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.6.0" "torchvision==0.21.0"
       - name: Install resolved dependencies and built wheel
         run: |
           uv lock --python ${{ matrix.python }}
@@ -98,13 +98,15 @@ jobs:
       - name: Install current FEDOT and built wheel
         run: |
           python -m pip install "uv==0.8.17"
-          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.6.0" "torchvision==0.21.0"
           uv lock --python ${{ matrix.python }}
           uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install --no-deps dist/*.whl
           python -m pip check
           python -m tools.platform_support environment --json
+      - name: Prepare explicit FEDOT compatibility profile
+        uses: ./.github/actions/fedot-compat
       - name: Verify the FEDOT integration boundary
         run: |
           python -m pytest tests/unit/integration/fedot -q

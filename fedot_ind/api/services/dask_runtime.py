@@ -1,4 +1,4 @@
-"""Dask runtime startup service for ``FedotIndustrial``."""
+"""Compatibility service for explicitly requested manual Dask startup."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -15,7 +15,7 @@ class DaskRuntime:
 
 
 class DaskRuntimeInitializer:
-    """Start the Dask runtime and return explicit handles."""
+    """Deprecated manual startup API; evaluation executors own automatic startup."""
 
     def __init__(self, dask_server_cls=DaskServer):
         self.dask_server_cls = dask_server_cls

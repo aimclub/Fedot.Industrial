@@ -1,7 +1,6 @@
 import golem.core.log
 import numpy as np
-import os
-import shutil
+import json
 import pytest
 import logging
 from contextlib import nullcontext
@@ -10,7 +9,7 @@ from types import SimpleNamespace
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_REG_PIPELINE, VALID_LINEAR_CLF_PIPELINE, \
     VALID_LINEAR_DETECTION_PIPELINE, VALID_LINEAR_TSF_PIPELINE
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
 
 
 logging.basicConfig(level=logging.INFO)
@@ -98,7 +97,8 @@ LINEAR_DETECTION_PIPELINE_CASES = [
         data_list=[get_data()],
         # data_list=[dict(benchmark='valve1', dataset='1')],
         task='classification',
-        task_params=dict(industrial_strategy='anomaly_detection', detection_window=10)
+        task_params=dict(
+            industrial_strategy='anomaly_detection', detection_window=10)
     ) for pipeline_label, node_list in VALID_LINEAR_DETECTION_PIPELINE.items()
 ]
 
@@ -130,7 +130,8 @@ def mock_message(self, msg: str, **kwargs):
 @pytest.mark.parametrize(("task", "task_params", "modes"), [
     ("classification", {}, ["labels", "probs"]),
     ("regression", {}, ["labels"]),
-    ("classification", {"industrial_strategy": "anomaly_detection"}, ["labels"]),
+    ("classification", {
+     "industrial_strategy": "anomaly_detection"}, ["labels"]),
     ("ts_forecasting", {}, [None]),
 ])
 def test_evaluate_pipeline_requests_probability_output_only_for_classification(monkeypatch, task, task_params, modes):
@@ -156,35 +157,82 @@ def test_evaluate_pipeline_requests_probability_output_only_for_classification(m
 
     pipeline = AbstractPipeline(task=task, task_params=task_params)
     monkeypatch.setattr(pipeline, "create_pipeline", lambda node_list: Model())
-    monkeypatch.setattr(pipeline, "create_input_data", lambda dataset: (data, data))
+    monkeypatch.setattr(pipeline, "create_input_data",
+                        lambda dataset: (data, data))
     monkeypatch.setattr(module, "industrial_extension_scope", nullcontext)
-    monkeypatch.setattr(module, "ensure_fedot_tensor_data", lambda data, **kwargs: data)
+    monkeypatch.setattr(module, "ensure_fedot_tensor_data",
+                        lambda data, **kwargs: data)
 
     result = pipeline.evaluate_pipeline({}, "dataset")
 
     assert calls == modes
     np.testing.assert_array_equal(result["predict_labels"], target)
-    np.testing.assert_array_equal(result["predict_probs"], probabilities.predict if "probs" in modes else target)
+    np.testing.assert_array_equal(
+        result["predict_probs"], probabilities.predict if "probs" in modes else target)
+
+
+def test_forecasting_metric_uses_holdout_but_predict_receives_only_train(monkeypatch):
+    from fedot_ind.core.architecture.pipelines import abstract_pipeline as module
+
+    train = SimpleNamespace(target=np.arange(10, dtype=float))
+    holdout = SimpleNamespace(target=np.array([20., 30.]))
+
+    class Model:
+        def fit(self, data):
+            assert data is train
+
+        def predict(self, data):
+            assert data is train
+            return SimpleNamespace(predict=np.array([22., 28.]))
+
+    pipeline = AbstractPipeline(task='ts_forecasting')
+    monkeypatch.setattr(pipeline, 'create_pipeline', lambda nodes: Model())
+    monkeypatch.setattr(pipeline, 'create_input_data',
+                        lambda dataset: (train, holdout))
+    monkeypatch.setattr(module, 'industrial_extension_scope', nullcontext)
+    monkeypatch.setattr(module, 'ensure_fedot_tensor_data',
+                        lambda data, **kwargs: data)
+
+    result = pipeline.evaluate_pipeline({}, 'fixture')
+
+    assert result['quality_metric'] == pytest.approx(2.)
 
 
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
-def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase, monkeypatch):
-    np.random.seed(34)
-    path = os.path.join(PROJECT_PATH, 'cache')
-
-    # to be sure that test run well locally
-    if os.path.exists(path):
-        shutil.rmtree(path)
+def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase, monkeypatch, tmp_path):
+    # These cases check composition, not convergence with production budgets.
+    with open(PATH_TO_DEFAULT_PARAMS) as stream:
+        defaults = json.load(stream)
+    branches = {0: pipeline_case.node_list} if isinstance(
+        pipeline_case.node_list, list) else pipeline_case.node_list
+    nodes = {}
+    for branch, operations in branches.items():
+        nodes[branch] = []
+        for operation in operations:
+            name, overrides = operation if isinstance(
+                operation, tuple) else (operation, {})
+            params = dict(defaults.get(name, {}), **overrides)
+            if name == 'quantile_extractor':
+                params.update(use_sliding_window=False, window_size=0)
+            if name in ('pdl_clf', 'pdl_reg'):
+                params.update(
+                    model='dt' if name == 'pdl_clf' else 'dtreg', max_pairs=128, random_state=34)
+            if name in ('resnet_model', 'inception_model', 'nbeats_model', 'tcn_model'):
+                params.update(epochs=1, batch_size=8)
+            if name in ('conv_autoencoder_detector', 'tcn_autoencoder_detector'):
+                params.update(epochs=1, batch_size=8)
+            if 'use_cache' in params:
+                params['use_cache'] = False
+            nodes[branch].append((name, params))
+    monkeypatch.chdir(tmp_path)
     # monkeypatch golem message function
     monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
 
     logging.basicConfig(level=logging.INFO)
-    if isinstance(pipeline_case.node_list, list):
-        pipeline_case.node_list = {0: pipeline_case.node_list}
     result = [
         AbstractPipeline(
             task=pipeline_case.task,
             task_params=pipeline_case.task_params
-        ).evaluate_pipeline(pipeline_case.node_list, data) for data in pipeline_case.data_list
+        ).evaluate_pipeline(nodes, data) for data in pipeline_case.data_list
     ]
     assert None not in result

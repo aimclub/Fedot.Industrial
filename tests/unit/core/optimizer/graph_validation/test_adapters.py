@@ -71,7 +71,42 @@ def test_mapping_metadata_and_device_aliases_are_projected_at_the_boundary():
     assert spec.nodes[0].operation_name == "custom_transform"
     assert capability.input_data_types == ("tabular",)
     assert capability.output_data_types == ("ts",)
-    assert capability.devices == (ComputeDevice.CPU, ComputeDevice.CUDA)
+    assert capability.devices == (ComputeDevice.CPU,)
+
+
+@pytest.mark.parametrize("metadata", [
+    {"backend": "torch"}, {"tags": ["torch"]}, {"backend": "torch", "tags": "torch"},
+])
+def test_runtime_metadata_never_infers_cuda(metadata):
+    node = SimpleNamespace(content={"name": "custom", "metadata": metadata}, nodes_from=[])
+    spec = graph_spec_from_runtime(SimpleNamespace(nodes=[node]), capability_index={})
+    assert spec.nodes[0].capabilities.devices == (ComputeDevice.CPU,)
+
+
+@pytest.mark.parametrize(("devices", "expected"), [
+    (["cuda"], (ComputeDevice.CUDA,)),
+    (["cpu", "cuda"], (ComputeDevice.CPU, ComputeDevice.CUDA)),
+    ((ComputeDevice.CUDA, ComputeDevice.CPU), (ComputeDevice.CUDA, ComputeDevice.CPU)),
+    ("gpu", (ComputeDevice.CUDA,)),
+])
+@pytest.mark.parametrize("mapping", [True, False])
+def test_runtime_preserves_explicit_devices_and_normalizes_aliases(devices, expected, mapping):
+    metadata = {"devices": devices, "tags": "torch"}
+    if not mapping:
+        metadata = SimpleNamespace(**metadata)
+    node = SimpleNamespace(content={"name": "custom", "metadata": metadata}, nodes_from=[])
+    spec = graph_spec_from_runtime(SimpleNamespace(nodes=[node]), capability_index={})
+    assert spec.nodes[0].capabilities.devices == expected
+
+
+@pytest.mark.parametrize("devices", [
+    None, [], (), "auto", "default", "tpu", "cuda:0", b"cpu", {"cpu": True},
+    ["cpu", "tpu"], ["cpu", "cpu"], ["cuda", "gpu"], [None], [False], [""],
+])
+def test_runtime_rejects_invalid_explicit_devices(devices):
+    node = SimpleNamespace(content={"name": "custom", "metadata": {"devices": devices}}, nodes_from=[])
+    with pytest.raises(ValueError, match="[Dd]evices"):
+        graph_spec_from_runtime(SimpleNamespace(nodes=[node]), capability_index={})
 
 
 @pytest.mark.parametrize("device", [ComputeDevice.CPU, ComputeDevice.CUDA])
@@ -212,7 +247,7 @@ def test_compatibility_verifier_reuses_the_single_restored_pipeline():
     assert isinstance(legacy_inputs[0], Pipeline)
 
 
-def test_industrial_declaration_exposes_backend_devices_and_contract_fields():
+def test_industrial_declaration_does_not_infer_cuda_from_backend():
     declaration = next(
         operation for operation in load_industrial_extension_catalog().operations
         if operation.name == "quantile_extractor_torch"
@@ -220,7 +255,7 @@ def test_industrial_declaration_exposes_backend_devices_and_contract_fields():
 
     capability = capabilities_from_declaration(declaration)
 
-    assert capability.devices == (ComputeDevice.CPU, ComputeDevice.CUDA)
+    assert capability.devices == (ComputeDevice.CPU,)
     assert capability.task_types == declaration.tasks
     assert capability.input_data_types == declaration.data_types
     assert capability.output_data_types == (declaration.output_data_type,)

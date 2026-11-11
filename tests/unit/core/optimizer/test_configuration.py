@@ -15,9 +15,11 @@ from fedot_ind.core.optimizer.configuration import (
     ExecutionPolicy,
     MutationAgentType,
     MutationStrategy,
+    MutationPlanningPolicy,
     ResourceBudget,
     normalize_evolution_config,
 )
+from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend, EvaluationExecutionConfig
 
 
 @st.composite
@@ -31,6 +33,15 @@ def evolution_configs(draw):
         ),
     ))
     return EvolutionConfig(
+        evaluation_execution=EvaluationExecutionConfig(
+            backend=draw(st.sampled_from(tuple(EvaluationBackend))),
+        ),
+        mutation_planning=MutationPlanningPolicy(
+            enabled=draw(st.booleans()), max_candidates=draw(st.integers(min_value=1, max_value=200)),
+            max_repair_edits=draw(st.integers(min_value=0, max_value=4)),
+            max_nodes=draw(st.integers(min_value=1, max_value=100)),
+        ),
+        random_seed=draw(st.one_of(st.none(), st.integers(min_value=0, max_value=2**64))),
         mutation_agent=draw(st.sampled_from(tuple(MutationAgentType))),
         mutation_strategy=draw(st.sampled_from(tuple(MutationStrategy))),
         resource_budget=ResourceBudget(
@@ -165,6 +176,9 @@ def test_configuration_normalization_is_deterministic(config):
 @given(evolution_configs())
 def test_legacy_and_canonical_shapes_are_semantically_equivalent(config):
     legacy = {
+        "evaluation_execution": config.evaluation_execution.to_record(),
+        "mutation_planning": config.mutation_planning.to_record(),
+        "random_seed": config.random_seed,
         "mutation_agent": config.mutation_agent.value,
         "mutation_strategy": config.mutation_strategy.value,
         **config.resource_budget.to_record(),
@@ -256,3 +270,37 @@ def test_equal_legacy_and_canonical_fields_are_accepted_without_mutating_payload
     assert payload["mutation"] == {"agent": "bandit"}
     assert payload["resource_budget"] == {"min_population_size": 2}
     assert payload["execution_policy"]["diagnostics_output_dir"] is tmp_path
+
+
+@pytest.mark.parametrize("seed", [-1, True, False, 1.5, "42", [], {}])
+def test_invalid_random_seed_is_rejected_at_both_boundaries(seed):
+    with pytest.raises(EvolutionConfigError) as error:
+        normalize_evolution_config({"random_seed": seed})
+    assert error.value.violations[0].path == "random_seed"
+    with pytest.raises(ValueError, match="random_seed"):
+        EvolutionConfig(random_seed=seed)
+
+
+def test_random_seed_is_preserved_by_prevalidation_update():
+    config = normalize_evolution_config({"random_seed": 0})
+    assert config.with_initial_graphs_prevalidated(True).random_seed == 0
+    assert normalize_evolution_config(config.to_record()) == config
+
+
+@pytest.mark.parametrize("field,value", [
+    ("enabled", "false"), ("max_candidates", 0), ("max_nodes", -1),
+    ("max_repair_edits", -1), ("max_repair_edits", True), ("max_candidates", 1.5),
+])
+def test_planning_policy_rejects_invalid_fields(field, value):
+    with pytest.raises(EvolutionConfigError) as error:
+        normalize_evolution_config({"mutation_planning": {field: value}})
+    assert any(v.path == f"mutation_planning.{field}" for v in error.value.violations)
+    with pytest.raises(ValueError):
+        MutationPlanningPolicy(**{field: value})
+
+
+def test_planning_can_be_disabled_and_repair_can_be_zero():
+    config = normalize_evolution_config({"mutation_planning": {"enabled": False, "max_repair_edits": 0}})
+    assert not config.mutation_planning.enabled
+    assert config.mutation_planning.max_repair_edits == 0
+    assert normalize_evolution_config(config.to_record()) == config

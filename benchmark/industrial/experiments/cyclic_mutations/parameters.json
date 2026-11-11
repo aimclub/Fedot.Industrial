@@ -1,0 +1,10 @@
+{
+  "schema_version": "industrial_bd_parameters@1",
+  "generators": {
+    "quantile_extractor": {"window_size": [0, 10, 25], "use_sliding_window": [false, true], "stride": [1, 3], "add_global_features": [true, false]},
+    "quantile_extractor_torch": {"window_size": [0, 10, 25], "use_sliding_window": [false, true], "stride": [1, 3], "add_global_features": [true, false]},
+    "wavelet_basis": {"wavelet": ["mexh", "morl", "gaus1"], "n_components": [2, 4, 8], "low_freq": [false, true]},
+    "fourier_basis": {"threshold": [0.8, 0.9, 0.95], "low_rank": [2, 5, 11], "approximation": ["smooth", "exact"], "output_format": ["signal"]},
+    "hankelisation": {"window_size": [8, 16, 24, 32], "stride": [1, 2]}
+  }
+}

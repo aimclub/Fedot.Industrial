@@ -35,7 +35,7 @@ jobs:
       - name: Export resolved dependencies
         run: uv export --frozen --extra dev --no-hashes --no-emit-project --output-file /tmp/industrial-requirements.txt
       - name: Install CPU runtime
-        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1" "torchvision==0.20.1"
+        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.6.0" "torchvision==0.21.0"
       - name: Install resolved dependencies and project
         run: |
           python -m pip install -r /tmp/industrial-requirements.txt
@@ -43,8 +43,10 @@ jobs:
           python -m pip check
           python -m tools.platform_support check --json
           python -m tools.platform_support environment --json
+      - name: Prepare explicit FEDOT compatibility profile
+        uses: ./.github/actions/fedot-compat
       - name: Run tests with pytest
-        run: python -m pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit -vv
+        run: python -m pytest --cov=fedot_ind --cov=benchmark.industrial --cov-report xml:coverage.xml tests/unit -vv
       - name: Codecov coverage
         uses: codecov/codecov-action@v4
         with:

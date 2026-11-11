@@ -189,3 +189,19 @@ def test_graph_identity_uses_stable_available_identifier(graph, expected):
 )
 def test_fitness_scalar_returns_first_finite_value(fitness, expected):
     assert fitness_scalar(fitness) == expected
+
+
+def test_mutation_plan_events_do_not_double_count_offspring_attempts(tmp_path):
+    recorder = EvolutionDiagnosticsRecorder()
+    recorder.record_mutation_attempt(generation=1, individual_id=None, graph_id=None)
+    recorder.record_mutation_plan(generation=1, label="single_add", status="accepted",
+                                  plans_examined=12, admissible_plans=3, repair_edits=1,
+                                  validation_issue_codes=())
+    snapshot = recorder.snapshot()
+    assert snapshot.summary.mutation_attempts == 1
+    paths = write_evolution_diagnostics(snapshot, tmp_path)
+    records = [json.loads(line) for line in paths.events_jsonl.read_text().splitlines()]
+    assert records[1]["event_type"] == "mutation_plan"
+    assert records[1]["plans_examined"] == 12
+    assert records[1]["admissible_plans"] == 3
+    assert records[1]["repair_edits"] == 1

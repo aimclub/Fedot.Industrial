@@ -1,0 +1,8 @@
+{
+  "schema": "industrial_release_example@1",
+  "scenario": "airline",
+  "seed": 42,
+  "backend": "sequential",
+  "device": "cpu",
+  "parameters": {"horizon": 12, "window_size": 24, "alpha": 1.0}
+}

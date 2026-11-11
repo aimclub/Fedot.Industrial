@@ -1,0 +1,8 @@
+{
+  "schema": "industrial_release_example@1",
+  "scenario": "motions_graph",
+  "seed": 42,
+  "backend": "sequential",
+  "device": "cpu",
+  "parameters": {"max_iter": 200, "c": 1.0}
+}

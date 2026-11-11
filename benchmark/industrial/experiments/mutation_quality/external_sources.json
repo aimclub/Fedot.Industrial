@@ -1,0 +1,24 @@
+{
+  "schema_version": "industrial_mutation_quality_sources@1",
+  "m4_hourly": {
+    "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/6c1067e5a57161249b17289a565178dc7a3fb3ca/Dataset/Train/Hourly-train.csv",
+    "page": "https://github.com/Mcompetitions/M4-methods/blob/6c1067e5a57161249b17289a565178dc7a3fb3ca/Dataset/Train/Hourly-train.csv",
+    "file": "Hourly-train.csv",
+    "sha256": "ea59b7783573c49077a835ab6465c7d66f1474783360f310988a9a737fbca62f",
+    "maximum_bytes": 4000000
+  },
+  "electricity": {
+    "url": "https://zenodo.org/records/4656140/files/electricity_hourly_dataset.zip?download=1",
+    "page": "https://zenodo.org/records/4656140",
+    "file": "electricity_hourly_dataset.zip",
+    "sha256": "eff447075dde68dca0105ab7e2851c5637967ae3bb21556fd8b931f196d5968c",
+    "md5": "18096614662b02640d265ad2a6a416bd",
+    "maximum_bytes": 15000000,
+    "member": "electricity_hourly_dataset.tsf",
+    "reserved_tail": 168,
+    "expected_series": 321,
+    "expected_length": 26304,
+    "train_file": "electricity-train.csv",
+    "boundary_reference": "https://github.com/rakshitha123/TSForecasting/blob/master/experiments/fixed_horizon.R"
+  }
+}

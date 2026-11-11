@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
 
@@ -759,8 +760,9 @@ def test_legacy_fractional_dmd_can_disable_boundary_alignment():
     assert model.last_prediction_diagnostics_["boundary_alignment_applied"] is False
 
 
-def test_legacy_fractional_dmd_supports_energy_mode_selection():
-    model = legacy_dmd_module.FractionalDMD(mode_selection_policy="energy", mode_energy_threshold=0.75)
+@pytest.mark.parametrize('policy', ['energy', 'fixed'])
+def test_legacy_fractional_dmd_supports_energy_mode_selection(policy):
+    model = legacy_dmd_module.FractionalDMD(mode_selection_policy=policy, mode_energy_threshold=0.75, n_modes=2)
     model.eigenvalues_ = np.array([5.0 + 0.0j, 3.0 + 0.0j, 1.0 + 0.0j])
     model.eigenvectors_ = np.eye(3)
     model.modes_ = np.eye(3)
@@ -768,12 +770,17 @@ def test_legacy_fractional_dmd_supports_energy_mode_selection():
         eigenvalues_=model.eigenvalues_.copy(),
         eigenvectors_=model.eigenvectors_.copy(),
     )
-    model.fdmd_ = SimpleNamespace(modes_=model.modes_.copy())
+    model.fdmd_ = SimpleNamespace(modes_=model.modes_.copy(), eigenvalues_=model.eigenvalues_.copy(),
+                                  eigenvectors_=model.eigenvectors_.copy())
 
     model._select_modes()
 
     assert model.resolved_n_modes_ == 2
     assert len(model.eigenvalues_) == 2
+    np.testing.assert_array_equal(model.fdmd_.eigenvalues_, model.eigenvalues_)
+    np.testing.assert_array_equal(model.fdmd_.eigenvectors_, model.eigenvectors_)
+    np.testing.assert_array_equal(model.fdmd_.modes_, model.modes_)
+    assert model.fdmd_.modes_.shape[0] == len(model.fdmd_.eigenvalues_)
 
 
 def test_legacy_fractional_dmd_scalar_horizon_uses_continuation_time_grid(monkeypatch):
