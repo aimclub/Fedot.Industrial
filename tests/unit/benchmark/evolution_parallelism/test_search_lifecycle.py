@@ -8,6 +8,7 @@ import torch
 
 from benchmark.industrial.experiments.evolution_parallelism.config import SearchConfig
 from benchmark.industrial.experiments.evolution_parallelism import search
+from fedot_ind.core.optimizer.evaluation.budget import SearchStopReason
 
 
 @pytest.mark.parametrize('fail', [False, True])
@@ -43,6 +44,7 @@ def test_coordinator_closes_monitor_and_never_reads_test_for_incomplete_search(m
             self.completed_evaluations = SimpleNamespace(entries=[SimpleNamespace(to_record=lambda: record)])
             self.eval_dispatcher = SimpleNamespace()
             self.evaluated_population = [None] * 15
+            self.search_stop_reason = SearchStopReason.DEADLINE
             self.diagnostics = SimpleNamespace(summary=SimpleNamespace(to_record=lambda: {}))
 
         def set_iteration_callback(self, callback):

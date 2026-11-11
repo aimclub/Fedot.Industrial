@@ -207,6 +207,8 @@ def test_session_manifest_resources_and_owned_cleanup():
             assert default_client() is before
     assert session.client is session.cluster is None
     assert not any(psutil.pid_exists(pid) for pid in pids)
+    assert session.shutdown_report.confirmed
+    assert {pid for pid, _ in session.shutdown_report.workers} == pids
     session.close()
 
 
@@ -238,6 +240,8 @@ def test_startup_failure_closes_partially_created_resources(monkeypatch):
     import distributed
     from unittest.mock import MagicMock
     cluster, client = MagicMock(), MagicMock()
+    cluster.status = client.status = 'closed'
+    cluster.workers = {}
     client.register_plugin.side_effect = ValueError("invalid bootstrap")
     monkeypatch.setattr(distributed, "LocalCluster", lambda **kwargs: cluster)
     monkeypatch.setattr(distributed, "Client", lambda *args, **kwargs: client)

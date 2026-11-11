@@ -44,8 +44,32 @@ class _Flight:
     result_path: Path
 
 
+@dataclass(frozen=True)
+class DaskShutdownReport:
+    client_closed: bool
+    cluster_closed: bool
+    inventory_complete: bool
+    workers: tuple[tuple[int, float], ...]
+    unconfirmed_workers: tuple[tuple[int, float], ...]
+
+    @property
+    def confirmed(self):
+        return self.client_closed and self.cluster_closed and self.inventory_complete and not self.unconfirmed_workers
+
+
+@dataclass(frozen=True)
+class DaskWorkerInterruption:
+    address: str
+    old_worker: tuple[int, float]
+    replacement_acknowledged: bool
+
+
 class DaskCleanupError(RuntimeError):
     """Resource ownership cannot be confirmed; the caller must stop the job."""
+
+    def __init__(self, message, *, shutdown=None):
+        super().__init__(message)
+        self.shutdown = shutdown
 
 
 @contextmanager
@@ -93,6 +117,9 @@ class DaskEvaluationSession:
         self.cleanup_seconds = 0.
         self.worker_pids = set()
         self.worker_processes = {}
+        self._worker_identities = set()
+        self.shutdown_report = None
+        self.interruptions = []
         self.digest = None
         self._verified = set()
         self.worker_addresses = set()
@@ -154,11 +181,12 @@ class DaskEvaluationSession:
                 if (resource["digest"] != self.digest or resource["threads"] != 1
                         or resource["memory_limit"] <= 0 or not info[address].get("nanny")):
                     raise ValueError("Worker resources or manifest are not suitable for Industrial evaluation")
-                self.worker_pids.add(resource["pid"])
-                try:
-                    self.worker_processes[address] = (resource['pid'], psutil.Process(resource['pid']).create_time())
-                except psutil.NoSuchProcess:
+                identity = resource['pid'], resource['create_time']
+                self.worker_pids.add(identity[0])
+                self._worker_identities.add(identity)
+                if not _worker_process_alive(identity):
                     continue
+                self.worker_processes[address] = identity
                 self._verified.add(address)
         return sorted((set(info) & self._verified) - set(busy))
 
@@ -178,29 +206,66 @@ class DaskEvaluationSession:
             self._verified.discard(address)
         if _worker_process_alive(identity):
             raise RuntimeError('Owned Dask worker process is still alive after interruption')
-        if reply.get(address) != 'OK':
+        replacement_acknowledged = reply.get(address) == 'OK'
+        self.interruptions.append(DaskWorkerInterruption(address, identity, replacement_acknowledged))
+        if not replacement_acknowledged:
             logging.getLogger(__name__).warning(
                 'Old worker %s terminated; replacement readiness was not confirmed: %s', address, reply)
+
+    def _snapshot_workers(self):
+        self._worker_identities.update(self.worker_processes.values())
+        if self.cluster is None:
+            return
+        # Include replacements not yet registered with the scheduler.
+        for nanny in self.cluster.workers.copy().values():
+            pid = nanny.pid
+            if pid is not None and nanny.is_alive():
+                try:
+                    self._worker_identities.add((pid, psutil.Process(pid).create_time()))
+                except psutil.NoSuchProcess:
+                    pass
 
     def close(self):
         # Attempt both even if one cleanup fails. Never close an ambient client.
         started = monotonic()
         errors = []
+        inventory_complete = self.shutdown_report is None or self.shutdown_report.inventory_complete
+        try:
+            self._snapshot_workers()
+        except Exception as error:
+            errors.append(error)
+            inventory_complete = False
         for name in ("client", "cluster"):
             resource = getattr(self, name)
             if resource is not None:
                 try:
                     resource.close(timeout=self.config.restart_timeout_seconds)
+                    if getattr(resource.status, 'name', resource.status) != 'closed':
+                        raise RuntimeError(f'Owned Dask {name} did not reach closed status')
                 except Exception as error:
                     errors.append(error)
                 else:
                     setattr(self, name, None)
+        unconfirmed = []
+        for identity in sorted(self._worker_identities):
+            try:
+                if _worker_process_alive(identity):
+                    unconfirmed.append(identity)
+            except psutil.Error as error:
+                errors.append(error)
+                unconfirmed.append(identity)
+        self.shutdown_report = DaskShutdownReport(
+            self.client is None, self.cluster is None, inventory_complete,
+            tuple(sorted(self._worker_identities)), tuple(unconfirmed))
         self.cleanup_seconds += monotonic() - started
-        if errors:
-            raise DaskCleanupError("Could not confirm Dask resource cleanup") from errors[0]
+        if not self.shutdown_report.confirmed:
+            raise DaskCleanupError('Could not confirm Dask resource cleanup', shutdown=self.shutdown_report) from (
+                errors[0] if errors else None)
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, error, traceback):
         self.close()
+        if isinstance(error, DaskCleanupError) and error.shutdown is None:
+            error.shutdown = self.shutdown_report
 
 
 def _receive(flight):

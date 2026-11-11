@@ -191,14 +191,13 @@ def run_search(config, output_dir, *, study=None):
     workers = 1 if config.backend == 'sequential' else config.workers
     dask_config = DaskExecutionConfig(retries=1, memory_limit=4 * 1024**3,
                                       lifecycle=DaskLifecycle(config.lifecycle))
-    batches, generations, dask_records, sessions, session_resources = [], [], [], [], []
+    batches, generations, dask_records, session_resources = [], [], [], []
     startup_seconds = 0.
 
     @contextmanager
     def observe(session):
         directory = root / 'dask' / f'batch_{len(batches):03d}'
         batches.append(directory)
-        sessions.append(session.client)
         session_resources.append(session)
         with dask_diagnostics(session.client, directory) as record:
             dask_records.append(record)
@@ -325,6 +324,7 @@ def run_search(config, output_dir, *, study=None):
             final, outer_loss = study.evaluate_selected(winner, data, root)
         summary = {'status': 'succeeded', 'request': asdict(config), 'source': data.source,
                    'completed_evolved_generations': evolved, 'search_seconds': search_seconds,
+                   'search_stop_reason': optimizer.search_stop_reason.value,
                    'search_wall_seconds': search_wall_seconds,
                    'search_budget_overrun_seconds': max(0., search_wall_seconds - config.budget_seconds),
                    'startup_seconds': startup_seconds, 'refit_seconds': final.refit_seconds,
@@ -342,9 +342,10 @@ def run_search(config, output_dir, *, study=None):
     summary['wall_seconds'] = perf_counter() - started_all
     summary['processes'] = memory.summary
     summary['dask_diagnostics'] = [{'path': str(record.output_dir), **record.summary} for record in dask_records]
-    summary['owned_sessions_closed'] = all(client.status == 'closed' for client in sessions)
+    summary['owned_sessions_closed'] = all(item.shutdown_report.confirmed for item in session_resources)
     batch_rows = [row.to_record() for row in getattr(optimizer.eval_dispatcher, 'batch_timings', ())]
-    session_rows = [{'startup_seconds': item.startup_seconds, 'cleanup_seconds': item.cleanup_seconds}
+    session_rows = [{'startup_seconds': item.startup_seconds, 'cleanup_seconds': item.cleanup_seconds,
+                     'shutdown': asdict(item.shutdown_report), 'interruptions': [asdict(row) for row in item.interruptions]}
                     for item in session_resources]
     attempt_rows = [{**asdict(item), 'status': item.status.value}
                     for item in getattr(optimizer.eval_dispatcher, 'attempt_history', ())]

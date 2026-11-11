@@ -7,6 +7,7 @@ from pathlib import Path
 from time import monotonic
 
 import cloudpickle
+import psutil
 
 from distributed import WorkerPlugin, get_worker
 
@@ -40,7 +41,7 @@ class IndustrialWorkerBootstrap(WorkerPlugin):
 def worker_resources(dask_worker=None):
     worker = dask_worker if dask_worker is not None else get_worker()
     return {"digest": getattr(worker, "_industrial_evaluation_manifest", None),
-            "pid": os.getpid(), "threads": worker.state.nthreads,
+            "pid": os.getpid(), "create_time": psutil.Process().create_time(), "threads": worker.state.nthreads,
             "memory_limit": worker.memory_manager.memory_limit,
             "runtime": getattr(worker, '_industrial_evaluation_runtime', None)}
 
