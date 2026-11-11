@@ -17,9 +17,10 @@ class ReGLU(nn.Module):
 
 
 class SwishBeta(nn.Module):
-    def __multiinit__(self, beta=1.):
+    def __init__(self, beta: float = 1.) -> None:
+        super().__init__()
         self.sigmoid = torch.sigmoid
-        self.beta = nn.Parameter(torch.Tensor(1).fill_(beta))
+        self.beta = nn.Parameter(torch.full((1,), float(beta)))
 
     def forward(self, x):
         return x.mul(self.sigmoid(x * self.beta))

@@ -2,8 +2,22 @@
 import pytest
 import torch
 
+from fedot_ind.neural.blocks.activation import SwishBeta, get_activation_fn
 from fedot_ind.neural.blocks.attention import MultiHeadAttention, ScaledDotProductAttention
 from fedot_ind.neural.blocks.linear import LinLnDrop
+
+
+def test_swish_beta_registry_preserves_trainable_parameter_and_state():
+    layer = get_activation_fn('SwishBeta')
+    x = torch.tensor([-2., 0.5, 3.])
+    torch.testing.assert_close(layer(x), x * x.sigmoid())
+    assert dict(layer.named_parameters()) == {'beta': layer.beta}
+    layer(x).sum().backward()
+    assert torch.isfinite(layer.beta.grad).all() and layer.beta.grad.item() != 0
+
+    custom = SwishBeta(beta=2.)
+    layer.load_state_dict(custom.state_dict(), strict=True)
+    torch.testing.assert_close(layer(x), x * (2 * x).sigmoid())
 
 
 @pytest.mark.parametrize("additive", [False, True])
