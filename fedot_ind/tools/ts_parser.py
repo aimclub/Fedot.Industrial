@@ -14,12 +14,13 @@ class TsFileParseError(ValueError):
 def _boolean_header(line, data_started, *, allow_values=False):
     if data_started:
         raise TsFileParseError('metadata must come before data')
-    tokens = line.split(' ')
+    tokens = line.split()
     if len(tokens) < 2 or (not allow_values and len(tokens) != 2):
         raise TsFileParseError('Boolean metadata tag requires one value')
-    if tokens[1] not in ('true', 'false'):
+    value = tokens[1].lower()
+    if value not in ('true', 'false'):
         raise TsFileParseError('invalid Boolean metadata value')
-    return tokens[1] == 'true', tokens
+    return value == 'true', tokens
 
 
 def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=True,
@@ -54,16 +55,14 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
                 leave=False,
                 postfix=dataset_name,
                 unit='lines'):
-            # print(".", end='')
-            # Strip white space from start/end of line and change to
-            # lowercase for use below
-            line = line.strip().lower()
+            line = line.strip()
             # Empty lines are valid at any point in a file
             if line:
+                tag = line.split(maxsplit=1)[0].lower()
                 # Check if this line contains metadata
                 # Please note that even though metadata is stored in this function it is not currently
                 # published externally
-                if line.startswith("@problemname"):
+                if tag == "@problemname":
                     # Check that the data has not started
                     if data_started:
                         raise TsFileParseException(
@@ -79,17 +78,17 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
                     # problem_name = line[len("@problemname") + 1:]
                     has_problem_name_tag = True
                     metadata_started = True
-                elif line.startswith("@timestamps"):
+                elif tag == "@timestamps":
                     # Check that the data has not started
                     timestamps, tokens = _boolean_header(line, data_started, allow_values=False)
                     has_timestamps_tag = True
                     metadata_started = True
-                elif line.startswith("@univariate"):
+                elif tag == "@univariate":
                     # Check that the data has not started
                     _univariate, tokens = _boolean_header(line, data_started, allow_values=False)
                     has_univariate_tag = True
                     metadata_started = True
-                elif line.startswith("@classlabel"):
+                elif tag == "@classlabel":
                     # Check that the data has not started
                     class_labels, tokens = _boolean_header(line, data_started, allow_values=True)
                     if len(tokens) == 2 and class_labels:
@@ -98,15 +97,15 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
                     class_label_list = [token.strip()
                                         for token in tokens[2:]]
                     metadata_started = True
-                elif line.startswith("@targetlabel"):
+                elif tag == "@targetlabel":
                     # Check that the data has not started
                     target_labels, tokens = _boolean_header(line, data_started, allow_values=True)
                     has_target_labels_tag = True
                     class_val_list = []
                     metadata_started = True
                 # Check if this line contains the start of data
-                elif line.startswith("@data"):
-                    if line != "@data":
+                elif tag == "@data":
+                    if line.lower() != "@data":
                         raise TsFileParseException(
                             "data tag should not have an associated value")
 
@@ -130,9 +129,6 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
                     if incomplete_regression_meta_data and incomplete_classification_meta_data:
                         raise TsFileParseException(
                             "a full set of metadata has not been provided before the data")
-
-                    # Replace any missing values with the value specified
-                    line = line.replace("?", replace_missing_vals_with)
 
                     # Check if we dealing with data that has timestamps
                     if timestamps:
@@ -189,7 +185,8 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
                                         # line_num + 1) + " is not valid")
 
                                         class_val_list.append(
-                                            _label_value(class_val, target_labels, class_label_list if class_labels else ()))
+                                            _label_value(class_val, target_labels, class_label_list if class_labels else (),
+                                                         replace_missing_vals_with))
                                         char_num = line_len
 
                                         has_another_value = False
@@ -265,7 +262,7 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
 
                                         try:
                                             value = tuple_data[last_comma_index + 1:]
-                                            value = float(value)
+                                            value = _numeric_value(value, replace_missing_vals_with)
 
                                         except ValueError:
                                             raise TsFileParseException(
@@ -496,7 +493,7 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
 
                                 if dimension:
                                     data_series = dimension.split(",")
-                                    data_series = [float(i)
+                                    data_series = [_numeric_value(i, replace_missing_vals_with)
                                                    for i in data_series]
                                     instance_list[dim].append(
                                         pd.Series(data_series))
@@ -506,11 +503,9 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
                                 raise TsFileParseError('Invalid numeric data or target') from error
 
                         if target_labels or class_labels:
-                            try:
-                                class_val_list.append(
-                                    _label_value(dimensions[num_dimensions].strip(), target_labels, class_label_list if class_labels else ()))
-                            except ValueError as error:
-                                raise TsFileParseError('Invalid numeric data or target') from error
+                            class_val_list.append(
+                                _label_value(dimensions[num_dimensions].strip(), target_labels,
+                                             class_label_list if class_labels else (), replace_missing_vals_with))
 
             line_num += 1
 
@@ -552,9 +547,16 @@ def parse_ts_file(full_file_path_and_name, *, encoding, return_separate_X_and_y=
         raise TsFileParseException("empty file")
 
 
-def _label_value(value, regression, classes):
+def _numeric_value(value, missing):
+    return float(missing if value.strip() == '?' else value)
+
+
+def _label_value(value, regression, classes, missing):
     if regression:
-        return float(value)
+        try:
+            return _numeric_value(value, missing)
+        except ValueError as error:
+            raise TsFileParseError('Invalid numeric target') from error
     if value not in classes:
         raise TsFileParseError('Class label is absent from the declared vocabulary')
     return value

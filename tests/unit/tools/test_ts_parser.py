@@ -29,6 +29,24 @@ def test_class_labels_are_returned_without_regression_header(tmp_path):
     np.testing.assert_array_equal(target, ['a', 'b'])
 
 
+@pytest.mark.parametrize('timestamps', [False, True])
+def test_class_labels_keep_case_and_are_not_numeric_missing_values(tmp_path, timestamps):
+    data = '(1,2),(2,?):Cat\n(1,4):cat\n(1,5):?\n' if timestamps else '2,?:Cat\n4:cat\n5:?\n'
+    path = write_file(tmp_path, data, label='ClassLabel TRUE Cat cat ?', timestamps=timestamps)
+    source = path.read_text(encoding='utf-8').replace('@data', '@DaTa').replace('@timestamps', '@TimeStamps')
+    path.write_text(source, encoding='utf-8')
+    frame, target = parse_ts_file(path, encoding='utf-8', replace_missing_vals_with='-42')
+    np.testing.assert_array_equal(target, ['Cat', 'cat', '?'])
+    np.testing.assert_array_equal(frame.iloc[0, 0], [2, -42])
+
+
+@pytest.mark.parametrize('data,timestamps', [('1,2:CAT\n', False), ('(1,2):CAT\n', True)])
+def test_undeclared_class_is_not_matched_case_insensitively(tmp_path, data, timestamps):
+    path = write_file(tmp_path, data, label='classlabel true Cat cat', timestamps=timestamps)
+    with pytest.raises(TsFileParseError, match='absent from the declared vocabulary'):
+        parse_ts_file(path, encoding='utf-8')
+
+
 def test_float_timestamp_dialect_retained(tmp_path):
     path = write_file(tmp_path, '(1.5,3),(2.5,4):2\n', timestamps=True)
     frame, target = parse_ts_file(path, encoding='utf-8')
