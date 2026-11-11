@@ -8,7 +8,6 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from benchmark.industrial.core import MetricRecord, RunStatus, to_plain_data
 from benchmark.industrial.experiments.metric_records import load_metric_records
 from benchmark.industrial.models.fedot_input import fedot_input_data
-from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
 
 
@@ -26,10 +25,10 @@ def test_non_sliding_windows_preserve_every_row(rows):
     extractor = TorchQuantileExtractor(OperationParameters(use_sliding_window=False))
     values = torch.arange(rows * 23, dtype=torch.float64).reshape(rows, 23)
     result = extractor.apply_window_for_stat_feature_torch(
-        values, lambda windows: [windows.mean(dim=-1)], window_size=20)
-    expected = values[:, :20].reshape(rows, 4, 5).mean(dim=-1).unsqueeze(-1)
-    assert torch.equal(result, expected)
-    assert TorchQuantileExtractor.apply_window_for_stat_feature_torch is BaseExtractor.apply_window_for_stat_feature_torch
+        values, lambda windows: [windows.mean(dim=-1), windows.amax(dim=-1)], window_size=20)
+    windows = values[:, :20].reshape(rows, 4, 5)
+    expected = torch.stack((windows.mean(dim=-1), windows.amax(dim=-1)), dim=-1).reshape(rows, 8).float()
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
 
 
 def test_metric_records_preserve_all_fields(tmp_path):
