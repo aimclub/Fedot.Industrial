@@ -15,6 +15,7 @@ from benchmark.industrial.experiments.mutation_quality.preflight import file_dig
 from benchmark.industrial.experiments.mutation_quality.execution.frozen_data import load_frozen_data
 
 from .profile import parameter_profile, validate_training_bounds
+from .provenance import platform_profile, source_inventory, verify_active_sources
 from .study import policy_for
 
 
@@ -25,7 +26,7 @@ def freeze(base, base_seal, directory):
     verify_freeze(base, check_current=False, expected_seal_sha256=base_seal)
     original = json.loads((base / 'lock.json').read_text('utf-8'))
     lock = deepcopy(original)
-    lock['schema_version'] = 'industrial_bd_lock@1'
+    lock['schema_version'] = 'industrial_bd_lock@2'
     lock['input_procedure_git_revision_context'] = original['git_revision_context']
     lock['git_revision_context'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     lock['execution']['full_runner_status'] = 'B/D runner; requires its own successful admission'
@@ -52,18 +53,16 @@ def freeze(base, base_seal, directory):
     lock['admission_scenarios'] = scenarios
     lock['scoring']['classification'] = 'balanced_accuracy'
     lock['scoring']['comparisons'] = ['cyclic-fixed']
-    paths = {Path(p) for p in original['sources']}
-    paths.update(p.resolve() for root in ('fedot_ind', 'benchmark/industrial/experiments')
-                 for pattern in ('*.py', '*.json') for p in Path(root).rglob(pattern))
+    paths = source_inventory()
     directory.mkdir(parents=True, exist_ok=False)
     sources = {}
     with ZipFile(directory / 'sources.zip', 'x', compression=ZIP_DEFLATED) as archive:
-        for i, path in enumerate(sorted(paths)):
+        for name, path in paths.items():
             data = path.read_bytes()
-            member = f'sources/{i:04d}{path.suffix}'
-            archive.writestr(member, data)
-            sources[str(path.resolve())] = dict(sha256=sha256(data).hexdigest(), member=member)
+            archive.writestr(f'sources/{name}', data)
+            sources[name] = sha256(data).hexdigest()
     lock['sources'] = sources
+    lock['platform_profile'] = platform_profile()
     checked = []
     for name in lock['datasets']:
         data = load_frozen_data(base, lock, name)
@@ -76,15 +75,21 @@ def freeze(base, base_seal, directory):
     if flags != lock['execution']['torch_flags']:
         raise ValueError(f'Torch flags differ from the approved runtime: {flags}')
     lock['freeze_process_torch_flags'] = flags
-    write_json(directory / 'lock.json', lock)
     write_json(directory / 'data_preflight.json', dict(scenarios=checked, fit_calls=0, test_used=False))
     write_json(directory / 'environment.json', dict(python=sys.version, executable=sys.executable,
                packages={dist.metadata['Name']: dist.version for dist in distributions()}, torch_flags=flags))
+    lock['environment_sha256'] = file_digest(directory / 'environment.json')
+    verify_active_sources(sources)
+    write_json(directory / 'lock.json', lock)
     seal(directory)
     return file_digest(directory / 'seal.json')
 
 
-def checked_lock(bundle, identity):
+def base_directory(lock, override=None):
+    return Path(lock['base']['directory'] if override is None else override).resolve()
+
+
+def checked_lock(bundle, identity, *, check_current=True, base_bundle=None):
     bundle = Path(bundle).resolve()
     if file_digest(bundle / 'seal.json') != identity:
         raise ValueError('New B/D seal differs from trusted anchor')
@@ -94,23 +99,31 @@ def checked_lock(bundle, identity):
         raise ValueError('B/D frozen membership changed')
     for name, expected in files.items():
         path = (bundle / name).resolve()
-        if not path.is_relative_to(bundle) or file_digest(path) != expected['sha256']:
+        if not path.is_relative_to(bundle) or (bundle / name).is_symlink() or file_digest(path) != expected['sha256']:
             raise ValueError('B/D frozen file changed')
     lock = json.loads((bundle / 'lock.json').read_text('utf-8'))
-    if lock['schema_version'] != 'industrial_bd_lock@1' or lock['official_test_used'] is not False:
+    version = lock['schema_version']
+    if version not in ('industrial_bd_lock@1', 'industrial_bd_lock@2') or lock['official_test_used'] is not False:
         raise ValueError('Invalid B/D protocol')
-    for path, expected in lock['sources'].items():
-        if file_digest(Path(path)) != expected['sha256']:
-            raise ValueError(f'Current source differs from new B/D seal: {path}')
-    base = Path(lock['base']['directory'])
+    if check_current and version != 'industrial_bd_lock@2':
+        raise ValueError('Archived B/D locks are read-only; executing requires a new portable source seal')
+    if version == 'industrial_bd_lock@2':
+        if file_digest(bundle / 'environment.json') != lock['environment_sha256']:
+            raise ValueError('Frozen B/D environment differs from the lock')
+        if check_current:
+            verify_active_sources(lock['sources'])
+            if platform_profile() != lock['platform_profile']:
+                raise ValueError('Active FEDOT platform profile differs from the frozen manifest')
+    base = base_directory(lock, base_bundle)
     if file_digest(base / 'lock.json') != lock['base']['lock_sha256']:
         raise ValueError('Archived TRAIN metadata changed')
     # Verify bytes without making the outer TRAIN partition available to search.
-    base_files = json.loads((base / 'seal.json').read_text('utf-8'))['files']
     if file_digest(base / 'seal.json') != lock['base']['seal']:
         raise ValueError('Archived TRAIN seal changed')
+    base_files = json.loads((base / 'seal.json').read_text('utf-8'))['files']
     for name in lock['datasets']:
         member = f'inputs/{name}.npz'
-        if file_digest(base / member) != base_files[member]['sha256']:
+        path = (base / member).resolve()
+        if not path.is_relative_to(base / 'inputs') or file_digest(path) != base_files[member]['sha256']:
             raise ValueError(f'Archived TRAIN input changed: {name}')
     return lock

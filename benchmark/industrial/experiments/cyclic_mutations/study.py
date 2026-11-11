@@ -51,6 +51,5 @@ class GeneratorStudy(FrozenStudy):
             install_bounded_reproduction(optimizer, policy_for('cyclic').batch_size)
 
     def implementation_paths(self):
-        return [*super().implementation_paths(), *Path(__file__).parent.glob('*.py'),
-                *Path(__file__).parent.glob('*.json'), *Path('fedot_ind/core/optimizer/search_policy').glob('*.py'),
-                *Path('fedot_ind/core/tuning').glob('*.json'), Path('fedot_ind/core/tuning/generator_catalog.py')]
+        from .provenance import source_inventory
+        return tuple(source_inventory().values())
