@@ -21,7 +21,7 @@ from pymonad.either import Either
 
 from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
 from fedot_ind.core.optimizer.evaluation.configuration import EvaluationBackend
-from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
+from fedot_ind.core.optimizer.evaluation.budget import ConservativeFrontierExhausted, SearchBudgetExhausted, SearchStopReason
 from fedot_ind.core.optimizer.evaluation.dispatcher import LocalEvaluationDispatcher
 from fedot_ind.core.optimizer.evaluation.preparation import GraphPreparation
 from fedot_ind.core.optimizer.evaluation.archive import CompletedEvaluationArchive, record_final_history
@@ -146,6 +146,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         self.completed_evaluations = CompletedEvaluationArchive(objective, requirements.keep_n_best,
                                                                 on_completed=None if self.staged_search is None else self.staged_search.remember)
         self._final_individuals = ()
+        self.search_stop_reason = None
         dispatcher_type = (IndustrialDispatcher if execution_config.backend is EvaluationBackend.LEGACY
                            else LocalEvaluationDispatcher)
         if execution_config.backend is EvaluationBackend.DASK:
@@ -624,6 +625,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
     def _optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
         self._transition_evolution(EvolutionPhase.INITIALISING)
+        choices = ()
+        stop_reason = SearchStopReason.STOP_CRITERIA
         with self.timer:
             staged = getattr(self, 'staged_search', None)
             if staged is not None:
@@ -648,6 +651,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                             'prevalidated the initial assumption; returning that assumption.'
                         )
                         self._transition_evolution(EvolutionPhase.COMPLETED)
+                        self.search_stop_reason = SearchStopReason.DEADLINE
                         return [fallback]
                     raise
                 # GOLEM predicts the next generation from evolution time, not initial evaluation.
@@ -659,17 +663,26 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                     try:
                         population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
                                                                  evaluator=evaluator)
-                    except SearchBudgetExhausted:
-                        self.log.info('Search budget exhausted; selecting from completed evaluations')
+                    except (SearchBudgetExhausted, ConservativeFrontierExhausted) as stop:
+                        choices = self.completed_evaluations.best_individuals
+                        if not choices:
+                            raise
+                        stop_reason = (SearchStopReason.DEADLINE if isinstance(stop, SearchBudgetExhausted)
+                                       else SearchStopReason.FRONTIER_EXHAUSTED)
+                        self.log.info('Search stopped (%s); selecting from completed evaluations', stop_reason.value)
                         break
                     self.evaluated_population.append(population_to_eval)
                     pbar.update()
+                if stop_reason is SearchStopReason.STOP_CRITERIA and self.timer.is_time_limit_reached():
+                    stop_reason = SearchStopReason.DEADLINE
             finally:
                 pbar.close()
         archive = getattr(self, 'completed_evaluations', None)
-        choices = () if archive is None else archive.best_individuals
+        if not choices and archive is not None:
+            choices = archive.best_individuals
         self._final_individuals = choices or tuple(self.best_individuals)
         self._update_population(self.final_individuals, None, 'final_choices')
         self._transition_evolution(EvolutionPhase.COMPLETED)
+        self.search_stop_reason = stop_reason
         best_models = [ind.graph for ind in self.best_individuals]
         return best_models

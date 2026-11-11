@@ -50,10 +50,13 @@ class CyclicSearchController(StagedSearchController):
         self._forced_index = index + 1
         return True
 
-    def refinement_parents(self, count):
+    def refinement_roots(self):
         if not self.stage.conservative:
             raise ValueError('Refinement roots are only available in a conservative phase')
-        roots = [self.families[key][1] for key in self.locked_families if key in self.families]
+        return tuple(self.families[key][1] for key in self.locked_families if key in self.families)
+
+    def refinement_parents(self, count):
+        roots = self.refinement_roots()
         if not roots:
             return []
         result = [roots[(self.cursor + i) % len(roots)] for i in range(count)]

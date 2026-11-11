@@ -7,6 +7,7 @@ from golem.core.optimisers.genetic.operators.reproduction import ReproductionCon
 from golem.core.optimisers.graph import OptGraph
 from golem.utilities.data_structures import ensure_wrapped_in_sequence
 
+from fedot_ind.core.optimizer.evaluation.budget import ConservativeFrontierExhausted, SearchBudgetExhausted
 from .parameters import BoundedParameterMutation
 
 
@@ -39,6 +40,8 @@ class BoundedBatchReproduction(ReproductionController):
         agent = owner.mutation.agent
         agent.actions = [replace(action, eligible=self.frontier) if isinstance(action, BoundedParameterMutation)
                          else action for action in agent.available_actions]
+        self.parameter_mutation = next(
+            action for action in agent.actions if isinstance(action, BoundedParameterMutation))
         from fedot_ind.core.optimizer.randomness import SeededOperator
         planned = owner.mutation
         while isinstance(planned, SeededOperator):
@@ -51,6 +54,29 @@ class BoundedBatchReproduction(ReproductionController):
                 previous(candidate)
         planned.candidate_observer = reserve
 
+    def _check_deadline(self):
+        if self.owner.timer.is_time_limit_reached():
+            raise SearchBudgetExhausted('Search deadline reached during bounded reproduction')
+
+    def _children(self, parents, conservative):
+        if not parents:
+            return []
+        children = ensure_wrapped_in_sequence(self.mutation(parents if conservative else self.crossover(parents))) or []
+        return [child for child in children if not child.fitness.valid] if conservative else children
+
+    def _novel_roots(self, controller, count, tried):
+        # An empty batch is not evidence about the other locked families.
+        tried_ids = {root.uid for root in tried}
+        roots = sorted(controller.refinement_roots(), key=lambda root: root.uid in tried_ids)
+        eligible = []
+        for root in roots:
+            self._check_deadline()
+            if self.parameter_mutation.has_candidates(root.graph):
+                eligible.append(root)
+                if len(eligible) == count:
+                    break
+        return eligible
+
     def reproduce_uncontrolled(self, population, evaluator, pop_size=None):
         from .cyclic_runtime import CyclicSearchController
         controller = self.owner.staged_search
@@ -59,29 +85,38 @@ class BoundedBatchReproduction(ReproductionController):
         target = len(population) if pop_size is None else pop_size
         evaluated = []
         for start in range(0, target, self.batch_size):
-            if self.owner.timer.is_time_limit_reached():
-                break
+            self._check_deadline()
             controller.apply(self.owner.mutation, self.owner.timer.minutes_from_start * 60.)
             count = min(self.batch_size, target - start)
             conservative = isinstance(controller, CyclicSearchController) and controller.stage.conservative
             parents = (controller.refinement_parents(count) if conservative else self.selection(population, count))
-            children = ensure_wrapped_in_sequence(self.mutation(self.crossover(parents))) if parents else []
+            children = self._children(parents, conservative)
+            self._check_deadline()
             if conservative and not children:
-                self.batches.append(dict(phase=controller.stage.name, candidates=0, frontier_exhausted=True))
-                if not controller.frontier_exhausted():
-                    from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
-                    raise SearchBudgetExhausted('Final conservative frontier exhausted; no further novel neighbours')
-                continue
+                novel = self._novel_roots(controller, count, parents)
+                self._check_deadline()
+                if not novel:
+                    self.batches.append(dict(phase=controller.stage.name, candidates=0, frontier_exhausted=True))
+                    if not controller.frontier_exhausted():
+                        raise ConservativeFrontierExhausted('No novel neighbour in any locked family')
+                    continue
+                children = self._children(novel, conservative=True)
+                self._check_deadline()
+                if not children:
+                    self.batches.append(dict(phase=controller.stage.name, candidates=0, frontier_exhausted=False))
+                    continue
             for child in children:
                 self.frontier.submitted.add(self.frontier.identity(child.graph))
             row = dict(phase=controller.stage.name, candidates=len(children), conservative=conservative,
                        elapsed_seconds=self.owner.timer.minutes_from_start * 60.)
             self.batches.append(row)
+            self._check_deadline()
             started = perf_counter()
             results = evaluator(children) if children else []
             row.update(evaluation_seconds=perf_counter() - started, successful=len(results),
                        end_seconds=self.owner.timer.minutes_from_start * 60.)
             evaluated.extend(results)
+            self._check_deadline()
         return evaluated
 
 

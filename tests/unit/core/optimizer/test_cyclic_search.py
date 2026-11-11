@@ -1,6 +1,8 @@
+from copy import deepcopy
 from dataclasses import replace
 from datetime import timedelta
 import json
+from types import SimpleNamespace
 
 from hypothesis import given, strategies as st
 import numpy as np
@@ -106,7 +108,6 @@ def test_cyclic_optimizer_requires_preparation_at_construction():
 
 @pytest.mark.parametrize('typed', [False, True])
 def test_public_facade_rejects_cyclic_policy_without_a_prepared_runner(typed):
-    from copy import deepcopy
     from fedot_ind.api.main import FedotIndustrial
     from fedot_ind.core.optimizer.configuration import EvolutionConfig, MutationPlanningPolicy
     from fedot_ind.core.repository.config_repository import DEFAULT_REG_API_CONFIG
@@ -119,7 +120,6 @@ def test_public_facade_rejects_cyclic_policy_without_a_prepared_runner(typed):
 
 
 def test_cycles_carry_improved_minima_for_multiple_families():
-    from copy import deepcopy
     from golem.core.optimisers.fitness import SingleObjFitness
     from golem.core.optimisers.opt_history_objects.individual import Individual
     owner, graph = optimizer_fixture()
@@ -141,3 +141,61 @@ def test_cycles_carry_improved_minima_for_multiple_families():
     controller.apply(owner.mutation, 11.)
     controller.apply(owner.mutation, 16.)
     assert sorted(i.fitness.value for i in controller.refinement_parents(2)) == [1., 3.]
+
+
+@pytest.mark.parametrize('both_exhausted', [False, True])
+def test_final_refinement_checks_other_roots_when_batch_has_one_slot(both_exhausted):
+    from golem.core.optimisers.fitness import SingleObjFitness
+    from golem.core.optimisers.opt_history_objects.individual import Individual
+    from fedot_ind.core.optimizer.evaluation.budget import ConservativeFrontierExhausted
+    owner, graph = optimizer_fixture(batch_size=1)
+    owner.timer = SimpleNamespace(minutes_from_start=26 / 60, is_time_limit_reached=lambda: False)
+    other = deepcopy(graph)
+    next(n for n in other.nodes if n.content['name'] == 'scaling').content['name'] = 'normalization'
+    parents = [Individual(graph, fitness=SingleObjFitness(1.)), Individual(other, fitness=SingleObjFitness(2.))]
+    for parent in parents:
+        owner.staged_search.remember(parent)
+        owner.reproducer.frontier.submitted.add(owner.reproducer.frontier.identity(parent.graph))
+    for root in (graph, other) if both_exhausted else (graph,):
+        for alpha in (0.1, 10.):
+            candidate = deepcopy(root)
+            next(n for n in candidate.nodes if n.content['name'] == 'ridge').content['params'] = {'alpha': alpha}
+            owner.reproducer.frontier.submitted.add(owner.reproducer.frontier.identity(candidate))
+
+    def forbidden(*args):
+        pytest.fail('A locked family must not cross over or evaluate an exhausted frontier')
+
+    owner.reproducer.crossover = forbidden
+    if both_exhausted:
+        with pytest.raises(ConservativeFrontierExhausted, match='any locked family'):
+            owner.reproducer.reproduce_uncontrolled(parents, forbidden)
+        assert owner.staged_search.events[-1]['frontier_exhausted'] is True
+    else:
+        children = owner.reproducer.reproduce_uncontrolled(parents, lambda candidates: candidates, pop_size=1)
+        assert len(children) == 1
+        assert any(n.content['name'] == 'normalization' for n in children[0].graph.nodes)
+        assert 'frontier_exhausted' not in owner.staged_search.events[-1]
+
+
+@pytest.mark.parametrize('starts_expired', [False, True])
+def test_bounded_reproduction_deadline_never_starts_another_batch(starts_expired):
+    from golem.core.optimisers.opt_history_objects.individual import Individual
+    from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
+    owner, graph = optimizer_fixture(batch_size=1)
+    expired = starts_expired
+    owner.timer = SimpleNamespace(minutes_from_start=0., is_time_limit_reached=lambda: expired)
+    driver = owner.reproducer
+    driver.selection = lambda population, count: population[:count]
+    driver.crossover = lambda parents: parents
+    driver.mutation = lambda parents: [Individual(deepcopy(parent.graph)) for parent in parents]
+    calls = []
+
+    def evaluator(candidates):
+        nonlocal expired
+        calls.append(candidates)
+        expired = True
+        return candidates
+
+    with pytest.raises(SearchBudgetExhausted, match='deadline'):
+        driver.reproduce_uncontrolled([Individual(graph), Individual(deepcopy(graph))], evaluator)
+    assert [len(batch) for batch in calls] == ([] if starts_expired else [1])

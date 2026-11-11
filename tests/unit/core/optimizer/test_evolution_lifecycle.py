@@ -163,8 +163,9 @@ def test_public_loop_rejects_duplicate_finishes_budget_and_replays_decisions():
     assert run() == run()
 
 
-def test_budget_exhaustion_preserves_archive_winner_without_retrying_generation():
-    from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
+@pytest.mark.parametrize('frontier', [False, True])
+def test_search_stop_preserves_archive_winner_without_retrying_generation(frontier):
+    from fedot_ind.core.optimizer.evaluation.budget import ConservativeFrontierExhausted, SearchBudgetExhausted, SearchStopReason
     optimizer = _harness(42, lambda parent: parent)
     optimizer.log = SimpleNamespace(info=lambda *args: None)
     best = Individual(_Graph('best_completed'))
@@ -173,12 +174,30 @@ def test_budget_exhaustion_preserves_archive_winner_without_retrying_generation(
 
     def exhausted(*args, **kwargs):
         attempts.append(True)
-        raise SearchBudgetExhausted('deadline reached inside reproduction')
+        error_type = ConservativeFrontierExhausted if frontier else SearchBudgetExhausted
+        raise error_type('stop inside reproduction')
     optimizer._optimise_loop = exhausted
     assert optimizer.optimise(lambda population: population) == [best.graph]
     assert attempts == [True]
     assert optimizer.evolution_state.phase is EvolutionPhase.COMPLETED
+    expected = SearchStopReason.FRONTIER_EXHAUSTED if frontier else SearchStopReason.DEADLINE
+    assert optimizer.search_stop_reason is expected
     assert optimizer.labels == ['initial', 'final_choices']
+
+
+def test_budget_stop_with_empty_archive_is_not_a_success():
+    from fedot_ind.core.optimizer.evaluation.budget import SearchBudgetExhausted
+    optimizer = _harness(42, lambda parent: parent)
+    optimizer.completed_evaluations = SimpleNamespace(best_individuals=())
+
+    def exhausted(**kwargs):
+        raise SearchBudgetExhausted('nothing was evaluated')
+
+    optimizer._optimise_loop = exhausted
+    with pytest.raises(SearchBudgetExhausted, match='nothing was evaluated'):
+        optimizer.optimise(lambda population: population)
+    assert optimizer.evolution_state.phase is EvolutionPhase.FAILED
+    assert optimizer.labels == ['initial']
 
 
 @pytest.mark.parametrize("error_type", [ValueError, OSError])
