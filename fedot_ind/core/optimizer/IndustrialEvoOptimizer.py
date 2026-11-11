@@ -51,6 +51,7 @@ from fedot_ind.core.optimizer.observability import (
     write_evolution_diagnostics,
 )
 from fedot_ind.core.optimizer.mutation import mutation_weights, without_resample_mutations
+from fedot_ind.core.optimizer.search_policy.cyclic import CyclicSearchPolicy
 from fedot_ind.core.optimizer.randomness import (
     CandidateRandomness, SeededOperator, install_seeded_operators, operator_random_scope,
 )
@@ -86,6 +87,10 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  evaluation_graph_preparation: GraphPreparation | None = None):
         self.evolution_config = normalize_evolution_config(optimisation_params)
         schedule = self.evolution_config.mutation_schedule
+        execution_config = self.evolution_config.evaluation_execution
+        cyclic = isinstance(schedule, CyclicSearchPolicy)
+        if cyclic and (execution_config.backend is EvaluationBackend.LEGACY or evaluation_graph_preparation is None):
+            raise ValueError('Cyclic search requires an explicit evaluation backend and graph preparation')
         if schedule is not None:
             from fedot_ind.core.optimizer.search_policy.runtime import configure_actions
             from fedot_ind.core.optimizer.search_policy.planning import stage_for_budget
@@ -135,14 +140,12 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         self.staged_search = None
         if schedule is not None:
             from fedot_ind.core.optimizer.search_policy.runtime import StagedSearchController
-            from fedot_ind.core.optimizer.search_policy.cyclic import CyclicSearchPolicy
             from fedot_ind.core.optimizer.search_policy.cyclic_runtime import CyclicSearchController
-            controller = CyclicSearchController if isinstance(schedule, CyclicSearchPolicy) else StagedSearchController
+            controller = CyclicSearchController if cyclic else StagedSearchController
             self.staged_search = controller(schedule, graph_generation_params, budget)
         self.completed_evaluations = CompletedEvaluationArchive(objective, requirements.keep_n_best,
                                                                 on_completed=None if self.staged_search is None else self.staged_search.remember)
         self._final_individuals = ()
-        execution_config = self.evolution_config.evaluation_execution
         dispatcher_type = (IndustrialDispatcher if execution_config.backend is EvaluationBackend.LEGACY
                            else LocalEvaluationDispatcher)
         if execution_config.backend is EvaluationBackend.DASK:
@@ -160,6 +163,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             delegate_evaluator=graph_generation_params.remote_evaluator,
             completed_evaluation_callback=self.completed_evaluations.record_results,
             diagnostics_recorder=self.diagnostics_recorder, **execution_args)
+        if cyclic:
+            from fedot_ind.core.optimizer.search_policy.batches import install_bounded_reproduction
+            install_bounded_reproduction(self, schedule.batch_size)
 
     @property
     def final_individuals(self):

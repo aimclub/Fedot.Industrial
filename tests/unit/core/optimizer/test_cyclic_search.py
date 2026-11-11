@@ -32,7 +32,7 @@ def test_policy_roundtrip_and_shared_domains():
         replace(policy, active_fraction=1.)
 
 
-def optimizer_fixture():
+def optimizer_fixture(*, batch_size=4, prepare=True):
     from golem.core.optimisers.objective import Objective
     from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
     from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
@@ -45,7 +45,7 @@ def optimizer_fixture():
                                                     operations=['scaling', 'normalization', 'ridge', 'rf'], initial_chain=['scaling', 'ridge']), dict(max_depth=5, max_arity=2))
     requirements.timeout = timedelta(seconds=30)
     requirements.num_of_generations = 2
-    policy = policy_for('cyclic')
+    policy = replace(policy_for('cyclic'), batch_size=batch_size)
     algorithm = GPAlgorithmParameters(pop_size=4, max_pop_size=4, crossover_prob=0., mutation_prob=1.,
                                       mutation_types=[MutationTypesEnum.single_change, MutationTypesEnum.single_add, MutationTypesEnum.single_drop])
     defaults = {'ridge': {'alpha': 1.}, 'logit': {'C': 1.}, 'rf': {'max_depth': None}}
@@ -58,7 +58,7 @@ def optimizer_fixture():
                                    EvolutionConfig(random_seed=42, mutation_planning=MutationPlanningPolicy(enabled=True, max_candidates=32),
                                                    mutation_schedule=policy, evaluation_execution=EvaluationExecutionConfig(EvaluationBackend.SEQUENTIAL,
                                                                                                                             total_timeout_seconds=30)),
-                                   evaluation_graph_preparation=preparation)
+                                   evaluation_graph_preparation=preparation if prepare else None)
     return owner, graph
 
 
@@ -67,11 +67,9 @@ def test_conservative_mutations_preserve_topology_and_frontier_exhausts_without_
     from golem.core.optimisers.opt_history_objects.individual import Individual
     from fedot_ind.core.optimizer.mutation_runtime import project_for_mutation
     from fedot_ind.core.optimizer.mutation_planning._graph import candidate_signature
-    from fedot_ind.core.optimizer.search_policy.batches import install_bounded_reproduction
     owner, graph = optimizer_fixture()
     parent = Individual(graph, fitness=SingleObjFitness(1.))
     owner.staged_search.remember(parent)
-    install_bounded_reproduction(owner, 4)
     owner.reproducer.frontier.submitted.add(owner.reproducer.frontier.identity(parent.graph))
     owner.staged_search.apply(owner.mutation, 6.)  # first refinement, [5, 10) in this 30s test
     assert owner.staged_search.stage.conservative
@@ -91,15 +89,33 @@ def test_bounded_reproduction_runs_public_optimizer_with_no_model_fit():
     from unittest.mock import patch
     from fedot import create_data
     from golem.core.optimisers.fitness import SingleObjFitness
-    from fedot_ind.core.optimizer.search_policy.batches import install_bounded_reproduction
     from fedot_ind.integration.fedot.evaluation import ConfirmedObjective
-    owner, _ = optimizer_fixture()
-    install_bounded_reproduction(owner, 2)
+    owner, _ = optimizer_fixture(batch_size=2)
+    assert owner.reproducer.batch_size == 2
     data = create_data(np.ones((6, 2)), target=np.arange(6), task='regression')
     objective = ConfirmedObjective.from_training_data(lambda graph: SingleObjFitness(float(len(graph.nodes))), (data,))
     with patch('fedot.core.operations.operation.Operation.fit', side_effect=AssertionError('Fit forbidden')):
         assert owner.optimise(objective)
     assert owner.reproducer.batches and all(row['candidates'] <= 2 for row in owner.reproducer.batches)
+
+
+def test_cyclic_optimizer_requires_preparation_at_construction():
+    with pytest.raises(ValueError, match='explicit evaluation backend and graph preparation'):
+        optimizer_fixture(prepare=False)
+
+
+@pytest.mark.parametrize('typed', [False, True])
+def test_public_facade_rejects_cyclic_policy_without_a_prepared_runner(typed):
+    from copy import deepcopy
+    from fedot_ind.api.main import FedotIndustrial
+    from fedot_ind.core.optimizer.configuration import EvolutionConfig, MutationPlanningPolicy
+    from fedot_ind.core.repository.config_repository import DEFAULT_REG_API_CONFIG
+    config = deepcopy(DEFAULT_REG_API_CONFIG)
+    options = EvolutionConfig(mutation_schedule=policy_for('cyclic'),
+                              mutation_planning=MutationPlanningPolicy(enabled=True))
+    config['automl_config']['optimisation_strategy']['optimisation_strategy'] = options if typed else options.to_record()
+    with pytest.raises(ValueError, match='use the B/D series runner'):
+        FedotIndustrial(**config)
 
 
 def test_cycles_carry_improved_minima_for_multiple_families():

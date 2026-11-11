@@ -47,8 +47,8 @@ class GeneratorStudy(FrozenStudy):
     def observe_mutations(self, optimizer, root):
         from fedot_ind.core.optimizer.search_policy.batches import install_bounded_reproduction
         super().observe_mutations(optimizer, root)
-        value = json.loads(Path(__file__).with_name('schedule.json').read_text('utf-8'))
-        install_bounded_reproduction(optimizer, value['batch_size'])
+        if self.arm == 'fixed':
+            install_bounded_reproduction(optimizer, policy_for('cyclic').batch_size)
 
     def implementation_paths(self):
         return [*super().implementation_paths(), *Path(__file__).parent.glob('*.py'),

@@ -1,5 +1,6 @@
 import logging
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Union, Callable, List
 
@@ -10,6 +11,8 @@ from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
 from fedot_ind.core.optimizer.FedotEvoOptimizer import FedotEvoOptimizer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from fedot_ind.core.optimizer.configuration import EvolutionConfig, normalize_evolution_config
+from fedot_ind.core.optimizer.search_policy.cyclic import CyclicSearchPolicy
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 from fedot_ind.core.repository.constanst_repository import \
     fedot_init_assumptions, FEDOT_INDUSTRIAL_STRATEGY
@@ -171,6 +174,12 @@ class AutomlConfig(ConfigTemplate):
         return self.available_operations
 
     def with_optimisation_strategy(self, optimisation_strategy: dict = None):
+        if isinstance(optimisation_strategy, Mapping):
+            options = optimisation_strategy.get('optimisation_strategy')
+            if isinstance(options, EvolutionConfig) or (isinstance(options, Mapping) and options.get('mutation_schedule')):
+                if isinstance(normalize_evolution_config(options).mutation_schedule, CyclicSearchPolicy):
+                    raise ValueError('FedotIndustrial does not support cyclic search without prepared evaluations; '
+                                     'use the B/D series runner')
         self.optimisation_strategy = optimisation_strategy
         return self.optimisation_strategy
 
