@@ -77,6 +77,17 @@ def test_installed_version_must_match_metadata(monkeypatch, tmp_path):
     assert runtime_smoke.installed_package() == str(tmp_path / "__init__.py")
 
 
+def test_neural_training_module_must_come_from_its_distribution(monkeypatch, tmp_path):
+    module = SimpleNamespace(__file__=str(tmp_path / "fedot_ind/neural/training/__init__.py"))
+    dist = SimpleNamespace(locate_file=lambda path: tmp_path / path, version="0.1.0")
+    monkeypatch.setattr(runtime_smoke, "import_module", lambda name: module)
+    monkeypatch.setattr(runtime_smoke.metadata, "distribution", lambda name: dist)
+    assert "industrial-neural 0.1.0" in runtime_smoke.installed_neural_package()
+    module.__file__ = str(tmp_path / "different/__init__.py")
+    with pytest.raises(RuntimeError, match="did not load from"):
+        runtime_smoke.installed_neural_package()
+
+
 @pytest.mark.parametrize("failure", [False, True])
 def test_runtime_cli_keeps_json_separate_from_progress(
         monkeypatch, capsys, failure):
@@ -84,6 +95,7 @@ def test_runtime_cli_keeps_json_separate_from_progress(
 
     names = (
         "installed_package",
+        "installed_neural_package",
         "stdlib_typing",
         "repository_resources",
         "cpu_tensor",
@@ -101,7 +113,7 @@ def test_runtime_cli_keeps_json_separate_from_progress(
     assert runtime_smoke.main(["--json"]) == int(failure)
     output = capsys.readouterr()
     result = json.loads(output.out)
-    assert result["ok"] is not failure and len(result["probes"]) == 9
+    assert result["ok"] is not failure and len(result["probes"]) == 10
     assert result["profile"] == "current"
-    assert output.err.count("Checking ") == 9
+    assert output.err.count("Checking ") == 10
     assert sum(not probe["ok"] for probe in result["probes"]) == int(failure)

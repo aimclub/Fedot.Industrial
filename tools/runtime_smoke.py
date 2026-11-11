@@ -44,6 +44,15 @@ def installed_package() -> str:
     return str(path)
 
 
+def installed_neural_package() -> str:
+    training = import_module("fedot_ind.neural.training")
+    dist = metadata.distribution("industrial-neural")
+    entrypoint = Path(dist.locate_file("fedot_ind/neural/training/__init__.py")).resolve()
+    if Path(training.__file__).resolve() != entrypoint:
+        raise RuntimeError("Training did not load from the installed industrial-neural wheel")
+    return f"industrial-neural {dist.version}: {entrypoint}"
+
+
 def repository_resources() -> str:
     root = resources.files("fedot_ind.core.repository.data")
     for name in (
@@ -155,6 +164,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     common_probes = (
         ("installed-wheel", installed_package),
+        ("installed-neural-wheel", installed_neural_package),
         ("stdlib-typing", stdlib_typing),
         ("cpu-tensor", cpu_tensor),
     )

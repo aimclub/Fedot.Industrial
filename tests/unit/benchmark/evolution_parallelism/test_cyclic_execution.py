@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from shutil import copytree
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -182,6 +183,29 @@ def test_already_loaded_fedot_module_cannot_come_from_another_copy(tmp_path, mon
     monkeypatch.setitem(sys.modules, 'synthetic.wrong', SimpleNamespace(__file__=tmp_path / 'old' / 'module.py'))
     with pytest.raises(ValueError, match=r'Loaded module synthetic\.wrong'):
         _check_loaded_modules({'synthetic': tmp_path / 'active'})
+
+
+def test_neural_source_seal_uses_the_active_package(monkeypatch):
+    import fedot_ind.neural.training
+    from benchmark.industrial.experiments.cyclic_mutations import provenance
+    root = Path(provenance.__file__).resolve().parents[4]
+    monkeypatch.chdir(root)
+    sources = provenance.source_inventory()
+    assert sources['neural/training/__init__.py'] == Path(fedot_ind.neural.training.__file__).resolve()
+    assert not any(name.startswith('industrial/fedot_ind/neural/') for name in sources)
+
+
+def test_a_stale_neural_submodule_does_not_match_the_industrial_parent(tmp_path, monkeypatch):
+    import sys
+    from benchmark.industrial.experiments.cyclic_mutations.provenance import _check_loaded_modules
+    industrial, neural = tmp_path / 'industrial', tmp_path / 'neural'
+    packages = {'synthetic': industrial, 'synthetic.neural': neural}
+    name = 'synthetic.neural.block'
+    monkeypatch.setitem(sys.modules, name, SimpleNamespace(__file__=neural / 'block.py'))
+    _check_loaded_modules(packages)
+    monkeypatch.setitem(sys.modules, name, SimpleNamespace(__file__=industrial / 'neural' / 'block.py'))
+    with pytest.raises(ValueError, match=r'Loaded module synthetic\.neural\.block'):
+        _check_loaded_modules(packages)
 
 
 def test_blocked_full_series_only_continues_verified_suffix(tmp_path, monkeypatch):

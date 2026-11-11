@@ -101,11 +101,14 @@ To install the source from the `main branch`_:
     # Linux/macOS: source .venv/bin/activate
     # Windows PowerShell: .venv\Scripts\Activate.ps1
     python -m pip install --upgrade pip
-    python -m pip install -e ".[dev]"
+    python -m pip install -e ./packages/industrial-neural -e ".[dev]"
     python -m tools.platform_support check --json
     python -m tools.platform_support environment --json
 
-``pyproject.toml`` is the only dependency metadata source. ``requirements.txt``
+The neural core can be installed without FEDOT. See the
+`standalone package and CPU resume example <packages/industrial-neural/README.md>`_.
+
+Each distribution declares its dependencies in its own ``pyproject.toml``. ``requirements.txt``
 is the validated export of direct runtime dependencies. ``uv.lock`` is not
 tracked: a developer or CI job creates it for the selected Python version with
 ``uv lock --python 3.10`` and then installs that resolution with

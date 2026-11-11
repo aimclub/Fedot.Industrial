@@ -60,6 +60,10 @@ jobs:
         with:
           name: python-distributions
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-neural-distributions
+          path: dist/neural
       - name: Install resolver and CPU PyTorch
         run: |
           python -m pip install "uv==0.8.17"
@@ -67,9 +71,9 @@ jobs:
       - name: Install resolved dependencies and built wheel
         run: |
           uv lock --python ${{ matrix.python }}
-          uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
+          uv export --frozen --extra dev --no-hashes --no-emit-workspace --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
-          python -m pip install --no-deps dist/*.whl
+          python -m pip install --no-deps dist/neural/*.whl dist/*.whl
           python -m pip check
           python -m tools.platform_support environment --json
       - name: Probe installed runtime, not source checkout
@@ -95,14 +99,18 @@ jobs:
         with:
           name: python-distributions
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-neural-distributions
+          path: dist/neural
       - name: Install current FEDOT and built wheel
         run: |
           python -m pip install "uv==0.8.17"
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.6.0" "torchvision==0.21.0"
           uv lock --python ${{ matrix.python }}
-          uv export --frozen --extra dev --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/industrial-requirements.txt"
+          uv export --frozen --extra dev --no-hashes --no-emit-workspace --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
-          python -m pip install --no-deps dist/*.whl
+          python -m pip install --no-deps dist/neural/*.whl dist/*.whl
           python -m pip check
           python -m tools.platform_support environment --json
       - name: Prepare explicit FEDOT compatibility profile
@@ -112,6 +120,34 @@ jobs:
           python -m pytest tests/unit/integration/fedot -q
           python -m pytest tests/integration/fedot/test_regression_runtime.py -q
           python -I tools/runtime_smoke.py --json
+  neural-standalone:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-neural-distributions
+          path: dist/neural
+      - name: Install only the neural wheel and its runtime dependencies
+        run: |
+          python -m venv "$RUNNER_TEMP/neural"
+          python="$RUNNER_TEMP/neural/bin/python"
+          "$python" -m pip install --index-url "https://download.pytorch.org/whl/cpu" 'torch==2.6.0'
+          "$python" -m pip install dist/neural/*.whl
+          "$python" -m pip check
+      - name: Compare uninterrupted and resumed training outside the checkout
+        run: |
+          cd "$RUNNER_TEMP"
+          neural/bin/python -I "$GITHUB_WORKSPACE/examples/neural/cpu_resume.py" --standalone
   python312-audit:
     needs: build
     runs-on: ubuntu-latest

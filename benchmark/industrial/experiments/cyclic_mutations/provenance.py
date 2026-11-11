@@ -24,9 +24,11 @@ def _package_root(name):
 
 def _check_loaded_modules(packages):
     for name, module in tuple(sys.modules.items()):
-        root = packages.get(name.split('.', 1)[0])
-        if root is None or module is None:
+        prefix = max((key for key in packages if name == key or name.startswith(key + '.')),
+                     key=len, default=None)
+        if prefix is None or module is None:
             continue
+        root = packages[prefix]
         filename = getattr(module, '__file__', None)
         locations = (filename,) if filename else getattr(module, '__path__', ())
         if not locations or any(not Path(path).resolve().is_relative_to(root) for path in locations):
@@ -39,9 +41,12 @@ def _execution_roots():
             or _package_root('fedot_ind') != checkout / 'fedot_ind'):
         raise ValueError('Execute B/D from the checkout supplying benchmark and fedot_ind')
     fedot, golem = _package_root('fedot'), _package_root('golem')
-    _check_loaded_modules(dict(benchmark=checkout / 'benchmark', fedot_ind=checkout / 'fedot_ind',
-                               fedot=fedot, golem=golem))
-    return {'industrial': checkout, 'fedot': fedot, 'golem': golem}
+    neural = _package_root('fedot_ind.neural')
+    _check_loaded_modules({
+        'benchmark': checkout / 'benchmark', 'fedot_ind': checkout / 'fedot_ind',
+        'fedot_ind.neural': neural, 'fedot': fedot, 'golem': golem,
+    })
+    return {'industrial': checkout, 'neural': neural, 'fedot': fedot, 'golem': golem}
 
 
 def source_inventory():
