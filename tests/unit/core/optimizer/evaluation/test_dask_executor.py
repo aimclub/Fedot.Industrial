@@ -145,7 +145,7 @@ def test_total_deadline_interrupts_all_fits_but_keeps_borrowed_session_usable(tm
         assert all(path.exists() and not psutil.pid_exists(int(path.read_text())) for path in markers)
         assert session.client.status == 'running'
         result, = execute_dask_plan(DaskEvaluationPlan((EvaluationTask('next'),), 1, 90, 60),
-                                   [17], _identity, session=session)
+                                    [17], _identity, session=session)
         assert result.status is ExecutionStatus.SUCCEEDED and result.value == 17
 
 

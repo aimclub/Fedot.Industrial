@@ -170,6 +170,7 @@ def test_budget_exhaustion_preserves_archive_winner_without_retrying_generation(
     best = Individual(_Graph('best_completed'))
     optimizer.completed_evaluations = SimpleNamespace(best_individuals=(best,))
     attempts = []
+
     def exhausted(*args, **kwargs):
         attempts.append(True)
         raise SearchBudgetExhausted('deadline reached inside reproduction')
