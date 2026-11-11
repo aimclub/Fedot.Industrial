@@ -24,13 +24,24 @@ jobs:
         run: python -m pip install "build>=1,<2" "packaging>=24,<26" "tomli>=2,<3"
       - name: Build sdist and rebuild wheel from sdist
         run: python -m build
+      - name: Build standalone neural distributions
+        run: python -m build packages/industrial-neural --outdir dist/neural
       - name: Check metadata and archive contents
-        run: python -m tools.distribution_check --json
+        run: |
+          python -m tools.distribution_check --json
+          python -m tools.distribution_check --project packages/industrial-neural --dist-dir dist/neural --json
       - name: Check PyPI publication eligibility
         if: inputs.for-pypi
         run: python -m tools.distribution_check --pypi --json
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions
-          path: dist/*
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: industrial-neural-distributions
+          path: dist/neural/*
           if-no-files-found: error

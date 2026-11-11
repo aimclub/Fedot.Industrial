@@ -14,6 +14,7 @@ classifiers = [
 keywords = ["automated machine learning", "time series", "anomaly detection"]
 dependencies = [
     "fedot @ git+https://github.com/aimclub/FEDOT.git@d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
+    "industrial-neural==0.1.0",
     "numpy>=1.24.4,<2",
     "scipy>=1.10,<1.15.2",
     "pandas>=2,<2.3",
@@ -100,6 +101,12 @@ exclude_also = [
     "if self.verbose:",
     "if self.print_training_progress:",
 ]
+
+[tool.uv.workspace]
+members = ["packages/industrial-neural"]
+
+[tool.uv.sources]
+industrial-neural = {workspace = true}
 
 [build-system]
 requires = ["setuptools>=77,<81", "wheel>=0.43,<1"]
