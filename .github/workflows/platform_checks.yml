@@ -141,7 +141,8 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/neural"
           python="$RUNNER_TEMP/neural/bin/python"
-          "$python" -m pip install --index-url "https://download.pytorch.org/whl/cpu" 'torch==2.6.0'
+          "$python" -m pip install --upgrade pip
+          "$python" -m pip install --no-deps --index-url "https://download.pytorch.org/whl/cpu" 'torch==2.6.0'
           "$python" -m pip install dist/neural/*.whl
           "$python" -m pip check
       - name: Compare uninterrupted and resumed training outside the checkout

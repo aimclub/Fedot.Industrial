@@ -66,12 +66,15 @@ CNN/MLP не интерпретируют маски переменной дли
 Нужен Python 3.10 или 3.11. В новом виртуальном окружении из корня репозитория:
 
 ```bash
-python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.6.0"
+python -m pip install --upgrade pip
+python -m pip install --no-deps --index-url https://download.pytorch.org/whl/cpu "torch==2.6.0"
 python -m pip install ./packages/industrial-neural
 python -m pip check
 python -I examples/neural/cpu_resume.py --standalone
 ```
 
+Из индекса PyTorch загружается только CPU-wheel Torch. Команда установки
+`industrial-neural` получает остальные зависимости из PyPI.
 Вместо исходников можно установить wheel из вложения `industrial-neural-distributions`
 задания сборки. Чтобы собрать его локально, установите `build` и выполните
 `python -m build packages/industrial-neural --outdir dist/neural`.

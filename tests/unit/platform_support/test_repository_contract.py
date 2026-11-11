@@ -212,6 +212,8 @@ def test_neural_standalone_job_only_installs_its_wheel_in_a_fresh_venv():
     assert job["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
     commands = workflow_commands(job["steps"])
     assert "python -m venv" in commands
+    assert "pip install --upgrade pip" in commands
+    assert "pip install --no-deps --index-url" in commands
     assert "pip install dist/neural/*.whl" in commands
     assert "pip check" in commands
     assert "python -I " in commands and "--standalone" in commands
