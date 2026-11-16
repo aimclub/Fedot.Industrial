@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numpy as np
+from industrial_forecasting.metrics import ForecastMetric, score_forecast
 
 from fedot_ind.core.models.nn.network_impl.forecasting_model.common import (
     normalize_neural_forecasting_params,
@@ -18,7 +19,6 @@ from fedot_ind.core.models.ts_forecasting.forecasting_runtime import (
     ForecastingEvaluationResult,
     ForecastingSplitSpec,
     TensorDevicePolicy,
-    evaluate_forecast,
     iter_forecasting_splits,
     series_to_forecast_tensor_batch,
 )
@@ -162,118 +162,35 @@ def _prepare_runtime_series(
     return _squeeze_series_if_univariate(prepared)
 
 
-def _seasonal_naive_forecast(train: np.ndarray, horizon: int, seasonal_period: int) -> np.ndarray:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
-    base = train[-lag:]
-    repeats = int(np.ceil(horizon / lag))
-    return np.tile(base, repeats)[:horizon]
-
-
-def _mase_scale(train: np.ndarray, seasonal_period: int) -> float:
-    lag = seasonal_period if seasonal_period > 1 and len(train) > seasonal_period else 1
-    if len(train) <= lag:
-        return 1.0
-    scale = float(np.mean(np.abs(train[lag:] - train[:-lag])))
-    return scale if scale > 1e-8 else 1.0
-
-
 @dataclass(frozen=True)
 class ForecastMetricEvaluator:
-    """Evaluate forecasting metrics with access to train-series context."""
+    """Evaluate one temporal fold with access to its training history."""
 
     y_true: np.ndarray
     y_pred: np.ndarray
     y_train: np.ndarray
     seasonal_period: int
 
-    def __post_init__(self):
-        """Validate metric vectors and store normalized arrays."""
-        actual = np.asarray(self.y_true, dtype=float).reshape(-1)
-        predicted = np.asarray(self.y_pred, dtype=float).reshape(-1)
-        train = np.asarray(self.y_train, dtype=float).reshape(-1)
-        if len(actual) != len(predicted):
-            raise ValueError('y_true and y_pred must have the same length.')
-        object.__setattr__(self, 'actual', actual)
-        object.__setattr__(self, 'predicted', predicted)
-        object.__setattr__(self, 'train', train)
-
-    def _evaluate_rmse(self) -> ForecastingEvaluationResult:
-        return evaluate_forecast(self.actual, self.predicted, metric_name='rmse')
-
-    def _evaluate_mae(self) -> ForecastingEvaluationResult:
-        return evaluate_forecast(self.actual, self.predicted, metric_name='mae')
-
-    def _evaluate_smape(self) -> ForecastingEvaluationResult:
-        denominator = np.abs(self.actual) + np.abs(self.predicted)
-        denominator = np.where(denominator == 0, 1e-8, denominator)
-        per_horizon = 100.0 * 2.0 * np.abs(self.predicted - self.actual) / denominator
-        return ForecastingEvaluationResult(
-            metric_name='smape',
-            metric_value=float(np.mean(per_horizon)),
-            per_horizon_metrics=tuple(float(value) for value in per_horizon.tolist()),
-            metadata={'n_horizons': int(len(self.actual)), 'seasonal_period': int(self.seasonal_period)},
-        )
-
-    def _evaluate_mase(self) -> ForecastingEvaluationResult:
-        per_horizon = np.abs(self.actual - self.predicted) / _mase_scale(self.train, self.seasonal_period)
-        return ForecastingEvaluationResult(
-            metric_name='mase',
-            metric_value=float(np.mean(per_horizon)),
-            per_horizon_metrics=tuple(float(value) for value in per_horizon.tolist()),
-            metadata={'n_horizons': int(len(self.actual)), 'seasonal_period': int(self.seasonal_period)},
-        )
-
-    def _evaluate_owa(self) -> ForecastingEvaluationResult:
-        baseline = _seasonal_naive_forecast(self.train, len(self.actual), self.seasonal_period)
-        smape_eval = ForecastMetricEvaluator(
-            self.actual,
-            self.predicted,
-            self.train,
-            self.seasonal_period,
-        )._evaluate_smape()
-        mase_eval = ForecastMetricEvaluator(
-            self.actual,
-            self.predicted,
-            self.train,
-            self.seasonal_period,
-        )._evaluate_mase()
-        baseline_smape = ForecastMetricEvaluator(
-            self.actual,
-            baseline,
-            self.train,
-            self.seasonal_period,
-        )._evaluate_smape()
-        baseline_mase = ForecastMetricEvaluator(
-            self.actual,
-            baseline,
-            self.train,
-            self.seasonal_period,
-        )._evaluate_mase()
-        baseline_smape_value = baseline_smape.metric_value if baseline_smape.metric_value > 1e-8 else 1.0
-        baseline_mase_value = baseline_mase.metric_value if baseline_mase.metric_value > 1e-8 else 1.0
-        smape_ratio = np.asarray(smape_eval.per_horizon_metrics, dtype=float) / baseline_smape_value
-        mase_ratio = np.asarray(mase_eval.per_horizon_metrics, dtype=float) / baseline_mase_value
-        per_horizon = 0.5 * (smape_ratio + mase_ratio)
-        return ForecastingEvaluationResult(
-            metric_name='owa',
-            metric_value=float(np.mean(per_horizon)),
-            per_horizon_metrics=tuple(float(value) for value in per_horizon.tolist()),
-            metadata={'n_horizons': int(len(self.actual)), 'seasonal_period': int(self.seasonal_period)},
-        )
-
     def evaluate(self, metric_name: str) -> ForecastingEvaluationResult:
-        """Dispatch a metric name to the corresponding evaluator."""
         metric = str(metric_name).lower()
-        metric_mapping = {
-            'rmse': self._evaluate_rmse,
-            'mae': self._evaluate_mae,
-            'smape': self._evaluate_smape,
-            'mase': self._evaluate_mase,
-            'owa': self._evaluate_owa,
-        }
-        if metric not in metric_mapping:
-            raise ValueError(f'Unsupported runtime forecasting metric: {metric_name}')
-        return metric_mapping[metric]()
+        try:
+            name = ForecastMetric(metric)
+        except ValueError as error:
+            raise ValueError(f'Unsupported runtime forecasting metric: {metric_name}') from error
+        score = score_forecast(
+            name,
+            np.asarray(self.y_true, dtype=float).reshape(-1),
+            np.asarray(self.y_pred, dtype=float).reshape(-1),
+            history=np.asarray(self.y_train, dtype=float).reshape(-1),
+            seasonal_period=max(1, self.seasonal_period),
+        )
+        metadata = {'n_horizons': len(score.by_step)}
+        if name not in (ForecastMetric.MAE, ForecastMetric.RMSE):
+            metadata['seasonal_period'] = int(self.seasonal_period)
+        return ForecastingEvaluationResult(
+            metric_name=metric, metric_value=score.value,
+            per_horizon_metrics=tuple(score.by_step.tolist()), metadata=metadata,
+        )
 
 
 def _evaluate_forecast_metric(
