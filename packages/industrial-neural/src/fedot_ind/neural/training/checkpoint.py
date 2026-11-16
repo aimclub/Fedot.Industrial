@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 import torch
 from torch import Generator, Tensor, nn
+from torch.nn.parameter import is_lazy
 from torch.optim import Optimizer
 from torch.utils.data import BatchSampler, DataLoader, RandomSampler, SequentialSampler
 
@@ -64,6 +65,20 @@ def _optimizer_layout(model: nn.Module, optimizer: Optimizer) -> dict:
         raise ValueError("Checkpoint optimizer parameters must belong to the model.") from exc
     cls = type(optimizer)
     return dict(kind=f"{cls.__module__}.{cls.__qualname__}", groups=groups)
+
+
+def _check_optimizer_state(state: Any, layout: dict) -> None:
+    if (not isinstance(state, dict) or state.keys() != {"state", "param_groups"}
+            or not isinstance(state["state"], dict)):
+        raise ValueError("Invalid checkpoint optimizer state.")
+    groups = state["param_groups"]
+    expected = layout["groups"]
+    if not isinstance(groups, list) or len(groups) != len(expected):
+        raise ValueError("Invalid checkpoint optimizer parameter groups.")
+    for group, names in zip(groups, expected, strict=True):
+        parameters = group.get("params") if isinstance(group, dict) else None
+        if not isinstance(parameters, list) or len(parameters) != len(names):
+            raise ValueError("Invalid checkpoint optimizer parameter groups.")
 
 
 def _check_weights(weights: Any, expected: dict[str, Tensor], label: str) -> None:
@@ -135,8 +150,11 @@ class _Snapshot:
 
 class CpuCheckpoint:
     def __init__(self, model: nn.Module, optimizer: Optimizer, train: Iterable, validation: Iterable | None):
-        if any(tensor.device.type != "cpu" for tensor in chain(model.parameters(), model.buffers())):
-            raise ValueError("Training checkpoints currently support CPU models only.")
+        for tensor in chain(model.parameters(), model.buffers()):
+            if is_lazy(tensor):
+                raise ValueError("Initialize model parameters and buffers before using CPU checkpoints.")
+            if tensor.device.type != "cpu":
+                raise ValueError("Training checkpoints currently support CPU models only.")
         self._model = model
         self._optimizer = optimizer
         self._loaders, self._generators = _loader_setup(train, validation)
@@ -196,8 +214,7 @@ class CpuCheckpoint:
         _check_weights(payload.get("best"), expected, "best")
         rng = _RandomState.parse(payload.get("rng"), len(self._generators))
         optimizer = payload.get("optimizer")
-        if not isinstance(optimizer, dict) or optimizer.keys() != {"state", "param_groups"}:
-            raise ValueError("Invalid checkpoint optimizer state.")
+        _check_optimizer_state(optimizer, self._layout)
         return _Snapshot(progress, payload["model"], payload["best"], optimizer, rng)
 
     def restore(self, snapshot: _Snapshot) -> None:

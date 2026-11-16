@@ -78,10 +78,11 @@ def test_failed_epoch_cannot_be_resumed_or_saved(batch, loss, error, message, tm
 
 
 def _session(*, plan=TrainingPlan(5, 2), batch_size=4, reverse_params=False, device="cpu",
-             num_workers=0, custom_sampler=False, validation=True):
-    model = nn.Linear(1, 1, device=device)
-    nn.init.zeros_(model.weight)
-    nn.init.zeros_(model.bias)
+             num_workers=0, custom_sampler=False, validation=True, model=None):
+    if model is None:
+        model = nn.Linear(1, 1, device=device)
+        nn.init.zeros_(model.weight)
+        nn.init.zeros_(model.bias)
     parameters = list(model.parameters())
     optimizer = torch.optim.SGD(parameters[::-1] if reverse_params else parameters, lr=0.1, momentum=0.1)
     inputs = torch.ones(4, 1)
@@ -148,6 +149,29 @@ def test_restore_rejects_incompatible_sessions(options, message, tmp_path):
     assert incompatible.progress.completed_epochs == 0
 
 
+def test_checkpoint_restores_lazy_linear_after_initialization(tmp_path):
+    path = tmp_path / "resume.pt"
+    source, model, _ = _session()
+    source.run(until_epoch=1)
+    source.save_checkpoint(path)
+    lazy = nn.LazyLinear(1)
+    restored, _, _ = _session(model=lazy)
+    with pytest.raises(ValueError, match="Initialize model parameters"):
+        restored.load_checkpoint(path)
+    assert lazy.has_uninitialized_params()
+    with torch.no_grad():
+        lazy(torch.ones(1, 1))
+    assert restored.load_checkpoint(path) == source.progress
+    torch.testing.assert_close(lazy.state_dict(), model.state_dict(), rtol=0, atol=0)
+    # Initialization does not bypass normal checks for a different output shape.
+    wrong = nn.LazyLinear(2)
+    with torch.no_grad():
+        wrong(torch.ones(1, 1))
+    incompatible, _, _ = _session(model=wrong)
+    with pytest.raises(ValueError, match="model tensor does not match"):
+        incompatible.load_checkpoint(path)
+
+
 @pytest.mark.parametrize("field, value, message", [
     ("schema", "obsolete", "schema"),
     ("losses", [], "epoch history"),
@@ -155,13 +179,16 @@ def test_restore_rejects_incompatible_sessions(options, message, tmp_path):
     ("best", {"weight": torch.ones(2, 1), "bias": torch.zeros(1)}, "best tensor"),
     ("rng", {}, "random state"),
     ("optimizer", {"state": {}}, "optimizer state"),
+    ("optimizer", {"state": {}, "param_groups": []}, "optimizer parameter groups"),
+    ("optimizer", {"state": {}, "param_groups": [{"params": [0]}]}, "optimizer parameter groups"),
 ])
 def test_restore_rejects_invalid_payload_before_mutating_state(field, value, message, tmp_path):
-    path = tmp_path / "resume.pt"
+    valid = tmp_path / "resume.pt"
+    path = tmp_path / "malformed.pt"
     source, _, _ = _session()
     source.run(until_epoch=1)
-    source.save_checkpoint(path)
-    payload = torch.load(path, weights_only=True)
+    source.save_checkpoint(valid)
+    payload = torch.load(valid, weights_only=True)
     payload[field] = value
     torch.save(payload, path)
     restored, model, optimizer = _session()
@@ -170,6 +197,7 @@ def test_restore_rejects_invalid_payload_before_mutating_state(field, value, mes
     assert restored.progress.completed_epochs == 0
     assert not torch.count_nonzero(model.weight)
     assert optimizer.state == {}
+    assert restored.load_checkpoint(valid) == source.progress
 
 
 def test_failed_checkpoint_write_preserves_existing_file(tmp_path, monkeypatch):
