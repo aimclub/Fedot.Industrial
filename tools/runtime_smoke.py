@@ -44,13 +44,21 @@ def installed_package() -> str:
     return str(path)
 
 
+def _installed_entrypoint(dist_name: str, module_name: str) -> str:
+    module = import_module(module_name)
+    dist = metadata.distribution(dist_name)
+    entrypoint = Path(dist.locate_file(module_name.replace(".", "/") + "/__init__.py")).resolve()
+    if Path(module.__file__).resolve() != entrypoint:
+        raise RuntimeError(f"{module_name} did not load from the installed {dist_name} wheel")
+    return f"{dist_name} {dist.version}: {entrypoint}"
+
+
 def installed_neural_package() -> str:
-    training = import_module("fedot_ind.neural.training")
-    dist = metadata.distribution("industrial-neural")
-    entrypoint = Path(dist.locate_file("fedot_ind/neural/training/__init__.py")).resolve()
-    if Path(training.__file__).resolve() != entrypoint:
-        raise RuntimeError("Training did not load from the installed industrial-neural wheel")
-    return f"industrial-neural {dist.version}: {entrypoint}"
+    return _installed_entrypoint("industrial-neural", "fedot_ind.neural.training")
+
+
+def installed_forecasting_package() -> str:
+    return _installed_entrypoint("industrial-forecasting", "industrial_forecasting")
 
 
 def repository_resources() -> str:
@@ -134,6 +142,23 @@ def regression_runtime() -> str:
     return f"profile=tensor, predictions={result.values.shape[0]}"
 
 
+def forecasting_runtime() -> str:
+    import numpy as np
+    from fedot_ind.integration.fedot import create_forecasting_runtime
+
+    model = create_forecasting_runtime(
+        profile="tensor", operation_name="lagged_ridge_forecaster", horizon=3,
+        parameters={"window_size": 8, "alpha": 0.0, "device": "cpu"},
+    )
+    try:
+        result = model.fit(np.arange(48, dtype=float)).predict()
+    finally:
+        model.close()
+    np.testing.assert_array_equal(result.forecast_time_idx, [48, 49, 50])
+    np.testing.assert_allclose(result.values, [48, 49, 50], rtol=0, atol=1e-5)
+    return "profile=tensor, lagged ridge horizon=3"
+
+
 def cpu_tensor() -> str:
     import torch
 
@@ -165,6 +190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     common_probes = (
         ("installed-wheel", installed_package),
         ("installed-neural-wheel", installed_neural_package),
+        ("installed-forecasting-wheel", installed_forecasting_package),
         ("stdlib-typing", stdlib_typing),
         ("cpu-tensor", cpu_tensor),
     )
@@ -175,6 +201,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ("arrow-dataset", dataset_import),
         ("okhs-without-research-dependencies", optional_research_absence),
         ("integration-regression", regression_runtime),
+        ("integration-forecasting", forecasting_runtime),
     )
     probes = common_probes + integration_probes
     results = [run_probe(name, action) for name, action in probes]

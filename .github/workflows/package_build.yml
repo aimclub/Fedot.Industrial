@@ -26,10 +26,13 @@ jobs:
         run: python -m build
       - name: Build standalone neural distributions
         run: python -m build packages/industrial-neural --outdir dist/neural
+      - name: Build standalone forecasting distributions
+        run: python -m build packages/industrial-forecasting --outdir dist/forecasting
       - name: Check metadata and archive contents
         run: |
           python -m tools.distribution_check --json
           python -m tools.distribution_check --project packages/industrial-neural --dist-dir dist/neural --json
+          python -m tools.distribution_check --project packages/industrial-forecasting --dist-dir dist/forecasting --pypi --json
       - name: Check PyPI publication eligibility
         if: inputs.for-pypi
         run: python -m tools.distribution_check --pypi --json
@@ -44,4 +47,9 @@ jobs:
         with:
           name: industrial-neural-distributions
           path: dist/neural/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: industrial-forecasting-distributions
+          path: dist/forecasting/*
           if-no-files-found: error

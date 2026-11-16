@@ -64,6 +64,10 @@ jobs:
         with:
           name: industrial-neural-distributions
           path: dist/neural
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-forecasting-distributions
+          path: dist/forecasting
       - name: Install resolver and CPU PyTorch
         run: |
           python -m pip install "uv==0.8.17"
@@ -73,7 +77,7 @@ jobs:
           uv lock --python ${{ matrix.python }}
           uv export --frozen --extra dev --no-hashes --no-emit-workspace --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
-          python -m pip install --no-deps dist/neural/*.whl dist/*.whl
+          python -m pip install --no-deps dist/neural/*.whl dist/forecasting/*.whl dist/*.whl
           python -m pip check
           python -m tools.platform_support environment --json
       - name: Probe installed runtime, not source checkout
@@ -103,6 +107,10 @@ jobs:
         with:
           name: industrial-neural-distributions
           path: dist/neural
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-forecasting-distributions
+          path: dist/forecasting
       - name: Install current FEDOT and built wheel
         run: |
           python -m pip install "uv==0.8.17"
@@ -110,7 +118,7 @@ jobs:
           uv lock --python ${{ matrix.python }}
           uv export --frozen --extra dev --no-hashes --no-emit-workspace --output-file "$RUNNER_TEMP/industrial-requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/industrial-requirements.txt"
-          python -m pip install --no-deps dist/neural/*.whl dist/*.whl
+          python -m pip install --no-deps dist/neural/*.whl dist/forecasting/*.whl dist/*.whl
           python -m pip check
           python -m tools.platform_support environment --json
       - name: Prepare explicit FEDOT compatibility profile
@@ -149,6 +157,42 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           neural/bin/python -I "$GITHUB_WORKSPACE/examples/neural/cpu_resume.py" --standalone
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-forecasting-distributions
+          path: dist/forecasting
+      - name: Verify the optional forecasting extra without FEDOT
+        run: |
+          wheels=(dist/forecasting/*.whl)
+          "$RUNNER_TEMP/neural/bin/python" -m pip install "${wheels[0]}[neural]"
+          "$RUNNER_TEMP/neural/bin/python" -m pip check
+          cd "$RUNNER_TEMP"
+          neural/bin/python -I "$GITHUB_WORKSPACE/examples/forecasting_package.py" --standalone --neural
+  forecasting-standalone:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: industrial-forecasting-distributions
+          path: dist/forecasting
+      - name: Forecast with the base wheel, without FEDOT or Torch
+        run: |
+          python -m venv "$RUNNER_TEMP/forecasting"
+          python="$RUNNER_TEMP/forecasting/bin/python"
+          "$python" -m pip install dist/forecasting/*.whl
+          "$python" -m pip check
+          cd "$RUNNER_TEMP"
+          "$python" -I "$GITHUB_WORKSPACE/examples/forecasting_package.py" --standalone
   python312-audit:
     needs: build
     runs-on: ubuntu-latest

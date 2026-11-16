@@ -101,12 +101,14 @@ Fedot.Ind - это автоматизированный фреймворк ма�
     # Linux/macOS: source .venv/bin/activate
     # Windows PowerShell: .venv\Scripts\Activate.ps1
     python -m pip install --upgrade pip
-    python -m pip install -e ./packages/industrial-neural -e ".[dev]"
+    python -m pip install -e ./packages/industrial-neural -e ./packages/industrial-forecasting -e ".[dev]"
     python -m tools.platform_support check --json
     python -m tools.platform_support environment --json
 
 Нейросетевое ядро можно установить без FEDOT:
 `инструкция и пример продолжения обучения <packages/industrial-neural/README.md>`_.
+Базовые модели прогнозирования доступны отдельно от FEDOT и PyTorch:
+`установка и пример <packages/industrial-forecasting/README.md>`_.
 
 Зависимости каждого пакета заданы в его ``pyproject.toml``. ``requirements.txt``
 содержит проверяемый экспорт основных зависимостей. Файл ``uv.lock`` не входит

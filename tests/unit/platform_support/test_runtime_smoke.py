@@ -96,12 +96,14 @@ def test_runtime_cli_keeps_json_separate_from_progress(
     names = (
         "installed_package",
         "installed_neural_package",
+        "installed_forecasting_package",
         "stdlib_typing",
         "repository_resources",
         "cpu_tensor",
         "current_runtime_imports",
         "tensor_runtime_imports",
         "regression_runtime",
+        "forecasting_runtime",
         "dataset_import",
         "optional_research_absence")
     for name in names:
@@ -113,7 +115,7 @@ def test_runtime_cli_keeps_json_separate_from_progress(
     assert runtime_smoke.main(["--json"]) == int(failure)
     output = capsys.readouterr()
     result = json.loads(output.out)
-    assert result["ok"] is not failure and len(result["probes"]) == 10
+    assert result["ok"] is not failure and len(result["probes"]) == 12
     assert result["profile"] == "current"
-    assert output.err.count("Checking ") == 10
+    assert output.err.count("Checking ") == 12
     assert sum(not probe["ok"] for probe in result["probes"]) == int(failure)

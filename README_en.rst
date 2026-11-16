@@ -101,12 +101,14 @@ To install the source from the `main branch`_:
     # Linux/macOS: source .venv/bin/activate
     # Windows PowerShell: .venv\Scripts\Activate.ps1
     python -m pip install --upgrade pip
-    python -m pip install -e ./packages/industrial-neural -e ".[dev]"
+    python -m pip install -e ./packages/industrial-neural -e ./packages/industrial-forecasting -e ".[dev]"
     python -m tools.platform_support check --json
     python -m tools.platform_support environment --json
 
 The neural core can be installed without FEDOT. See the
 `standalone package and CPU resume example <packages/industrial-neural/README.md>`_.
+The base forecasting package requires neither FEDOT nor PyTorch. See the
+`forecasting installation and example <packages/industrial-forecasting/README.md>`_.
 
 Each distribution declares its dependencies in its own ``pyproject.toml``. ``requirements.txt``
 is the validated export of direct runtime dependencies. ``uv.lock`` is not

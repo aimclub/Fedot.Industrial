@@ -22,7 +22,12 @@ except ImportError:
 
 
 _NEURAL_PREFIX = "fedot_ind/neural/"
-_NEURAL_ENTRYPOINTS = {_NEURAL_PREFIX + name for name in ("__init__.py", "training/__init__.py")}
+_STANDALONE_LAYOUTS = {
+    "industrial-neural": (_NEURAL_PREFIX, ("__init__.py", "training/__init__.py")),
+    "industrial-forecasting": (
+        "industrial_forecasting/", ("__init__.py", "baselines.py", "neural/__init__.py", "tuning/__init__.py"),
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -124,14 +129,14 @@ def inspect_wheel(
             return (ArchiveIssue(path.name, "METADATA", "Expected exactly one wheel metadata file"),)
         issues.extend(inspect_metadata(path.name, archive.read(metadata_paths[0]), project, pypi=pypi))
         info_prefix = metadata_paths[0].split("/")[0] + "/"
-        neural = project["name"] == "industrial-neural"
-        prefix = _NEURAL_PREFIX if neural else "fedot_ind/"
+        standalone = project["name"] in _STANDALONE_LAYOUTS
+        prefix, entrypoints = _STANDALONE_LAYOUTS.get(project["name"], ("fedot_ind/", ()))
         forbidden = [name for name in names
                      if not name.startswith((prefix, info_prefix))
-                     or (not neural and name.startswith(_NEURAL_PREFIX))]
+                     or (not standalone and name.startswith(_NEURAL_PREFIX))]
         if forbidden:
             issues.append(ArchiveIssue(path.name, "contents", f"Unexpected payload: {sorted(forbidden)}"))
-        required = set(resources) | (_NEURAL_ENTRYPOINTS if neural else set())
+        required = set(resources) | {prefix + entrypoint for entrypoint in entrypoints}
         missing = sorted(required - set(names))
         if missing:
             issues.append(ArchiveIssue(path.name, "package-data", f"Missing runtime resources: {missing}"))
@@ -155,9 +160,10 @@ def inspect_sdist(
         if stream is None:
             return (ArchiveIssue(path.name, "PKG-INFO", "Source distribution metadata is unreadable"),)
         issues = list(inspect_metadata(path.name, stream.read(), project, pypi=pypi))
-        if project["name"] == "industrial-neural":
+        if project["name"] in _STANDALONE_LAYOUTS:
+            import_prefix, entrypoints = _STANDALONE_LAYOUTS[project["name"]]
             source_inputs = {"pyproject.toml", "README.md", "LICENSE.md"}
-            source_inputs.update("src/" + name for name in _NEURAL_ENTRYPOINTS)
+            source_inputs.update("src/" + import_prefix + name for name in entrypoints)
         else:
             source_inputs = {"pyproject.toml", "setup.py", "README_en.rst", "requirements.txt"}
         missing = sorted((set(resources) | source_inputs) - names)
