@@ -185,13 +185,15 @@ def test_already_loaded_fedot_module_cannot_come_from_another_copy(tmp_path, mon
         _check_loaded_modules({'synthetic': tmp_path / 'active'})
 
 
-def test_neural_source_seal_uses_the_active_package(monkeypatch):
+def test_standalone_source_seal_uses_the_active_packages(monkeypatch):
     import fedot_ind.neural.training
+    import industrial_forecasting
     from benchmark.industrial.experiments.cyclic_mutations import provenance
     root = Path(provenance.__file__).resolve().parents[4]
     monkeypatch.chdir(root)
     sources = provenance.source_inventory()
     assert sources['neural/training/__init__.py'] == Path(fedot_ind.neural.training.__file__).resolve()
+    assert sources['forecasting/__init__.py'] == Path(industrial_forecasting.__file__).resolve()
     assert not any(name.startswith('industrial/fedot_ind/neural/') for name in sources)
 
 

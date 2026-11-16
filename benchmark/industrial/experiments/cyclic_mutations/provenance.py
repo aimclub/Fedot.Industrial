@@ -42,11 +42,12 @@ def _execution_roots():
         raise ValueError('Execute B/D from the checkout supplying benchmark and fedot_ind')
     fedot, golem = _package_root('fedot'), _package_root('golem')
     neural = _package_root('fedot_ind.neural')
+    forecasting = _package_root('industrial_forecasting')
     _check_loaded_modules({
         'benchmark': checkout / 'benchmark', 'fedot_ind': checkout / 'fedot_ind',
-        'fedot_ind.neural': neural, 'fedot': fedot, 'golem': golem,
+        'fedot_ind.neural': neural, 'industrial_forecasting': forecasting, 'fedot': fedot, 'golem': golem,
     })
-    return {'industrial': checkout, 'neural': neural, 'fedot': fedot, 'golem': golem}
+    return {'industrial': checkout, 'neural': neural, 'forecasting': forecasting, 'fedot': fedot, 'golem': golem}
 
 
 def source_inventory():

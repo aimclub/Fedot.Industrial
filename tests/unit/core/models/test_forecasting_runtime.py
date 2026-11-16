@@ -170,7 +170,7 @@ def test_mlp_forecasting_head_uses_tqdm_progress(monkeypatch):
         return iterable
 
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.forecasting_runtime.tqdm',
+        'industrial_forecasting.neural.runtime.tqdm',
         fake_tqdm,
     )
 
@@ -192,7 +192,7 @@ def test_mlp_forecasting_head_uses_progress_policy(monkeypatch):
         return iterable
 
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.forecasting_runtime.tqdm',
+        'industrial_forecasting.neural.runtime.tqdm',
         fake_tqdm,
     )
 
