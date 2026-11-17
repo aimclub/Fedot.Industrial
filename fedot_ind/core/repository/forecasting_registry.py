@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from industrial_forecasting.model_names import (
+    FORECASTING_MODEL_ALIASES as FORECASTING_MODEL_ALIASES,
+    canonical_forecasting_model_name as canonical_forecasting_model_name,
+    forecasting_aliases_for as forecasting_aliases_for,
+)
 from fedot_ind.core.repository.runtime_operation_registry import LazyOperationMapping
-
-FORECASTING_MODEL_ALIASES: dict[str, str] = {
-    'mssa': 'mssa_forecaster',
-    'havok': 'havok_forecaster',
-}
 
 CANONICAL_STAGE_FORECASTING_MODELS: tuple[str, ...] = (
     'lagged_ridge_forecaster',
@@ -115,14 +115,3 @@ FORECASTING_PREPROCESSING = LazyOperationMapping(
     fallback=_legacy_forecasting_preprocessing,
     extra_names=LEGACY_FEDOT_FORECASTING_PREPROCESSING,
 )
-
-
-def canonical_forecasting_model_name(name: str | None) -> str:
-    normalized = str(name or '').strip().lower()
-    return FORECASTING_MODEL_ALIASES.get(normalized, normalized)
-
-
-def forecasting_aliases_for(model_name: str) -> tuple[str, ...]:
-    canonical = canonical_forecasting_model_name(model_name)
-    aliases = [alias for alias, target in FORECASTING_MODEL_ALIASES.items() if target == canonical]
-    return tuple(dict.fromkeys([canonical, *sorted(aliases)]))

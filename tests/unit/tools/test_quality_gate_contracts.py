@@ -1,6 +1,8 @@
 from pathlib import Path
+import shlex
 
 from coverage import Coverage
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -13,6 +15,12 @@ def test_failure_handlers_and_api_facade_are_not_blanket_excluded():
     assert 'class ApiTemplate' not in exclusions
 
 
-def test_ci_measures_benchmark_runtime_as_well_as_library():
-    workflow = (ROOT / '.github/workflows/poetry_unit_test.yml').read_text(encoding='utf-8')
-    assert '--cov=fedot_ind --cov=benchmark.industrial' in workflow
+def test_ci_measures_library_standalone_and_benchmark_coverage():
+    path = ROOT / '.github/workflows/poetry_unit_test.yml'
+    workflow = yaml.safe_load(path.read_text(encoding='utf-8'))
+    steps = workflow['jobs']['test']['steps']
+    commands = (shlex.split(step['run'], comments=True) for step in steps if 'run' in step)
+    pytest_args, = (command[3:] for command in commands if command[:3] == ['python', '-m', 'pytest'])
+    required = {'--cov=fedot_ind', '--cov=fedot_ind.neural',
+                '--cov=industrial_forecasting', '--cov=benchmark.industrial'}
+    assert required <= set(pytest_args)

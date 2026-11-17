@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from industrial_forecasting.grid import GridError, GridErrorCode, require_future_after_history
 
 from fedot_ind.integration.fedot.contracts import (
     DataProfile,
@@ -179,27 +180,18 @@ def validate_forecast_coordinates(
     future = np.asarray(forecast_time_idx)
     _validate_temporal_order(history, "history_time_idx")
     _validate_temporal_order(future, "forecast_time_idx")
-    if history.size == 0 or future.size == 0:
-        raise IntegrationContractError(
-            IntegrationErrorCode.TEMPORAL_INDEX_MISMATCH,
-            "History and forecast coordinates must both be non-empty.",
-        )
     try:
-        overlaps = bool(np.intersect1d(history, future).size)
-        follows_history = bool(future[0] > history[-1])
-    except (TypeError, ValueError) as error:
+        require_future_after_history(history, future)
+    except GridError as error:
+        if error.code is GridErrorCode.OVERLAP:
+            raise IntegrationContractError(
+                IntegrationErrorCode.FUTURE_LEAKAGE,
+                str(error),
+                context={"history_end": str(history[-1]), "forecast_start": str(future[0])},
+            ) from error
         raise IntegrationContractError(
-            IntegrationErrorCode.TEMPORAL_INDEX_MISMATCH,
-            "History and forecast coordinates are not comparable.",
-            cause=error,
+            IntegrationErrorCode.TEMPORAL_INDEX_MISMATCH, str(error), cause=error.__cause__,
         ) from error
-    if overlaps or not follows_history:
-        raise IntegrationContractError(
-            IntegrationErrorCode.FUTURE_LEAKAGE,
-            "Forecast coordinates must begin strictly after the history.",
-            context={"history_end": str(
-                history[-1]), "forecast_start": str(future[0])},
-        )
 
 
 def build_temporal_multimodal_plan(

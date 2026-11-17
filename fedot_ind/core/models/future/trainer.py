@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import json
-from collections.abc import Iterable
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
@@ -29,6 +28,7 @@ from fedot_ind.core.operation.transformation.torch_backend.io import (
     resolve_torch_device,
     set_torch_seed,
 )
+from fedot_ind.neural.training import SupervisedBatch, TrainingPlan, TrainingSession
 from fedot_ind.tools.time_counter import DeviceTimer
 
 
@@ -87,6 +87,7 @@ class FutureClassifierTrainer:
             when these arguments are omitted.
         """
 
+        plan = TrainingPlan(self.config.epochs, self.config.early_stopping_patience)
         set_torch_seed(self.config.seed)
         self._ensure_built_for_fit(build_bundle=build_bundle)
         self.model.to(self.device)
@@ -94,60 +95,35 @@ class FutureClassifierTrainer:
         resolved_criterion = self._resolve_criterion(criterion)
         resolved_optimizer = self._resolve_optimizer(optimizer)
 
-        history = FutureTrainingHistory(num_parameters=count_parameters(self.model))
-        best_metric = float("inf")
-        best_epoch = 0
-        patience_counter = 0
-        self._best_state_dict = copy.deepcopy(self.model.state_dict())
+        session = TrainingSession(
+            plan,
+            self.model,
+            resolved_optimizer,
+            resolved_criterion,
+            train_loader,
+            val_loader,
+            batch_adapter=self._supervised_batch,
+        )
 
         timer = DeviceTimer(self.device)
         if self.config.timing_warmup:
             timer.warmup()
         timer.start()
-        for epoch in range(1, self.config.epochs + 1):
-            train_loss = self._run_epoch(
-                train_loader,
-                criterion=resolved_criterion,
-                optimizer=resolved_optimizer,
-                train=True,
-            )
-            history.train_loss.append(train_loss)
-
-            val_loss: float | None = None
-            if val_loader is not None:
-                val_loss = self._run_epoch(
-                    val_loader,
-                    criterion=resolved_criterion,
-                    optimizer=None,
-                    train=False,
-                )
-            history.validation_loss.append(val_loss)
-
-            monitored = val_loss if val_loss is not None else train_loss
-            if monitored < best_metric:
-                best_metric = monitored
-                best_epoch = epoch
-                patience_counter = 0
-                self._best_state_dict = copy.deepcopy(self.model.state_dict())
-            else:
-                patience_counter += 1
-
-            if (
-                self.config.early_stopping_patience is not None
-                and patience_counter >= self.config.early_stopping_patience
-            ):
-                history.stopped_early = True
-                break
-
-        history.best_epoch = best_epoch
-        history.best_validation_loss = (
-            None if val_loader is None else best_metric
+        progress = session.run()
+        duration = timer.stop()
+        best = progress.best_loss
+        history = FutureTrainingHistory(
+            train_loss=[loss.train for loss in progress.losses],
+            validation_loss=[loss.validation for loss in progress.losses],
+            best_epoch=progress.best_epoch or 0,
+            best_validation_loss=None if best is None else best.validation,
+            train_duration_s=duration,
+            stopped_early=progress.stopped_early,
+            num_parameters=count_parameters(self.model),
         )
-        history.train_duration_s = timer.stop()
 
-        if self._best_state_dict is not None:
-            self.model.load_state_dict(self._best_state_dict)
-
+        self._best_state_dict = session.best_weights()
+        self.model.load_state_dict(self._best_state_dict)
         self.history = history
         return history
 
@@ -294,43 +270,10 @@ class FutureClassifierTrainer:
         self.optimizer = resolved
         return resolved
 
-    def _run_epoch(
-        self,
-        loader: Iterable[MultimodalDataBundle],
-        *,
-        criterion: nn.Module,
-        optimizer: torch.optim.Optimizer | None,
-        train: bool,
-    ) -> float:
-        if train:
-            self.model.train()
-        else:
-            self.model.eval()
-
-        total_loss = 0.0
-        total_samples = 0
-        context = torch.enable_grad() if train else torch.no_grad()
-        with context:
-            for batch in loader:
-                self._validate_supervised_bundle(batch, name="batch")
-                batch = batch.to(device=self.device)
-                logits = self.model(batch.without_target())
-                loss = criterion(logits, batch.target)
-
-                if train:
-                    if optimizer is None:
-                        raise RuntimeError("optimizer is required when train=True.")
-                    optimizer.zero_grad(set_to_none=True)
-                    loss.backward()
-                    optimizer.step()
-
-                batch_size = batch.n_samples
-                total_loss += float(loss.detach().item()) * batch_size
-                total_samples += batch_size
-
-        if total_samples == 0:
-            raise RuntimeError("Epoch loader produced zero samples.")
-        return total_loss / total_samples
+    def _supervised_batch(self, batch: MultimodalDataBundle) -> SupervisedBatch:
+        self._validate_supervised_bundle(batch, name="batch")
+        batch = batch.to(device=self.device)
+        return SupervisedBatch(batch.without_target(), batch.target)
 
     @torch.no_grad()
     def _predict_logits(self, bundle: MultimodalDataBundle) -> torch.Tensor:

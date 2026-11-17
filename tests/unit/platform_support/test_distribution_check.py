@@ -137,10 +137,26 @@ def test_wheel_resources_and_payload(project, tmp_path):
 
 
 @pytest.mark.parametrize("path", ["examples/raw.csv", "benchmark/run.py",
-                         "tools/dev.py", ".codex/SKILL.md", "rogue.pth"])
+                         "tools/dev.py", ".codex/SKILL.md", "rogue.pth", "fedot_ind/neural/__init__.py"])
 def test_wheel_does_not_ship_developer_tools_or_data(project, tmp_path, path):
     wheel = wheel_file(tmp_path, metadata_bytes(project), additional=[path])
     assert any(issue.field == "contents" for issue in inspect_wheel(wheel, project, []))
+
+
+def test_neural_wheel_requires_training_but_cannot_own_fedot_ind_init(project, tmp_path):
+    neural = {**project, "name": "industrial-neural"}
+    raw = metadata_bytes(neural)
+    path = tmp_path / "industrial_neural-0.5.0-py3-none-any.whl"
+    with ZipFile(path, "w") as archive:
+        archive.writestr("industrial_neural-0.5.0.dist-info/METADATA", raw)
+        archive.writestr("fedot_ind/neural/__init__.py", "")
+    assert [issue.field for issue in inspect_wheel(path, neural, [])] == ["package-data"]
+    with ZipFile(path, "a") as archive:
+        archive.writestr("fedot_ind/neural/training/__init__.py", "")
+    assert inspect_wheel(path, neural, []) == ()
+    with ZipFile(path, "a") as archive:
+        archive.writestr("fedot_ind/__init__.py", "")
+    assert [issue.field for issue in inspect_wheel(path, neural, [])] == ["contents"]
 
 
 def test_wheel_requires_one_metadata_file(project, tmp_path):
@@ -168,10 +184,19 @@ def test_sdist_missing_inputs(project, tmp_path, omit, field):
 
 
 @pytest.mark.parametrize("name", ["examples/data/local.npy", ".codex/SKILL.md",
-                         "tools/platform_support/compatibility.json"])
+                         "tools/platform_support/compatibility.json", "packages/industrial-neural/pyproject.toml"])
 def test_sdist_no_private_or_developer_data(project, tmp_path, name):
     source = sdist_file(tmp_path, metadata_bytes(project), additional=[name])
     assert any(issue.field == "contents" for issue in inspect_sdist(source, project, []))
+
+
+def test_neural_sdist_contains_only_its_own_required_sources(project, tmp_path):
+    neural = {**project, "name": "industrial-neural"}
+    required = ("README.md", "LICENSE.md", "src/fedot_ind/neural/__init__.py",
+                "src/fedot_ind/neural/training/__init__.py")
+    industrial = ("setup.py", "README_en.rst", "requirements.txt", "fedot_ind/data/defaults.json")
+    sdist = sdist_file(tmp_path, metadata_bytes(neural), omit=industrial, additional=required)
+    assert inspect_sdist(sdist, neural, []) == ()
 
 
 def test_package_data_glob_is_explicit_and_deterministic(tmp_path):

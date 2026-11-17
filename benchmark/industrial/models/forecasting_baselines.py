@@ -5,6 +5,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Any
 from benchmark.industrial.core import ForecastingModelAdapter, ForecastingSeriesRecord, RunStatus
+from industrial_forecasting.baselines import BaselineKind, forecast_baseline
 
 
 @dataclass
@@ -21,8 +22,7 @@ class NaiveLastValueModel(ForecastingModelAdapter):
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast by repeating the last train value."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'last_value'}
+        return forecast_baseline(BaselineKind.LAST_VALUE, series_record.train_values, series_record.forecast_horizon)
 
 
 @dataclass
@@ -39,8 +39,7 @@ class NaiveMeanModel(ForecastingModelAdapter):
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast by repeating the mean train value."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        return np.full(series_record.forecast_horizon, np.mean(train), dtype=float), {'strategy': 'mean'}
+        return forecast_baseline(BaselineKind.MEAN, series_record.train_values, series_record.forecast_horizon)
 
 
 @dataclass
@@ -57,12 +56,7 @@ class NaiveDriftModel(ForecastingModelAdapter):
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast a drift line from first to last train value."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        if len(train) <= 1:
-            return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'fallback'}
-        slope = (train[-1] - train[0]) / max(len(train) - 1, 1)
-        horizon = np.arange(1, series_record.forecast_horizon + 1, dtype=float)
-        return train[-1] + slope * horizon, {'strategy': 'drift'}
+        return forecast_baseline(BaselineKind.DRIFT, series_record.train_values, series_record.forecast_horizon)
 
 
 @dataclass
@@ -80,9 +74,10 @@ class MovingAverageModel(ForecastingModelAdapter):
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Forecast by repeating the last-window mean."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        window = min(max(self.window_size, 1), len(train))
-        return np.full(series_record.forecast_horizon, np.mean(train[-window:]), dtype=float), {'window_size': window}
+        return forecast_baseline(
+            BaselineKind.MOVING_AVERAGE, series_record.train_values, series_record.forecast_horizon,
+            window_size=max(self.window_size, 1),
+        )
 
 
 @dataclass
@@ -99,10 +94,4 @@ class LinearTrendModel(ForecastingModelAdapter):
 
     def forecast(self, series_record: ForecastingSeriesRecord) -> tuple[np.ndarray, dict[str, Any]]:
         """Fit a linear trend on train values and extrapolate the horizon."""
-        train = np.asarray(series_record.train_values, dtype=float)
-        if len(train) <= 1:
-            return np.full(series_record.forecast_horizon, train[-1], dtype=float), {'strategy': 'constant'}
-        index = np.arange(len(train), dtype=float)
-        slope, intercept = np.polyfit(index, train, deg=1)
-        future_index = np.arange(len(train), len(train) + series_record.forecast_horizon, dtype=float)
-        return intercept + slope * future_index, {'slope': float(slope), 'intercept': float(intercept)}
+        return forecast_baseline(BaselineKind.LINEAR_TREND, series_record.train_values, series_record.forecast_horizon)

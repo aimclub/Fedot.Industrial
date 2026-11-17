@@ -13,3 +13,4 @@ prune docs
 prune tools
 prune .codex
 prune .local
+prune packages
