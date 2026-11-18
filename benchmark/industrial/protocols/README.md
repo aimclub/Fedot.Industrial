@@ -164,6 +164,10 @@ for window in windows:
 
 ### Отчёт из сохранённых результатов
 
+См. [выпуск DATA-10 по четырём задачам](saved_report_acceptance.md):
+в нём HTML и CSV получены из сохранённых результатов B/D, TIME и NAB.
+Отчёт не требует исходных данных или нового обучения.
+
 ```console
 python -m benchmark.industrial.protocols manifest.json --report-evidence evidence.json --output-dir ./report
 ```

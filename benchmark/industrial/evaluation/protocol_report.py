@@ -177,24 +177,34 @@ def pairwise_units(report: ProtocolReport, left, right):
 _HEADERS = ('model', 'dataset', 'item', 'repeat', 'status', 'value', 'artifact', 'reason')
 
 
+def write_csv_table(path, headers, table):
+    with Path(path).open('w', newline='', encoding='utf-8') as handle:
+        writer = csv.writer(handle)
+        writer.writerow(headers)
+        writer.writerows(table)
+
+
+def render_html_table(headers, table):
+    def cell(value):
+        return html.escape('' if value is None else str(value))
+
+    head = ''.join(f'<th scope="col">{cell(value)}</th>' for value in headers)
+    body = '\n'.join('<tr>' + ''.join(f'<td>{cell(value)}</td>' for value in row) + '</tr>' for row in table)
+    return f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
+
+
 def write_protocol_report(report: ProtocolReport, root):
     """Render CSV and HTML from the same rows; no evaluator is invoked."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     table = tuple(tuple(getattr(row, column) for column in _HEADERS) for row in report.rows)
-    with (root / 'metrics.csv').open('w', newline='', encoding='utf-8') as handle:
-        writer = csv.writer(handle)
-        writer.writerow(_HEADERS)
-        writer.writerows(table)
+    write_csv_table(root / 'metrics.csv', _HEADERS, table)
     info = {'plan_id': report.plan_id, 'comparison_key': report.comparison_key, 'metric': report.metric,
             'coverage': {'success': report.successful, 'expected': report.expected},
             'repeat_count': report.repeat_count, 'ranked': report.ranked, 'context': report.context}
     (root / 'summary.json').write_text(json.dumps(info, indent=2, allow_nan=False), encoding='utf-8')
-    head = ''.join(f'<th>{value}</th>' for value in _HEADERS)
-    body = '\n'.join('<tr>' + ''.join(f'<td>{html.escape(str(value) if value is not None else "")}</td>'
-                                      for value in row) + '</tr>' for row in table)
     summary = html.escape(json.dumps(info, indent=2, allow_nan=False))
     (root / 'index.html').write_text(
         f'<!doctype html><meta charset="utf-8"><title>Benchmark protocol report</title>'
-        f'<h1>Benchmark protocol report</h1><pre>{summary}</pre><table><thead><tr>{head}</tr></thead>'
-        f'<tbody>{body}</tbody></table>', encoding='utf-8')
+        f'<h1>Benchmark protocol report</h1><pre>{summary}</pre>{render_html_table(_HEADERS, table)}',
+        encoding='utf-8')

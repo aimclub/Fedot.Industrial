@@ -1,0 +1,106 @@
+{
+  "version": "industrial_data10_receipts@1",
+  "visibility": "public_aggregates",
+  "sources": {
+    "bd": {
+      "file": "bd_attempts.csv",
+      "original": "industrial_bd_20261111/summary/attempts.csv",
+      "sha256": "fe5639798eb61f6b5e3060deaf1945b5d21d5bab473f4ba23afe5876aa1dbfb6",
+      "revision": "cc65b060749e42a8ce8acd8b9d6ebdcbcf9ecd09",
+      "recorded_at": "2026-11-11T00:40:36+03:00",
+      "data_seal": "4d8afaf564c93dfeded00ed71d436d40ca84207aa4993bde160bc4a8f26a84e7"
+    },
+    "bd_stops": {
+      "file": "bd_stop_reasons.csv",
+      "original": "industrial_bd_20261111/summary/stop_reasons.csv",
+      "sha256": "969de20ab615c7f040fe1f6cf2eef2d32426f232b50e91afe00b1c6cc296b79b"
+    },
+    "time": {
+      "file": "time_acceptance.json",
+      "original": "data08-profile/acceptance.json",
+      "sha256": "bcad4abc5a632ce3dce1956c9bf46f724b8696f36d0fbf814d051bdffc336b28",
+      "revision": "a00d6a59 (DATA-08 acceptance code)",
+      "recorded_at": "2026-11-18"
+    },
+    "nab": {
+      "file": "detection_acceptance.json",
+      "original": "data356-detection-acceptance/acceptance.json",
+      "sha256": "f630c05e09210d804097d4cb0ae8100d85fe41c2927d476369da28cb64ccbe07",
+      "revision": "8593a032 (DATA-06 acceptance code)",
+      "recorded_at": "2026-11-18"
+    }
+  },
+  "cohorts": [
+    {
+      "id": "bd-classification",
+      "title": "Classification / B and D",
+      "task": "ts_classification",
+      "metric": "balanced_accuracy",
+      "source": "bd",
+      "source_task": "classification",
+      "datasets": ["ACSF1", "ArrowHead", "BasicMotions", "ECG200", "GunPoint"],
+      "models": ["B", "D"],
+      "units": ["42", "123", "777", "2026", "2027"],
+      "description": "Held-out TRAIN, fixed snapshot and split (seed 42). Full search budget: 600 s search, 90 s per candidate, 1200 s per process, 4 Dask workers, at least 15 generations for acceptance. No official TEST or legacy-table comparison.",
+      "unit_description": "Same dataset and search seed for each pair. Seeds are repeats on a fixed split, not independent datasets."
+    },
+    {
+      "id": "bd-regression",
+      "title": "Regression / B and D",
+      "task": "ts_regression",
+      "metric": "rmse",
+      "source": "bd",
+      "source_task": "regression",
+      "datasets": ["AppliancesEnergy", "BitcoinSentiment", "BoronConcentration", "NaturalGasPricesSentiment", "Tecator"],
+      "models": ["B", "D"],
+      "units": ["42", "123", "777", "2026", "2027"],
+      "description": "Held-out TRAIN, fixed snapshot and split (seed 42). Full search budget: 600 s search, 90 s per candidate, 1200 s per process, 4 Dask workers, at least 15 generations for acceptance. Scores from incomplete searches are diagnostic only.",
+      "unit_description": "Same dataset and search seed for each pair. RMSE scales differ between datasets."
+    },
+    {
+      "id": "bd-forecast",
+      "title": "Forecasting / B and D",
+      "task": "forecasting",
+      "metric": "rmse",
+      "source": "bd",
+      "source_task": "ts_forecasting",
+      "datasets": ["Airline", "Electricity", "M4Daily", "M4Hourly", "M4Monthly"],
+      "models": ["B", "D"],
+      "units": ["42", "123", "777", "2026", "2027"],
+      "description": "Held-out TRAIN tails, horizon 12, one representative series per scenario. Full search budget: 600 s search, 90 s per candidate, 1200 s per process, 4 Dask workers, at least 15 generations for acceptance. Not an official M4 or Monash run.",
+      "unit_description": "Same series and search seed for each pair. RMSE scales differ between series."
+    },
+    {
+      "id": "time-forecast",
+      "title": "Forecasting / TIME frozen weights",
+      "task": "forecasting",
+      "metric": "mae",
+      "source": "time",
+      "datasets": ["time/commodity_production/paper_pulp"],
+      "models": ["chronos-bolt-tiny", "last_value@1"],
+      "units": [
+        "1952-01-01T00:00:00+00:00", "1953-01-01T00:00:00+00:00",
+        "1954-01-01T00:00:00+00:00", "1955-01-01T00:00:00+00:00",
+        "1956-01-01T00:00:00+00:00"
+      ],
+      "fields": {"chronos-bolt-tiny": "mae", "last_value@1": "last_value_mae"},
+      "horizon": 12,
+      "model_release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+      "description": "TIME-ProcessedCSV 683bb21b470f5a26586e1ab2295f0a2a1529ef0f, one monthly series, five windows of 12 months. CPU, one Torch thread, frozen Chronos; possible training-data overlap is unknown.",
+      "unit_description": "Forecast origin, one score per model and window. Windows on one underlying series are not independent datasets."
+    },
+    {
+      "id": "nab-detection",
+      "title": "Anomaly detection / NAB",
+      "task": "anomaly_detection",
+      "metric": "false_alarms_per_hour",
+      "source": "nab",
+      "dataset_release": "ea702d75cc2258d9d7dd35ca8e5e2539d71f3140",
+      "datasets": ["realKnownCause/ambient_temperature_system_failure.csv"],
+      "models": ["abs_difference_train_p99"],
+      "units": ["post-train-stream"],
+      "description": "NAB ea702d75cc2258d9d7dd35ca8e5e2539d71f3140, one stream, absolute differences and P99 threshold fixed on the first 1090 observations. 53 false alerts over 6766 calendar hours; not the composite NAB Score.",
+      "unit_description": "One stream, no repeat or model comparison."
+    }
+  ]
+}
