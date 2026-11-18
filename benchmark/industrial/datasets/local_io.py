@@ -136,11 +136,16 @@ def _load_tabular_split(path: Path, *, separator: str) -> tuple[np.ndarray, np.n
     return features, target
 
 
-def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+def load_local_ts_cases(path: Path):
+    """Read channel-preserving cases without requiring equal record lengths."""
+    return _load_ts_split(path, preserve_channels=True)
+
+
+def _load_ts_split(path: Path, *, preserve_channels=False):
     last_error: UnicodeDecodeError | None = None
     for encoding in ('utf-8', 'utf-8-sig', 'cp1252', 'latin-1'):
         try:
-            return _load_ts_split_with_encoding(path, encoding=encoding)
+            return _load_ts_split_with_encoding(path, encoding=encoding, preserve_channels=preserve_channels)
         except UnicodeDecodeError as error:
             last_error = error
     if last_error is not None:
@@ -148,14 +153,14 @@ def _load_ts_split(path: Path) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     raise LocalDatasetParseError(f'Could not parse .ts file: {path}')
 
 
-def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+def _load_ts_split_with_encoding(path: Path, *, encoding: str, preserve_channels=False):
     timestamps = False
     target_label = False
     class_label = False
     dimensions = None
     metadata: dict[str, Any] = {}
     data_started = False
-    case_vectors: list[np.ndarray] = []
+    cases: list[tuple[np.ndarray, ...]] = []
     targets: list[Any] = []
 
     with path.open('r', encoding=encoding) as source:
@@ -185,14 +190,14 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
                     metadata['problem_name'] = parts[1] if len(parts) > 1 else path.stem
                 elif lower.startswith('@univariate'):
                     metadata['univariate'] = _parse_boolean_tag(line)
-                elif lower.startswith('@equallength') or lower.startswith('@equallength'):
+                elif lower.startswith('@equallength'):
                     metadata['equal_length'] = _parse_boolean_tag(line)
                 elif lower.startswith('@data'):
                     data_started = True
                 continue
 
-            if not target_label and not class_label:
-                raise LocalDatasetParseError(f'.ts file must define @targetlabel or @classlabel: {path}')
+            if target_label == class_label:
+                raise LocalDatasetParseError(f'.ts file must define exactly one target kind: {path}')
 
             split_index = line.rfind(':')
             if split_index < 0:
@@ -206,36 +211,41 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
                     f'Unexpected number of dimensions in {path}: expected {dimensions}, got {len(dimension_parts)}'
                 )
 
-            flattened: list[float] = []
+            channels = []
             for dimension_part in dimension_parts:
                 cleaned = dimension_part.strip()
                 if not cleaned:
-                    continue
-                if timestamps:
-                    flattened.extend(_parse_timestamped_dimension_values(cleaned, path=path))
+                    values = []
+                elif timestamps:
+                    values = _parse_timestamped_dimension_values(cleaned, path=path)
                 else:
-                    flattened.extend(float(token) for token in cleaned.split(',') if token)
+                    values = [_parse_ts_value(token) for token in cleaned.split(',')]
+                channels.append(np.asarray(values, dtype=float))
 
-            case_vectors.append(np.asarray(flattened, dtype=float))
+            cases.append(tuple(channels))
             if target_label:
                 targets.append(float(target_part))
             else:
                 targets.append(target_part)
 
-    if not case_vectors:
+    if not cases:
         raise LocalDatasetParseError(f'No cases were parsed from .ts file: {path}')
 
+    metadata['dimensions'] = dimensions or len(cases[0])
+    metadata['timestamps'] = bool(timestamps)
+    metadata['target_type'] = 'regression' if target_label else 'classification'
+    target_array = np.asarray(targets, dtype=float if target_label else object)
+    if preserve_channels:
+        return tuple(cases), target_array, metadata
+
+    case_vectors = [np.concatenate(case) for case in cases]
     lengths = {vector.size for vector in case_vectors}
     if len(lengths) != 1:
         raise LocalDatasetParseError(
             f'Variable-length .ts records are not supported by the flat Industrial benchmark adapters yet: {path}'
         )
 
-    metadata['dimensions'] = dimensions or 1
-    metadata['timestamps'] = bool(timestamps)
-    metadata['target_type'] = 'regression' if target_label else 'classification'
     features = np.vstack(case_vectors)
-    target_array = np.asarray(targets, dtype=float if target_label else object)
     return features, target_array, metadata
 
 
@@ -262,7 +272,11 @@ def _parse_timestamped_dimension_values(dimension_part: str, *, path: Path) -> l
     matches = list(re.finditer(r'\(([^,]+),([^)]+)\)', dimension_part))
     if not matches:
         raise LocalDatasetParseError(f'Could not parse timestamped values from .ts file: {path}')
-    return [float(match.group(2)) for match in matches]
+    return [_parse_ts_value(match.group(2)) for match in matches]
+
+
+def _parse_ts_value(value: str) -> float:
+    return np.nan if value.strip() == '?' else float(value)
 
 
 def _parse_boolean_tag(line: str) -> bool:

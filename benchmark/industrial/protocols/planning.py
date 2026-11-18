@@ -135,10 +135,9 @@ def resolve_protocol(payload: Mapping) -> ResolvedProtocolPlan:
     if ('plan_id' in data) != ('comparison_key' in data):
         raise ProtocolError('Resolved manifests require both plan_id and comparison_key')
     suite = _read_suite(data['suite'])
-    try:
-        task = TaskType(suite.task_kind)
-    except ValueError as error:
-        raise ProtocolError(f'Unsupported Industrial task kind: {suite.task_kind!r}') from error
+    task = suite.task_kind
+    if task not in {item.value for item in TaskType} | {'anomaly_detection'}:
+        raise ProtocolError(f'Unsupported Industrial task kind: {task!r}')
     raw_profiles = mapping(data['profiles'], 'profiles')
     by_dataset = {dataset.dataset_id: dataset for dataset in suite.datasets}
     if raw_profiles.keys() != by_dataset.keys():
@@ -149,11 +148,11 @@ def resolve_protocol(payload: Mapping) -> ResolvedProtocolPlan:
         path = f'profiles.{dataset_id}'
         profile = fields(raw_profiles[dataset_id], ('release', 'protocol'), path)
         release = DatasetRelease.parse(profile['release'], f'{path}.release')
-        if task is TaskType.FORECASTING and release.unit is not ObservationUnit.SERIES:
+        if task == TaskType.FORECASTING.value and release.unit is not ObservationUnit.SERIES:
             raise ProtocolError(f'{path}.release.unit: forecasting requires series')
-        if task is not TaskType.FORECASTING and release.unit is ObservationUnit.EVENT:
+        if task != 'anomaly_detection' and release.unit is ObservationUnit.EVENT:
             raise ProtocolError(f'{path}.release.unit: event protocols are not supported for this task')
-        protocol = EvaluationProtocol.parse(profile['protocol'], task.value, metrics, f'{path}.protocol')
+        protocol = EvaluationProtocol.parse(profile['protocol'], task, metrics, f'{path}.protocol')
         profiles.append(DatasetProfile(dataset_id, release, protocol))
     profiles = tuple(profiles)
     plan_id = _digest(_payload(suite, profiles))

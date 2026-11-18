@@ -4,8 +4,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
-from pathlib import PureWindowsPath
 import re
+
+from .assets import AssetIncompatible, LocalAsset
 
 
 PROTOCOL_VERSION = 'benchmark_industrial_protocol@1'
@@ -104,20 +105,15 @@ class DatasetRelease:
     @classmethod
     def parse(cls, value, path):
         data = fields(value, ('version', 'source', 'artifact', 'sha256', 'unit', 'access', 'license'), path)
-        artifact = string(data['artifact'], f'{path}.artifact')
-        parts = artifact.split('/')
-        if any(not part or part != part.rstrip(' .') or PureWindowsPath(part).is_reserved() for part in parts) or re.search(
-            r'[\\:*?"<>|\x00-\x1f]', artifact
-        ):
-            raise ProtocolError(f'{path}.artifact must be a portable relative file path')
-        digest = string(data['sha256'], f'{path}.sha256').lower()
-        if re.fullmatch(r'[0-9a-f]{64}', digest) is None:
-            raise ProtocolError(f'{path}.sha256 must contain 64 hexadecimal characters')
+        try:
+            asset = LocalAsset(data['artifact'], data['sha256'])
+        except AssetIncompatible as error:
+            raise ProtocolError(f'{path}: {error}') from error
         license_id = data['license']
         if license_id is not None:
             license_id = string(license_id, f'{path}.license')
         return cls(string(data['version'], f'{path}.version'), string(data['source'], f'{path}.source'),
-                   artifact, digest, choice(data['unit'], ObservationUnit, f'{path}.unit'),
+                   asset.path, asset.sha256, choice(data['unit'], ObservationUnit, f'{path}.unit'),
                    choice(data['access'], Access, f'{path}.access'), license_id)
 
     def comparison_identity(self):

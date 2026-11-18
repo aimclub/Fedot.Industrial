@@ -2,11 +2,10 @@
 
 from dataclasses import asdict, dataclass
 from enum import Enum
-from hashlib import sha256
 from pathlib import Path
 
+from .assets import AssetCorrupt, AssetIncompatible, AssetUnavailable, LocalAsset, checked_asset
 from .planning import ResolvedProtocolPlan
-from .schema import ProtocolError
 
 
 class PreflightStatus(str, Enum):
@@ -43,33 +42,19 @@ def _check_artifact(dataset_id, release, root):
     if root is None:
         return result(PreflightStatus.UNAVAILABLE, 'No local data root supplied')
     try:
-        artifact = (root / release.artifact).resolve()
-        if not artifact.is_relative_to(root):
-            return result(PreflightStatus.INCOMPATIBLE, 'Artifact escapes the local data root')
-        if not artifact.is_file():
-            return result(PreflightStatus.UNAVAILABLE, 'Local artifact is absent or is not a regular file')
-        digest = sha256()
-        with artifact.open('rb') as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
-                digest.update(chunk)
-    except OSError as error:
-        return result(PreflightStatus.UNAVAILABLE, f'Local artifact cannot be read: {type(error).__name__}')
-    except RuntimeError:
-        return result(PreflightStatus.INCOMPATIBLE, 'Local artifact path cannot be resolved')
-    if digest.hexdigest() != release.sha256:
-        return result(PreflightStatus.CORRUPT, 'Local artifact SHA-256 does not match the declared release')
+        checked_asset(root, LocalAsset(release.artifact, release.sha256))
+    except AssetUnavailable as error:
+        return result(PreflightStatus.UNAVAILABLE, str(error))
+    except AssetCorrupt as error:
+        return result(PreflightStatus.CORRUPT, str(error))
+    except AssetIncompatible as error:
+        return result(PreflightStatus.INCOMPATIBLE, str(error))
     return result(PreflightStatus.READY, 'Local artifact SHA-256 matches the declared release')
 
 
 def preflight_protocol(plan: ResolvedProtocolPlan, data_root: str | Path | None = None) -> PreflightReport:
     """Verify local bytes and license declarations; never fetch external artifacts."""
     root = Path(data_root) if data_root is not None else None
-    if root is not None:
-        if root.anchor.startswith(('\\\\', '//')):
-            raise ProtocolError('Data root must be local, not a UNC path')
-        root = root.resolve()
-        if root.anchor.startswith(('\\\\', '//')):
-            raise ProtocolError('Data root resolves to a non-local path')
     checks = []
     for profile in plan.profiles:
         artifact = _check_artifact(profile.dataset_id, profile.release, root)
