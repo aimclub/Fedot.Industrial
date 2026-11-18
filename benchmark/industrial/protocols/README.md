@@ -1,6 +1,6 @@
 # Протокол оценки временных рядов
 
-Этот модуль описывает **что измерять**, но не запускает обучение. Существующие
+Этот пакет описывает **что измерять** и собирает отчёты, но не запускает обучение. Существующие
 команды `python -m benchmark.industrial` и манифесты
 `benchmark_industrial_manifest@1` не изменены. Новый формат
 `benchmark_industrial_protocol@1` старый исполнитель не принимает.
@@ -17,10 +17,10 @@
   `seed` остаются в `suite`. Лимиты `max_evaluations` и
   `timeout_seconds` задаются в `suite.run.options.evaluation_budget`;
   модуль проверяет и сохраняет лимиты, но не управляет выполнением.
-- Этот этап не добавляет поставщиков, загрузчик данных, хранилище и общий
-  исполнитель. #303–308 определяют интеграцию с ROAST, #315 определяет
-  внешний каталог. Не следует переносить старые результаты в новый
-  протокол без доказательств совпадения данных и разбиений.
+- Предметные загрузчики читают только уже полученные локальные файлы.
+  Общий исполнитель и хранилище относятся к #303–308. Не следует
+  переносить старые результаты в новый протокол без доказательств
+  совпадения данных и разбиений.
 
 ## Три представления
 
@@ -48,7 +48,7 @@
 валидацию и запрещают TEST. Исследовательский режим сохраняет явно
 заданные части, не приравнивая их к официальному протоколу.
 
-Для классификации и регрессии `membership` задаёт непересекающиеся
+Для классификации, регрессии и детекции `membership` задаёт непересекающиеся
 множества идентификаторов объектов. Если указаны группы, каждый объект
 должен иметь группу и группа целиком лежит в одной части.
 
@@ -86,3 +86,88 @@ python -m benchmark.industrial.protocols benchmark/industrial/examples/protocol_
 не создаёт артефакты и не проверяет права пользователя. Совпадение хеша
 доказывает наличие ожидаемых байтов, но не подтверждает корректность
 меток или фактическое соответствие записей указанному разбиению.
+
+## Предметные профили
+
+| Задача | Точка входа | Что сопоставляется |
+| --- | --- | --- |
+| DATA-01 | `datasets.catalog.read_catalog`, `datasets.ltsf.load_ltsf_csv` | Выпуски и роли файлов, SHA-256, наблюдаемые и известные заранее признаки. |
+| DATA-02 | `datasets.m5.load_m5_window`, `score_wrmsse` | Все 12 уровней M5; 28 дней по календарю и порядок пар товар/магазин. Веса считаются по выручке последних 28 дней TRAIN, а не по TEST. |
+| DATA-04 | `datasets.archives.archive_profile`, `run_archive_reference` | UCR 2018 (128 задач), UEA 2018 (30), исходный TSER (19). `scope='smoke'` не заменяет `full`. Евклидов 1-NN не заполняет пропуски и не выравнивает разные длины. |
+| DATA-05 | `evaluation.forecasting_protocols.score_m4`, `score_monash` | Версия, частота, горизонт и даты прогноза. OWA делит агрегированные ошибки на агрегированные ошибки Naïve2; для Monash масштаб MASE задаётся отдельно. |
+| DATA-06 | `evaluation.detection_protocols` | Точечная средняя точность (AP), VUS-PR авторов TSB-AD, порог из TRAIN и задержка первой тревоги. Попадание в одну точку не размечает событие целиком. |
+| DATA-07 | `datasets.drift` | Авторское разбиение и отдельное хронологическое разбиение с проверками групп, времени решения и пересечения окон одного участка. |
+| DATA-08 | `evaluation.forecast_transfer` | Прогноз без дообучения, известные источники весов, неизвестное или подтверждённое пересечение данных; неподдерживаемый вид входа не подменяется упрощённым. |
+| DATA-09 | `evaluation.decomposition_protocol` | Восстановление именованных компонент и качество прогноза оцениваются раздельно. Для классического разложения сравнивайте остаток с суммой шума и смены режима. |
+| DATA-10 | `evaluation.protocol_report` | Записи `MetricRecord` ROAST с привязкой к плану. Рейтинг требует полного официального покрытия и агрегации `mean_by_unit`. |
+
+Для нескольких файлов задайте каталог `industrial_dataset_catalog@1`
+с объектом `releases`. Каждая запись содержит `version`, `source`, `access`,
+`license` и `assets` вида `роль: {path, sha256}`. Для UCR, UEA и TSER
+идентификатор записи имеет вид `<версия>/<набор>`, роли — `train` и `test`.
+У M5 роли `sales`, `calendar`, `prices`, у LTSF — `series`. Получение
+файлов выполняется отдельно. Неизвестная лицензия останавливает чтение.
+
+У UCI PEMS-SF и подготовленного UEA PEMS-SF разные записи каталога.
+Порядок записей проверяется по меткам и `randperm`; версии не считаются
+двумя независимыми наборами. Для AppliancesEnergy исходные файлы
+[Zenodo 3902637](https://zenodo.org/records/3902637) содержат 95 TRAIN и
+42 TEST. В статье указано 96 TRAIN; проверка ориентируется на файлы
+этого выпуска.
+
+### Малый пример TIME
+
+Каталог [time_transfer_smoke.json](../examples/time_transfer_smoke.json)
+закрепляет один ряд из опубликованного `TIME-ProcessedCSV`. Возьмите файл
+по ссылке `source` и поместите в каталог данных как `time/paper_pulp.csv`.
+Данные не входят в репозиторий. Пример использует пять неперекрывающихся
+окон по 12 месяцев на последних 60 точках, как задано в
+[настройках авторов TIME](https://github.com/zqiao11/TIME/blob/e8bb342f7625deda36742df8b39f91cefb82434b/src/timebench/config/datasets.yaml).
+Разбиение привязано к выбранному ряду и не выдаётся за весь TIME.
+Карточки основного выпуска `TIME` и `TIME-ProcessedCSV` содержат разные
+лицензии; пример описывает только конкретное содержимое второй карточки
+и не переносит её лицензию на другие выпуски.
+
+```python
+import numpy as np
+
+from benchmark.industrial.datasets.catalog import read_catalog
+from benchmark.industrial.evaluation.forecast_transfer import TrainingSources, evaluate_zero_shot, load_time_windows
+
+dataset = "time/commodity_production/paper_pulp"
+catalog = read_catalog("benchmark/industrial/examples/time_transfer_smoke.json")
+windows = load_time_windows(
+    catalog[dataset], "./data", target="IndexofPaperandPulpProductionforUnitedStates",
+    frequency="MS", test_length=60, horizon=12,
+)
+for window in windows:
+    print(evaluate_zero_shot(
+        lambda inputs: np.repeat(inputs.history[-1:], len(inputs.future_timestamps), axis=0),
+        window, training=TrainingSources("last_value@1", (), True),
+        dataset_aliases=(dataset,), dates_public=True, frequency="MS",
+    ))
+```
+
+### Отчёт из сохранённых результатов
+
+```console
+python -m benchmark.industrial.protocols manifest.json --report-evidence evidence.json --output-dir ./report
+```
+
+`evidence.json` содержит `version: "industrial_report_evidence@1"`,
+`visibility: "public_aggregates"`, список `metrics` из записей ROAST,
+`items_by_dataset`, `repeat_count` и `provenance` с `code_revision` и
+`recorded_at`. В каждой записи требуются `coordinates.repeat`,
+`metadata.plan_id`, `metadata.comparison_key`, `metadata.source: "local_run"`
+и относительный `metadata.artifact_ref`. Одинаковые записи не удваивают
+результат. Другой план или конфликт записей приводит к ошибке. Пропуски,
+отказы и неудачные попытки остаются в таблице. `pairwise_units` возвращает
+пересечение по паре «набор, объект» и номеру повтора, а также непарные строки.
+
+Команда читает два исходных файла и создаёт `metrics.csv`, `index.html`
+и `summary.json` в указанной папке. Она не обучает модели и не открывает
+файлы, на которые ссылается запись. Перед публикацией передавайте только
+разрешённые агрегаты; флаг видимости не обезличивает данные. Медицинские
+идентификаторы, даты визитов и индивидуальные прогнозы не предназначены
+для этой команды. Полные внешние прогоны Breath-Dx, TraffiDent, M5,
+Time-IMM и LargeST не заявлены.
