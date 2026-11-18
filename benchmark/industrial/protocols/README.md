@@ -112,6 +112,9 @@ python -m benchmark.industrial.protocols benchmark/industrial/examples/protocol_
 [Приёмка метрик M5, M4 и Monash](forecast_metric_acceptance.md) содержит
 источники фиксированных прогнозов, значения метрик и команду сверки без обучения.
 
+[Приёмка метрик детекции](detection_metric_acceptance.md) закрепляет выпуски
+TSB-AD-U/M и описывает сверку VUS-PR, задержек и ложных тревог на NAB.
+
 У UCI PEMS-SF и подготовленного UEA PEMS-SF разные записи каталога.
 Порядок записей проверяется по меткам и `randperm`; версии не считаются
 двумя независимыми наборами. Для AppliancesEnergy исходные файлы

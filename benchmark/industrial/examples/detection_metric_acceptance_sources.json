@@ -1,0 +1,89 @@
+{
+  "version": "industrial_detection_acceptance@1",
+  "tsb_ad": {
+    "revision": "303dffbfc11612995b17b06633f8c9d0ea0e38e5",
+    "metric_sha256": "6996e2eaa4cfe585f97217d9748f386a92deade54db10d9945da35d3dba140e4",
+    "window": 100,
+    "thresholds": 250,
+    "subsets": {
+      "TSB-AD-U": {
+        "url": "https://www.thedatum.org/datasets/TSB-AD-U.zip",
+        "archive": {
+          "path": "TSB-AD-U.zip",
+          "sha256": "0c47020d3423723c70773736dbd800369f2b487328becbf339450d1ae5020961"
+        },
+        "all": {
+          "path": "TSB-AD-U.csv", "count": 870,
+          "sha256": "447fcaf946b1283064aa501e9ce1c14eeb64e4c1aa977cde7399c7367140e66b"
+        },
+        "evaluation": {
+          "path": "TSB-AD-U-Eva.csv", "count": 350,
+          "sha256": "6f4e1d4ddbde195f9687f2c5a951b51faff54dda4b658d85f0c07e3e2879615a"
+        },
+        "evaluation_full": {
+          "path": "TSB-AD-U-Eva-Full.csv", "count": 822,
+          "sha256": "5938f8d73f3c5d9ce1a01b619a7683f553b90446402c13e72dbeed85fd481606"
+        },
+        "tuning": {
+          "path": "TSB-AD-U-Tuning.csv", "count": 48,
+          "sha256": "7bf24d2ef834bb39ddd1c8c2b02c177339921dce694354e258ed2b77d8d5cd1c"
+        },
+        "example": {
+          "path": "TSB-AD-U/001_NAB_id_1_Facility_tr_1007_1st_2014.csv",
+          "sha256": "e3e67660bbaa840ef24e70b38f0b384d41c7e2bce71bf0edbab65565a40a7584",
+          "train_count": 1007, "rows": 4031, "channels": 1,
+          "expected_vus_pr": 0.2096907567028257
+        }
+      },
+      "TSB-AD-M": {
+        "url": "https://www.thedatum.org/datasets/TSB-AD-M.zip",
+        "archive": {
+          "path": "TSB-AD-M.zip",
+          "sha256": "7de86ac27f30eeb48d833bb061055670e3f3de07defd995cf2bd5db10ccc9a0d"
+        },
+        "all": {
+          "path": "TSB-AD-M.csv", "count": 200,
+          "sha256": "698eb770bb2a04efc2578695d4115f894780960d7a23f62e59701523427a4950"
+        },
+        "evaluation": {
+          "path": "TSB-AD-M-Eva.csv", "count": 180,
+          "sha256": "ef6353b5aad8519fb2e5ff366ae21cf626ecd56d1a05942ac3b5c02d9e4b32a4"
+        },
+        "tuning": {
+          "path": "TSB-AD-M-Tuning.csv", "count": 20,
+          "sha256": "b388541efcd8972cb2084f0aabe7c36bcf0e1ecd52adc6d0ef874afec335fa51"
+        },
+        "example": {
+          "path": "TSB-AD-M/057_SMD_id_1_Facility_tr_4529_1st_4629.csv",
+          "sha256": "1679708d35fe5fae0d3592b429c0f0970ef36f3e95e686e0a2dda03f619dcc75",
+          "train_count": 4529, "rows": 23694, "channels": 38,
+          "expected_vus_pr": 0.17211020619876016
+        }
+      }
+    }
+  },
+  "nab": {
+    "revision": "ea702d75cc2258d9d7dd35ca8e5e2539d71f3140",
+    "key": "realKnownCause/ambient_temperature_system_failure.csv",
+    "train_fraction": 0.15,
+    "alarm_quantile": 0.99,
+    "sample_seconds": 3600,
+    "assets": {
+      "stream": {
+        "source": "data/realKnownCause/ambient_temperature_system_failure.csv",
+        "path": "nab-terminal.csv",
+        "sha256": "230b68ccca20f59d562afd5d24ad52939c9b784386bed0054018358bf9120581"
+      },
+      "windows": {
+        "source": "labels/combined_windows.json",
+        "path": "nab-windows.json",
+        "sha256": "1e1fbc4601321aad8d0f8b3784c8134299379f68f6c1f7777565f8ffd57ab6b1"
+      },
+      "labels": {
+        "source": "labels/combined_labels.json",
+        "path": "nab-labels.json",
+        "sha256": "98724014c162fcfd4be605683517f194051a54e98756c53667bd33ddbc644d9b"
+      }
+    }
+  }
+}

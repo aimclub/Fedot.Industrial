@@ -105,6 +105,35 @@ def test_tsb_range_reference_when_installed():
     assert score_tsb_ad(scores, labels, **_tsb_scope(upstream.generate_curve))['vus_pr'] == pytest.approx(1)
 
 
+def test_tsb_declines_undefined_labels_and_missing_scores():
+    def unused(*args):
+        pytest.fail('VUS must not use invalid inputs')
+
+    assert score_tsb_ad([.5, .9], [0, 0], **_tsb_scope(unused))['status'] == 'not_available'
+    with pytest.raises(ProtocolError, match='finite'):
+        score_tsb_ad([.5, np.nan], [0, 1], **_tsb_scope(unused))
+
+
+def test_nab_elapsed_slots_keep_missing_intervals_in_delay_and_rate():
+    import pandas as pd
+
+    from benchmark.industrial.examples.verify_detection_metrics import _elapsed_slots, _timestamp_reference
+
+    start = pd.Timestamp('2020-01-01')
+    hour = pd.Timedelta(hours=1)
+    windows = [(start + hour, start + 5 * hour)]
+    alarms = [start, start + 4 * hour, start + 5 * hour]
+    last = start + 5 * hour
+    first, delay, false, repeats, exposure = _timestamp_reference(windows, alarms, start, last, hour)
+    assert first == (start + 4 * hour,) and delay == (10_800,)
+    assert (false, repeats, exposure) == (1, 1, 6)
+    result = score_events([EventWindow(*_elapsed_slots(windows[0], start, hour))],
+                          _elapsed_slots(alarms, start, hour), length=6, sample_seconds=3600)
+    assert result['delay_seconds'] == delay and result['false_alarms_per_hour'] == pytest.approx(1 / 6)
+    with pytest.raises(ValueError, match='time grid'):
+        _elapsed_slots([start + hour / 2], start, hour)
+
+
 def _drift(case, segment, target, start, end, *, group=None):
     return DriftCase.parse({'case_id': case, 'group_id': group or case, 'segment': segment, 'target': target,
                             'window_start': start, 'window_end': end, 'decision_time': end, 'event_time': end + 1})
