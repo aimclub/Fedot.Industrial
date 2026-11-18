@@ -128,6 +128,9 @@ TSB-AD-U/M и описывает сверку VUS-PR, задержек и лож
 
 ### Малый пример TIME
 
+[Сравнение Chronos-Bolt-Tiny с повтором последнего значения](time_transfer_acceptance.md)
+содержит результаты по пяти окнам и команду проверки без дообучения.
+
 Каталог [time_transfer_smoke.json](../examples/time_transfer_smoke.json)
 закрепляет один ряд из опубликованного `TIME-ProcessedCSV`. Возьмите файл
 по ссылке `source` и поместите в каталог данных как `time/paper_pulp.csv`.

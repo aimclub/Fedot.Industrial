@@ -217,6 +217,24 @@ def test_time_pinned_release_and_relative_test_tail(tmp_path):
         load_time_windows(release, tmp_path, target='y', frequency='D', test_length=5, horizon=2)
 
 
+def test_chronos_median_uses_only_history_and_does_not_enable_gradients():
+    torch = pytest.importorskip('torch')
+
+    from benchmark.industrial.examples.verify_time_transfer import median_forecast
+
+    class ForecastOnly:
+        def predict_quantiles(self, context, *, prediction_length, quantile_levels):
+            assert torch.is_inference_mode_enabled()
+            assert context.dtype == torch.float32 and context.tolist() == [1., 2., 3.]
+            assert prediction_length == 2 and quantile_levels == [.5]
+            return torch.tensor([[[4.], [5.]]]), None
+
+    targets = np.arange(1, 6, dtype=float)[:, None]
+    extra = np.full_like(targets, -1)
+    window = LTSFTable(('a', 'b', 'c', 'd', 'e'), targets, extra, extra).window(2, 2)
+    np.testing.assert_array_equal(median_forecast(ForecastOnly(), window.inputs), [[4.], [5.]])
+
+
 def test_synthetic_components_not_replaced_by_quality_of_sum():
     spec = SyntheticSpec.parse({'version': 'synthetic_decomposition@1', 'length': 64, 'horizon': 8,
                                 'period': 8, 'train_seed': 42, 'evaluation_seed': 43})
