@@ -162,3 +162,37 @@ def test_m5_undefined_positive_weight_scale(tmp_path):
     window = load_m5_window(m5_catalog(tmp_path, constant=True), tmp_path, 30)
     with pytest.raises(ProtocolError, match='positive weight, zero scale'):
         score_wrmsse(window, window.truth, target_days=window.horizon, series_keys=window.series_keys)
+
+
+def test_m5_organizer_calendar_and_separate_targets(tmp_path):
+    import pandas as pd
+
+    m5_catalog(tmp_path)
+    sales = pd.read_csv(tmp_path / 'sales.csv')
+    sales = pd.concat([sales, sales.assign(item_id='item2')], ignore_index=True)
+    past = list(sales.columns[:35])
+    days = list(sales.columns[35:])
+    truth = sales.drop(columns=past[5:]).iloc[::-1].copy()
+    truth.loc[truth['item_id'] == 'item2', days] += 10
+    calendar = pd.read_csv(tmp_path / 'calendar.csv').drop(columns='d')
+    calendar['date'] = pd.date_range('2011-01-29', periods=len(calendar)).strftime('%Y-%m-%d')
+    prices = (tmp_path / 'prices.csv').read_text()
+    price_rows = prices.splitlines()[1:]
+    prices += ''.join(f'{row.replace(",item,", ",item2,")}\n' for row in price_rows)
+
+    def release(targets, dates):
+        return catalog(tmp_path, {'sales': ('sales.csv', sales[past].to_csv(index=False)),
+                                  'calendar': ('calendar.csv', dates.to_csv(index=False)),
+                                  'prices': ('prices.csv', prices),
+                                  'targets': ('targets.csv', targets.to_csv(index=False))})
+
+    window = load_m5_window(release(truth, calendar), tmp_path, 30)
+    assert window.series_keys == (('item', 'store'), ('item2', 'store'))
+    assert window.truth[:, 0].tolist() == [30, 40]
+    assert window.future_calendar.iloc[0]['date'] == '2011-02-28'
+    with pytest.raises(ProtocolError, match='do not match'):
+        load_m5_window(release(truth.iloc[:1], calendar), tmp_path, 30)
+    with pytest.raises(ProtocolError, match='duplicate'):
+        load_m5_window(release(pd.concat([truth, truth]), calendar), tmp_path, 30)
+    with pytest.raises(ProtocolError, match='consecutive dates'):
+        load_m5_window(release(truth, calendar.iloc[1:]), tmp_path, 30)

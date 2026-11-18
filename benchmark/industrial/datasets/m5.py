@@ -13,6 +13,7 @@ HIERARCHY = ((), ('state_id',), ('store_id',), ('cat_id',), ('dept_id',),
              ('state_id', 'cat_id'), ('state_id', 'dept_id'), ('store_id', 'cat_id'),
              ('store_id', 'dept_id'), ('item_id',), ('item_id', 'state_id'), ('item_id', 'store_id'))
 HORIZON = 28
+FIRST_DAY = '2011-01-29'
 
 
 def _columns(table, required, role):
@@ -28,6 +29,28 @@ def _prices(ids, calendar, prices, days):
         np.tile(weeks, len(ids)),
     ], names=['store_id', 'item_id', 'wm_yr_wk'])
     return prices.reindex(index).to_numpy(dtype=float).reshape(len(ids), len(days))
+
+
+def _calendar_days(calendar):
+    if 'd' in calendar:
+        return calendar
+    _columns(calendar, ('date',), 'calendar without day IDs')
+    dates = pd.to_datetime(calendar['date'], format='%Y-%m-%d', errors='raise')
+    offsets = (dates - pd.Timestamp(FIRST_DAY)).dt.days
+    if offsets.isna().any() or set(offsets) != set(range(len(calendar))):
+        raise ProtocolError('M5 calendar without day IDs must cover consecutive dates from d_1')
+    return calendar.assign(d='d_' + (offsets + 1).astype(str))
+
+
+def _separate_truth(table, ids, days):
+    _columns(table, (*IDENTIFIERS, *days), 'targets')
+    if table.duplicated(['item_id', 'store_id']).any():
+        raise ProtocolError('M5 target sales contain duplicate item/store keys')
+    actual = table.set_index(list(IDENTIFIERS))
+    expected = pd.MultiIndex.from_frame(ids)
+    if len(actual) != len(expected) or not expected.isin(actual.index).all():
+        raise ProtocolError('M5 target sales do not match the declared training series')
+    return actual.loc[expected, list(days)].to_numpy(dtype=float)
 
 
 @dataclass(frozen=True)
@@ -46,15 +69,19 @@ class M5Window:
 
 
 def load_m5_window(release, root, cutoff_day, *, future_prices_known=False):
-    """Load local competition tables; future prices require explicit availability."""
+    """Load local competition tables, with optional separate targets and known future prices."""
     integer(cutoff_day, 'cutoff_day', minimum=HORIZON)
     if type(future_prices_known) is not bool:
         raise ProtocolError('future_prices_known must be explicit boolean')
-    files = release.files(root, ('sales', 'calendar', 'prices'))
+    roles = ('sales', 'calendar', 'prices')
+    if 'targets' in dict(release.assets):
+        roles = (*roles, 'targets')
+    files = release.files(root, roles)
     sales, calendar, prices = (pd.read_csv(files[role]) for role in ('sales', 'calendar', 'prices'))
     days = [f'd_{day}' for day in range(1, cutoff_day + 1)]
     future = tuple(f'd_{day}' for day in range(cutoff_day + 1, cutoff_day + HORIZON + 1))
     _columns(sales, (*IDENTIFIERS, *days), 'sales')
+    calendar = _calendar_days(calendar)
     _columns(calendar, ('d', 'wm_yr_wk'), 'calendar')
     price_keys = ('store_id', 'item_id', 'wm_yr_wk')
     _columns(prices, (*price_keys, 'sell_price'), 'prices')
@@ -79,7 +106,12 @@ def load_m5_window(release, root, cutoff_day, *, future_prices_known=False):
     available = set(future).intersection(sales.columns)
     if available and available != set(future):
         raise ProtocolError('M5 only accepts a complete forecast target window')
-    truth = sales.loc[:, list(future)].to_numpy(dtype=float) if available else None
+    if 'targets' in files:
+        if available:
+            raise ProtocolError('Declare either embedded or separate M5 forecast targets, not both')
+        truth = _separate_truth(pd.read_csv(files['targets']), ids, future)
+    else:
+        truth = sales.loc[:, list(future)].to_numpy(dtype=float) if available else None
     return M5Window(ids, history, truth, dollar_sales, calendar.loc[list(future)], future_prices, future)
 
 

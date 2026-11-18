@@ -105,8 +105,12 @@ python -m benchmark.industrial.protocols benchmark/industrial/examples/protocol_
 с объектом `releases`. Каждая запись содержит `version`, `source`, `access`,
 `license` и `assets` вида `роль: {path, sha256}`. Для UCR, UEA и TSER
 идентификатор записи имеет вид `<версия>/<набор>`, роли — `train` и `test`.
-У M5 роли `sales`, `calendar`, `prices`, у LTSF — `series`. Получение
+У M5 роли `sales`, `calendar`, `prices` и необязательная `targets` для отдельного TEST;
+у LTSF роль `series`. Получение
 файлов выполняется отдельно. Неизвестная лицензия останавливает чтение.
+
+[Приёмка метрик M5, M4 и Monash](forecast_metric_acceptance.md) содержит
+источники фиксированных прогнозов, значения метрик и команду сверки без обучения.
 
 У UCI PEMS-SF и подготовленного UEA PEMS-SF разные записи каталога.
 Порядок записей проверяется по меткам и `randperm`; версии не считаются
