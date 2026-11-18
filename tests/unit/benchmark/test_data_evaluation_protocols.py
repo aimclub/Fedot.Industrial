@@ -156,6 +156,26 @@ def test_published_drift_not_assumed_chronological_and_never_emits_case_records(
         published_drift_split([cases[0], replace(cases[1], event_time=5), cases[2]], parts, early_warning=True)
 
 
+def test_graphormer_audit_distinguishes_disease_target_from_healthy_and_validation_order():
+    import pandas as pd
+    from sklearn.metrics import roc_auc_score
+
+    from benchmark.industrial.examples.verify_drift_sources import graphormer_label_audit
+
+    metadata = pd.DataFrame({'Patient_id': range(7), 'Week': [1] * 4 + [2] * 3, 'D_class': [7, 0, 7, 1, 7, 0, 1]})
+    config = {'week_max': 2, 'class_max': 7, 'target_code': 7, 'train_weeks': (1,), 'test_weeks': (2,),
+              'validation_fraction': .5, 'validation_seeds': (1,)}
+    report = graphormer_label_audit(metadata, config)
+    assert report['test_labels_changed'] == 2 and report['overlapping_groups'] == 0
+    assert report['validation'] == [{'seed': 1, 'rows': 2, 'positions_out_of_order': 2, 'labels_changed': 2}]
+    scores_for_not_target = [.1, .9, .9]
+    assert roc_auc_score([0, 1, 1], scores_for_not_target) == 1
+    assert roc_auc_score([1, 0, 1], scores_for_not_target) == .25
+    assert 'Patient_id' not in json.dumps(report)
+    with pytest.raises(ValueError, match='partition'):
+        graphormer_label_audit(metadata, {**config, 'test_weeks': (1, 2)})
+
+
 def test_zero_shot_has_no_future_label_or_unavailable_covariate():
     past = np.arange(5, dtype=float).reshape(-1, 1)
     dates = ('1', '2', '3', '4', '5')

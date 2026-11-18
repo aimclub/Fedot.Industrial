@@ -115,6 +115,10 @@ python -m benchmark.industrial.protocols benchmark/industrial/examples/protocol_
 [Приёмка метрик детекции](detection_metric_acceptance.md) закрепляет выпуски
 TSB-AD-U/M и описывает сверку VUS-PR, задержек и ложных тревог на NAB.
 
+[Сверка источников для проверки дрейфа](drift_source_acceptance.md) описывает
+доступ к S-OH и TraffiDent, расхождение меток Graphormer и загрузку всего
+гидравлического стенда UCI.
+
 У UCI PEMS-SF и подготовленного UEA PEMS-SF разные записи каталога.
 Порядок записей проверяется по меткам и `randperm`; версии не считаются
 двумя независимыми наборами. Для AppliancesEnergy исходные файлы
@@ -176,5 +180,6 @@ python -m benchmark.industrial.protocols manifest.json --report-evidence evidenc
 файлы, на которые ссылается запись. Перед публикацией передавайте только
 разрешённые агрегаты; флаг видимости не обезличивает данные. Медицинские
 идентификаторы, даты визитов и индивидуальные прогнозы не предназначены
-для этой команды. Полные внешние прогоны Breath-Dx, TraffiDent, M5,
-Time-IMM и LargeST не заявлены.
+для этой команды. Полные прогоны обучения на Breath-Dx, TraffiDent,
+Time-IMM и LargeST не заявлены; сверки фиксированных прогнозов M5 и метрик
+детекции описаны выше.

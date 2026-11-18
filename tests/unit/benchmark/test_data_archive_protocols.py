@@ -196,3 +196,17 @@ def test_m5_organizer_calendar_and_separate_targets(tmp_path):
         load_m5_window(release(pd.concat([truth, truth]), calendar), tmp_path, 30)
     with pytest.raises(ProtocolError, match='consecutive dates'):
         load_m5_window(release(truth, calendar.iloc[1:]), tmp_path, 30)
+
+
+def test_hydraulic_loader_preserves_each_sensor_grid_and_cycle_labels(tmp_path):
+    from benchmark.industrial.datasets.drift import load_hydraulic_cycles
+
+    payload = {'profile': ('profile.txt', '3\t0\n100\t1\n'), 'PS1': ('PS1.txt', '1\t2\t3\n4\t5\t6\n'),
+               'TS1': ('TS1.txt', '10\n11\n')}
+    release = catalog(tmp_path, payload)
+    channels, targets = load_hydraulic_cycles(release, tmp_path, sensors=('PS1', 'TS1'), target_column=0)
+    assert channels['PS1'].shape == (2, 3) and channels['TS1'].shape == (2, 1)
+    assert targets.tolist() == [3, 100]
+    malformed = catalog(tmp_path, {**payload, 'TS1': ('TS1.txt', '10\n')})
+    with pytest.raises(ProtocolError, match='cycle level'):
+        load_hydraulic_cycles(malformed, tmp_path, sensors=('PS1', 'TS1'), target_column=0)
