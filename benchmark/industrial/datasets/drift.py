@@ -8,6 +8,9 @@ import numpy as np
 from ..protocols.schema import ProtocolError, coordinate, coordinate_kind, fields, string
 
 
+_WINDOW_COORDINATES = ('window_start', 'window_end', 'decision_time')
+
+
 @dataclass(frozen=True)
 class DriftCase:
     case_id: str
@@ -19,17 +22,23 @@ class DriftCase:
     decision_time: int | str
     event_time: int | str | None = None
 
-    @classmethod
-    def parse(cls, row):
-        coordinates = ('window_start', 'window_end', 'decision_time')
-        names = ('case_id', 'group_id', 'segment', 'target')
-        row = fields(row, (*names, *coordinates), 'drift case', ('event_time',))
-        start, end, decision = (coordinate(row[field], field) for field in coordinates)
-        event = None if row.get('event_time') is None else coordinate(row['event_time'], 'event_time')
-        domain = {coordinate_kind(value) for value in (start, end, decision, event) if value is not None}
+    def __post_init__(self):
+        coordinates = {name: coordinate(getattr(self, name), name) for name in _WINDOW_COORDINATES}
+        if self.event_time is not None:
+            coordinates['event_time'] = coordinate(self.event_time, 'event_time')
+        domain = {coordinate_kind(value) for value in coordinates.values()}
+        start, end, decision = (coordinates[name] for name in _WINDOW_COORDINATES)
         if len(domain) != 1 or not start <= end <= decision:
             raise ProtocolError('Drift window crosses the decision or changes coordinate domain')
-        return cls(*(string(row[name], name) for name in names), start, end, decision, event)
+        for name, value in coordinates.items():
+            object.__setattr__(self, name, value)
+
+    @classmethod
+    def parse(cls, row):
+        names = ('case_id', 'group_id', 'segment', 'target')
+        row = fields(row, (*names, *_WINDOW_COORDINATES), 'drift case', ('event_time',))
+        return cls(*(string(row[name], name) for name in names),
+                   *(row[name] for name in _WINDOW_COORDINATES), row.get('event_time'))
 
 
 @dataclass(frozen=True)

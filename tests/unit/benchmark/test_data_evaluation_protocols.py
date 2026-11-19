@@ -170,6 +170,31 @@ def _drift(case, segment, target, start, end, *, group=None):
                             'window_start': start, 'window_end': end, 'decision_time': end, 'event_time': end + 1})
 
 
+@pytest.mark.parametrize('start,end,decision,event', [
+    (5, 15, 9, None),
+    (15, 5, 20, None),
+    (5, 8, '2026-11-19', None),
+    (5, 8, 9, '2026-11-19'),
+])
+def test_drift_case_constructor_rejects_invalid_windows(start, end, decision, event):
+    row = {'case_id': 'case', 'group_id': 'group', 'segment': 'road', 'target': 'negative',
+           'window_start': start, 'window_end': end, 'decision_time': decision, 'event_time': event}
+    with pytest.raises(ProtocolError, match='crosses the decision or changes coordinate domain'):
+        DriftCase(**row)
+    with pytest.raises(ProtocolError, match='crosses the decision or changes coordinate domain'):
+        DriftCase.parse(row)
+
+
+def test_drift_case_normalizes_timestamps_on_both_entry_paths():
+    row = {'case_id': 'case', 'group_id': 'group', 'segment': 'road', 'target': 'negative',
+           'window_start': '2026-11-19T12:00:00+03:00', 'window_end': '2026-11-19T10:00:00Z',
+           'decision_time': '2026-11-19T11:00:00+01:00', 'event_time': '2026-11-19T10:30:00Z'}
+    case = DriftCase(**row)
+    assert case == DriftCase.parse(row)
+    assert case.window_start == '2026-11-19T09:00:00Z'
+    assert case.window_end == case.decision_time
+
+
 def test_published_drift_not_assumed_chronological_and_never_emits_case_records():
     cases = [_drift('x', 'road1', 'negative', 4, 10), _drift('y', 'road1', 'positive', 1, 5),
              _drift('z', 'road2', 'negative', 2, 8)]
