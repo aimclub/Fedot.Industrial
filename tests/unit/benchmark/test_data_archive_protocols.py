@@ -1,3 +1,4 @@
+from dataclasses import replace
 from hashlib import sha256
 
 import numpy as np
@@ -10,6 +11,7 @@ from benchmark.industrial.datasets.archives import (
     compare_published_accuracy,
     evaluate_archive_reference,
     load_archive_split,
+    run_archive_reference,
 )
 from benchmark.industrial.datasets.catalog import CATALOG_VERSION, parse_catalog
 from benchmark.industrial.datasets.ltsf import load_ltsf_csv
@@ -40,6 +42,9 @@ def test_frozen_archive_coverage(version, count, selected):
     profile = archive_profile(version)
     assert profile.selection('smoke') == (selected,)
     assert len(set(profile.tasks)) == len(profile.tasks) == count
+    if version == 'ucr_2018':
+        assert 'Yoga' in profile.tasks and 'AsphaltObstacles' not in profile.tasks
+    assert selected in dict(profile.verified_splits)
     smoke = archive_coverage(profile, 'smoke', {selected: {'status': 'success'}})
     assert not smoke['full_archive']
     assert smoke['successful'] == 1
@@ -57,7 +62,14 @@ def test_ucr_baseline_and_published_metric_guard(tmp_path):
     split = load_archive_split(profile, 'ECG200', tmp_path, train, test, verify_counts=False)
     scores = evaluate_archive_reference(split)
     assert scores['metrics'] == {'accuracy': 1., 'balanced_accuracy': 1., 'f1_macro': 1.}
+    assert scores['official_split'] is False
     reference = {**scores, 'metric': 'accuracy', 'value': .5}
+    with pytest.raises(ProtocolError, match='verified official split'):
+        compare_published_accuracy(scores, reference)
+    trusted = replace(profile, verified_splits=(('ECG200', (train.sha256, test.sha256)),))
+    verified = load_archive_split(trusted, 'ECG200', tmp_path, train, test, verify_counts=False)
+    scores = evaluate_archive_reference(verified)
+    assert scores['official_split'] and scores['split_id'] == reference['split_id']
     assert compare_published_accuracy(scores, reference) == .5
     with pytest.raises(ProtocolError, match='only be compared'):
         compare_published_accuracy(scores, {**reference, 'metric': 'balanced_accuracy'})
@@ -70,6 +82,46 @@ def test_ucr_baseline_and_published_metric_guard(tmp_path):
     (tmp_path / train.path).write_bytes(b'invalid')
     with pytest.raises(AssetCorrupt):
         load_archive_split(profile, 'ECG200', tmp_path, train, test, verify_counts=False)
+
+
+def test_user_supplied_hashes_do_not_certify_official_archive_partitions(tmp_path):
+    profile = archive_profile('ucr_2018')
+    train = 'a\t0\nb\t2\n' * 50
+    test = 'a\t1\nb\t3\n' * 50
+    entry = catalog(tmp_path, {'train': ('ECG200_TRAIN.tsv', train), 'test': ('ECG200_TEST.tsv', test)})
+    key = 'ucr_2018/ECG200'
+    entry = replace(entry, release_id=key, version=profile.version)
+    report = run_archive_reference(profile, {key: entry}, tmp_path, scope='smoke')
+    assert report['successful'] == 0
+    assert report['tasks']['ECG200']['status'] == 'unverified_split'
+    assert 'metrics' not in report['tasks']['ECG200']
+    assets = dict(entry.assets)
+    verified = replace(profile, verified_splits=(('ECG200', (assets['train'].sha256, assets['test'].sha256)),))
+    report = run_archive_reference(verified, {key: entry}, tmp_path, scope='smoke')
+    assert report['successful'] == 1 and report['tasks']['ECG200']['official_split']
+    (tmp_path / assets['test'].path).unlink()
+    report = run_archive_reference(verified, {key: entry}, tmp_path, scope='smoke')
+    assert report['tasks']['ECG200']['status'] == 'unavailable'
+
+
+def test_archive_parses_verified_snapshot_not_a_second_open(tmp_path, monkeypatch):
+    from benchmark.industrial.datasets import archives
+
+    profile = archive_profile('ucr_2018')
+    train = asset(tmp_path, 'ECG200_TRAIN.tsv', 'a\t0\nb\t2\n')
+    test = asset(tmp_path, 'ECG200_TEST.tsv', 'a\t1\nb\t3\n')
+    read = archives.read_checked_asset
+
+    def replace_after_read(root, value):
+        path, content = read(root, value)
+        path.write_text('unrelated content', encoding='utf-8')
+        return path, content
+
+    monkeypatch.setattr(archives, 'read_checked_asset', replace_after_read)
+    split = load_archive_split(profile, 'ECG200', tmp_path, train, test, verify_counts=False)
+    assert split.test_target.tolist() == ['a', 'b']
+    assert split.test[0][0].tolist() == [1.]
+    assert not split.test_target.flags.writeable and not split.test[0][0].flags.writeable
 
 
 def test_uea_preserves_channels_and_does_not_pad(tmp_path):
@@ -130,6 +182,16 @@ def test_ltsf_catalog_and_causal_inputs(tmp_path):
         load_ltsf_csv(unknown, tmp_path, targets=('target',))
 
 
+@pytest.mark.parametrize('content,message', [
+    ('date,target,target\n2024-01-01,1,2\n', 'duplicates'),
+    ('date,target\n20240101,1\n', 'not numeric epochs'),
+])
+def test_ltsf_rejects_ambiguous_columns_and_times(tmp_path, content, message):
+    release = catalog(tmp_path, {'series': ('series.csv', content)})
+    with pytest.raises(ProtocolError, match=message):
+        load_ltsf_csv(release, tmp_path, targets=('target',))
+
+
 def m5_catalog(root, *, constant=False):
     days = 58
     header = 'item_id,dept_id,cat_id,store_id,state_id,' + ','.join(f'd_{day}' for day in range(1, days + 1))
@@ -160,8 +222,12 @@ def test_m5_wrm_sse_and_available_prices(tmp_path):
 
 def test_m5_undefined_positive_weight_scale(tmp_path):
     window = load_m5_window(m5_catalog(tmp_path, constant=True), tmp_path, 30)
-    with pytest.raises(ProtocolError, match='positive weight, zero scale'):
-        score_wrmsse(window, window.truth, target_days=window.horizon, series_keys=window.series_keys)
+    result = score_wrmsse(window, window.truth, target_days=window.horizon, series_keys=window.series_keys)
+    assert result == {'protocol': 'm5_wrmsse@1', 'status': 'not_available', 'reason': 'zero_scale: total',
+                      'wrmsse': None, 'levels': {}}
+    missing = replace(window, truth=None)
+    outcome = score_wrmsse(missing, window.truth, target_days=window.horizon, series_keys=window.series_keys)
+    assert outcome['reason'] == 'missing_truth' and outcome['wrmsse'] is None
 
 
 def test_m5_organizer_calendar_and_separate_targets(tmp_path):
@@ -188,6 +254,9 @@ def test_m5_organizer_calendar_and_separate_targets(tmp_path):
 
     window = load_m5_window(release(truth, calendar), tmp_path, 30)
     assert window.series_keys == (('item', 'store'), ('item2', 'store'))
+    identifiers = window.identifiers
+    identifiers.loc[0, 'item_id'] = 'other'
+    assert window.series_keys == (('item', 'store'), ('item2', 'store'))
     assert window.truth[:, 0].tolist() == [30, 40]
     assert window.future_calendar.iloc[0]['date'] == '2011-02-28'
     with pytest.raises(ProtocolError, match='do not match'):
@@ -196,6 +265,9 @@ def test_m5_organizer_calendar_and_separate_targets(tmp_path):
         load_m5_window(release(pd.concat([truth, truth]), calendar), tmp_path, 30)
     with pytest.raises(ProtocolError, match='consecutive dates'):
         load_m5_window(release(truth, calendar.iloc[1:]), tmp_path, 30)
+    bad_calendar = calendar.assign(d=[f'd_{day}' for day in range(2, len(calendar) + 2)])
+    with pytest.raises(ProtocolError, match='IDs do not match'):
+        load_m5_window(release(truth, bad_calendar), tmp_path, 30)
 
 
 def test_hydraulic_loader_preserves_each_sensor_grid_and_cycle_labels(tmp_path):

@@ -1,5 +1,6 @@
 """Local LTSF CSV loading and causal forecast windows for DATA profiles."""
 
+import csv
 from dataclasses import dataclass
 
 import numpy as np
@@ -58,9 +59,17 @@ def load_ltsf_csv(release: CatalogRelease, root, *, time='date', targets, observ
     columns = (time, *targets, *observed, *known_future)
     unique_strings(columns, 'LTSF columns')
     path = release.files(root, ('series',))['series']
-    table = pd.read_csv(path)
+    with path.open(encoding='utf-8-sig', newline='') as handle:
+        header = next(csv.reader(handle), ())
+        unique_strings(header, 'LTSF CSV header')
+        if not set(columns) <= set(header):
+            raise ProtocolError('LTSF CSV lacks declared columns or records')
+        handle.seek(0)
+        table = pd.read_csv(handle)
     if not set(columns) <= set(table.columns) or table.empty:
         raise ProtocolError('LTSF CSV lacks declared columns or records')
+    if pd.api.types.is_numeric_dtype(table[time]):
+        raise ProtocolError('LTSF timestamps need explicit dates, not numeric epochs')
     stamps = pd.to_datetime(table[time], utc=True, errors='raise')
     if stamps.isna().any() or not stamps.is_monotonic_increasing or not stamps.is_unique:
         raise ProtocolError('LTSF timestamps must be unique and increasing')

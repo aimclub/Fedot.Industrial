@@ -19,4 +19,7 @@ def _invalid_constant(value):
 
 def read_protocol_json(path):
     with Path(path).open(encoding='utf-8') as handle:
-        return json.load(handle, object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
+        try:
+            return json.load(handle, object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
+        except RecursionError as error:
+            raise ProtocolError('JSON input exceeds the supported nesting depth') from error

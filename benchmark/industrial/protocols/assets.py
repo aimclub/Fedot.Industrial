@@ -59,8 +59,7 @@ def local_root(root):
     return canonical
 
 
-def checked_asset(root, asset: LocalAsset):
-    """Return a verified regular file strictly within the declared root."""
+def _asset_path(root, asset: LocalAsset):
     root = local_root(root)
     try:
         path = (root / asset.path).resolve()
@@ -68,13 +67,36 @@ def checked_asset(root, asset: LocalAsset):
             raise AssetIncompatible('Artifact escapes the local data root')
         if not path.is_file():
             raise AssetUnavailable('Local artifact is absent or is not a regular file')
-        digest = file_digest(path)
     except AssetUnavailable:
         raise
     except OSError as error:
         raise AssetUnavailable(f'Local artifact cannot be read: {type(error).__name__}') from error
     except RuntimeError as error:
         raise AssetIncompatible('Local artifact path cannot be resolved') from error
+    return path
+
+
+def _verify_digest(digest, asset):
     if digest != asset.sha256:
         raise AssetCorrupt('Local artifact SHA-256 does not match the declared release')
+
+
+def checked_asset(root, asset: LocalAsset):
+    """Return a verified regular file strictly within the declared root."""
+    path = _asset_path(root, asset)
+    try:
+        _verify_digest(file_digest(path), asset)
+    except OSError as error:
+        raise AssetUnavailable(f'Local artifact cannot be read: {type(error).__name__}') from error
     return path
+
+
+def read_checked_asset(root, asset: LocalAsset):
+    """Return the same bytes that passed verification, for snapshot-based parsers."""
+    path = _asset_path(root, asset)
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise AssetUnavailable(f'Local artifact cannot be read: {type(error).__name__}') from error
+    _verify_digest(sha256(content).hexdigest(), asset)
+    return path, content

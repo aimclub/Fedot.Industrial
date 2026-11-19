@@ -31,6 +31,7 @@ class MissingRoastError(RuntimeError):
 
 def _reject_discarded_fields(raw, resolved, path):
     if isinstance(raw, Mapping) and isinstance(resolved, Mapping):
+        raw = mapping(raw, path)
         unknown = raw.keys() - resolved.keys()
         if unknown:
             raise ProtocolError(f'{path}: unknown fields {sorted(unknown)}')

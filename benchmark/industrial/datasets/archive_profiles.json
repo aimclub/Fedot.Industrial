@@ -2,6 +2,16 @@
   "ucr_2018": {
     "task": "ts_classification",
     "source": "https://www.cs.ucr.edu/~eamonn/time_series_data_2018/",
+    "verified_splits": {
+      "ECG200": {
+        "train": "bd08b37147ebf205231ad43e02c42dd5c14bc348f4ccc7614f85634c8916bf21",
+        "test": "c8ac02caf98be23c47c044fde026219301ceaf0b2f97bc107bd0cd96330b867c"
+      },
+      "Yoga": {
+        "train": "df4a79d23143fa51d34ca72a6145b3e0fafd0ab196caa4d0fb3ae1eeb3028219",
+        "test": "659882bf29459cf5b4b6be7572f02b149fd2d16149cb7b84b8c803ff0b44a906"
+      }
+    },
     "tasks": [
       "ACSF1",
       "Adiac",
@@ -9,7 +19,6 @@
       "AllGestureWiimoteY",
       "AllGestureWiimoteZ",
       "ArrowHead",
-      "AsphaltObstacles",
       "BME",
       "Beef",
       "BeetleFly",
@@ -130,7 +139,8 @@
       "Wine",
       "WordSynonyms",
       "Worms",
-      "WormsTwoClass"
+      "WormsTwoClass",
+      "Yoga"
     ],
     "smoke": [
       "ECG200"
@@ -139,6 +149,12 @@
   "uea_2018": {
     "task": "ts_classification",
     "source": "https://arxiv.org/pdf/1811.00075v1#page=3",
+    "verified_splits": {
+      "BasicMotions": {
+        "train": "3dcb66b389ba93ed2de7879bceb27548e0ea7a5ffb59888d0db36b59af2a0e28",
+        "test": "ea93ab9f58faa6869c18bbe16a6dca0b02f174aa676af7568788a1a2a8e7e8da"
+      }
+    },
     "tasks": [
       "ArticularyWordRecognition",
       "AtrialFibrillation",
@@ -178,6 +194,12 @@
   "tser_original_19": {
     "task": "ts_regression",
     "source": "https://arxiv.org/pdf/2006.10996#page=3",
+    "verified_splits": {
+      "AppliancesEnergy": {
+        "train": "bbc65fcfa5c01655bb0ec7d558335d44b9c81979d7246f485bbc95a9759a5bff",
+        "test": "0e73676156bdce593059cd03785db9fd5616c1620ba87893b0f0903ef80f2248"
+      }
+    },
     "tasks": [
       "AppliancesEnergy",
       "AustraliaRainfall",

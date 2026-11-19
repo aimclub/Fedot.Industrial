@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .local_io import load_local_supervised_split, load_local_ts_cases
-from ..protocols.assets import AssetCorrupt, AssetIncompatible, AssetUnavailable, LocalAsset, checked_asset
+from .local_io import _load_tabular_split, load_local_ts_cases
+from ..protocols.assets import AssetCorrupt, AssetIncompatible, AssetUnavailable, LocalAsset, read_checked_asset
 from ..protocols.schema import ProtocolError
 
 
@@ -20,6 +20,7 @@ class ArchiveProfile:
     source: str
     tasks: tuple[str, ...]
     smoke: tuple[str, ...]
+    verified_splits: tuple[tuple[str, tuple[str, str]], ...] = ()
 
     def selection(self, scope: str):
         if scope not in ('full', 'smoke'):
@@ -34,7 +35,8 @@ def archive_profile(version: str) -> ArchiveProfile:
     if version not in entries:
         raise ProtocolError(f'Unknown archive release: {version!r}')
     entry = entries[version]
-    return ArchiveProfile(version, entry['task'], entry['source'], tuple(entry['tasks']), tuple(entry['smoke']))
+    verified = tuple((task, (split['train'], split['test'])) for task, split in entry['verified_splits'].items())
+    return ArchiveProfile(version, entry['task'], entry['source'], tuple(entry['tasks']), tuple(entry['smoke']), verified)
 
 
 @dataclass(frozen=True)
@@ -46,11 +48,13 @@ class ArchiveSplit:
     test: tuple[tuple[np.ndarray, ...], ...]
     test_target: np.ndarray
     split_id: str
+    official_split: bool = False
 
 
-# Published sizes of the three smoke tasks and the separate prepared PEMS-SF release.
+# Published sizes of checked tasks and the separate prepared PEMS-SF release.
 _REFERENCE_COUNTS = {
     ('ucr_2018', 'ECG200'): (100, 100),
+    ('ucr_2018', 'Yoga'): (300, 3000),
     ('uea_2018', 'BasicMotions'): (40, 40),
     ('uea_2018', 'PEMS-SF'): (267, 173),
     # The published Zenodo files (3902637) contain 95 train cases; the paper lists 96.
@@ -58,13 +62,13 @@ _REFERENCE_COUNTS = {
 }
 
 
-def _read_pair(train, test, task):
+def _read_pair(train, train_bytes, test, test_bytes, task):
     if train.suffix.lower() != test.suffix.lower():
         raise ProtocolError('TRAIN and TEST must use the same file format')
     suffix = train.suffix.lower()
     if suffix == '.ts':
-        train_cases, train_target, train_metadata = load_local_ts_cases(train)
-        test_cases, test_target, test_metadata = load_local_ts_cases(test)
+        train_cases, train_target, train_metadata = load_local_ts_cases(train, content=train_bytes)
+        test_cases, test_target, test_metadata = load_local_ts_cases(test, content=test_bytes)
         target_type = 'regression' if task == 'ts_regression' else 'classification'
         if any(metadata['target_type'] != target_type for metadata in (train_metadata, test_metadata)):
             raise ProtocolError('Declared target kind does not match the archive task')
@@ -73,9 +77,10 @@ def _read_pair(train, test, task):
         return train_cases, train_target, test_cases, test_target
     if suffix not in ('.tsv', '.csv'):
         raise ProtocolError(f'Unsupported archive pair format: {suffix}')
-    local = load_local_supervised_split('locked-archive', train_path=train, test_path=test)
-    return (tuple((row,) for row in local.train_features), local.train_target,
-            tuple((row,) for row in local.test_features), local.test_target)
+    separator = '\t' if suffix == '.tsv' else ','
+    train_features, train_target = _load_tabular_split(train, separator=separator, content=train_bytes)
+    test_features, test_target = _load_tabular_split(test, separator=separator, content=test_bytes)
+    return tuple((row,) for row in train_features), train_target, tuple((row,) for row in test_features), test_target
 
 
 def load_archive_split(profile, dataset, root, train: LocalAsset, test: LocalAsset, *, verify_counts=True):
@@ -84,10 +89,11 @@ def load_archive_split(profile, dataset, root, train: LocalAsset, test: LocalAss
         raise ProtocolError(f'{dataset!r} is not in {profile.version}')
     if train.sha256 == test.sha256:
         raise ProtocolError('TRAIN and TEST must identify distinct contents')
-    train_path, test_path = checked_asset(root, train), checked_asset(root, test)
+    train_path, train_bytes = read_checked_asset(root, train)
+    test_path, test_bytes = read_checked_asset(root, test)
     if train_path.stem != f'{dataset}_TRAIN' or test_path.stem != f'{dataset}_TEST':
         raise ProtocolError('TRAIN and TEST paths do not match the archive dataset and roles')
-    train_cases, train_y, test_cases, test_y = _read_pair(train_path, test_path, profile.task)
+    train_cases, train_y, test_cases, test_y = _read_pair(train_path, train_bytes, test_path, test_bytes, profile.task)
     counts = _REFERENCE_COUNTS.get((profile.version, dataset))
     if not train_cases or not test_cases or (verify_counts and counts and counts != (len(train_cases), len(test_cases))):
         raise ProtocolError('TRAIN/TEST sizes do not match the declared archive')
@@ -104,9 +110,15 @@ def load_archive_split(profile, dataset, root, train: LocalAsset, test: LocalAss
         if any(label is None or str(label).lower() in ('', 'nan', '?') for label in (*train_y, *test_y)):
             raise ProtocolError('Classification targets must be present')
         train_y, test_y = np.asarray(train_y, dtype=str), np.asarray(test_y, dtype=str)
+    for target in (train_y, test_y):
+        target.setflags(write=False)
+    for case in (*train_cases, *test_cases):
+        for channel in case:
+            channel.setflags(write=False)
     identity = json.dumps([profile.version, dataset, train.sha256, test.sha256], separators=(',', ':'))
+    official = dict(profile.verified_splits).get(dataset) == (train.sha256, test.sha256)
     return ArchiveSplit(profile, dataset, train_cases, train_y, test_cases, test_y,
-                        sha256(identity.encode('utf-8')).hexdigest())
+                        sha256(identity.encode('utf-8')).hexdigest(), official)
 
 
 def _euclidean_features(split):
@@ -132,7 +144,7 @@ def _regression_features(cases):
 
 
 def evaluate_archive_reference(split: ArchiveSplit):
-    """Run one fixed model using TRAIN only, then score the unchanged official TEST."""
+    """Run one fixed model using only TRAIN and retain the split's provenance."""
     if split.profile.task == 'ts_classification':
         from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score
         from sklearn.neighbors import KNeighborsClassifier
@@ -155,7 +167,8 @@ def evaluate_archive_reference(split: ArchiveSplit):
             _regression_features(split.test))
         metric_values = {'rmse': np.sqrt(np.mean((split.test_target - prediction) ** 2))}
         model = 'channel_mean_std_ridge@1'
-    return {'release': split.profile.version, 'dataset': split.dataset, 'split_id': split.split_id, 'model': model,
+    return {'release': split.profile.version, 'dataset': split.dataset, 'split_id': split.split_id,
+            'official_split': split.official_split, 'model': model,
             'metrics': {key: float(value) for key, value in metric_values.items()}}
 
 
@@ -170,8 +183,9 @@ def archive_coverage(profile, scope, outcomes):
         for task in profile.tasks
     }
     successful = sum(result['status'] == 'success' for result in tasks.values())
+    official = sum(row['status'] == 'success' and row.get('official_split') is True for row in tasks.values())
     return {'release': profile.version, 'scope': scope, 'expected': len(tasks), 'successful': successful,
-            'full_archive': scope == 'full' and successful == len(tasks), 'tasks': tasks}
+            'full_archive': scope == 'full' and official == len(tasks), 'tasks': tasks}
 
 
 def run_archive_reference(profile, catalog, root, *, scope):
@@ -188,7 +202,11 @@ def run_archive_reference(profile, catalog, root, *, scope):
             if release.version != profile.version or not {'train', 'test'} <= assets.keys():
                 raise ProtocolError('Catalog entry must match the release and name both split roles')
             split = load_archive_split(profile, dataset, root, assets['train'], assets['test'])
-            outcomes[dataset] = {'status': 'success', **evaluate_archive_reference(split)}
+            if not split.official_split:
+                outcomes[dataset] = {'status': 'unverified_split', 'split_id': split.split_id,
+                                     'reason': 'TRAIN/TEST SHA-256 pair not pinned to the published source'}
+            else:
+                outcomes[dataset] = {'status': 'success', **evaluate_archive_reference(split)}
         except AssetUnavailable as error:
             outcomes[dataset] = {'status': 'unavailable', 'reason': str(error)}
         except AssetCorrupt as error:
@@ -203,6 +221,8 @@ def compare_published_accuracy(result, reference):
     keys = ('release', 'dataset', 'split_id')
     if any(not result.get(key) or result[key] != reference.get(key) for key in keys):
         raise ProtocolError('Reference release, dataset and split must match exactly')
+    if result.get('official_split') is not True:
+        raise ProtocolError('Published accuracy requires a verified official split')
     if reference.get('metric') != 'accuracy' or 'accuracy' not in result.get('metrics', {}):
         raise ProtocolError('Published accuracy can only be compared with accuracy')
     return result['metrics']['accuracy'] - float(reference['value'])

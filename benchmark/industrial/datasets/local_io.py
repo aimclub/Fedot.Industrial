@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any
 
@@ -127,8 +128,8 @@ def load_local_supervised_split(
     )
 
 
-def _load_tabular_split(path: Path, *, separator: str) -> tuple[np.ndarray, np.ndarray]:
-    frame = pd.read_csv(path, sep=separator, header=None)
+def _load_tabular_split(path: Path, *, separator: str, content: bytes | None = None) -> tuple[np.ndarray, np.ndarray]:
+    frame = pd.read_csv(path if content is None else BytesIO(content), sep=separator, header=None)
     if frame.shape[1] < 2:
         raise LocalDatasetParseError(f'Tabular split file must contain target and at least one feature: {path}')
     target = frame.iloc[:, 0].to_numpy()
@@ -136,16 +137,17 @@ def _load_tabular_split(path: Path, *, separator: str) -> tuple[np.ndarray, np.n
     return features, target
 
 
-def load_local_ts_cases(path: Path):
+def load_local_ts_cases(path: Path, *, content: bytes | None = None):
     """Read channel-preserving cases without requiring equal record lengths."""
-    return _load_ts_split(path, preserve_channels=True)
+    return _load_ts_split(path, preserve_channels=True, content=content)
 
 
-def _load_ts_split(path: Path, *, preserve_channels=False):
+def _load_ts_split(path: Path, *, preserve_channels=False, content: bytes | None = None):
     last_error: UnicodeDecodeError | None = None
     for encoding in ('utf-8', 'utf-8-sig', 'cp1252', 'latin-1'):
         try:
-            return _load_ts_split_with_encoding(path, encoding=encoding, preserve_channels=preserve_channels)
+            return _load_ts_split_with_encoding(
+                path, encoding=encoding, preserve_channels=preserve_channels, content=content)
         except UnicodeDecodeError as error:
             last_error = error
     if last_error is not None:
@@ -153,7 +155,7 @@ def _load_ts_split(path: Path, *, preserve_channels=False):
     raise LocalDatasetParseError(f'Could not parse .ts file: {path}')
 
 
-def _load_ts_split_with_encoding(path: Path, *, encoding: str, preserve_channels=False):
+def _load_ts_split_with_encoding(path: Path, *, encoding: str, preserve_channels=False, content: bytes | None = None):
     timestamps = False
     target_label = False
     class_label = False
@@ -163,7 +165,8 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str, preserve_channels
     cases: list[tuple[np.ndarray, ...]] = []
     targets: list[Any] = []
 
-    with path.open('r', encoding=encoding) as source:
+    source_stream = path.open('r', encoding=encoding) if content is None else StringIO(content.decode(encoding))
+    with source_stream as source:
         for raw_line in source:
             line = raw_line.strip()
             if not line or line.startswith('#'):

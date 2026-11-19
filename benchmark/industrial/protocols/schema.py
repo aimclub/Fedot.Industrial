@@ -148,7 +148,7 @@ class MembershipSplit:
             raise ProtocolError(f'{path}: train must not be empty and partitions must be disjoint')
         check_partitions(mode, validation, test, path)
         groups = mapping(data.get('groups', {}), f'{path}.groups')
-        if groups:
+        if 'groups' in data:
             if groups.keys() != items:
                 raise ProtocolError(f'{path}.groups must cover exactly the declared items')
             by_group = {}
@@ -160,8 +160,11 @@ class MembershipSplit:
         return cls(train, validation, test, tuple(sorted(groups.items())))
 
     def to_dict(self):
-        return {'kind': self.kind, 'train': list(self.train), 'validation': list(self.validation),
-                'test': list(self.test), 'groups': dict(self.groups)}
+        result = {'kind': self.kind, 'train': list(self.train), 'validation': list(self.validation),
+                  'test': list(self.test)}
+        if self.groups:
+            result['groups'] = dict(self.groups)
+        return result
 
 
 def coordinate(value, path):
@@ -171,7 +174,7 @@ def coordinate(value, path):
         try:
             if re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
                 return date.fromisoformat(value).isoformat()
-            if re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})', value):
+            if re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:[0-5]\d)', value):
                 parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
                 return parsed.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
         except (ValueError, OverflowError) as error:

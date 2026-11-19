@@ -32,14 +32,17 @@ def _prices(ids, calendar, prices, days):
 
 
 def _calendar_days(calendar):
-    if 'd' in calendar:
+    if 'd' in calendar and 'date' not in calendar:
         return calendar
     _columns(calendar, ('date',), 'calendar without day IDs')
     dates = pd.to_datetime(calendar['date'], format='%Y-%m-%d', errors='raise')
     offsets = (dates - pd.Timestamp(FIRST_DAY)).dt.days
     if offsets.isna().any() or set(offsets) != set(range(len(calendar))):
         raise ProtocolError('M5 calendar without day IDs must cover consecutive dates from d_1')
-    return calendar.assign(d='d_' + (offsets + 1).astype(str))
+    days = 'd_' + (offsets + 1).astype(str)
+    if 'd' in calendar and not calendar['d'].equals(days):
+        raise ProtocolError('M5 day IDs do not match calendar dates')
+    return calendar.assign(d=days)
 
 
 def _separate_truth(table, ids, days):
@@ -55,7 +58,7 @@ def _separate_truth(table, ids, days):
 
 @dataclass(frozen=True)
 class M5Window:
-    identifiers: pd.DataFrame
+    row_ids: tuple[tuple[str, ...], ...]
     history: np.ndarray
     truth: np.ndarray | None
     last_dollar_sales: np.ndarray
@@ -64,8 +67,12 @@ class M5Window:
     horizon: tuple[str, ...]
 
     @property
+    def identifiers(self):
+        return pd.DataFrame.from_records(self.row_ids, columns=IDENTIFIERS)
+
+    @property
     def series_keys(self):
-        return tuple(self.identifiers[['item_id', 'store_id']].itertuples(index=False, name=None))
+        return tuple((item, store) for item, _, _, store, _ in self.row_ids)
 
 
 def load_m5_window(release, root, cutoff_day, *, future_prices_known=False):
@@ -112,7 +119,8 @@ def load_m5_window(release, root, cutoff_day, *, future_prices_known=False):
         truth = _separate_truth(pd.read_csv(files['targets']), ids, future)
     else:
         truth = sales.loc[:, list(future)].to_numpy(dtype=float) if available else None
-    return M5Window(ids, history, truth, dollar_sales, calendar.loc[list(future)], future_prices, future)
+    row_ids = tuple(ids.itertuples(index=False, name=None))
+    return M5Window(row_ids, history, truth, dollar_sales, calendar.loc[list(future)], future_prices, future)
 
 
 def _aggregate(values, groups, count):
@@ -123,10 +131,17 @@ def _aggregate(values, groups, count):
 
 def score_wrmsse(window: M5Window, forecast, *, target_days, series_keys):
     """Compute scores in groups; never invent missing scale or dollar weights."""
-    if window.truth is None or tuple(target_days) != window.horizon:
+    protocol = 'm5_wrmsse@1'
+
+    def not_available(reason):
+        return {'protocol': protocol, 'status': 'not_available', 'reason': reason, 'wrmsse': None, 'levels': {}}
+
+    if tuple(target_days) != window.horizon:
         raise ProtocolError('WRMSSE needs published truth on the exact forecast days')
     if tuple(series_keys) != window.series_keys:
         raise ProtocolError('WRMSSE needs forecasts in declared item/store order')
+    if window.truth is None:
+        return not_available('missing_truth')
     forecast = np.asarray(forecast, dtype=float)
     if (forecast.shape != window.truth.shape or not np.isfinite(forecast).all()
             or not np.isfinite(window.truth).all() or np.any(window.truth < 0)):
@@ -134,11 +149,12 @@ def score_wrmsse(window: M5Window, forecast, *, target_days, series_keys):
     weights = window.last_dollar_sales
     weight_total = weights.sum()
     if not np.isfinite(weight_total) or weight_total <= 0:
-        raise ProtocolError('WRMSSE requires positive observed dollar sales weights')
+        return not_available('missing_positive_weights')
+    identifiers = window.identifiers
     scores = {}
     for level in HIERARCHY:
-        groups = (window.identifiers.groupby(list(level), sort=False).ngroup().to_numpy()
-                  if level else np.zeros(len(window.identifiers), dtype=int))
+        groups = (identifiers.groupby(list(level), sort=False).ngroup().to_numpy()
+                  if level else np.zeros(len(identifiers), dtype=int))
         count = int(groups.max()) + 1
         weight = _aggregate(weights, groups, count)
         history = _aggregate(window.history, groups, count)
@@ -150,7 +166,8 @@ def score_wrmsse(window: M5Window, forecast, *, target_days, series_keys):
             increments = np.diff(train[observed[0]:]) if len(observed) else np.array([])
             scale = np.mean(increments ** 2) if len(increments) else 0.0
             if scale <= 0:
-                raise ProtocolError(f'WRMSSE undefined at {" / ".join(level) or "total"}: positive weight, zero scale')
+                return not_available(f'zero_scale: {"/".join(level) or "total"}')
             level_score += (weight[index] / weight_total) * np.sqrt(np.mean(residual[index] ** 2) / scale)
         scores['/'.join(level) or 'total'] = float(level_score)
-    return {'protocol': 'm5_wrmsse@1', 'wrmsse': float(np.mean(tuple(scores.values()))), 'levels': scores}
+    return {'protocol': protocol, 'status': 'success', 'wrmsse': float(np.mean(tuple(scores.values()))),
+            'levels': scores}

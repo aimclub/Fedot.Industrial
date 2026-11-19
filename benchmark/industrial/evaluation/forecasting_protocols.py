@@ -1,5 +1,6 @@
 """Published M4 and Monash scoring rules, separate from legacy metrics."""
 
+from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 
@@ -26,14 +27,11 @@ def vector(values, label):
     return result
 
 
-def seasonality_lag(histories, declared_periods):
-    """Monash §4.3: use the shortest cycle if every series reaches that length."""
-    lengths = tuple(len(history) for history in histories)
+def _shortest_period(declared_periods):
     periods = tuple(integer(period, 'seasonal period') for period in declared_periods)
-    if not lengths or not periods:
-        raise ProtocolError('Monash requires histories and declared seasonal periods')
-    lag = min(periods)
-    return lag if min(lengths) >= lag else 1
+    if not periods:
+        raise ProtocolError('Monash requires declared seasonal periods')
+    return min(periods)
 
 
 def reference_mase(history, truth, prediction, lag):
@@ -129,13 +127,57 @@ def score_m4(group, rows):
             'naive2_source': 'organizers' if all(from_organizers) else 'reproduced'}
 
 
+def _monash_vector(values, label):
+    result = np.asarray(values, dtype=float)
+    if result.ndim != 1 or not result.size or np.isinf(result).any():
+        raise ProtocolError(f'{label} must be a non-empty vector without infinities')
+    return result
+
+
+def _monash_series_mase(row, period):
+    history = _monash_vector(row.history, 'Monash history')
+    history = history[~np.isnan(history)]
+    truth = _monash_vector(row.truth, 'Monash truth')
+    prediction = _monash_vector(row.prediction, 'Monash prediction')
+    observed = ~np.isnan(truth)
+    if prediction.shape != truth.shape or np.isnan(prediction[observed]).any():
+        raise ProtocolError(f'Monash needs forecasts aligned to observed targets for {row.series_id}')
+    if not observed.any():
+        return None, 'no_observed_targets'
+    if len(history) < 2:
+        return None, 'short_history'
+
+    error = float(np.abs(truth[observed] - prediction[observed]).mean())
+    lag = period if len(history) > period else 1
+    scale = float(np.abs(history[lag:] - history[:-lag]).mean())
+    # The reference retries NaN (including 0/0) with lag 1, not infinity.
+    if lag != 1 and scale == 0 and error == 0:
+        lag = 1
+        scale = float(np.abs(np.diff(history)).mean())
+    if scale == 0:
+        return None, 'zero_scale'
+    score = error / scale
+    return (lag, score) if np.isfinite(score) else (None, 'non_finite_score')
+
+
 def score_monash(rows, periods, *, scope: ForecastModelScope):
     rows = _validated_rows(rows)
     scope = ForecastModelScope(scope)
-    lag = seasonality_lag((row.history for row in rows), periods)
-    results = [reference_mase(row.history, row.truth, row.prediction, lag) for row in rows]
-    return {'protocol': 'monash@1', 'scope': scope.value, 'lag': lag, 'series_count': len(rows),
-            'mean_mase': float(np.mean(results)), 'median_mase': float(np.median(results))}
+    period = _shortest_period(periods)
+    lag_counts, excluded, results = Counter(), {}, []
+    for row in rows:
+        lag, outcome = _monash_series_mase(row, period)
+        if lag is None:
+            excluded[row.series_id] = outcome
+        else:
+            lag_counts[lag] += 1
+            results.append(outcome)
+    return {'protocol': 'monash@1', 'scope': scope.value,
+            'lag': next(iter(lag_counts)) if len(lag_counts) == 1 else None,
+            'lag_counts': dict(sorted(lag_counts.items())), 'series_count': len(rows),
+            'scored_series_count': len(results), 'excluded': excluded,
+            'mean_mase': float(np.mean(results)) if results else None,
+            'median_mase': float(np.median(results)) if results else None}
 
 
 def collection_identity(benchmark, collection):

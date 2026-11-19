@@ -37,7 +37,7 @@ def main(argv=None) -> int:
             from ..evaluation.protocol_report import report_from_evidence, write_protocol_report
 
             report = report_from_evidence(plan, read_protocol_json(args.report_evidence))
-            write_protocol_report(report, args.output_dir)
+            write_protocol_report(report, args.output_dir, inputs=(args.manifest, args.report_evidence))
             print(json.dumps({'plan_id': plan.plan_id, 'success': report.successful, 'expected': report.expected}))
             return 0
         if not args.preflight:

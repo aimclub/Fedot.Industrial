@@ -145,6 +145,7 @@ def test_rejects_missing_profile_or_metric_rule(payload):
 @pytest.mark.parametrize('change,reason', [
     ({'validation': ['sample-1']}, 'disjoint'),
     ({'train': ['sample-1', 'sample-1']}, 'duplicates'),
+    ({'groups': {}}, 'exactly'),
     ({'groups': {'sample-1': 'a'}}, 'exactly'),
     ({'groups': {'sample-1': 'a', 'sample-2': 'a'}}, 'multiple partitions'),
     ({'test': ['held-out']}, 'forbids test'),
@@ -201,6 +202,9 @@ def test_forecast_time_offsets_are_canonical(forecast):
     case['origin'] = '2026-01-01T00:00:00Z'
     assert resolve_protocol(forecast) == original
     assert original.profiles[0].protocol.split.cases[0].origin.endswith('Z')
+    case['origin'] = '2026-01-01T01:00:00+00:60'
+    with pytest.raises(ProtocolError, match='timestamp'):
+        resolve_protocol(forecast)
 
 
 def test_rejects_preprocessing_fitted_on_test(payload):
@@ -268,7 +272,19 @@ def test_cli_rejects_duplicate_json_keys_without_resolving(tmp_path, capsys):
     manifest = tmp_path / 'duplicate.json'
     manifest.write_text('{"version":"first","version":"second"}', encoding='utf-8')
     assert main([str(manifest)]) == 2
-    assert json.loads(capsys.readouterr().out)['status'] == 'incompatible'
+    result = json.loads(capsys.readouterr().out)
+    assert result['status'] == 'incompatible'
+    assert 'duplicate object keys' in result['detail']
+
+
+def test_cli_reports_excessively_nested_json_as_incompatible(tmp_path, capsys):
+    from benchmark.industrial.protocols.__main__ import main
+
+    manifest = tmp_path / 'nested.json'
+    manifest.write_text('[' * 2000 + '0' + ']' * 2000, encoding='utf-8')
+    assert main([str(manifest)]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result['status'] == 'incompatible' and 'nesting depth' in result['detail']
 
 
 def test_roast_is_optional_for_legacy_and_error_is_actionable():

@@ -93,6 +93,8 @@ def verify_m5(root, assets):
         raise ValueError('M5 requires the complete evaluation submission')
     forecast = submission.loc[keys, [f'F{k}' for k in range(1, 29)]].to_numpy(dtype=float)
     observed = score_wrmsse(window, forecast, target_days=window.horizon, series_keys=window.series_keys)
+    if observed['status'] != 'success':
+        raise ValueError(f"M5 reference is not available: {observed['reason']}")
     published = _m5_published_scores(root / 'm5-scores.xlsx')
     reference, weights, revenue = _m5_reference(window, forecast, pd.read_csv(root / 'm5/weights_evaluation.csv'))
     actual = list(observed['levels'].values())

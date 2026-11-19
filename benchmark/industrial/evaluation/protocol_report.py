@@ -60,7 +60,7 @@ def _evaluation_items(profile):
 
 
 def _record_index(plan, records, allowed, metric):
-    indexed, seen = {}, {}
+    indexed, seen, origins = {}, {}, {}
     for record in records:
         if record.metric_id != metric:
             raise ProtocolError('A report must select exactly one metric; select metrics before reporting')
@@ -75,6 +75,8 @@ def _record_index(plan, records, allowed, metric):
         key = (record.model_id, record.dataset_id, record.item_id, repeat)
         if key not in allowed:
             raise ProtocolError('Record falls outside the declared coverage grid')
+        if origins.setdefault(key, record.record_id) != record.record_id:
+            raise ProtocolError('Conflicting metric records for the same evaluation cell')
         if record.status.value == 'success' and record.value is None:
             raise ProtocolError('Successful metric records need values')
         artifact = meta.get('artifact_ref')
@@ -85,8 +87,7 @@ def _record_index(plan, records, allowed, metric):
         if record.status.value != 'success' and record.value is not None:
             raise ProtocolError('Unsuccessful metric records must not carry a score')
         row = ReportRow(*key, record.status.value, record.value, artifact, str(meta.get('reason', '')))
-        if indexed.setdefault(key, row) != row:
-            raise ProtocolError('Conflicting metric records for the same evaluation cell')
+        indexed[key] = row
     return indexed
 
 
@@ -193,9 +194,15 @@ def render_html_table(headers, table):
     return f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
 
 
-def write_protocol_report(report: ProtocolReport, root):
+def write_protocol_report(report: ProtocolReport, root, *, inputs=()):
     """Render CSV and HTML from the same rows; no evaluator is invoked."""
     root = Path(root)
+    inputs = tuple(map(Path, inputs))
+    for target in (root / name for name in ('metrics.csv', 'summary.json', 'index.html')):
+        for source in inputs:
+            if (target.resolve() == source.resolve()
+                    or (target.exists() and source.exists() and target.samefile(source))):
+                raise ProtocolError(f'Report output would overwrite an input: {target.name}')
     root.mkdir(parents=True, exist_ok=True)
     table = tuple(tuple(getattr(row, column) for column in _HEADERS) for row in report.rows)
     write_csv_table(root / 'metrics.csv', _HEADERS, table)

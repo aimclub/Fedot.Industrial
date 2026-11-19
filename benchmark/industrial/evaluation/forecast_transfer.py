@@ -39,6 +39,7 @@ def evaluate_zero_shot(predict, window: LTSFWindow, *, training: TrainingSources
     truth = window.truth
     if not np.isfinite(truth).all() or not np.isfinite(window.inputs.history[-1]).all():
         return {'status': 'not_available', 'reason': 'Missing observed target or forecast truth'}
+    naive_mae = float(np.abs(truth - window.inputs.history[-1]).mean())
     started = perf_counter()
     forecast = np.asarray(predict(window.inputs), dtype=float)
     elapsed = perf_counter() - started
@@ -50,7 +51,7 @@ def evaluate_zero_shot(predict, window: LTSFWindow, *, training: TrainingSources
             'origin': window.inputs.timestamps[-1] if dates_public else None,
             'horizon': len(truth), 'frequency': frequency, 'prediction_seconds': elapsed,
             'mae': float(np.abs(truth - forecast).mean()),
-            'last_value_mae': float(np.abs(truth - window.inputs.history[-1]).mean())}
+            'last_value_mae': naive_mae}
 
 
 def _check_frequency(table, frequency):

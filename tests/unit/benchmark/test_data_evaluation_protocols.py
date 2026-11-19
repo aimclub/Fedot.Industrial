@@ -20,7 +20,7 @@ from benchmark.industrial.evaluation.detection_protocols import (
 from benchmark.industrial.evaluation.forecast_transfer import TrainingSources, evaluate_zero_shot, load_time_windows
 from benchmark.industrial.evaluation.forecasting_protocols import (
     ForecastEvidence, ForecastModelScope, collection_identity, m4_naive2, reference_mase,
-    reference_smape, score_m4, score_monash, seasonality_lag, unique_forecast_collections,
+    reference_smape, score_m4, score_monash, unique_forecast_collections,
 )
 from benchmark.industrial.evaluation.protocol_report import pairwise_units, report_from_evidence
 from benchmark.industrial.protocols import ProtocolError, resolve_protocol
@@ -57,12 +57,43 @@ def test_forecast_scale_and_seasonal_controls():
         reference_mase([2, 2, 2], [3], [2], 1)
     with pytest.raises(ProtocolError, match='longer'):
         reference_mase([2], [3], [2], 1)
-    assert seasonality_lag(([0] * 8, [0] * 10), (7, 365)) == 7
-    assert seasonality_lag(([0] * 6, [0] * 10), (7, 365)) == 1
     assert score_monash([_forecast('a', 2, 10, 8, 9)], (7, 365), scope=ForecastModelScope.LOCAL)['mean_mase'] == 1
     assert collection_identity('monash', 'M4_Daily_dataset') == collection_identity('m4', 'Daily')
     with pytest.raises(ProtocolError, match='aliases'):
         unique_forecast_collections((('monash', 'M4_Daily_dataset'), ('m4', 'Daily')))
+
+
+@pytest.mark.parametrize('history', [[0, 2], [0, 2, 4], [0, None, 2, 4]])
+def test_monash_retries_short_series_individually(history):
+    long = replace(_forecast('long', 1, 5, 2, 1), history=[0, 1, 2, 3, 4])
+    short = replace(long, series_id='short', history=history)
+    result = score_monash([short, long], (4, 3), scope=ForecastModelScope.LOCAL)
+    assert result['mean_mase'] == 1.25
+    assert result['lag'] is None and result['lag_counts'] == {1: 1, 3: 1}
+    assert result['scored_series_count'] == 2
+    assert score_monash([long, short], (3,), scope=ForecastModelScope.LOCAL) == result
+
+
+def test_monash_excludes_undefined_mase_without_hiding_coverage():
+    row = _forecast('missing', 1, 5, 2, 1)
+    missing = replace(row, history=[None, 1])
+    periodic = replace(row, series_id='periodic', history=[0, 1, 0, 1])
+    perfect = replace(periodic, series_id='perfect', prediction=periodic.truth)
+    result = score_monash([missing, periodic, perfect], (2,), scope=ForecastModelScope.LOCAL)
+    assert result['series_count'] == 3 and result['scored_series_count'] == 1
+    assert result['excluded'] == {'missing': 'short_history', 'periodic': 'zero_scale'}
+    assert result['mean_mase'] == 0 and result['lag'] == 1
+    empty = score_monash([missing], (2,), scope=ForecastModelScope.LOCAL)
+    assert empty['mean_mase'] is None and empty['scored_series_count'] == 0
+
+
+def test_monash_drops_unobserved_targets_by_position_only():
+    row = _forecast('series', 1, 5, 2, 1)
+    missing = replace(row, truth=[5, None] * 3, prediction=[2, 100] * 3)
+    assert score_monash([missing], (1,), scope=ForecastModelScope.LOCAL)['mean_mase'] == 3
+    bad = replace(missing, prediction=[None, 2] * 3)
+    with pytest.raises(ProtocolError, match='observed targets'):
+        score_monash([bad], (1,), scope=ForecastModelScope.LOCAL)
 
 
 def test_detection_without_point_adjustment_and_with_event_delay():
@@ -255,6 +286,16 @@ def test_synthetic_components_not_replaced_by_quality_of_sum():
         component_errors(parts, recovered)
 
 
+def test_decomposition_example_reports_separate_reconstruction_and_forecast(capsys):
+    from benchmark.industrial.examples.verify_decomposition import main as run_example
+
+    run_example([])
+    report = json.loads(capsys.readouterr().out)
+    assert report['seed'] == 43 and report['origin'] + 1 + report['horizon'] == report['length']
+    assert set(report['reconstruction_on_full_synthetic_series']) == {'trend', 'seasonal', 'residual'}
+    assert report['forecast_from_train_prefix']['model'] == 'seasonal_repeat'
+
+
 _EXAMPLE = Path(__file__).resolve().parents[3] / 'benchmark/industrial/examples/protocol_smoke.json'
 
 
@@ -323,3 +364,24 @@ def test_offline_report_saved_replay_and_coverage(task, metric, tmp_path):
     mismatched = {**envelope['metrics'][0], 'metadata': {**envelope['metrics'][0]['metadata'], 'plan_id': 'other'}}
     with pytest.raises(ProtocolError, match='another plan'):
         report_from_evidence(plan, {**envelope, 'metrics': [mismatched]})
+
+
+def test_native_report_rejects_distinct_records_with_same_displayed_values():
+    _, plan, envelope = _saved_report('ts_classification', 'accuracy')
+    first = envelope['metrics'][0]
+    conflicting = {**first, 'record_id': 'different-id', 'run_id': 'different-run'}
+    with pytest.raises(ProtocolError, match='Conflicting metric records'):
+        report_from_evidence(plan, {**envelope, 'metrics': [first, conflicting]})
+
+
+def test_report_output_cannot_overwrite_evidence(tmp_path, capsys):
+    manifest, _, envelope = _saved_report('ts_classification', 'accuracy')
+    manifest_path = tmp_path / 'manifest.json'
+    evidence_path = tmp_path / 'summary.json'
+    manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+    original = json.dumps(envelope)
+    evidence_path.write_text(original, encoding='utf-8')
+    assert main([str(manifest_path), '--report-evidence', str(evidence_path), '--output-dir', str(tmp_path)]) == 2
+    assert 'overwrite an input' in json.loads(capsys.readouterr().out)['detail']
+    assert evidence_path.read_text(encoding='utf-8') == original
+    assert not (tmp_path / 'metrics.csv').exists()

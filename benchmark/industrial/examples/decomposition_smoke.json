@@ -1,0 +1,9 @@
+{
+  "version": "synthetic_decomposition@1",
+  "length": 96,
+  "horizon": 12,
+  "period": 12,
+  "train_seed": 42,
+  "evaluation_seed": 43,
+  "noise": 0.1
+}
