@@ -324,7 +324,7 @@ def test_decomposition_example_reports_separate_reconstruction_and_forecast(caps
 _EXAMPLE = Path(__file__).resolve().parents[3] / 'benchmark/industrial/examples/protocol_smoke.json'
 
 
-def _saved_report(task, metric_name):
+def _saved_report(task, metric_name, *, mode='official'):
     records = pytest.importorskip('roast.core.records')
     manifest = json.loads(_EXAMPLE.read_text(encoding='utf-8'))
     suite = manifest['suite']
@@ -335,7 +335,7 @@ def _saved_report(task, metric_name):
     suite['run']['primary_metric'] = metric_name
     profile = manifest['profiles']['toy']
     protocol = profile['protocol']
-    protocol['mode'] = 'official'
+    protocol['mode'] = mode
     protocol['metrics'] = {metric_name: {'direction': 'minimize' if metric_name == 'rmse' else 'maximize',
                                          'version': '1', 'aggregation': 'mean_by_unit'}}
     protocol['split'] = {'kind': 'membership', 'train': ['i1'], 'validation': [], 'test': ['evaluation']}
@@ -397,6 +397,27 @@ def test_native_report_rejects_distinct_records_with_same_displayed_values():
     conflicting = {**first, 'record_id': 'different-id', 'run_id': 'different-run'}
     with pytest.raises(ProtocolError, match='Conflicting metric records'):
         report_from_evidence(plan, {**envelope, 'metrics': [first, conflicting]})
+
+
+@pytest.mark.parametrize(('task', 'metric', 'item'), [
+    ('ts_classification', 'accuracy', 'i1'),
+    ('forecasting', 'rmse', 'unplanned-window'),
+])
+def test_native_report_rejects_units_outside_the_evaluation_partition(task, metric, item):
+    _, plan, envelope = _saved_report(task, metric)
+    envelope['items_by_dataset'] = {'toy': [item]}
+    envelope['metrics'] = [{**record, 'item_id': item} for record in envelope['metrics']]
+    with pytest.raises(ProtocolError, match='outside the evaluation partition'):
+        report_from_evidence(plan, envelope)
+
+
+def test_research_report_can_cover_a_declared_test_partition_without_ranking():
+    _, plan, envelope = _saved_report('ts_classification', 'accuracy', mode='research')
+    report = report_from_evidence(plan, envelope)
+    assert report.successful == 2
+    assert report.context['all_planned_units']
+    assert report.context['profiles']['toy']['expected_units'] == 1
+    assert not report.ranked
 
 
 def test_report_output_cannot_overwrite_evidence(tmp_path, capsys):

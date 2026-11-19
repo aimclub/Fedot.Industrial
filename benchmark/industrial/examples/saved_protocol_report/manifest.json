@@ -76,6 +76,7 @@
       "task": "forecasting",
       "metric": "mae",
       "source": "time",
+      "dataset_release": "683bb21b470f5a26586e1ab2295f0a2a1529ef0f",
       "datasets": ["time/commodity_production/paper_pulp"],
       "models": ["chronos-bolt-tiny", "last_value@1"],
       "units": [

@@ -53,10 +53,15 @@ def _metric_rule(plan, metric):
 def _evaluation_items(profile):
     protocol = profile.protocol
     split = protocol.split
-    selected = Partition.TEST if protocol.mode is EvaluationMode.OFFICIAL else Partition.VALIDATION
+    if protocol.mode is EvaluationMode.OFFICIAL:
+        selected = (Partition.TEST,)
+    elif protocol.mode is EvaluationMode.RESEARCH:
+        selected = (Partition.VALIDATION, Partition.TEST)
+    else:
+        selected = (Partition.VALIDATION,)
     if isinstance(split, MembershipSplit):
-        return getattr(split, selected.value)
-    return tuple(case.item_id for case in split.cases if case.partition is selected)
+        return frozenset(item for partition in selected for item in getattr(split, partition.value))
+    return frozenset(case.item_id for case in split.cases if case.partition in selected)
 
 
 def _record_index(plan, records, allowed, metric):
@@ -96,11 +101,15 @@ def build_protocol_report(plan, records, *, items_by_dataset, repeat_count):
     integer(repeat_count, 'repeat_count')
     metric = plan.suite.run.primary_metric
     rule = _metric_rule(plan, metric)
-    if set(items_by_dataset) != {profile.dataset_id for profile in plan.profiles}:
+    evaluation = {profile.dataset_id: _evaluation_items(profile) for profile in plan.profiles}
+    if set(items_by_dataset) != evaluation.keys():
         raise ProtocolError('Report coverage must describe all datasets in the plan')
     units = {key: unique_strings(items, f'{key} report units') for key, items in items_by_dataset.items()}
     if any(not items for items in units.values()):
         raise ProtocolError('Each report dataset must declare evaluation units')
+    for dataset, items in units.items():
+        if foreign := set(items) - evaluation[dataset]:
+            raise ProtocolError(f'{dataset}: report units outside the evaluation partition: {sorted(foreign)}')
     allowed = {(spec.model_id, dataset, item, repeat)
                for spec in plan.suite.models for dataset, items in units.items()
                for item in items for repeat in range(repeat_count)}
@@ -109,7 +118,7 @@ def build_protocol_report(plan, records, *, items_by_dataset, repeat_count):
                  for key in sorted(allowed))
     ranked = ()
     modes = {profile.protocol.mode for profile in plan.profiles}
-    full_coverage = all(set(units[profile.dataset_id]) == set(_evaluation_items(profile)) for profile in plan.profiles)
+    full_coverage = all(set(items) == evaluation[dataset] for dataset, items in units.items())
     # Only the explicit mean-of-units rule produces a cross-dataset scalar here.
     if full_coverage and modes == {EvaluationMode.OFFICIAL} and rule.aggregation == 'mean_by_unit' and all(
         row.status == 'success' for row in rows
@@ -128,7 +137,7 @@ def build_protocol_report(plan, records, *, items_by_dataset, repeat_count):
                    'release': profile.release.version, 'sha256': profile.release.sha256,
                    'protocol': profile.protocol.name, 'version': profile.protocol.version,
                    'mode': profile.protocol.mode.value, 'split_kind': profile.protocol.split.kind,
-                   'expected_units': len(_evaluation_items(profile)),
+                   'expected_units': len(evaluation[profile.dataset_id]),
                } for profile in plan.profiles}}
     return ProtocolReport(plan.comparison_key, plan.plan_id, metric, repeat_count, rows, ranked, context)
 

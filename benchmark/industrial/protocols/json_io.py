@@ -17,9 +17,12 @@ def _invalid_constant(value):
     raise ProtocolError(f'Non-finite JSON constant: {value}')
 
 
+def parse_protocol_json(text):
+    try:
+        return json.loads(text, object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
+    except RecursionError as error:
+        raise ProtocolError('JSON input exceeds the supported nesting depth') from error
+
+
 def read_protocol_json(path):
-    with Path(path).open(encoding='utf-8') as handle:
-        try:
-            return json.load(handle, object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
-        except RecursionError as error:
-            raise ProtocolError('JSON input exceeds the supported nesting depth') from error
+    return parse_protocol_json(Path(path).read_text(encoding='utf-8'))

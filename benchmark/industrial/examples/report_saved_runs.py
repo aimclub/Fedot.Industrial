@@ -11,8 +11,8 @@ import math
 from pathlib import Path
 
 from benchmark.industrial.evaluation.protocol_report import render_html_table, write_csv_table
-from benchmark.industrial.protocols.json_io import read_protocol_json
-from benchmark.industrial.protocols.schema import ProtocolError
+from benchmark.industrial.protocols.json_io import parse_protocol_json, read_protocol_json
+from benchmark.industrial.protocols.schema import ProtocolError, mapping, string
 
 
 _ROOT = Path(__file__).with_name('saved_protocol_report')
@@ -44,14 +44,25 @@ class Outcome:
 
 def _read_receipt(root, source, *, csv_file=False):
     path = root / source['file']
-    if not path.exists():
-        return () if csv_file else {}
-    data = path.read_bytes()
+    try:
+        data = path.read_bytes()
+    except FileNotFoundError:
+        return () if csv_file else None
     if sha256(data).hexdigest() != source['sha256']:
         raise ProtocolError(f'Saved receipt checksum differs: {path.name}')
     if csv_file:
         return tuple(csv.DictReader(StringIO(data.decode('utf-8-sig'), newline='')))
-    return read_protocol_json(path)
+    return mapping(parse_protocol_json(data.decode('utf-8')), f'Saved receipt {path.name}')
+
+
+def _stop_reasons(rows):
+    indexed = {}
+    for row in rows:
+        attempt = string(row.get('index'), 'B/D attempt index')
+        reason = string(row.get('cause'), 'B/D stop reason')
+        if indexed.setdefault(attempt, reason) != reason:
+            raise ProtocolError(f'Conflicting stop reasons for B/D attempt {attempt}')
+    return indexed
 
 
 def _index(items):
@@ -83,6 +94,11 @@ def _search_outcomes(spec, attempts, stops):
 
 
 def _time_outcomes(spec, receipt):
+    if receipt is None:
+        return
+    release = string(spec.get('dataset_release'), 'TIME dataset release')
+    if receipt.get('dataset_release') != release:
+        raise ProtocolError('TIME receipt does not match the declared dataset release')
     for window in receipt.get('windows', ()):
         if (window['status'] != 'success' or window['mode'] != 'zero_shot'
                 or window['horizon'] != spec['horizon'] or window['model_release'] != spec['model_release']):
@@ -93,7 +109,7 @@ def _time_outcomes(spec, receipt):
 
 
 def _nab_outcomes(spec, receipt):
-    if receipt:
+    if receipt is not None:
         result = receipt['nab']
         if result['revision'] != spec['dataset_release']:
             raise ProtocolError('NAB receipt does not match the declared release')
@@ -171,7 +187,7 @@ def write_saved_run_report(source_dir, output_dir):
         raise ProtocolError('Expected versioned public DATA-10 aggregate receipts')
     sources = manifest['sources']
     attempts = _read_receipt(root, sources['bd'], csv_file=True)
-    stops = {row['index']: row['cause'] for row in _read_receipt(root, sources['bd_stops'], csv_file=True)}
+    stops = _stop_reasons(_read_receipt(root, sources['bd_stops'], csv_file=True))
     time = _read_receipt(root, sources['time'])
     nab = _read_receipt(root, sources['nab'])
     normalize = {'bd': lambda spec: _search_outcomes(spec, attempts, stops),
