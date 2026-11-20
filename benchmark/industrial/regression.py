@@ -367,6 +367,8 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                         test_y = np.asarray(record.test_target, dtype=float)
                         if getattr(model, 'uses_panel', False):
                             from .models.tser import restore_tser_panel
+                            if not record.metadata.get("uniform_channel_layout", True):
+                                raise BenchmarkRegressionError("TSER model needs equal-length and aligned channels.")
                             dimensions = int(record.metadata.get("dimensions", 1))
                             train_x = restore_tser_panel(train_x, dimensions)
                             test_x = restore_tser_panel(test_x, dimensions)

@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from benchmark.industrial.core import ModelSpec, RunStatus
+from benchmark.industrial.datasets.local_io import load_local_supervised_split
 from benchmark.industrial.errors import BenchmarkRegressionError
 from benchmark.industrial.models.regression import build_regression_model
 from benchmark.industrial.models.tser import restore_tser_panel
@@ -19,6 +20,18 @@ def test_panel_metadata_and_flat_euclidean_control():
     assert compute_regression_metric("rmse", target, model.predict(data.test_features)) == 0.
     with pytest.raises(BenchmarkRegressionError, match="channel"):
         restore_tser_panel(data.train_features, 5)
+
+
+def test_ts_parser_detects_ragged_channels_in_flat_rows(tmp_path):
+    train = tmp_path / "Toy_TRAIN.ts"
+    control = tmp_path / "Toy_TEST.ts"
+    header = "@problemName Toy\n@timestamps false\n@targetlabel true\n@data\n"
+    train.write_text(header + "1,2:3,4:0.1\n", encoding="utf-8")
+    control.write_text(header + "1:2,3,4:0.2\n", encoding="utf-8")
+    data = load_local_supervised_split("Toy", train_path=train, test_path=control)
+    assert data.train_features.shape == data.test_features.shape == (1, 4)
+    assert data.metadata["dimensions"] == 2
+    assert not data.metadata["uniform_channel_layout"]
 
 
 @pytest.mark.parametrize("adapter,params", [

@@ -98,6 +98,11 @@ def load_local_supervised_split(
     elif suffix == '.ts':
         train_features, train_target, parser_metadata = _load_ts_split(train_file)
         test_features, test_target, test_metadata = _load_ts_split(test_file)
+        parser_metadata['uniform_channel_layout'] = (
+            parser_metadata['uniform_channel_layout'] and test_metadata['uniform_channel_layout']
+            and parser_metadata['dimensions'] == test_metadata['dimensions']
+            and train_features.shape[1] == test_features.shape[1]
+        )
         parser_metadata.update(
             {
                 key: value
@@ -156,6 +161,7 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
     metadata: dict[str, Any] = {}
     data_started = False
     case_vectors: list[np.ndarray] = []
+    channel_layouts: set[tuple[int, ...]] = set()
     targets: list[Any] = []
 
     with path.open('r', encoding=encoding) as source:
@@ -207,15 +213,18 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
                 )
 
             flattened: list[float] = []
+            channel_lengths = []
             for dimension_part in dimension_parts:
                 cleaned = dimension_part.strip()
-                if not cleaned:
-                    continue
+                previous = len(flattened)
                 if timestamps:
-                    flattened.extend(_parse_timestamped_dimension_values(cleaned, path=path))
+                    if cleaned:
+                        flattened.extend(_parse_timestamped_dimension_values(cleaned, path=path))
                 else:
                     flattened.extend(float(token) for token in cleaned.split(',') if token)
+                channel_lengths.append(len(flattened) - previous)
 
+            channel_layouts.add(tuple(channel_lengths))
             case_vectors.append(np.asarray(flattened, dtype=float))
             if target_label:
                 targets.append(float(target_part))
@@ -231,7 +240,9 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
             f'Variable-length .ts records are not supported by the flat Industrial benchmark adapters yet: {path}'
         )
 
-    metadata['dimensions'] = dimensions or 1
+    layout = next(iter(channel_layouts)) if len(channel_layouts) == 1 else ()
+    metadata['dimensions'] = dimensions or len(layout) or 1
+    metadata['uniform_channel_layout'] = bool(layout and layout[0] > 0 and len(set(layout)) == 1)
     metadata['timestamps'] = bool(timestamps)
     metadata['target_type'] = 'regression' if target_label else 'classification'
     features = np.vstack(case_vectors)
