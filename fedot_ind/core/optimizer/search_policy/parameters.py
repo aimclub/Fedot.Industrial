@@ -15,7 +15,7 @@ class BoundedParameterMutation:
 
     def _choices(self, index, name, current):
         from fedot_ind.core.tuning.generator_catalog import parameter_is_active
-        from fedot_ind.core.models.ts_forecasting.composite import TEMPLATES, template_spec
+        from fedot_ind.core.models.composite_templates import TEMPLATES, template_spec
         template = TEMPLATES.get(name)
         if template is not None:
             current = template.flatten(current)
@@ -53,7 +53,7 @@ class BoundedParameterMutation:
         return space.normalize(values) if space is not None else values
 
     def _updated(self, name, current, parameter, value):
-        from fedot_ind.core.models.ts_forecasting.composite import TEMPLATES
+        from fedot_ind.core.models.composite_templates import TEMPLATES
         template = TEMPLATES.get(name)
         if template is not None:
             current = template.flatten(current)

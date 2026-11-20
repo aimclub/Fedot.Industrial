@@ -107,7 +107,7 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
     optional.update(search_parameters.get(declaration.name, {}))
     optional.update(_pdl_parameter_names(declaration.name, search_parameters))
     if "opt_in_composite" in declaration.tags:
-        from fedot_ind.core.models.ts_forecasting.composite import TEMPLATES
+        from fedot_ind.core.models.composite_templates import TEMPLATES
         template = TEMPLATES[declaration.name]
         optional.update(template.roles)
         optional.update(template.parameters)

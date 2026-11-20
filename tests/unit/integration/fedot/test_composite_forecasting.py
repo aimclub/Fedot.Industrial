@@ -4,10 +4,12 @@ import numpy as np
 import pytest
 
 from fedot import create_data
+from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
-from fedot_ind.core.models.ts_forecasting.composite import ARINO, HFCM, template_spec
+from fedot_ind.core.models.composite_templates import ARINO, CWT, HFCM, MLSTM, PAGE, template_spec
 from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 from fedot_ind.integration.fedot.extensions.discovery import default_industrial_available_operations
@@ -73,3 +75,56 @@ def test_native_crossover_and_parameter_mutation_preserve_atomic_nodes():
         assert all(len(item.nodes) == 1 and verifier.verify(item) for item in swapped)
         assert template_spec(HFCM.operation, swapped[1].root_node.parameters).alpha == .5
         assert template_spec(ARINO.operation, swapped[0].root_node.parameters).seasonal_period == 6
+
+
+@pytest.mark.parametrize("template,horizon,settings", [
+    (HFCM, 3, {"hfcm.alpha": .2}),
+    (ARINO, 3, {"dwt.levels": 2, "seasonal.period": 8}),
+    (CWT, 3, {"cwt.window": 12, "encoders.width": 4, "training.epochs": 1}),
+    (PAGE, 1, {"page.length": 9, "projection.rank": 2, "training.epochs": 1}),
+])
+def test_round_trip_on_disk_preserves_forecast_and_template(template, horizon, settings, tmp_path):
+    series = np.asarray(np.sin(np.arange(80.) / 4), dtype=np.float32)
+    forecast = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(horizon))
+    with industrial_extension_scope():
+        verifier = IndustrialGraphVerifier(adapter=None, task_type="ts_forecasting")
+        model = PipelineBuilder().add_node(template.operation, params=settings).build()
+        assert verifier.verify(model)
+        data = create_data(series, target=series, task=forecast, ts_forecast_horizon=horizon,
+                           without_target=True, use_cache=False)
+        ready = replace(data, target=None, state="predict")
+        model.fit(data)
+        before = np.asarray(model.predict(ready).predict)
+        path = tmp_path / "graph.json"
+        model.save(str(path), create_subdir=False)
+        loaded = Pipeline().load(str(path))
+        assert len(loaded.nodes) == 1 and verifier.verify(loaded)
+        assert template.describe(loaded.root_node.parameters) == template.describe(model.root_node.parameters)
+        assert before.size == horizon and np.isfinite(before).all()
+        np.testing.assert_array_equal(np.asarray(loaded.predict(ready).predict), before)
+
+
+@pytest.mark.parametrize("data_type", [DataTypesEnum.image, DataTypesEnum.multi_ts])
+def test_mlstm_opt_in_graph_fits_panel_and_ignores_unobserved_suffix(data_type, tmp_path):
+    rng = np.random.default_rng(10)
+    labels = np.repeat((0, 1), 5)
+    x = rng.normal(size=(len(labels), 2, 12)).astype(np.float32)
+    assert MLSTM.operation not in default_industrial_available_operations("classification")
+    settings = {"prefix.cutoff": 6, "encoders.width": 4, "training.epochs": 1}
+    with industrial_extension_scope():
+        task = Task(TaskTypesEnum.classification)
+        model = PipelineBuilder().add_node(MLSTM.operation, params=settings).build()
+        verifier = IndustrialGraphVerifier(adapter=None, task_type="classification", input_data_type=data_type)
+        assert verifier.verify(model)
+        model.fit(create_data(x, target=labels, task=task, data_type=data_type, use_cache=False))
+        clean = create_data(x, task=task, data_type=data_type, use_cache=False)
+        changed = x.copy()
+        changed[..., 6:] += 1e3
+        cut = create_data(changed, task=task, data_type=data_type, use_cache=False)
+        expected = np.asarray(model.predict(clean, output_mode="full_probs").predict)
+        assert expected.shape == (len(labels), 2)
+        np.testing.assert_array_equal(np.asarray(model.predict(cut, output_mode="full_probs").predict), expected)
+        path = tmp_path / "mlstm.json"
+        model.save(str(path), create_subdir=False)
+        loaded = Pipeline().load(str(path))
+        np.testing.assert_array_equal(np.asarray(loaded.predict(clean, output_mode="full_probs").predict), expected)

@@ -192,6 +192,47 @@
       "description": "Opt-in shared DWT with independent, recombined forecast branches."
     },
     {
+      "name": "cwt_attention_forecaster",
+      "kind": "model",
+      "factory": "fedot_ind.core.models.ts_forecasting.composite:WaveletAttentionImplementation",
+      "constructor_policy": "mapping",
+      "tasks": ["ts_forecasting"],
+      "data_types": ["ts"],
+      "output_data_type": "tabular",
+      "tags": ["forecasting", "neural", "opt_in_composite"],
+      "problems": ["ts_forecasting"],
+      "allowed_positions": ["root"],
+      "description": "Opt-in terminal point forecast from a jointly trained CWT/CNN and recurrent block."
+    },
+    {
+      "name": "page_projection_forecaster",
+      "kind": "model",
+      "factory": "fedot_ind.core.models.ts_forecasting.composite:PageProjectionImplementation",
+      "constructor_policy": "mapping",
+      "tasks": ["ts_forecasting"],
+      "data_types": ["ts"],
+      "output_data_type": "tabular",
+      "tags": ["forecasting", "neural", "opt_in_composite"],
+      "problems": ["ts_forecasting"],
+      "allowed_positions": ["root"],
+      "description": "Opt-in one-step Page projection with a residual from observed history."
+    },
+    {
+      "name": "mlstm_fcn_classifier",
+      "kind": "model",
+      "factory": "fedot_ind.core.models.early_classification.composite:MLSTMFCNImplementation",
+      "constructor_policy": "mapping",
+      "runtime_interface": "array",
+      "probability_policy": "predict_proba",
+      "tasks": ["classification"],
+      "data_types": ["multi_ts", "image"],
+      "output_data_type": "tabular",
+      "tags": ["classification", "neural", "opt_in_composite"],
+      "problems": ["classification"],
+      "allowed_positions": ["root"],
+      "description": "Opt-in fixed-prefix recurrent and convolutional classifier on (record, channel, time) data."
+    },
+    {
       "name": "mssa_forecaster",
       "kind": "model",
       "factory": "fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster:MSSAForecasterImplementation",

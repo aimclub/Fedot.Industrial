@@ -99,7 +99,7 @@ def capabilities_from_runtime_node(
     declared = (capability_index or {}).get(operation_name)
     if declared is not None:
         if "opt_in_composite" in declared.tags:
-            from fedot_ind.core.models.ts_forecasting.composite import template_spec
+            from fedot_ind.core.models.composite_templates import template_spec
             params = getattr(node, "parameters", None)
             if params is None:
                 params = getattr(node, "content", {}).get("params", {})

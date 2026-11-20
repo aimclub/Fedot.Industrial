@@ -22,14 +22,21 @@ class WaveletAttentionSpec:
     width: int = 12
     task: str = "point"
     attention: bool = True
+    branch: str = "joint"
+    cnn_width: int | None = None
+    lstm_width: int | None = None
 
     def __post_init__(self):
         positive_count(self.window, "window")
         positive_count(self.horizon, "horizon")
         positive_count(self.width, "width")
+        for key in ("cnn_width", "lstm_width"):
+            if getattr(self, key) is not None:
+                positive_count(getattr(self, key), key)
         scales = np.asarray(self.scales, dtype=float)
         if (self.window < 2 or scales.ndim != 1 or not len(scales) or not np.isfinite(scales).all()
-                or np.any(scales <= 0) or np.any(np.diff(scales) <= 0) or self.task not in {"point", "direction"}):
+                or np.any(scales <= 0) or np.any(np.diff(scales) <= 0)
+                or self.task not in {"point", "direction"} or self.branch not in {"joint", "cnn", "lstm"}):
             raise ValueError("Invalid observation window, increasing CWT scales or output task.")
 
 
@@ -37,28 +44,40 @@ def cwt_view(windows, spec):
     x = np.asarray(windows, dtype=np.float32)
     if x.ndim != 2 or x.shape[1] != spec.window or not len(x) or not np.isfinite(x).all():
         raise ValueError("CWT needs finite (batch, window) input.")
+    raw = torch.from_numpy(x[:, :, None].copy())
+    if spec.branch == "lstm":
+        return raw, torch.empty((len(x), 0))
     coefficients, _ = _wavelet().cwt(x, spec.scales, spec.wavelet, axis=-1)
     maps = np.stack((coefficients.real, coefficients.imag), axis=1).transpose(2, 1, 0, 3)
-    return torch.from_numpy(x[:, :, None].copy()), torch.from_numpy(maps.astype(np.float32, copy=False))
+    return raw, torch.from_numpy(maps.astype(np.float32, copy=False))
 
 
 class WaveletAttention(nn.Module):
     def __init__(self, spec):
         super().__init__()
         self.spec = spec
-        width = spec.width
-        self.temporal = nn.LSTM(1, width, batch_first=True)
-        self.spectral = nn.Sequential(nn.Conv2d(2, width, 3, padding=1), nn.ReLU())
-        self.location_score = nn.Linear(width, width)
-        self.history_score = nn.Linear(width, width, bias=False)
-        self.attention_score = nn.Linear(width, 1, bias=False)
-        self.head = nn.Linear(2 * width, 2 if spec.task == "direction" else spec.horizon)
+        cnn_width, lstm_width = spec.cnn_width or spec.width, spec.lstm_width or spec.width
+        self.temporal = None if spec.branch == "cnn" else nn.LSTM(1, lstm_width, batch_first=True)
+        self.spectral = (
+            None if spec.branch == "lstm" else nn.Sequential(nn.Conv2d(2, cnn_width, 3, padding=1), nn.ReLU())
+        )
+        if spec.branch == "joint" and spec.attention:
+            self.location_score = nn.Linear(cnn_width, spec.width)
+            self.history_score = nn.Linear(lstm_width, spec.width, bias=False)
+            self.attention_score = nn.Linear(spec.width, 1, bias=False)
+        hidden = (cnn_width if self.spectral is not None else 0) + (lstm_width if self.temporal is not None else 0)
+        self.head = nn.Linear(hidden, 2 if spec.task == "direction" else spec.horizon)
 
     def forward(self, views):
         raw, scalogram = views
-        _, (hidden, _) = self.temporal(raw)
-        history = hidden[-1]
+        if self.temporal is not None:
+            _, (hidden, _) = self.temporal(raw)
+            history = hidden[-1]
+            if self.spectral is None:
+                return self.head(history)
         patches = self.spectral(scalogram).flatten(2).transpose(1, 2)
+        if self.temporal is None:
+            return self.head(patches.mean(dim=1))
         if self.spec.attention:
             logits = self.attention_score(torch.relu(
                 self.location_score(patches) + self.history_score(history[:, None]),
