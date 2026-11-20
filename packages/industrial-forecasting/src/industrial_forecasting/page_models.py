@@ -66,6 +66,15 @@ def fit_page_mssa(series, *, length, rank):
     return PageMSSA(weights, fraction)
 
 
+def reconstruct_matrix_page(series, *, length, rank):
+    """Compare matrix and tensor methods on identical (channel, within-block, block) masks."""
+    tensor = page_tensor(series, length)
+    channels, width, blocks = tensor.shape
+    columns_as_rows = tensor.transpose(0, 2, 1).reshape(channels * blocks, width)
+    reconstructed, _, _ = _observed_projection(columns_as_rows, rank)
+    return reconstructed.reshape(channels, blocks, width).transpose(0, 2, 1)
+
+
 @dataclass(frozen=True, eq=False)
 class TensorPageReconstruction:
     values: np.ndarray
