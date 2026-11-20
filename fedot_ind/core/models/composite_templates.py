@@ -2,12 +2,36 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import Enum
 from math import isfinite
 from numbers import Real
 
 from industrial_forecasting.dwt import ArinoSpec
 from industrial_forecasting.grid import positive_count
 from industrial_forecasting.wavelet_hfcm import WaveletHFCMSpec
+
+
+class CompositeHorizonError(ValueError):
+    """A configured or requested horizon is incompatible with a composite."""
+
+
+class ForecastHorizonPolicy(Enum):
+    ANY_POSITIVE = "any_positive"
+    ONE_STEP = "one_step"
+
+    def resolve(self, parameters, task_horizon):
+        try:
+            configured = (positive_count(parameters["forecast_length"], "forecast_length")
+                          if "forecast_length" in parameters else None)
+            actual = positive_count(task_horizon, "Task forecast horizon") if task_horizon is not None else None
+        except ValueError as error:
+            raise CompositeHorizonError(str(error)) from error
+        if configured is not None and actual is not None and configured != actual:
+            raise CompositeHorizonError("forecast_length must agree with the task forecast horizon.")
+        horizon = actual if actual is not None else configured
+        if self is ForecastHorizonPolicy.ONE_STEP and horizon not in (None, 1):
+            raise CompositeHorizonError("Page projection requires a one-step forecast horizon.")
+        return horizon
 
 
 @dataclass(frozen=True)
@@ -17,6 +41,7 @@ class CompositeTemplate:
     edges: tuple[tuple[str, str], ...]
     config_type: type
     fields: tuple[tuple[str, str], ...]
+    forecast_horizon: ForecastHorizonPolicy | None = None
 
     @property
     def parameters(self):
@@ -42,11 +67,14 @@ class CompositeTemplate:
                 result[name] = item
         return result
 
-    def bind(self, params):
+    def bind(self, params, *, task_horizon=None):
         config = self.flatten(params)
-        unknown = config.keys() - set(self.parameters) - {"forecast_length"}
+        optional = {"forecast_length"} if self.forecast_horizon is not None else set()
+        unknown = config.keys() - set(self.parameters) - optional
         if unknown:
             raise ValueError(f"Unknown composite parameters: {sorted(unknown)}")
+        if self.forecast_horizon is not None:
+            self.forecast_horizon.resolve(config, task_horizon)
         return self.config_type(**{field: config[key] for key, field in self.fields if key in config})
 
     def describe(self, params):
@@ -121,6 +149,7 @@ HFCM = CompositeTemplate(
     "wavelet_hfcm_forecaster", 1,
     (("history", "haar"), ("haar", "lags"), ("lags", "hfcm"), ("hfcm", "sum")),
     WaveletHFCMSpec, (("haar.levels", "levels"), ("hfcm.order", "order"), ("hfcm.alpha", "alpha")),
+    forecast_horizon=ForecastHorizonPolicy.ANY_POSITIVE,
 )
 ARINO = CompositeTemplate(
     "arino_forecaster", 1,
@@ -129,6 +158,7 @@ ARINO = CompositeTemplate(
     ArinoSpec, (("pad.length", "padding"), ("dwt.wavelet", "wavelet"), ("dwt.levels", "levels"),
                 ("dwt.slow_bands", "slow_bands"), ("trend.lookback", "trend_lookback"),
                 ("seasonal.period", "seasonal_period")),
+    forecast_horizon=ForecastHorizonPolicy.ANY_POSITIVE,
 )
 _TRAIN = (("training.epochs", "epochs"), ("training.learning_rate", "learning_rate"))
 CWT = CompositeTemplate(
@@ -138,6 +168,7 @@ CWT = CompositeTemplate(
     CWTCompositeConfig, (("cwt.window", "window"), ("encoders.width", "width"),
                          ("cnn.width", "cnn_width"), ("lstm.width", "lstm_width"),
                          ("attention.enabled", "attention"), *_TRAIN),
+    forecast_horizon=ForecastHorizonPolicy.ANY_POSITIVE,
 )
 PAGE = CompositeTemplate(
     "page_projection_forecaster", 1,
@@ -145,6 +176,7 @@ PAGE = CompositeTemplate(
      ("history", "residual"), ("residual", "sum"), ("head", "sum")),
     PageCompositeConfig, (("page.length", "length"), ("projection.rank", "rank"),
                           ("projection.learn", "learn_projection"), ("residual.lag", "baseline_lag"), *_TRAIN),
+    forecast_horizon=ForecastHorizonPolicy.ONE_STEP,
 )
 MLSTM = CompositeTemplate(
     "mlstm_fcn_classifier", 1,
@@ -155,5 +187,5 @@ MLSTM = CompositeTemplate(
 TEMPLATES = {item.operation: item for item in (ARINO, HFCM, CWT, PAGE, MLSTM)}
 
 
-def template_spec(operation, params):
-    return TEMPLATES[operation].bind(params)
+def template_spec(operation, params, *, task_horizon=None):
+    return TEMPLATES[operation].bind(params, task_horizon=task_horizon)

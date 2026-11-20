@@ -13,7 +13,7 @@ from golem.core.optimisers.opt_history_objects.parent_operator import ParentOper
 
 from golem.core.optimisers.graph import OptGraph, OptNode
 
-from fedot_ind.core.optimizer.graph_validation.adapters import project_runtime_graph
+from fedot_ind.core.optimizer.graph_validation.adapters import infer_forecast_horizon, project_runtime_graph
 from fedot_ind.core.optimizer.graph_validation import (
     GraphSpec, ModelFeatureFlow, NodePosition, OperationCapabilities, OperationKind,
     capabilities_from_runtime_node, industrial_capability_index, infer_validation_context,
@@ -124,6 +124,7 @@ def project_for_mutation(graph, graph_generation_params) -> GraphSpec:
     verifier = getattr(graph_generation_params, 'verifier', None)
     _, spec = project_runtime_graph(
         graph, adapter=graph_generation_params.adapter, task_type=task, requested_device=device,
+        forecast_horizon=infer_forecast_horizon(graph_generation_params),
         input_data_type=getattr(verifier, 'input_data_type', None),
         model_feature_flow=getattr(verifier, 'model_feature_flow',
                                    ModelFeatureFlow.DECLARED_OUTPUT))

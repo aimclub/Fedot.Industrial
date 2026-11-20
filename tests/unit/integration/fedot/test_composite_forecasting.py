@@ -4,13 +4,15 @@ import numpy as np
 import pytest
 
 from fedot import create_data
+from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from fedot.extensions.contracts import ExtensionContractError
 
 from fedot_ind.core.models.composite_templates import ARINO, CWT, HFCM, MLSTM, PAGE, template_spec
-from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier
+from fedot_ind.core.optimizer.graph_validation import IndustrialGraphVerifier, ValidationIssueCode
 from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 from fedot_ind.integration.fedot.extensions.discovery import default_industrial_available_operations
 from industrial_forecasting.dwt import predict_arino
@@ -53,8 +55,56 @@ def test_role_names_and_cross_parameter_validation():
         template_spec(ARINO.operation, {"dwt.levels": 2, "dwt.slow_bands": 3})
 
 
+@pytest.mark.parametrize("malformed", [None, True, 0, 1.0, "1"])
+def test_horizon_is_validated_without_an_execution_context(malformed):
+    with pytest.raises(ValueError, match="positive integer"):
+        template_spec(ARINO.operation, {"forecast_length": malformed})
+    with pytest.raises(ValueError, match="one-step"):
+        template_spec(PAGE.operation, {"forecast_length": 4})
+    with pytest.raises(ValueError, match="Unknown"):
+        template_spec(MLSTM.operation, {"forecast_length": 1})
+
+
+def test_search_rejects_unsupported_horizon_before_evaluation():
+    from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
+    from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
+    from golem.core.optimisers.objective import Objective
+
+    from benchmark.industrial.experiments.evolution_parallelism.search import build_environment
+    from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+
+    task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(4))
+    settings = {"tasks": {"ts_forecasting": {"operations": [PAGE.operation, HFCM.operation]}},
+                "max_depth": 2, "max_arity": 1, "budget_seconds": 60}
+    with industrial_extension_scope():
+        requirements, params = build_environment(settings, task, workers=1)
+        page, conflict, valid = [params.adapter.adapt(PipelineBuilder().add_node(name, params=config).build())
+                                 for name, config in ((PAGE.operation, {}),
+                                                      (HFCM.operation, {"forecast_length": 1}),
+                                                      (HFCM.operation, {}))]
+        optimizer = IndustrialEvoOptimizer(
+            Objective({"loss": lambda _: pytest.fail("Unexpected evaluation")}),
+            [page, conflict, valid], requirements, params,
+            GPAlgorithmParameters(mutation_types=[MutationTypesEnum.single_change]),
+        )
+        assert optimizer._admissible_initial_graphs() == [valid]
+        for rejected in (page, conflict):
+            report = optimizer.graph_verifier.verify_with_report(rejected)
+            assert report.error_codes == (ValidationIssueCode.FORECAST_HORIZON_CONTRACT.value,)
+
+
+def test_deferred_factory_checks_the_same_horizon_as_the_template():
+    from fedot_ind.integration.fedot.extensions.manifest import build_industrial_extension_manifest
+
+    page = next(model for model in build_industrial_extension_manifest().models if model.name == PAGE.operation)
+    with pytest.raises(ValueError, match="one-step"):
+        page.factory({"forecast_length": 2})
+    flat = page.factory({"forecast_length": 1, "projection.rank": 3})
+    nested = page.factory({"forecast_length": 1, "projection": {"rank": 3}})
+    assert flat.implementation.spec == nested.implementation.spec
+
+
 def test_native_crossover_and_parameter_mutation_preserve_atomic_nodes():
-    from fedot.core.pipelines.adapters import PipelineAdapter
     from golem.core.optimisers.genetic.operators.crossover import subtree_crossover
     from fedot_ind.core.optimizer.search_policy.contracts import ParameterGrid
     from fedot_ind.core.optimizer.search_policy.parameters import BoundedParameterMutation
@@ -87,7 +137,7 @@ def test_round_trip_on_disk_preserves_forecast_and_template(template, horizon, s
     series = np.asarray(np.sin(np.arange(80.) / 4), dtype=np.float32)
     forecast = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(horizon))
     with industrial_extension_scope():
-        verifier = IndustrialGraphVerifier(adapter=None, task_type="ts_forecasting")
+        verifier = IndustrialGraphVerifier(adapter=None, task_type="ts_forecasting", forecast_horizon=horizon)
         model = PipelineBuilder().add_node(template.operation, params=settings).build()
         assert verifier.verify(model)
         data = create_data(series, target=series, task=forecast, ts_forecast_horizon=horizon,
@@ -102,6 +152,49 @@ def test_round_trip_on_disk_preserves_forecast_and_template(template, horizon, s
         assert template.describe(loaded.root_node.parameters) == template.describe(model.root_node.parameters)
         assert before.size == horizon and np.isfinite(before).all()
         np.testing.assert_array_equal(np.asarray(loaded.predict(ready).predict), before)
+        if template in (ARINO, HFCM):
+            changed = replace(ready, features=ready.features + 17)
+            with pytest.raises(ExtensionContractError) as failure:
+                loaded.predict(changed)
+            error = failure.value
+            while error.__cause__ is not None:
+                error = error.__cause__
+            assert isinstance(error, ValueError) and "Refit with the changed history" in str(error)
+
+
+@pytest.mark.parametrize("template", [ARINO, HFCM])
+def test_fixed_origin_adapter_rejects_new_or_corrected_observations_until_refit(template):
+    from types import SimpleNamespace
+
+    from fedot_ind.core.models.ts_forecasting.composite import ArinoImplementation, WaveletHFCMImplementation
+
+    implementation = ArinoImplementation if template is ARINO else WaveletHFCMImplementation
+    reference = (lambda x: predict_arino(x, 4)) if template is ARINO else (lambda x: fit_wavelet_hfcm(x).predict(4))
+    task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(4))
+    series = np.arange(80.) / 2 + np.sin(np.arange(80.) / 3)
+    original = series.copy()
+    model = implementation().fit(SimpleNamespace(features=series, task=task))
+    series[-1] += 100
+    extended = np.r_[original, [100., 125., 152., 170.]]
+    for changed in (series, extended):
+        with pytest.raises(ValueError, match="Refit with the changed history"):
+            model.predict(SimpleNamespace(features=changed, task=task))
+    np.testing.assert_array_equal(model.predict(SimpleNamespace(features=original, task=task)), reference(original))
+    updated = SimpleNamespace(features=extended, task=task)
+    model.fit(updated)
+    np.testing.assert_array_equal(model.predict(updated), reference(extended))
+
+
+def test_one_step_adapter_rejects_invalid_task_before_training(monkeypatch):
+    from types import SimpleNamespace
+
+    from fedot_ind.core.models.ts_forecasting.composite import PageProjectionImplementation
+    from industrial_forecasting.neural import page_projection
+
+    monkeypatch.setattr(page_projection, "fit_page_projection", lambda *a, **kw: pytest.fail("Unexpected fit"))
+    data = SimpleNamespace(features=np.ones(24), task=Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(3)))
+    with pytest.raises(ValueError, match="one-step"):
+        PageProjectionImplementation().fit(data)
 
 
 @pytest.mark.parametrize("data_type", [DataTypesEnum.image, DataTypesEnum.multi_ts])
