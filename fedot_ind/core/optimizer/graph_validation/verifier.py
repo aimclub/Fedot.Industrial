@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fedot_ind.core.models.composite_templates import CompositeHorizonError
 from fedot_ind.core.optimizer.graph_validation.adapters import project_runtime_graph
 from fedot_ind.core.optimizer.graph_validation.contracts import (
     ModelFeatureFlow,
@@ -29,6 +30,7 @@ class IndustrialGraphVerifier:
             *,
             adapter: object | None,
             task_type: object | None,
+            forecast_horizon: int | None = None,
             requested_device: object | None = None,
             require_serializable: bool = False,
             legacy_verifier: object | None = None,
@@ -37,6 +39,7 @@ class IndustrialGraphVerifier:
     ) -> None:
         self.adapter = adapter
         self.task_type = task_type
+        self.forecast_horizon = forecast_horizon
         self.requested_device = requested_device
         self.require_serializable = require_serializable
         self.legacy_verifier = legacy_verifier
@@ -68,11 +71,21 @@ class IndustrialGraphVerifier:
                 graph,
                 adapter=self.adapter,
                 task_type=self.task_type,
+                forecast_horizon=self.forecast_horizon,
                 requested_device=self.requested_device,
                 require_serializable=self.require_serializable,
                 input_data_type=self.input_data_type,
                 model_feature_flow=self.model_feature_flow,
             )
+        except CompositeHorizonError as error:
+            self.last_report = ValidationReport(
+                graph_id=str(getattr(graph, "uid", type(graph).__name__)),
+                issues=(ValidationIssue.create(
+                    ValidationIssueCode.FORECAST_HORIZON_CONTRACT,
+                    str(error),
+                ),),
+            )
+            return self.last_report
         except EXPECTED_GRAPH_ADAPTATION_ERRORS as error:
             report = ValidationReport(
                 graph_id=str(getattr(graph, "uid", type(graph).__name__)),

@@ -35,3 +35,4 @@ def test_load_local_supervised_split_supports_timestamped_multivariate_ts(tmp_pa
     assert np.array_equal(split.test_target, np.asarray([6.0]))
     assert split.metadata["dimensions"] == 2
     assert split.metadata["timestamps"] is True
+    assert split.metadata["aligned_channel_grid"] is True

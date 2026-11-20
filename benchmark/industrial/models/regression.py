@@ -135,7 +135,11 @@ class PDLRegressorAdapter:
 
 
 def build_regression_model(spec: ModelSpec):
+    from .tser import TSER_ADAPTERS, TSERRegressor
+
     name = spec.adapter_name.lower()
+    if name in TSER_ADAPTERS:
+        return TSERRegressor(name, spec.display_name, dict(spec.params), tags=spec.tags or ("tser", "regression"))
     if name == 'mean_regressor':
         return MeanRegressor(name=spec.display_name, tags=spec.tags or ('baseline', 'regression'))
     if name == 'linear_regressor':
