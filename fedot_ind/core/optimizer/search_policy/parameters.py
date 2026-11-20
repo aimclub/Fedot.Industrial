@@ -15,11 +15,20 @@ class BoundedParameterMutation:
 
     def _choices(self, index, name, current):
         from fedot_ind.core.tuning.generator_catalog import parameter_is_active
+        from fedot_ind.core.models.ts_forecasting.composite import TEMPLATES, template_spec
+        template = TEMPLATES.get(name)
+        if template is not None:
+            current = template.flatten(current)
         for grid in self.grids:
             if grid.operation == name and parameter_is_active(name, grid.parameter, current):
                 for value in grid.values:
                     previous = current.get(grid.parameter)
                     if grid.parameter not in current or (type(previous), previous) != (type(value), value):
+                        if template is not None:
+                            try:
+                                template_spec(name, {**current, grid.parameter: value})
+                            except ValueError:
+                                continue
                         yield index, grid.parameter, value
 
     def has_candidates(self, graph):
@@ -28,8 +37,9 @@ class BoundedParameterMutation:
                 for _, parameter, value in self._choices(index, node.content['name'], node.content.get('params') or {}):
                     proposal = deepcopy(graph)
                     changed = proposal.nodes[index]
-                    changed.content['params'] = self._normalize(changed.content['name'],
-                                                                {**(changed.content.get('params') or {}), parameter: value})
+                    changed.content['params'] = self._updated(
+                        changed.content['name'], changed.content.get('params') or {}, parameter, value,
+                    )
                     if self.eligible(proposal):
                         return True
             return False
@@ -42,12 +52,19 @@ class BoundedParameterMutation:
         space = generator_space(name)
         return space.normalize(values) if space is not None else values
 
+    def _updated(self, name, current, parameter, value):
+        from fedot_ind.core.models.ts_forecasting.composite import TEMPLATES
+        template = TEMPLATES.get(name)
+        if template is not None:
+            current = template.flatten(current)
+        return self._normalize(name, {**current, parameter: value})
+
     def _proposal(self, pipeline, choice):
         index, parameter, value = choice
         result = deepcopy(pipeline)
         node = result.nodes[index]
         current = node.parameters if isinstance(node.parameters, dict) else {}
-        node.parameters = self._normalize(node.operation.operation_type, {**current, parameter: value})
+        node.parameters = self._updated(node.operation.operation_type, current, parameter, value)
         return result
 
     def __call__(self, pipeline, **kwargs):

@@ -166,6 +166,32 @@
       "description": "Terminal horizon forecaster; its predictions are not aligned fit-time features for a downstream model."
     },
     {
+      "name": "wavelet_hfcm_forecaster",
+      "kind": "model",
+      "factory": "fedot_ind.core.models.ts_forecasting.composite:WaveletHFCMImplementation",
+      "constructor_policy": "mapping",
+      "tasks": ["ts_forecasting"],
+      "data_types": ["ts"],
+      "output_data_type": "tabular",
+      "tags": ["forecasting", "opt_in_composite"],
+      "problems": ["ts_forecasting"],
+      "allowed_positions": ["root"],
+      "description": "Opt-in causal Haar and cross-band HFCM as a single terminal operation."
+    },
+    {
+      "name": "arino_forecaster",
+      "kind": "model",
+      "factory": "fedot_ind.core.models.ts_forecasting.composite:ArinoImplementation",
+      "constructor_policy": "mapping",
+      "tasks": ["ts_forecasting"],
+      "data_types": ["ts"],
+      "output_data_type": "tabular",
+      "tags": ["forecasting", "opt_in_composite"],
+      "problems": ["ts_forecasting"],
+      "allowed_positions": ["root"],
+      "description": "Opt-in shared DWT with independent, recombined forecast branches."
+    },
+    {
       "name": "mssa_forecaster",
       "kind": "model",
       "factory": "fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster:MSSAForecasterImplementation",

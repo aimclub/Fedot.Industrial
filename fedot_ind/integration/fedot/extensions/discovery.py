@@ -28,6 +28,7 @@ def catalog_operation_names(problem: str) -> tuple[str, ...]:
                  if normalized in operation.problems
                  and (required_data_type is None or required_data_type in operation.data_types)
                  and not operation.needs_explicit_task_type
+                 and "opt_in_composite" not in operation.tags
                  # These require an explicitly selected ForecastPipelineAdapter.
                  and not {'forecast_feature_merge', 'forecast_prediction_merge',
                           'forecast_window_representation'}.intersection(operation.tags)

@@ -98,6 +98,12 @@ def capabilities_from_runtime_node(
     operation_name = _operation_name(node)
     declared = (capability_index or {}).get(operation_name)
     if declared is not None:
+        if "opt_in_composite" in declared.tags:
+            from fedot_ind.core.models.ts_forecasting.composite import template_spec
+            params = getattr(node, "parameters", None)
+            if params is None:
+                params = getattr(node, "content", {}).get("params", {})
+            template_spec(operation_name, params.to_dict() if hasattr(params, "to_dict") else params)
         if operation_name == 'fourier_basis':
             from dataclasses import replace
             params = getattr(node, 'parameters', None)

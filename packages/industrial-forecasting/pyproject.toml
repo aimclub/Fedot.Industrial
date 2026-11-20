@@ -10,6 +10,8 @@ dependencies = ["numpy>=1.24.4,<2"]
 
 [project.optional-dependencies]
 neural = ["industrial-neural==0.1.0"]
+wavelets = ["PyWavelets>=1.5,<1.9"]
+tensor = ["tensorly>=0.9,<0.10"]
 
 [project.urls]
 Source = "https://github.com/aimclub/Fedot.Industrial"
