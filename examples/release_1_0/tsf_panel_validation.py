@@ -31,9 +31,7 @@ def load_train(path):
         return matrix[:, None, 1:], matrix[:, 0]
     if path.suffix.lower() == ".ts":
         matrix, labels, metadata = _load_ts_split(path)
-        if not metadata["uniform_channel_layout"]:
-            raise ValueError("This comparison requires equally spaced panels with a common channel length.")
-        return restore_tser_panel(matrix, metadata["dimensions"]), labels
+        return restore_tser_panel(matrix, metadata["dimensions"], metadata=metadata), labels
     raise ValueError("Expected a .ts or .tsv file.")
 
 

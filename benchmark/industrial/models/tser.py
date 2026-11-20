@@ -18,8 +18,11 @@ AEON_TYPES = {
 TSER_ADAPTERS = frozenset(AEON_TYPES) | {"ed_1nn_regressor", "flat_forest_regressor"}
 
 
-def restore_tser_panel(matrix, dimensions):
+def restore_tser_panel(matrix, dimensions, *, metadata=None):
     """Recover the channel-major layout recorded by the dataset parser."""
+    if metadata is not None and (not metadata.get("uniform_channel_layout", True)
+                                 or not metadata.get("aligned_channel_grid", True)):
+        raise BenchmarkRegressionError("TSER panel needs equal-length channels on an aligned sampling grid.")
     x = np.asarray(matrix, dtype=float)
     if (type(dimensions) is not int or dimensions <= 0 or x.ndim != 2 or not all(x.shape)
             or x.shape[1] % dimensions):

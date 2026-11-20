@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal, DecimalException
 from pathlib import Path
 from typing import Any
 
@@ -103,6 +104,11 @@ def load_local_supervised_split(
             and parser_metadata['dimensions'] == test_metadata['dimensions']
             and train_features.shape[1] == test_features.shape[1]
         )
+        parser_metadata['aligned_channel_grid'] = (
+            parser_metadata['aligned_channel_grid'] and test_metadata['aligned_channel_grid']
+            and parser_metadata['timestamps'] == test_metadata['timestamps']
+            and parser_metadata.get('timestamp_cadence') == test_metadata.get('timestamp_cadence')
+        )
         parser_metadata.update(
             {
                 key: value
@@ -110,6 +116,8 @@ def load_local_supervised_split(
                 if key not in parser_metadata
             }
         )
+        if not parser_metadata['aligned_channel_grid']:
+            parser_metadata.pop('timestamp_cadence', None)
         split_provenance = 'local_ts'
     else:  # pragma: no cover
         raise LocalDatasetParseError(f'Unsupported local split suffix: {suffix}')
@@ -162,6 +170,7 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
     data_started = False
     case_vectors: list[np.ndarray] = []
     channel_layouts: set[tuple[int, ...]] = set()
+    cadences: set[tuple[str, str | None] | None] = set()
     targets: list[Any] = []
 
     with path.open('r', encoding=encoding) as source:
@@ -191,7 +200,7 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
                     metadata['problem_name'] = parts[1] if len(parts) > 1 else path.stem
                 elif lower.startswith('@univariate'):
                     metadata['univariate'] = _parse_boolean_tag(line)
-                elif lower.startswith('@equallength') or lower.startswith('@equallength'):
+                elif lower.startswith('@equallength'):
                     metadata['equal_length'] = _parse_boolean_tag(line)
                 elif lower.startswith('@data'):
                     data_started = True
@@ -214,17 +223,21 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
 
             flattened: list[float] = []
             channel_lengths = []
+            timestamp_axes = []
             for dimension_part in dimension_parts:
                 cleaned = dimension_part.strip()
                 previous = len(flattened)
                 if timestamps:
-                    if cleaned:
-                        flattened.extend(_parse_timestamped_dimension_values(cleaned, path=path))
+                    axis, values = _parse_timestamped_dimension(cleaned, path=path) if cleaned else ((), ())
+                    timestamp_axes.append(axis)
+                    flattened.extend(values)
                 else:
                     flattened.extend(float(token) for token in cleaned.split(',') if token)
                 channel_lengths.append(len(flattened) - previous)
 
             channel_layouts.add(tuple(channel_lengths))
+            if timestamps:
+                cadences.add(_shared_cadence(timestamp_axes))
             case_vectors.append(np.asarray(flattened, dtype=float))
             if target_label:
                 targets.append(float(target_part))
@@ -243,6 +256,9 @@ def _load_ts_split_with_encoding(path: Path, *, encoding: str) -> tuple[np.ndarr
     layout = next(iter(channel_layouts)) if len(channel_layouts) == 1 else ()
     metadata['dimensions'] = dimensions or len(layout) or 1
     metadata['uniform_channel_layout'] = bool(layout and layout[0] > 0 and len(set(layout)) == 1)
+    metadata['aligned_channel_grid'] = not timestamps or (len(cadences) == 1 and None not in cadences)
+    if timestamps and metadata['aligned_channel_grid']:
+        metadata['timestamp_cadence'] = next(iter(cadences))
     metadata['timestamps'] = bool(timestamps)
     metadata['target_type'] = 'regression' if target_label else 'classification'
     features = np.vstack(case_vectors)
@@ -269,11 +285,49 @@ def _split_ts_dimension_parts(series_part: str, *, timestamps: bool) -> list[str
     return parts
 
 
-def _parse_timestamped_dimension_values(dimension_part: str, *, path: Path) -> list[float]:
-    matches = list(re.finditer(r'\(([^,]+),([^)]+)\)', dimension_part))
-    if not matches:
+def _parse_timestamped_dimension(dimension_part: str, *, path: Path) -> tuple[tuple[str, ...], tuple[float, ...]]:
+    entries = re.findall(r'\(([^,]+),([^)]+)\)', dimension_part)
+    if not entries:
         raise LocalDatasetParseError(f'Could not parse timestamped values from .ts file: {path}')
-    return [float(match.group(2)) for match in matches]
+    return tuple(stamp.strip() for stamp, _ in entries), tuple(float(value) for _, value in entries)
+
+
+def _ordered_axis(stamps):
+    try:
+        coordinates = tuple(Decimal(stamp) for stamp in stamps)
+    except DecimalException:
+        if not all(re.match(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}(?:$|[ T])", stamp) for stamp in stamps):
+            return None
+        try:
+            dates = tuple(pd.Timestamp(stamp) for stamp in stamps)
+            kinds = {"datetime_naive" if date.tz is None else "datetime_utc" for date in dates}
+            if len(kinds) != 1 or any(pd.isna(date) for date in dates):
+                return None
+            return kinds.pop(), tuple(date.value for date in dates)
+        except (ValueError, OverflowError):
+            return None
+    if not all(value.is_finite() for value in coordinates):
+        return None
+    return "numeric", coordinates
+
+
+def _shared_cadence(axes):
+    """Panel methods need coincident channels; different records may have different origins."""
+    if not axes or not axes[0]:
+        return None
+    expected = _ordered_axis(axes[0])
+    if expected is None or any(axis != axes[0] and _ordered_axis(axis) != expected for axis in axes[1:]):
+        return None
+    kind, coordinates = expected
+    if len(coordinates) == 1:
+        return kind, None
+    try:
+        step = coordinates[1] - coordinates[0]
+        if step <= 0 or any(right - left != step for left, right in zip(coordinates, coordinates[1:])):
+            return None
+        return kind, str(step.normalize() if kind == "numeric" else step)
+    except DecimalException:
+        return None
 
 
 def _parse_boolean_tag(line: str) -> bool:
