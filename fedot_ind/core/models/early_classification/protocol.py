@@ -57,10 +57,22 @@ def evaluate_decisions(decisions, targets, lengths, *, delay_cost=None):
             "delay_cost": None if delay_cost is None else float(np.mean([delay_cost(int(t)) for t in observed]))}
 
 
-def training_inputs(series, labels, schedule):
-    x, y = np.asarray(series, dtype=float), np.asarray(labels)
-    if (x.ndim != 3 or x.shape[:2] != (len(y), schedule.channels) or y.ndim != 1
-            or x.shape[-1] < schedule.cutoffs[-1] or not np.isfinite(x).all()
-            or set(y) != set(schedule.classes)):
-        raise ValueError("Expected finite (records, channels, time) and all declared training classes.")
-    return x[:, :, :schedule.cutoffs[-1]], y
+def observed_panel(series, *, channels, cutoff, dtype=float):
+    values = np.asarray(series)
+    if values.ndim != 3 or not len(values) or values.shape[1] != channels or values.shape[2] < cutoff:
+        raise ValueError("Expected (records, channels, time) covering the observation cutoff.")
+    prefix = np.asarray(values[..., :cutoff], dtype=dtype)
+    if not np.isfinite(prefix).all():
+        raise ValueError("Observed prefix contains nonfinite values.")
+    return prefix
+
+
+def training_inputs(series, labels, schedule, *, cutoff=None, dtype=float):
+    cutoff = schedule.cutoffs[-1] if cutoff is None else cutoff
+    if type(cutoff) is not int or cutoff not in schedule.cutoffs:
+        raise ValueError("Select a declared fixed cutoff on training data.")
+    y = np.asarray(labels)
+    prefix = observed_panel(series, channels=schedule.channels, cutoff=cutoff, dtype=dtype)
+    if y.ndim != 1 or len(y) != len(prefix) or set(y) != set(schedule.classes):
+        raise ValueError("Expected one target per record and all declared training classes.")
+    return prefix, y

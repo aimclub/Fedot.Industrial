@@ -20,7 +20,7 @@ class MLSTMFCNImplementation:
             raise ValueError("MLSTM-FCN requires (records, channels, time).")
         config = self.spec
         schedule = PrefixSchedule((config.cutoff,), panel.shape[1], tuple(np.unique(labels)))
-        self.model_ = fit_mlstm_fcn(panel[:, :, :config.cutoff], labels, schedule, cutoff=config.cutoff,
+        self.model_ = fit_mlstm_fcn(panel, labels, schedule, cutoff=config.cutoff,
                                     width=config.width, epochs=config.epochs, lr=config.learning_rate,
                                     fcn_width=config.fcn_width, lstm_width=config.lstm_width)
         return self

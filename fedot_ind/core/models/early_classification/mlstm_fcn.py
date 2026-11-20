@@ -8,7 +8,7 @@ from torch import nn
 
 from fedot_ind.neural.training import TrainingPlan, TrainingSession
 
-from .protocol import EarlyDecision, training_inputs
+from .protocol import EarlyDecision, observed_panel, training_inputs
 
 
 class MLSTMFCN(nn.Module):
@@ -53,11 +53,9 @@ class FixedPrefixMLSTM:
 
     @torch.inference_mode()
     def predict_proba(self, series):
-        cutoff = self.network.input_shape[1]
-        prefix = torch.as_tensor(np.asarray(series)[:, :, :cutoff], dtype=torch.float32)
-        if not torch.isfinite(prefix).all():
-            raise ValueError("Observed prefix contains nonfinite values.")
-        return self.network(prefix).softmax(dim=-1).numpy()
+        channels, cutoff = self.network.input_shape
+        prefix = observed_panel(series, channels=channels, cutoff=cutoff, dtype=np.float32)
+        return self.network(torch.from_numpy(prefix)).softmax(dim=-1).numpy()
 
     def predict_one(self, series):
         choice = int(self.predict_proba(np.asarray(series)[None])[0].argmax())
@@ -66,10 +64,8 @@ class FixedPrefixMLSTM:
 
 def fit_mlstm_fcn(series, target, schedule, *, cutoff, width=16, epochs=12, lr=.005, seed=0, branch="joint",
                   fcn_width=None, lstm_width=None):
-    x, y = training_inputs(series, target, schedule)
-    if cutoff not in schedule.cutoffs:
-        raise ValueError("Select a declared fixed cutoff on training data.")
-    features = torch.from_numpy(x[:, :, :cutoff].astype(np.float32))
+    x, y = training_inputs(series, target, schedule, cutoff=cutoff, dtype=np.float32)
+    features = torch.from_numpy(x.copy())
     labels = torch.tensor([schedule.classes.index(item) for item in y])
     batches = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(features, labels), batch_size=32)
     with torch.random.fork_rng(devices=[]):

@@ -97,3 +97,22 @@ def test_mlstm_uses_both_branches_and_ignores_unobserved_suffix():
     model.network(torch.ones(2, 2, 4)).sum().backward()
     assert model.network.recurrent.weight_ih_l0.grad is not None
     assert model.network.convolution[0].weight.grad is not None
+
+
+def test_fixed_prefix_training_uses_only_the_selected_observations():
+    pytest.importorskip("torch")
+    from fedot_ind.core.models.early_classification.mlstm_fcn import fit_mlstm_fcn
+
+    x, y, schedule = panel()
+
+    def fit(features):
+        return fit_mlstm_fcn(features, y, schedule, cutoff=4, width=4, epochs=1)
+
+    expected = fit(x).predict_proba(x)
+    unavailable = x.copy()
+    unavailable[:, :, 4:] = np.nan
+    for features in (unavailable, x[:, :, :4]):
+        np.testing.assert_array_equal(fit(features).predict_proba(x), expected)
+    unavailable[0, 0, 3] = np.nan
+    with pytest.raises(ValueError, match="finite"):
+        fit(unavailable)
