@@ -6,6 +6,7 @@ from pathlib import Path
 from benchmark.industrial.experiments.evolution_parallelism.config import SearchConfig
 from benchmark.industrial.experiments.evolution_parallelism.search import run_search
 from benchmark.industrial.experiments.mutation_diversity.study import MutationStudy
+from benchmark.industrial.experiments.tsf_comparison import load_airline_train
 from fedot_ind.core.models.composite_templates import ARINO, CWT, HFCM
 
 
@@ -17,11 +18,10 @@ class CompositeSearch(MutationStudy):
         from fedot import create_data
         from fedot.core.data.split.temporal import temporal_tensor_holdout
         from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-        from sktime.datasets import load_airline
 
         from benchmark.industrial.experiments.evolution_parallelism.data import SearchData, array_digest
 
-        train = load_airline().iloc[:-12].to_numpy(dtype=np.float32)
+        train = load_airline_train(dtype=np.float32)
         horizon = 4
         task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(horizon))
 
@@ -48,13 +48,14 @@ class CompositeSearch(MutationStudy):
         }
 
     def implementation_paths(self):
+        from benchmark.industrial.experiments import tsf_comparison
         from fedot_ind.core.models import composite_templates
         from fedot_ind.core.models.ts_forecasting import composite
         from industrial_forecasting import dwt, wavelet_hfcm
         from industrial_forecasting.neural import wavelet_attention
 
         return [*super().implementation_paths(), Path(__file__),
-                *(Path(module.__file__) for module in (composite_templates, composite, dwt,
+                *(Path(module.__file__) for module in (tsf_comparison, composite_templates, composite, dwt,
                                                        wavelet_hfcm, wavelet_attention))]
 
 

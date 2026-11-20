@@ -2,12 +2,15 @@
 
 import argparse
 import json
-from time import perf_counter
 
 import numpy as np
 
 from industrial_forecasting.dwt import ArinoSpec, predict_arino, predict_jin_kim
-from industrial_forecasting.metrics import score_forecast, seasonal_repeat
+from benchmark.industrial.experiments.tsf_comparison import (
+    AIRLINE_EXCLUDED_TAIL, ForecastComparisonPlan, SourceFingerprint, comparison_provenance, comparison_report,
+    forecast_rows, load_airline_train,
+)
+from industrial_forecasting.metrics import seasonal_repeat
 from industrial_forecasting.neural.page_projection import fit_page_projection
 from industrial_forecasting.neural.wavelet_attention import WaveletAttentionSpec, fit_wavelet_attention
 from industrial_forecasting.page_models import fit_page_mssa
@@ -28,21 +31,8 @@ def _mssa_neural(history, *, learn_projection):
         return model(torch.as_tensor(history[-11:][None], dtype=torch.float32)).numpy()
 
 
-def _forecast_rows(train, methods, origins, horizon):
-    for origin in origins:
-        history, actual = train[:origin], train[origin:origin + horizon]
-        for name, method in methods.items():
-            start = perf_counter()
-            prediction = method(history, horizon)
-            yield {"origin": origin, "horizon": horizon, "model": name,
-                   "rmse": score_forecast("rmse", actual, prediction).value,
-                   "seconds": perf_counter() - start}
-
-
 def compare_on_airline_train():
-    from sktime.datasets import load_airline
-
-    train = np.asarray(load_airline().iloc[:-12], dtype=float)
+    train = load_airline_train()
     multi_step = {
         "seasonal_repeat": lambda x, h: seasonal_repeat(x, h, 12),
         "ridge_lag12": _ridge,
@@ -65,10 +55,18 @@ def compare_on_airline_train():
         "mssa_frozen_projection": lambda x, _: _mssa_neural(x, learn_projection=False),
         "mssa_learned_projection": lambda x, _: _mssa_neural(x, learn_projection=True),
     }
-    return {"data": "Airline", "partition": "TRAIN-only (last 12 excluded)", "rows": [
-        *_forecast_rows(train, multi_step, (96, 108, 120), 4),
-        *_forecast_rows(train, page, (95, 107, 119), 1),
-    ]}
+    plans = ((multi_step, ForecastComparisonPlan((96, 108, 120), 4)),
+             (page, ForecastComparisonPlan((95, 107, 119), 1)))
+    provenance = comparison_provenance(
+        {"train": SourceFingerprint.arrays("Airline TRAIN", train)},
+        ("fedot-ind", "industrial-forecasting", "industrial-neural", "numpy", "sktime", "PyWavelets", "torch"),
+    )
+    rows = [row for models, plan in plans for row in forecast_rows(train, models, plan)]
+    return comparison_report(
+        "airline_method_study", provenance=provenance,
+        protocol={"partition": "TRAIN", "excluded_tail": AIRLINE_EXCLUDED_TAIL, "time": "wall_clock"},
+        results={"data": "Airline", "partition": "TRAIN-only (last 12 excluded)", "rows": rows},
+    )
 
 
 def _fedot_forecast(name):

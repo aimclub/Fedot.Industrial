@@ -3,11 +3,13 @@
 import argparse
 from functools import partial
 import json
-from time import perf_counter
-import tracemalloc
 
 import numpy as np
 
+from benchmark.industrial.experiments.tsf_comparison import (
+    AIRLINE_EXCLUDED_TAIL, ForecastComparisonPlan, SourceFingerprint, comparison_provenance, comparison_report,
+    forecast_rows, load_airline_train, measure,
+)
 from industrial_forecasting.dwt import ArinoSpec, predict_arino, predict_jin_kim
 from industrial_forecasting.metrics import score_forecast, seasonal_repeat
 from industrial_forecasting.neural.coordinate_forecast import fit_amortized_wire, predict_segment_wire
@@ -19,7 +21,10 @@ from industrial_forecasting.page_models import (
 )
 from industrial_forecasting.wire import predict_positional_wire
 
-from .tsf_method_study import _forecast_rows
+AIRLINE_ORIGINS = (96, 108, 120)
+WIRE_ORIGINS = (64, 76, 104, 132)
+MACRO_ORIGINS = (95, 119, 143, 167)
+MACRO_COLUMNS = ("realgdp", "realcons", "realinv")
 
 
 def _arima(values, horizon, *, order, seasonal_order=(0, 0, 0, 0)):
@@ -78,7 +83,7 @@ def wavelet_comparison(train, *, with_garch=False):
             )
             return fit_wavelet_attention((x,), spec, epochs=4, seed=2).predict(x)
         methods[f"cwt_{kind}"] = cwt
-    result = list(_forecast_rows(train, methods, (96, 108, 120), 4))
+    result = list(forecast_rows(train, methods, ForecastComparisonPlan(AIRLINE_ORIGINS, 4)))
     ar = partial(_arima, order=(2, 1, 0))
     for horizon in (2, 4):
         methods = {"raw_arima": ar, "raw_ann": _ann}
@@ -98,7 +103,7 @@ def wavelet_comparison(train, *, with_garch=False):
             methods["edge_ann_zero_mean_garch"] = partial(
                 predict_jin_kim, first_end=80, approximation_forecast=_ann, details=(1,), detail_forecast=mean,
             )
-        rows = list(_forecast_rows(train, methods, (96, 108, 120), horizon))
+        rows = list(forecast_rows(train, methods, ForecastComparisonPlan(AIRLINE_ORIGINS, horizon)))
         if with_garch:
             for row, diagnostic in zip((r for r in rows if r["model"].endswith("garch")), garch):
                 row["garch"] = diagnostic
@@ -106,11 +111,13 @@ def wavelet_comparison(train, *, with_garch=False):
     return result
 
 
-def wire_comparison():
-    import torch
-
+def _frequency_switch():
     t = np.arange(180.)
-    signal = np.sin(np.where(t < 72, t / 3, 24 + (t - 72) / 7))
+    return np.sin(np.where(t < 72, t / 3, 24 + (t - 72) / 7))
+
+
+def wire_comparison(signal):
+    import torch
 
     def amortized(x, horizon, *, localize):
         model = fit_amortized_wire((x,), context=24, horizon=horizon, width=10, epochs=6,
@@ -130,14 +137,19 @@ def wire_comparison():
         "amortized_periodic": partial(amortized, localize=False),
         "seasonal_repeat": lambda x, h: seasonal_repeat(x, h, 12),
     }
-    return [row for h in (4, 12, 24) for row in _forecast_rows(signal, methods, (64, 76, 104, 132), h)]
+    return [row for h in (4, 12, 24) for row in forecast_rows(signal, methods, ForecastComparisonPlan(WIRE_ORIGINS, h))]
 
 
-def tensor_comparison():
+def _tensor_fixture():
     rng = np.random.default_rng(17)
     shape = (4, 6, 20)
     expected = np.einsum("ar,br,cr->abc", *(rng.normal(size=(size, 2)) for size in shape))
     mask = rng.random(shape) < .15
+    return expected, mask
+
+
+def tensor_comparison(expected, mask):
+    shape = expected.shape
     observed = expected.copy()
     observed[mask] = np.nan
     series = observed.transpose(2, 1, 0).reshape(-1, shape[0])
@@ -147,29 +159,26 @@ def tensor_comparison():
         ("matrix_page", partial(reconstruct_matrix_page, length=shape[1], rank=2)),
         ("tensor_page", lambda x: reconstruct_tensor_page(x, length=shape[1], rank=2, seed=17).values),
     ):
-        tracemalloc.start()
-        start = perf_counter()
-        try:
-            actual = estimate(series)
-            peak = tracemalloc.get_traced_memory()[1]
-        finally:
-            tracemalloc.stop()
-        rows.append({"model": name, "removed_count": int(mask.sum()), "seconds": perf_counter() - start,
-                     "traced_bytes": peak, "rmse": score_forecast("rmse", expected[mask], actual[mask]).value})
+        actual, cost = measure(estimate, series, trace_memory=True)
+        rows.append({"model": name, "removed_count": int(mask.sum()), **cost,
+                     "rmse": score_forecast("rmse", expected[mask], actual[mask]).value})
     return rows
 
 
-def multichannel_page_comparison():
-    import torch
+def _macro_growth():
     from statsmodels.datasets import macrodata
 
-    columns = ("realgdp", "realcons", "realinv")
-    levels = macrodata.load_pandas().data.loc[:, list(columns)].to_numpy()
-    growth = np.diff(np.log(levels), axis=0)
+    levels = macrodata.load_pandas().data.loc[:, list(MACRO_COLUMNS)].to_numpy()
+    return np.diff(np.log(levels), axis=0)[:MACRO_ORIGINS[-1] + 1]
+
+
+def multichannel_page_comparison(growth):
+    import torch
+
     rows = []
     # All methods predict the same held-out block end. Scaling is fit on past rows.
-    for origin in (95, 119, 143, 167):
-        history = growth[:origin]
+    for train, evaluate in ForecastComparisonPlan(MACRO_ORIGINS, 1).windows(len(growth)):
+        history, target = growth[train], growth[evaluate][0]
         mean, scale = history.mean(axis=0), history.std(axis=0)
         known = (history - mean) / scale
         available = known[-11:]
@@ -189,11 +198,11 @@ def multichannel_page_comparison():
             "neural_learned": partial(neural, True),
         }
         for name, method in methods.items():
-            start = perf_counter()
-            forecast = np.asarray(method()).reshape(-1) * scale + mean
-            rows.append({"origin": origin, "columns": columns, "model": name, "seconds": perf_counter() - start,
-                         "rmse": score_forecast("rmse", growth[origin], forecast).value,
-                         "absolute_error": np.abs(growth[origin] - forecast).tolist()})
+            prediction, cost = measure(method)
+            forecast = np.asarray(prediction).reshape(-1) * scale + mean
+            rows.append({"origin": evaluate.start, "columns": MACRO_COLUMNS, "model": name, **cost,
+                         "rmse": score_forecast("rmse", target, forecast).value,
+                         "absolute_error": np.abs(target - forecast).tolist()})
     return rows
 
 
@@ -213,16 +222,30 @@ def soft_dtw_comparison():
 
 
 def main():
-    from sktime.datasets import load_airline
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--with-garch", action="store_true", help="Requires the optional arch package.")
     args = parser.parse_args()
-    train = np.asarray(load_airline().iloc[:-12])
-    print(json.dumps({"airline_internal_train": wavelet_comparison(train, with_garch=args.with_garch),
-                      "frequency_shift_synthetic": wire_comparison(), "masked_tensor_synthetic": tensor_comparison(),
-                      "macrodata_multichannel": multichannel_page_comparison(),
-                      "shifted_peak_synthetic": soft_dtw_comparison()}, indent=2, allow_nan=False))
+    train, frequency_shift, macro = load_airline_train(), _frequency_switch(), _macro_growth()
+    expected, mask = _tensor_fixture()
+    provenance = comparison_provenance(
+        {"airline_train": SourceFingerprint.arrays("Airline TRAIN", train),
+         "frequency_shift": SourceFingerprint.arrays("Synthetic frequency switch", frequency_shift),
+         "masked_tensor": SourceFingerprint.arrays("Synthetic tensor and mask", expected, mask),
+         "macro_growth": SourceFingerprint.arrays("statsmodels macrodata log differences", macro)},
+        ("fedot-ind", "industrial-forecasting", "industrial-neural", "numpy", "scipy", "statsmodels",
+         "scikit-learn", "sktime", "PyWavelets", "torch", "tensorly", "arch"),
+    )
+    report = comparison_report(
+        "forecast_method_validation", provenance=provenance,
+        protocol={"excluded_airline_tail": AIRLINE_EXCLUDED_TAIL, "with_garch": args.with_garch,
+                  "tensor_seed": 17, "measurement": {"time": "wall_clock", "memory": "python_allocations"}},
+        results={"airline_internal_train": wavelet_comparison(train, with_garch=args.with_garch),
+                 "frequency_shift_synthetic": wire_comparison(frequency_shift),
+                 "masked_tensor_synthetic": tensor_comparison(expected, mask),
+                 "macrodata_multichannel": multichannel_page_comparison(macro),
+                 "shifted_peak_synthetic": soft_dtw_comparison()},
+    )
+    print(json.dumps(report, indent=2, allow_nan=False))
 
 
 if __name__ == "__main__":

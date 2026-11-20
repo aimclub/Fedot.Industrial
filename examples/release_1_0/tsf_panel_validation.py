@@ -2,16 +2,15 @@
 
 import argparse
 from functools import partial
-from hashlib import sha256
 import json
 from pathlib import Path
-from time import perf_counter
-import tracemalloc
 
 import numpy as np
-from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
 from benchmark.industrial.datasets.local_io import _load_ts_split
+from benchmark.industrial.experiments.tsf_comparison import (
+    SourceFingerprint, comparison_provenance, comparison_report, measure, panel_holdout,
+)
 from benchmark.industrial.models.tser import TSERRegressor, restore_tser_panel
 from benchmark.industrial.regression import compute_regression_metric
 from fedot_ind.core.models.early_classification.confidence import fit_ecec, fit_prefix_probabilities, fit_teaser
@@ -20,6 +19,8 @@ from fedot_ind.core.models.early_classification.mlstm_fcn import fit_mlstm_fcn
 from fedot_ind.core.models.early_classification.neighbors import fit_early_nearest_neighbor
 from fedot_ind.core.models.early_classification.protocol import EarlyDecision, PrefixSchedule, evaluate_decisions
 from fedot_ind.core.models.early_classification.shapelets import fit_early_shapelets
+
+SPLIT_SEED = 42
 
 
 def load_train(path):
@@ -37,16 +38,7 @@ def load_train(path):
 
 
 def early_split(labels, groups=None):
-    if groups is None:
-        return train_test_split(np.arange(len(labels)), test_size=.3, stratify=labels, random_state=42)
-    if len(groups) != len(labels):
-        raise ValueError("Pass one group identifier per TRAIN record.")
-    for fit, evaluate in StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=42).split(
-        labels, labels, groups
-    ):
-        if set(labels[fit]) == set(labels[evaluate]) == set(labels):
-            return fit, evaluate
-    raise ValueError("No group-disjoint split contains all classes in both partitions.")
+    return panel_holdout(labels, seed=SPLIT_SEED, stratified=True, groups=groups)
 
 
 def compare_early(x, labels, *, groups=None, with_weasel=False):
@@ -175,39 +167,30 @@ def compare_topology(x, labels, *, groups=None):
     schedule = PrefixSchedule((width,), x.shape[1], tuple(np.unique(labels)))
     model = fit_mlstm_fcn(prefix[fit], labels[fit], schedule, cutoff=width, width=6, epochs=3, seed=42).network
     inputs = torch.as_tensor(prefix[evaluate], dtype=torch.float32)
-    tracemalloc.start()
-    start = perf_counter()
-    try:
-        activation = activation_topology(model, inputs, ("convolution.0", "head"), sample_size=12, seed=42)
-        peak = tracemalloc.get_traced_memory()[1]
-    finally:
-        tracemalloc.stop()
+    activation, cost = measure(activation_topology, model, inputs, ("convolution.0", "head"),
+                               sample_size=12, seed=42, trace_memory=True)
     for values in activation.values():
         values["persistence"] = values["persistence"].tolist()
     return {"fit_indices": fit.tolist(), "evaluation_indices": evaluate.tolist(), "accuracy": accuracy,
             "cknn_control": radii, "analytic_cross_barcode": lifetimes,
             "synthetic_returns": {"ends": proxy.end_indices.tolist(), "norms": proxy.norms.tolist(),
                                   "volatility": proxy.volatility.tolist()},
-            "trained_activations": {"layers": activation, "seconds": perf_counter() - start, "traced_bytes": peak}}
+            "trained_activations": {"layers": activation, **cost}}
 
 
 def _measure(model, x, y, fit, evaluate):
-    tracemalloc.start()
-    start = perf_counter()
-    try:
+    def fit_predict():
         model.fit(x[fit], y[fit])
-        predicted = model.predict(x[evaluate])
-        peak = tracemalloc.get_traced_memory()[1]
-    finally:
-        tracemalloc.stop()
-    return {"rmse": compute_regression_metric("rmse", y[evaluate], predicted),
-            "seconds": perf_counter() - start, "traced_bytes": peak}, predicted
+        return model.predict(x[evaluate])
+
+    predicted, cost = measure(fit_predict, trace_memory=True)
+    return {"rmse": compute_regression_metric("rmse", y[evaluate], predicted), **cost}, predicted
 
 
 def compare_tser(x, y, *, with_aeon=False):
     from sklearn.ensemble import RandomForestRegressor
 
-    fit, evaluate = train_test_split(np.arange(len(y)), test_size=.3, random_state=42)
+    fit, evaluate = panel_holdout(y, seed=SPLIT_SEED)
     y = y.astype(float)
     flat = x.reshape(len(x), -1)
     models = {
@@ -226,8 +209,9 @@ def compare_tser(x, y, *, with_aeon=False):
         create = partial(TSERRegressor, name, name, params)
         stats, predicted = _measure(create(), features, y, fit, evaluate)
         if name == "drcif_regressor":
-            _, repeat = _measure(create(), features, y, fit, evaluate)
+            repeat_cost, repeat = _measure(create(), features, y, fit, evaluate)
             stats["same_seed_max_difference"] = float(np.max(np.abs(predicted - repeat)))
+            stats["repeat"] = repeat_cost
         rows.append(dict(model=name, **stats))
     stats, _ = _measure(RandomForestRegressor(n_estimators=20, random_state=42, n_jobs=1),
                         _statistics(x), y, fit, evaluate)
@@ -246,6 +230,13 @@ def main():
         parser.error("--groups applies only to classification.")
     if args.with_aeon and args.task == "topology":
         parser.error("--with-aeon applies only to early and tser.")
+    sources = {"train": SourceFingerprint.file(args.train)}
+    if args.groups is not None:
+        sources["groups"] = SourceFingerprint.file(args.groups)
+    provenance = comparison_provenance(
+        sources, ("fedot-ind", "numpy", "scipy", "scikit-learn", "torch", "industrial-neural",
+                  "aeon", "tsfresh", "numba", "ripser"),
+    )
     x, y = load_train(args.train)
     groups = None if args.groups is None else np.loadtxt(args.groups, dtype=str, ndmin=1)
     if args.task == "early":
@@ -254,8 +245,17 @@ def main():
         result = compare_topology(x, y, groups=groups)
     else:
         result = compare_tser(x, y, with_aeon=args.with_aeon)
-    print(json.dumps({"source": args.train.name, "sha256": sha256(args.train.read_bytes()).hexdigest(),
-                      **result}, indent=2, allow_nan=False))
+    if (sources["train"] != SourceFingerprint.file(args.train)
+            or args.groups is not None and sources["groups"] != SourceFingerprint.file(args.groups)):
+        raise ValueError("A comparison input changed during execution.")
+    protocol = {"partition": "TRAIN", "split_seed": SPLIT_SEED, "group_disjoint": args.groups is not None,
+                "with_aeon": args.with_aeon,
+                "measurement": {"time": "wall_clock", "memory": "python_allocations",
+                                "first_measurement": "may_include_compilation",
+                                "repeat_field": "same_seed_second_fit_where_reported"}}
+    report = comparison_report(args.task, provenance=provenance, protocol=protocol,
+                               results={"source": args.train.name, "sha256": sources["train"].sha256, **result})
+    print(json.dumps(report, indent=2, allow_nan=False))
 
 
 if __name__ == "__main__":
