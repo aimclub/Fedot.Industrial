@@ -60,6 +60,9 @@ notebooks = [
     "nbconvert>=7,<8",
     "ipykernel>=6,<7",
 ]
+benchmark-protocol = [
+    "roast @ git+https://github.com/data-satanism/ROAST.git@063d579cc3fa4ef3ea27b59d20f9aaa4ea0e451c",
+]
 
 [project.urls]
 Homepage = "https://github.com/aimclub/Fedot.Industrial"

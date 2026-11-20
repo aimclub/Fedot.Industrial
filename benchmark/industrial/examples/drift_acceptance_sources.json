@@ -1,0 +1,48 @@
+{
+  "version": "industrial_drift_acceptance@1",
+  "hydraulic": {
+    "version": "10.24432/C5CW21",
+    "source": "https://archive.ics.uci.edu/static/public/447/condition+monitoring+of+hydraulic+systems.zip",
+    "license": "CC-BY-4.0",
+    "archive_sha256": "24128aad2ee45eea7e6b63ebbd9992cdf25d0483a2cebefbfc13bc69079af1f2",
+    "profile_sha256": "867987ca884b2f0fd607ad3918329eba887d095af2befa21122cea518eaa584a",
+    "cycle_seconds": 60,
+    "expected_cycles": 2205,
+    "cooler_counts": {"3": 732, "20": 732, "100": 741},
+    "sensors": {
+      "PS1": {"rate_hz": 100, "sha256": "168e2e663bb511043a15a9c978b93a6e0280b27b113133d0a26f738170af39c0"},
+      "PS2": {"rate_hz": 100, "sha256": "2c283dac9a874828ac98badd172a136d52b1de580afb05311c47dc02e5e420c5"},
+      "PS3": {"rate_hz": 100, "sha256": "e671e83d99f37bcfe001fed22cb429002a9da8cad026f8abe4c1b7b284c8637f"},
+      "PS4": {"rate_hz": 100, "sha256": "fb58417e4a2c4f11d5614b31813b6942eb97f50690688d045090e3e4db2b252f"},
+      "PS5": {"rate_hz": 100, "sha256": "42b08cddc1fda06ae0b1c665e208680deb7ad1fff9b9cd9b9879a5820fdf4eca"},
+      "PS6": {"rate_hz": 100, "sha256": "9588d363210ab250cf179d930b6b8831643b55bfd8460e54374df18f37456573"},
+      "EPS1": {"rate_hz": 100, "sha256": "2a8d13ca793bb36c0ec4afd27b0103b97b3c1b5a176677be5e7a2ae98c277ab9"},
+      "FS1": {"rate_hz": 10, "sha256": "7ff09b17047f776befc136b7902bc7bd4419f96dc107a7ae94d8c412effe0375"},
+      "FS2": {"rate_hz": 10, "sha256": "5ee983f88e15ee054846b183224ebcab568b07e3bbe70a4f7f838e603cf1177f"},
+      "TS1": {"rate_hz": 1, "sha256": "49cae5e9013d8e230698d95f53a98bb77fedfe3c86985b812cf701dcc9ef06d8"},
+      "TS2": {"rate_hz": 1, "sha256": "34115a5b86886d83c0592c1ed259605634a8c83d3a051e97bf3e5790f1db58fa"},
+      "TS3": {"rate_hz": 1, "sha256": "cc271852b4caad39a3b8f5c36d948b57f6cab761dad8b4c7bdd7cb7e99c0b980"},
+      "TS4": {"rate_hz": 1, "sha256": "548b903f7cd4ea7f2497c0063bdda4bdf8793d55ff43a7d694b8cb835eaf2f55"},
+      "VS1": {"rate_hz": 1, "sha256": "a6227d9bcb807ee9835c32e73834d3eb9262f0f5cad1b176ca10c473ced25e99"},
+      "CE": {"rate_hz": 1, "sha256": "2adc6e258be8e3b7a303b7962f485a7984099cea21248c3bf9f18c7d87283c09"},
+      "CP": {"rate_hz": 1, "sha256": "63f60132cb5a30879c6f5c73640a39c69e416013195fe62dafe5133b0747baf4"},
+      "SE": {"rate_hz": 1, "sha256": "4c04994cb28b82c001b4931acecf8099e9fe5c864f361c0a7435fbf8745361a1"}
+    }
+  },
+  "breath_dx": {
+    "dataset_revision": "f6cf77324178e67ba9fa5569076b4a31fea6c537",
+    "code_revision": "b5d5cc375e09702391d76384717e58e9ca82b76a",
+    "metadata": {
+      "path": "breath-dx/metadata.csv",
+      "sha256": "86ba88d3807871ed4f21f85be2488d8328c96516c60d7d1cbc45892d83d8d495"
+    },
+    "week_max": 11,
+    "class_max": 7,
+    "target_code": 7,
+    "train_weeks": [1, 2, 3, 4, 8, 9, 10],
+    "test_weeks": [5, 6, 7, 11],
+    "validation_fraction": 0.15,
+    "validation_seeds": [0, 103, 206, 309, 412],
+    "score_status": "not_reproduced"
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "dataset_release": "683bb21b470f5a26586e1ab2295f0a2a1529ef0f",
+  "forecast_mode": "frozen_weights",
+  "baseline": "last_value@1",
+  "device": "cpu",
+  "torch_threads": 1,
+  "versions": {
+    "chronos-forecasting": "1.5.3",
+    "transformers": "4.49.0",
+    "accelerate": "1.3.0",
+    "huggingface-hub": "0.28.1",
+    "tokenizers": "0.21.0",
+    "safetensors": "0.5.3",
+    "regex": "2024.11.6",
+    "torch": "2.5.1+cpu"
+  },
+  "model_load_seconds": 0.16533329999947455,
+  "median_prediction_seconds": 0.008744300001126248,
+  "forecast_mean_mae": 6.420932261149089,
+  "last_value_mean_mae": 6.966666666666667,
+  "delta_mean_mae": -0.5457344055175781,
+  "windows_better": 3,
+  "windows_worse": 2,
+  "windows": [
+    {
+      "status": "success",
+      "mode": "zero_shot",
+      "model_release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+      "training_sources_complete": false,
+      "overlap": "unknown",
+      "datasets": [
+        "time/commodity_production/paper_pulp"
+      ],
+      "dates_public": true,
+      "origin": "1952-01-01T00:00:00+00:00",
+      "horizon": 12,
+      "frequency": "MS",
+      "prediction_seconds": 0.021137800002179574,
+      "mae": 5.422941207885742,
+      "last_value_mae": 5.5,
+      "history_points": 61,
+      "delta_mae": -0.07705879211425781
+    },
+    {
+      "status": "success",
+      "mode": "zero_shot",
+      "model_release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+      "training_sources_complete": false,
+      "overlap": "unknown",
+      "datasets": [
+        "time/commodity_production/paper_pulp"
+      ],
+      "dates_public": true,
+      "origin": "1953-01-01T00:00:00+00:00",
+      "horizon": 12,
+      "frequency": "MS",
+      "prediction_seconds": 0.008639100000436883,
+      "mae": 6.487283706665039,
+      "last_value_mae": 6.083333333333333,
+      "history_points": 73,
+      "delta_mae": 0.403950373331706
+    },
+    {
+      "status": "success",
+      "mode": "zero_shot",
+      "model_release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+      "training_sources_complete": false,
+      "overlap": "unknown",
+      "datasets": [
+        "time/commodity_production/paper_pulp"
+      ],
+      "dates_public": true,
+      "origin": "1954-01-01T00:00:00+00:00",
+      "horizon": 12,
+      "frequency": "MS",
+      "prediction_seconds": 0.010928200001217192,
+      "mae": 4.078301747639974,
+      "last_value_mae": 6.916666666666667,
+      "history_points": 85,
+      "delta_mae": -2.8383649190266933
+    },
+    {
+      "status": "success",
+      "mode": "zero_shot",
+      "model_release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+      "training_sources_complete": false,
+      "overlap": "unknown",
+      "datasets": [
+        "time/commodity_production/paper_pulp"
+      ],
+      "dates_public": true,
+      "origin": "1955-01-01T00:00:00+00:00",
+      "horizon": 12,
+      "frequency": "MS",
+      "prediction_seconds": 0.008744300001126248,
+      "mae": 10.394266764322916,
+      "last_value_mae": 11.0,
+      "history_points": 97,
+      "delta_mae": -0.6057332356770839
+    },
+    {
+      "status": "success",
+      "mode": "zero_shot",
+      "model_release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+      "training_sources_complete": false,
+      "overlap": "unknown",
+      "datasets": [
+        "time/commodity_production/paper_pulp"
+      ],
+      "dates_public": true,
+      "origin": "1956-01-01T00:00:00+00:00",
+      "horizon": 12,
+      "frequency": "MS",
+      "prediction_seconds": 0.008180999997421168,
+      "mae": 5.7218678792317705,
+      "last_value_mae": 5.333333333333333,
+      "history_points": 109,
+      "delta_mae": 0.3885345458984375
+    }
+  ]
+}
