@@ -47,6 +47,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+tser = [
+    "aeon==1.0.0",
+    "tsfresh>=0.20.3,<0.22",
+]
 dev = [
     "pytest>=7,<9",
     "pytest-cov>=6,<7",

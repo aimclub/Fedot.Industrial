@@ -72,6 +72,12 @@ def _encode_dataset_record(
         test_target: Any,
         metadata: dict[str, Any] | None = None,
 ) -> RegressionDatasetRecord:
+    metadata = dict(metadata or {})
+    shape = np.asarray(train_features).shape
+    if len(shape) == 3:
+        if np.asarray(test_features).shape[1:] != shape[1:]:
+            raise BenchmarkRegressionError("Train and test panels have incompatible temporal axes.")
+        metadata.update(dimensions=shape[1], series_length=shape[2])
     train_x = _normalize_matrix(train_features)
     test_x = _normalize_matrix(test_features)
     train_y = _normalize_vector(train_target)
@@ -84,7 +90,7 @@ def _encode_dataset_record(
         train_target=tuple(float(value) for value in train_y),
         test_features=tuple(tuple(float(value) for value in row) for row in test_x),
         test_target=tuple(float(value) for value in test_y),
-        metadata=metadata or {},
+        metadata=metadata,
     )
 
 
@@ -359,6 +365,11 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                         train_y = np.asarray(record.train_target, dtype=float)
                         test_x = np.asarray(record.test_features, dtype=float)
                         test_y = np.asarray(record.test_target, dtype=float)
+                        if getattr(model, 'uses_panel', False):
+                            from .models.tser import restore_tser_panel
+                            dimensions = int(record.metadata.get("dimensions", 1))
+                            train_x = restore_tser_panel(train_x, dimensions)
+                            test_x = restore_tser_panel(test_x, dimensions)
                         model.fit(train_x, train_y)
                         prediction = np.asarray(model.predict(test_x), dtype=float).reshape(-1)
                         metrics_summary = {
