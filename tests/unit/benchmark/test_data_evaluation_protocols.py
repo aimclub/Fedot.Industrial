@@ -2,6 +2,8 @@ from dataclasses import replace
 import csv
 import json
 from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -25,7 +27,7 @@ from benchmark.industrial.evaluation.forecasting_protocols import (
 from benchmark.industrial.evaluation.protocol_report import pairwise_units, report_from_evidence
 from benchmark.industrial.protocols import ProtocolError, resolve_protocol
 from benchmark.industrial.protocols.__main__ import main
-from benchmark.industrial.protocols.assets import file_digest
+from benchmark.industrial.protocols.assets import AssetCorrupt, file_digest
 
 
 def _forecast(item, step, truth, prediction, reference):
@@ -271,6 +273,45 @@ def test_time_pinned_release_and_relative_test_tail(tmp_path):
     assert [w.truth[:, 0].tolist() for w in windows] == [[3, 4], [5, 6]]
     with pytest.raises(ProtocolError, match='frequency'):
         load_time_windows(release, tmp_path, target='y', frequency='D', test_length=5, horizon=2)
+
+
+def test_chronos_loads_only_verified_assets_and_reports_effective_threads(tmp_path, monkeypatch):
+    from benchmark.industrial.examples.verify_time_transfer import _load_pipeline
+
+    model_dir = tmp_path / 'model'
+    model_dir.mkdir()
+    files = {'config.json': b'{}', 'model.safetensors': b'weights'}
+    for name, content in files.items():
+        (model_dir / name).write_bytes(content)
+    adapter = model_dir / 'adapter_config.json'
+    adapter.write_text('{}', encoding='utf-8')
+    model = {'assets': {f'model/{name}': file_digest(model_dir / name) for name in files}}
+    runtime = {'packages': {}, 'device': 'cpu', 'dtype': 'float32', 'point_quantile': .5, 'torch_threads': 1}
+    calls, requested, evaluated = [], [], []
+    pipeline = SimpleNamespace(model=SimpleNamespace(eval=lambda: evaluated.append(True)))
+
+    def load(directory, **options):
+        calls.append(directory)
+        assert {path.name: path.read_bytes() for path in directory.iterdir()} == files
+        assert options['local_files_only'] and options['use_safetensors']
+        return pipeline
+
+    torch = SimpleNamespace(float32=object(), __version__='fixture', set_num_threads=requested.append,
+                            get_num_threads=lambda: 2)
+    monkeypatch.setitem(sys.modules, 'torch', torch)
+    monkeypatch.setitem(sys.modules, 'chronos', SimpleNamespace(
+        BaseChronosPipeline=SimpleNamespace(from_pretrained=load)))
+    loaded, settings, _, threads = _load_pipeline(tmp_path, model, runtime)
+    assert loaded is pipeline and evaluated == [True]
+    assert requested == [1] and threads == 2
+    assert settings['torch'] == 'fixture'
+    assert len(calls) == 1 and not calls[0].exists()
+    assert adapter.read_text(encoding='utf-8') == '{}'
+
+    (model_dir / 'model.safetensors').write_bytes(b'changed')
+    with pytest.raises(AssetCorrupt, match='SHA-256'):
+        _load_pipeline(tmp_path, model, runtime)
+    assert len(calls) == 1
 
 
 def test_chronos_median_uses_only_history_and_does_not_enable_gradients():

@@ -1,5 +1,6 @@
 from dataclasses import replace
 from hashlib import sha256
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -192,6 +193,25 @@ def test_ltsf_rejects_ambiguous_columns_and_times(tmp_path, content, message):
         load_ltsf_csv(release, tmp_path, targets=('target',))
 
 
+def test_ltsf_parses_the_csv_bytes_that_were_verified(tmp_path, monkeypatch):
+    original = 'date,target\n2024-01-01,1\n2024-01-02,2\n'
+    changed = original.replace(',2\n', ',9\n')
+    release = catalog(tmp_path, {'series': ('series.csv', original)})
+    source = tmp_path / 'series.csv'
+    read_bytes = Path.read_bytes
+
+    def replace_after_read(path):
+        content = read_bytes(path)
+        if path == source:
+            path.write_text(changed, encoding='utf-8')
+        return content
+
+    monkeypatch.setattr(Path, 'read_bytes', replace_after_read)
+    result = load_ltsf_csv(release, tmp_path, targets=('target',))
+    assert source.read_text(encoding='utf-8') == changed
+    assert result.target[:, 0].tolist() == [1., 2.]
+
+
 def m5_catalog(root, *, constant=False):
     days = 58
     header = 'item_id,dept_id,cat_id,store_id,state_id,' + ','.join(f'd_{day}' for day in range(1, days + 1))
@@ -282,3 +302,18 @@ def test_hydraulic_loader_preserves_each_sensor_grid_and_cycle_labels(tmp_path):
     malformed = catalog(tmp_path, {**payload, 'TS1': ('TS1.txt', '10\n')})
     with pytest.raises(ProtocolError, match='cycle level'):
         load_hydraulic_cycles(malformed, tmp_path, sensors=('PS1', 'TS1'), target_column=0)
+
+
+@pytest.mark.parametrize('code', ['3.5', 'nan', 'inf'])
+def test_hydraulic_acceptance_rejects_invalid_cooler_codes(tmp_path, code):
+    from benchmark.industrial.examples.verify_drift_sources import verify_hydraulic
+
+    root = tmp_path / 'hydraulic'
+    root.mkdir()
+    profile = asset(root, 'profile.txt', f'{code}\n20\n')
+    sensor = asset(root, 'TS1.txt', '10\n11\n')
+    config = {'version': 'fixture', 'source': 'urn:synthetic', 'license': 'CC0-1.0',
+              'profile_sha256': profile.sha256, 'expected_cycles': 2, 'cycle_seconds': 1,
+              'sensors': {'TS1': {'sha256': sensor.sha256, 'rate_hz': 1}}, 'cooler_counts': {'3': 1, '20': 1}}
+    with pytest.raises(ValueError, match='cooler codes must be finite integers'):
+        verify_hydraulic(tmp_path, config)

@@ -5,13 +5,14 @@ from importlib.metadata import version
 import json
 from pathlib import Path
 from statistics import mean, median
+from tempfile import TemporaryDirectory
 from time import perf_counter
 
 import numpy as np
 
 from benchmark.industrial.datasets.catalog import read_catalog
 from benchmark.industrial.evaluation.forecast_transfer import TrainingSources, evaluate_zero_shot, load_time_windows
-from benchmark.industrial.protocols.assets import LocalAsset, checked_asset
+from benchmark.industrial.protocols.assets import LocalAsset, read_checked_asset
 from benchmark.industrial.protocols.json_io import read_protocol_json
 
 
@@ -38,16 +39,22 @@ def _load_pipeline(root, model, runtime):
         raise ValueError('Installed forecasting packages do not match the TIME run manifest')
     if (runtime['device'], runtime['dtype'], runtime['point_quantile']) != ('cpu', 'float32', .5):
         raise ValueError('The fixed TIME experiment uses CPU, float32 and the median')
-    assets = [checked_asset(root, LocalAsset(path, digest)) for path, digest in model['assets'].items()]
-    if len(assets) != 2 or {path.name for path in assets} != {'config.json', 'model.safetensors'} or len(
-            {path.parent for path in assets}) != 1:
+    assets = [(Path(path), LocalAsset(path, digest)) for path, digest in model['assets'].items()]
+    if len(assets) != 2 or {path.name for path, _ in assets} != {'config.json', 'model.safetensors'} or len(
+            {path.parent for path, _ in assets}) != 1:
         raise ValueError('Declare exactly one local safetensors model')
-    torch.set_num_threads(runtime['torch_threads'])
-    started = perf_counter()
-    pipeline = BaseChronosPipeline.from_pretrained(
-        assets[0].parent, device_map='cpu', torch_dtype=torch.float32, local_files_only=True, use_safetensors=True)
-    pipeline.model.eval()
-    return pipeline, {**versions, 'torch': str(torch.__version__)}, perf_counter() - started
+    with TemporaryDirectory(prefix='industrial-time-') as directory:
+        snapshot = Path(directory)
+        for path, asset in assets:
+            _, content = read_checked_asset(root, asset)
+            (snapshot / path.name).write_bytes(content)
+        torch.set_num_threads(runtime['torch_threads'])
+        started = perf_counter()
+        pipeline = BaseChronosPipeline.from_pretrained(
+            snapshot, device_map='cpu', torch_dtype=torch.float32, local_files_only=True, use_safetensors=True)
+        pipeline.model.eval()
+        load_seconds = perf_counter() - started
+    return pipeline, {**versions, 'torch': str(torch.__version__)}, load_seconds, torch.get_num_threads()
 
 
 def compare_time_windows(root, config, catalog_path):
@@ -59,7 +66,7 @@ def compare_time_windows(root, config, catalog_path):
     model, runtime = config['model'], config['runtime']
     training = TrainingSources(model['release'], tuple(model['known_training_datasets']),
                                model['training_sources_complete'])
-    pipeline, versions, load_seconds = _load_pipeline(root, model, runtime)
+    pipeline, versions, load_seconds, threads = _load_pipeline(root, model, runtime)
     predictions = []
     for window in windows:
         result = evaluate_zero_shot(
@@ -72,7 +79,7 @@ def compare_time_windows(root, config, catalog_path):
     forecast_mean = mean(row['mae'] for row in predictions)
     baseline_mean = mean(row['last_value_mae'] for row in predictions)
     return {'dataset_release': release.version, 'forecast_mode': 'frozen_weights',
-            'baseline': 'last_value@1', 'device': runtime['device'], 'torch_threads': runtime['torch_threads'],
+            'baseline': 'last_value@1', 'device': runtime['device'], 'torch_threads': threads,
             'versions': versions, 'model_load_seconds': load_seconds,
             'median_prediction_seconds': median(row['prediction_seconds'] for row in predictions),
             'forecast_mean_mae': forecast_mean, 'last_value_mean_mae': baseline_mean,

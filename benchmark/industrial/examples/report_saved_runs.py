@@ -10,7 +10,7 @@ from itertools import product
 import math
 from pathlib import Path
 
-from benchmark.industrial.evaluation.protocol_report import render_html_table, write_csv_table
+from benchmark.industrial.evaluation.protocol_report import prepare_report_output, render_html_table, write_csv_table
 from benchmark.industrial.protocols.json_io import parse_protocol_json, read_protocol_json
 from benchmark.industrial.protocols.schema import ProtocolError, mapping, string
 
@@ -182,7 +182,8 @@ An incomplete search can have a saved score; it does not count as a successful p
 
 def write_saved_run_report(source_dir, output_dir):
     root = Path(source_dir)
-    manifest = read_protocol_json(root / 'manifest.json')
+    manifest_path = root / 'manifest.json'
+    manifest = read_protocol_json(manifest_path)
     if manifest['version'] != 'industrial_data10_receipts@1' or manifest['visibility'] != 'public_aggregates':
         raise ProtocolError('Expected versioned public DATA-10 aggregate receipts')
     sources = manifest['sources']
@@ -203,8 +204,8 @@ def write_saved_run_report(source_dir, output_dir):
         tables.extend(table)
         links.append(f'<a href="#{escape(spec["id"])}">{escape(spec["title"])}</a>')
 
-    output = Path(output_dir)
-    output.mkdir(parents=True, exist_ok=True)
+    inputs = (manifest_path, *(root / source['file'] for source in sources.values()))
+    output = prepare_report_output(output_dir, ('metrics.csv', 'index.html'), inputs=inputs)
     write_csv_table(output / 'metrics.csv', _HEADERS, tables)
     (output / 'index.html').write_text(_PAGE + '<nav aria-label="Cohorts">' + ' '.join(links) + '</nav>\n'
                                        + '\n'.join(sections) + '</body></html>\n', encoding='utf-8')

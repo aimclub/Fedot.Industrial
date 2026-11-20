@@ -27,6 +27,8 @@ def verify_hydraulic(root, config):
     if shapes != expected or not all(np.isfinite(values).all() for values in channels.values()):
         raise ValueError('Hydraulic sensor coverage, sampling rates or values differ from the UCI release')
     values, counts = np.unique(target, return_counts=True)
+    if not np.isfinite(values).all() or np.any(values != np.trunc(values)):
+        raise ValueError('Hydraulic cooler codes must be finite integers')
     counts = {str(int(value)): int(count) for value, count in zip(values, counts, strict=True)}
     if counts != config['cooler_counts']:
         raise ValueError('Hydraulic cooler class counts differ from the UCI release')

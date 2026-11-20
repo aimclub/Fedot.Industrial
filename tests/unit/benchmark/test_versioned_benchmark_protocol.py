@@ -277,13 +277,17 @@ def test_cli_rejects_duplicate_json_keys_without_resolving(tmp_path, capsys):
     assert 'duplicate object keys' in result['detail']
 
 
-def test_cli_reports_excessively_nested_json_as_incompatible(tmp_path, capsys):
-    from benchmark.industrial.protocols.__main__ import main
-
+def test_cli_reports_excessively_nested_json_as_incompatible(tmp_path):
     manifest = tmp_path / 'nested.json'
     manifest.write_text('[' * 2000 + '0' + ']' * 2000, encoding='utf-8')
-    assert main([str(manifest)]) == 2
-    result = json.loads(capsys.readouterr().out)
+    command = (
+        'import sys; from benchmark.industrial.protocols.__main__ import main; '
+        'sys.setrecursionlimit(256); raise SystemExit(main(sys.argv[1:]))'
+    )
+    completed = subprocess.run([sys.executable, '-c', command, str(manifest)], cwd=EXAMPLE.parents[3],
+                               check=False, capture_output=True, text=True, timeout=30)
+    assert completed.returncode == 2, completed.stderr
+    result = json.loads(completed.stdout)
     assert result['status'] == 'incompatible' and 'nesting depth' in result['detail']
 
 

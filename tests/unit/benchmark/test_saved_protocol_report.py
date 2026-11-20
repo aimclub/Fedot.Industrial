@@ -147,6 +147,22 @@ def test_saved_report_rejects_conflicting_stop_reasons(tmp_path):
     assert not out.exists()
 
 
+def test_saved_report_cannot_overwrite_an_input_receipt(tmp_path):
+    root = _fixture_sources(tmp_path)
+    path = root / 'manifest.json'
+    manifest = json.loads(path.read_text(encoding='utf-8'))
+    original = (root / manifest['sources']['time']['file']).read_bytes()
+    manifest['sources']['time']['file'] = 'index.html'
+    path.write_text(json.dumps(manifest), encoding='utf-8')
+    receipt = root / 'index.html'
+    receipt.write_bytes(original)
+
+    with pytest.raises(ProtocolError, match='overwrite an input: index.html'):
+        main([str(root), '--source-dir', str(root)])
+    assert receipt.read_bytes() == original
+    assert not (root / 'metrics.csv').exists()
+
+
 def test_replayed_cell_is_counted_once_and_conflicting_or_foreign_cells_fail():
     cell = Cell('one', 'B', '42')
     observed = Outcome(cell, 'success', .75, 'path')

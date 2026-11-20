@@ -203,16 +203,22 @@ def render_html_table(headers, table):
     return f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
 
 
-def write_protocol_report(report: ProtocolReport, root, *, inputs=()):
-    """Render CSV and HTML from the same rows; no evaluator is invoked."""
+def prepare_report_output(root, filenames, *, inputs=()):
+    """Validate every destination against the input paths before writing."""
     root = Path(root)
     inputs = tuple(map(Path, inputs))
-    for target in (root / name for name in ('metrics.csv', 'summary.json', 'index.html')):
+    for target in (root / name for name in filenames):
         for source in inputs:
             if (target.resolve() == source.resolve()
                     or (target.exists() and source.exists() and target.samefile(source))):
                 raise ProtocolError(f'Report output would overwrite an input: {target.name}')
     root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def write_protocol_report(report: ProtocolReport, root, *, inputs=()):
+    """Render CSV and HTML from the same rows; no evaluator is invoked."""
+    root = prepare_report_output(root, ('metrics.csv', 'summary.json', 'index.html'), inputs=inputs)
     table = tuple(tuple(getattr(row, column) for column in _HEADERS) for row in report.rows)
     write_csv_table(root / 'metrics.csv', _HEADERS, table)
     info = {'plan_id': report.plan_id, 'comparison_key': report.comparison_key, 'metric': report.metric,

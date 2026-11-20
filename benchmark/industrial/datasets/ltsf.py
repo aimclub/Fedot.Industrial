@@ -2,6 +2,7 @@
 
 import csv
 from dataclasses import dataclass
+from io import BytesIO, TextIOWrapper
 
 import numpy as np
 import pandas as pd
@@ -58,8 +59,7 @@ def load_ltsf_csv(release: CatalogRelease, root, *, time='date', targets, observ
         raise ProtocolError('LTSF CSV requires at least one target column')
     columns = (time, *targets, *observed, *known_future)
     unique_strings(columns, 'LTSF columns')
-    path = release.files(root, ('series',))['series']
-    with path.open(encoding='utf-8-sig', newline='') as handle:
+    with TextIOWrapper(BytesIO(release.read_bytes(root, 'series')), encoding='utf-8-sig', newline='') as handle:
         header = next(csv.reader(handle), ())
         unique_strings(header, 'LTSF CSV header')
         if not set(columns) <= set(header):

@@ -1,8 +1,8 @@
-"""Read-only external releases. The catalog never downloads or opens dataset contents."""
+"""Read-only local access to declared external releases, without downloads."""
 
 from dataclasses import dataclass
 
-from ..protocols.assets import LocalAsset, checked_asset
+from ..protocols.assets import LocalAsset, checked_asset, read_checked_asset
 from ..protocols.json_io import read_protocol_json
 from ..protocols.schema import Access, ProtocolError, choice, fields, mapping, string
 
@@ -19,14 +19,23 @@ class CatalogRelease:
     license: str | None
     assets: tuple[tuple[str, LocalAsset], ...]
 
-    def files(self, root, roles):
+    def _declared_assets(self, roles):
+        roles = tuple(roles)
         if self.license is None:
             raise ProtocolError(f'{self.release_id}: dataset license is unknown')
         assets = dict(self.assets)
         missing = set(roles) - assets.keys()
         if missing:
             raise ProtocolError(f'{self.release_id}: missing file roles {sorted(missing)}')
-        return {role: checked_asset(root, assets[role]) for role in roles}
+        return {role: assets[role] for role in roles}
+
+    def files(self, root, roles):
+        return {role: checked_asset(root, asset) for role, asset in self._declared_assets(roles).items()}
+
+    def read_bytes(self, root, role):
+        asset = self._declared_assets((role,))[role]
+        _, content = read_checked_asset(root, asset)
+        return content
 
 
 def parse_catalog(payload):
