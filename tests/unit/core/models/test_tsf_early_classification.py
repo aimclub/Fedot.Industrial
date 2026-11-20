@@ -2,7 +2,9 @@ import numpy as np
 import pytest
 
 from fedot_ind.core.models.early_classification import PrefixSchedule, evaluate_decisions, run_early
-from fedot_ind.core.models.early_classification.confidence import fit_ecec, fit_prefix_probabilities, fit_teaser
+from fedot_ind.core.models.early_classification.confidence import (
+    _calibration_splits, _features, fit_ecec, fit_prefix_probabilities, fit_teaser,
+)
 from fedot_ind.core.models.early_classification.economy import fit_cluster_economy, fit_gamma_economy
 from fedot_ind.core.models.early_classification.neighbors import _stable_lengths, fit_early_nearest_neighbor
 from fedot_ind.core.models.early_classification.shapelets import fit_early_shapelets
@@ -12,6 +14,26 @@ def panel():
     labels = np.repeat([0, 1], 8)
     x = np.random.default_rng(42).normal(0, .02, size=(16, 2, 8)) + 2 * labels[:, None, None]
     return x, labels, PrefixSchedule((2, 4, 8), 2, (1, 0))
+
+
+def test_prefix_normalization_ignores_translation_and_handles_constants():
+    x = np.array([[[1., 5., 6.], [2., 2., 2.]]])
+    transformed = _features(x, True)
+    np.testing.assert_allclose(transformed, _features(3 * x + 80, True))
+    np.testing.assert_array_equal(transformed[0, 3:], 0.)
+
+
+def test_grouped_probability_calibration_keeps_repeated_records_together():
+    x, y, schedule = panel()
+    groups = np.repeat(np.arange(8), 2)
+    splits = _calibration_splits(x, y, schedule.classes, 3, 10, groups)
+    for fit, holdout in splits:
+        assert set(groups[fit]).isdisjoint(groups[holdout])
+    np.testing.assert_array_equal(np.sort(np.concatenate([held for _, held in splits])), np.arange(len(x)))
+    model = fit_prefix_probabilities(x, y, schedule, groups=groups, seed=10)
+    np.testing.assert_allclose(model.out_of_fold.sum(axis=-1), 1.)
+    with pytest.raises(ValueError, match="group-disjoint"):
+        fit_prefix_probabilities(x, y, schedule, groups=y, seed=10)
 
 
 def test_prefix_causality_and_forced_final_decision():

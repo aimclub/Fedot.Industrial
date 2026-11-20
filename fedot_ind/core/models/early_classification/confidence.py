@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from sklearn.svm import OneClassSVM
 
 from .protocol import run_early, training_inputs
@@ -13,6 +13,14 @@ from .protocol import run_early, training_inputs
 
 def _flatten(x):
     return x.reshape(len(x), -1)
+
+
+def _features(observations, normalize):
+    if normalize:
+        center = observations.mean(axis=-1, keepdims=True)
+        spread = observations.std(axis=-1, keepdims=True)
+        observations = (observations - center) / np.where(spread > 0, spread, 1.)
+    return _flatten(observations)
 
 
 def _class_order(model, classes):
@@ -24,10 +32,11 @@ class PrefixProbabilities:
     schedule: object
     models: tuple
     out_of_fold: np.ndarray
+    normalize: bool = False
 
     def predict_prefix(self, prefix, step):
         model = self.models[step]
-        return model.predict_proba(prefix.reshape(1, -1))[0, _class_order(model, self.schedule.classes)]
+        return model.predict_proba(_features(prefix[None], self.normalize))[0, _class_order(model, self.schedule.classes)]
 
     def predict_one(self, series, policy):
         trace = []
@@ -43,22 +52,48 @@ class PrefixProbabilities:
         return run_early(series, self.schedule, decide, fallback)
 
 
-def fit_prefix_probabilities(series, labels, schedule, *, estimator=None, folds=3, seed=0):
+def _calibration_splits(x, y, classes, folds, seed, groups):
+    if groups is None:
+        return tuple(StratifiedKFold(folds, shuffle=True, random_state=seed).split(x, y))
+    groups = np.asarray(groups)
+    if groups.shape != y.shape or any(len(np.unique(groups[y == c])) < folds for c in classes):
+        raise ValueError("Every class must support each group-disjoint calibration fold.")
+    split = tuple(StratifiedGroupKFold(folds, shuffle=True, random_state=seed).split(x, y, groups))
+    if any(set(y[train]) != set(classes) for train, _ in split):
+        raise ValueError("A calibration training fold is missing a class.")
+    return split
+
+
+def fit_prefix_probabilities(series, labels, schedule, *, estimator=None, folds=3, seed=0, normalize=False,
+                             groups=None):
     x, y = training_inputs(series, labels, schedule)
     if type(folds) is not int or folds < 2 or any(np.count_nonzero(y == c) < folds for c in schedule.classes):
         raise ValueError("Every class must support each stratified training fold.")
     estimator = LogisticRegression(max_iter=400, random_state=seed) if estimator is None else estimator
-    split = tuple(StratifiedKFold(folds, shuffle=True, random_state=seed).split(x, y))
+    split = _calibration_splits(x, y, schedule.classes, folds, seed, groups)
     results = np.empty((len(y), len(schedule.cutoffs), len(schedule.classes)))
     models = []
     for step, cutoff in enumerate(schedule.cutoffs):
-        features = _flatten(x[:, :, :cutoff])
+        features = _features(x[:, :, :cutoff], normalize)
         for train, holdout in split:
             model = clone(estimator).fit(features[train], y[train])
             results[holdout, step] = model.predict_proba(features[holdout])[:, _class_order(model, schedule.classes)]
         models.append(clone(estimator).fit(features, y))
     results.setflags(write=False)
-    return PrefixProbabilities(schedule, tuple(models), results)
+    return PrefixProbabilities(schedule, tuple(models), results, normalize)
+
+
+def fit_teaser_weasel(series, labels, schedule, *, normalized=False, consecutive=2, folds=3, seed=0, groups=None):
+    """WEASEL plus TEASER gates; TEASER-Z standardizes each observed prefix only."""
+    if schedule.channels != 1 or schedule.cutoffs[0] < 7:
+        raise ValueError("WEASEL needs a univariate prefix of at least seven observations.")
+    from aeon.classification.dictionary_based import WEASEL
+
+    classifier = fit_prefix_probabilities(
+        series, labels, schedule, estimator=WEASEL(support_probabilities=True, random_state=seed, n_jobs=1),
+        folds=folds, seed=seed, normalize=normalized, groups=groups,
+    )
+    return classifier, fit_teaser(classifier.out_of_fold, labels, schedule.classes, consecutive=consecutive)
 
 
 def _calibration(scores, target, classes):
