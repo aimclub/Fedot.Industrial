@@ -48,8 +48,8 @@ dependencies = [
 
 [project.optional-dependencies]
 tser = [
-    # Keep both reference libraries compatible with the SciPy cap in FEDOT.
-    "aeon==0.11.1",
+    "aeon==1.0.0",
+    # tsfresh 0.20.3 raises the SciPy floor above the pinned FEDOT cap.
     "tsfresh==0.20.2",
 ]
 dev = [
