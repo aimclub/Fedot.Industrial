@@ -71,6 +71,22 @@ def test_seal_requires_all_sampling_evidence_before_opening_train(tmp_path, monk
     assert not (tmp_path / 'sealed').exists()
 
 
+def test_calendar_recovery_does_not_guess_unmatched_or_overlapping_objects():
+    from benchmark.industrial.experiments.supervised_pilot.calendar_evidence import recover_calendar, require_unique_calendar
+
+    index = np.arange(100)
+    prices = index.astype(float) ** 2
+    cases = np.stack((prices[50:70], prices[5:25]))[:, None, :]
+    assert require_unique_calendar(recover_calendar(cases, index, prices)) == (50, 5)
+    wrong = cases.copy()
+    wrong[0, 0, -1] += .5
+    with pytest.raises(ProtocolError, match='one dated window exactly'):
+        require_unique_calendar(recover_calendar(wrong, index, prices))
+    overlap = np.stack((prices[50:70], prices[55:75]))[:, None, :]
+    with pytest.raises(ProtocolError, match='overlap'):
+        require_unique_calendar(recover_calendar(overlap, index, prices))
+
+
 def test_regression_score_rejects_broadcast_and_permutation():
     panel = Panel('Synthetic', np.array([3, 5, 9]), np.zeros((3, 1, 8)), np.full(3, 4.))
     assert score_regression(panel, [3, 5, 9], [3, 4, 5]) == dict(rmse=np.sqrt(2 / 3), mae=2 / 3, r2=None)
