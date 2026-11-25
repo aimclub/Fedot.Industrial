@@ -101,6 +101,22 @@ def test_execution_options_change_plan_not_comparison_key(payload):
     assert changed.plan_id != original.plan_id
 
 
+def test_evaluation_repeats_are_optional_but_identity_bound(payload):
+    original = resolve_protocol(payload)
+    assert original.evaluation_repeats is None
+    options = payload['suite']['run']['options']
+    options['evaluation_repeats'] = 2
+    updated = resolve_protocol(payload)
+    assert updated.evaluation_repeats == 2
+    assert updated.plan_id != original.plan_id
+    assert updated.comparison_key == original.comparison_key
+    assert resolve_protocol(updated.to_dict()) == updated
+    for invalid in (None, False, 0, -1, 1.5):
+        options['evaluation_repeats'] = invalid
+        with pytest.raises(ProtocolError, match='evaluation_repeats'):
+            resolve_protocol(payload)
+
+
 def test_rejects_forged_plan_and_unknown_versions(payload):
     resolved = json.loads(json.dumps(resolve_protocol(payload).to_dict()))
     resolved['suite']['run']['random_seed'] += 1

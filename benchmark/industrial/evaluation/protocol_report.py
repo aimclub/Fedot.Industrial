@@ -99,6 +99,9 @@ def _record_index(plan, records, allowed, metric):
 def build_protocol_report(plan, records, *, items_by_dataset, repeat_count):
     """Use explicit coverage units; absent or failed cells prevent ranking."""
     integer(repeat_count, 'repeat_count')
+    planned_repeats = plan.evaluation_repeats
+    if planned_repeats is not None and repeat_count != planned_repeats:
+        raise ProtocolError('Evidence repeat_count does not match the planned evaluation_repeats')
     metric = plan.suite.run.primary_metric
     rule = _metric_rule(plan, metric)
     evaluation = {profile.dataset_id: _evaluation_items(profile) for profile in plan.profiles}
@@ -119,10 +122,9 @@ def build_protocol_report(plan, records, *, items_by_dataset, repeat_count):
     ranked = ()
     modes = {profile.protocol.mode for profile in plan.profiles}
     full_coverage = all(set(items) == evaluation[dataset] for dataset, items in units.items())
+    complete_grid = planned_repeats is not None and full_coverage and all(row.status == 'success' for row in rows)
     # Only the explicit mean-of-units rule produces a cross-dataset scalar here.
-    if full_coverage and modes == {EvaluationMode.OFFICIAL} and rule.aggregation == 'mean_by_unit' and all(
-        row.status == 'success' for row in rows
-    ):
+    if complete_grid and modes == {EvaluationMode.OFFICIAL} and rule.aggregation == 'mean_by_unit':
         by_model = {}
         for row in rows:
             by_model.setdefault(row.model, []).append(row.value)
@@ -131,6 +133,7 @@ def build_protocol_report(plan, records, *, items_by_dataset, repeat_count):
                               key=lambda item: (direction * item[1], item[0])))
     context = {'task': plan.suite.task_kind, 'budget': dict(plan.suite.run.options['evaluation_budget']),
                'all_planned_units': full_coverage,
+               'planned_repeats': planned_repeats,
                'metric_rule': {'version': rule.version, 'direction': rule.direction.value,
                                'aggregation': rule.aggregation},
                'profiles': {profile.dataset_id: {

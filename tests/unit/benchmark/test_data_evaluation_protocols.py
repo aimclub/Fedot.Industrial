@@ -365,7 +365,7 @@ def test_decomposition_example_reports_separate_reconstruction_and_forecast(caps
 _EXAMPLE = Path(__file__).resolve().parents[3] / 'benchmark/industrial/examples/protocol_smoke.json'
 
 
-def _saved_report(task, metric_name, *, mode='official'):
+def _saved_report(task, metric_name, *, mode='official', repeats=1):
     records = pytest.importorskip('roast.core.records')
     manifest = json.loads(_EXAMPLE.read_text(encoding='utf-8'))
     suite = manifest['suite']
@@ -374,6 +374,8 @@ def _saved_report(task, metric_name, *, mode='official'):
     suite['metrics'] = [{'schema_version': 1, 'metric_id': metric_name,
                          'metric': {'schema_version': 1, 'name': metric_name}}]
     suite['run']['primary_metric'] = metric_name
+    if repeats is not None:
+        suite['run']['options']['evaluation_repeats'] = repeats
     profile = manifest['profiles']['toy']
     protocol = profile['protocol']
     protocol['mode'] = mode
@@ -396,7 +398,7 @@ def _saved_report(task, metric_name, *, mode='official'):
                                               'source': 'local_run', 'artifact_ref': 'out/metrics.json'}).to_dict()
 
     envelope = {'version': 'industrial_report_evidence@1', 'visibility': 'public_aggregates',
-                'repeat_count': 1, 'items_by_dataset': {'toy': ['evaluation']},
+                'repeat_count': repeats if repeats is not None else 1, 'items_by_dataset': {'toy': ['evaluation']},
                 'metrics': [record('dummy', .75), record('other', .5), record('other', .5)],
                 'provenance': {'code_revision': 'example', 'recorded_at': '2026-11-18T12:00:00Z'}}
     return manifest, plan, envelope
@@ -438,6 +440,22 @@ def test_native_report_rejects_distinct_records_with_same_displayed_values():
     conflicting = {**first, 'record_id': 'different-id', 'run_id': 'different-run'}
     with pytest.raises(ProtocolError, match='Conflicting metric records'):
         report_from_evidence(plan, {**envelope, 'metrics': [first, conflicting]})
+
+
+def test_report_cannot_discard_expected_repeats_from_the_plan():
+    _, plan, envelope = _saved_report('ts_classification', 'accuracy', repeats=2)
+    report = report_from_evidence(plan, envelope)
+    assert (report.successful, report.expected, report.ranked) == (2, 4, ())
+    assert report.context['planned_repeats'] == 2
+    with pytest.raises(ProtocolError, match='planned evaluation_repeats'):
+        report_from_evidence(plan, {**envelope, 'repeat_count': 1})
+
+
+def test_report_without_independently_planned_repeats_keeps_rows_but_not_ranking():
+    _, plan, envelope = _saved_report('ts_classification', 'accuracy', repeats=None)
+    report = report_from_evidence(plan, envelope)
+    assert (report.successful, report.expected, report.ranked) == (2, 2, ())
+    assert report.context['planned_repeats'] is None
 
 
 @pytest.mark.parametrize(('task', 'metric', 'item'), [

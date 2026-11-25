@@ -61,6 +61,8 @@ def _read_suite(value):
                     'suite.run.options.evaluation_budget')
     for name, amount in budget.items():
         integer(amount, f'suite.run.options.evaluation_budget.{name}')
+    if 'evaluation_repeats' in suite.run.options:
+        integer(suite.run.options['evaluation_repeats'], 'suite.run.options.evaluation_repeats')
     if suite.run.primary_metric is None:
         raise ProtocolError('suite.run.primary_metric must select a configured metric')
     return suite
@@ -100,6 +102,10 @@ class ResolvedProtocolPlan:
     profiles: tuple[DatasetProfile, ...]
     plan_id: str
     comparison_key: str
+
+    @property
+    def evaluation_repeats(self) -> int | None:
+        return self.suite.run.options.get('evaluation_repeats')
 
     def to_dict(self) -> dict:
         return {**_payload(self.suite, self.profiles), 'plan_id': self.plan_id, 'comparison_key': self.comparison_key}
