@@ -55,6 +55,22 @@ def test_calendar_preflight_restores_source_time_without_sorting_object_keys(tmp
         load((rows[0], rows[0]))
 
 
+def test_seal_requires_all_sampling_evidence_before_opening_train(tmp_path, monkeypatch):
+    import json
+    from benchmark.industrial.experiments.supervised_pilot import regression_inputs
+
+    settings = tmp_path / 'evidence.json'
+    settings.write_text(json.dumps({'version': 'tser_evolution_pilot@1', 'datasets': {}}), encoding='utf-8')
+
+    def forbidden(*_args):
+        pytest.fail('A partial data catalog must be rejected before reading TRAIN sources')
+
+    monkeypatch.setattr(regression_inputs, 'load_regression_train', forbidden)
+    with pytest.raises(ProtocolError, match='partial protocol'):
+        regression_inputs.seal_regression(tmp_path, tmp_path / 'sealed', settings)
+    assert not (tmp_path / 'sealed').exists()
+
+
 def test_regression_score_rejects_broadcast_and_permutation():
     panel = Panel('Synthetic', np.array([3, 5, 9]), np.zeros((3, 1, 8)), np.full(3, 4.))
     assert score_regression(panel, [3, 5, 9], [3, 4, 5]) == dict(rmse=np.sqrt(2 / 3), mae=2 / 3, r2=None)
@@ -62,6 +78,32 @@ def test_regression_score_rejects_broadcast_and_permutation():
         score_regression(panel, [3, 5, 9], [[3], [4], [5]])
     with pytest.raises(ProtocolError, match='object order'):
         score_regression(panel, [3, 9, 5], [3, 4, 5])
+
+
+@pytest.mark.parametrize('graph_index', (0, 3, 4, 5, 6, 7, 8))
+def test_common_graph_runner_accepts_regression_targets(graph_index, monkeypatch):
+    import torch
+    from benchmark.industrial.experiments.supervised_pilot import training
+    from benchmark.industrial.experiments.supervised_pilot.runtime import Job, ValidationFold, evaluate
+    from benchmark.industrial.experiments.supervised_pilot.space import initial
+    from fedot_ind.core.optimizer.evaluation.contracts import EvaluationTask
+
+    policy = replace(training.training_policy(), min_epochs=1, max_epochs=1, width=4, depth=1)
+    monkeypatch.setattr(training, 'training_policy', lambda: policy)
+    x = np.random.default_rng(8).normal(size=(20, 1, 64))
+    y = x.mean(axis=(1, 2)) * 4
+    panel = Panel('Synthetic', np.arange(len(y)), x, y)
+    fold = ValidationFold(panel.take(tuple(range(16))), panel.take((16, 17, 18, 19)), (12, 13, 14, 15))
+    graph = initial(regression=True)[graph_index]
+    recipes = {branch.head: training.Recipe(.001, 8) for branch in graph.branches}
+    old_threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        result = evaluate(EvaluationTask(graph.key, 42), Job(graph, (fold,), (), recipes, 'cpu'))
+    finally:
+        torch.set_num_threads(old_threads)
+    assert result['loss'] >= 0 and result['folds'][0]['keys'] == [16, 17, 18, 19]
+    assert len(result['folds'][0]['predictions']) == 4
 
 
 @pytest.mark.parametrize('family', ('tser_inception', 'tser_resnet', 'cnn2d_regressor'))

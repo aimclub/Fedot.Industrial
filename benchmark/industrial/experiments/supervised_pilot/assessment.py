@@ -13,6 +13,7 @@ from .training import Recipe
 
 
 def assess(data, output, record, recipe_decision, budget):
+    from dataclasses import asdict
     import os
     from time import time
     from fedot_ind.core.optimizer.evaluation.dask_config import DaskExecutionConfig
@@ -38,7 +39,10 @@ def assess(data, output, record, recipe_decision, budget):
     if tuple(external.rows) != tuple(receipt['assessment']) or np.intersect1d(external.rows, dev.rows).size:
         raise ValueError('Assessment object keys do not match the seal or overlap development')
     controls = (('quantile_logreg', 0), ('rqa_logreg', 4), ('cnn2d', 6), ('inception', 7), ('resnet', 8))
-    graphs = (('winner', winner), *((label, initial()[index]) for label, index in controls))
+    if winner.regression:
+        controls = (('quantile_ridge', 0), ('minirocket_ridge', 3), ('cnn2d', 6), ('inception', 7), ('resnet', 8))
+    anchors = initial(regression=winner.regression)
+    graphs = (('winner', winner), *((label, anchors[index]) for label, index in controls))
     fold = (ValidationFold(dev, external, tuple(description['final_epoch_validation'])),)
     recipes = {family: Recipe(**params) for family, params in recipe_decision['recipes'].items()}
     jobs = tuple((label, Job(graph, fold, tuple(description['classes']), recipes, 'cuda:0')) for label, graph in graphs)
@@ -49,7 +53,14 @@ def assess(data, output, record, recipe_decision, budget):
     attempts = []
     with DaskEvaluationSession(2, DaskExecutionConfig()) as session:
         rows = _batch(session, jobs, budget, result['seed'], deadline, evaluate, attempts)
-    from dataclasses import asdict
+    if winner.regression:
+        from .regression import score_regression
+        mean = np.repeat(dev.target.mean(), len(external.rows))
+        baseline = dict(**score_regression(external, external.rows, mean), keys=external.rows.tolist(),
+                        predictions=mean.tolist())
+    else:
+        baseline = None
     write_record(target, dict(results=[asdict(row) for row in rows], attempts=[asdict(item) for item in attempts],
-                              official_test_used=False, assessment_sha256=record['assessment'], graph_sha256=winner.key))
+                              official_test_used=False, assessment_sha256=record['assessment'],
+                              graph_sha256=winner.key, train_mean_baseline=baseline))
     return 0 if all(row.status.value == 'succeeded' for row in rows) else 1
