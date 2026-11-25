@@ -38,6 +38,11 @@ def _require_tser(path):
         search = read_protocol_json(root / name / seed / 'search.json')
         if search['status'] != 'complete' or search['objective'] != 'rmse' or search['official_test_used'] is not False:
             raise ProtocolError('A TSER search did not complete the required TRAIN-only protocol')
+        result = read_protocol_json(root / name / seed / 'assessment.json')
+        results = result['results']
+        if (result['official_test_used'] is not False or not result.get('train_mean_baseline')
+                or not results or any(row['status'] != 'succeeded' for row in results)):
+            raise ProtocolError('A TSER assessment did not complete the required controls')
 
 
 def _b_profile(previous, expected):

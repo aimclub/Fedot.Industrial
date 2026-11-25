@@ -2,6 +2,8 @@
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
+from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
 from time import perf_counter
 from unittest.mock import patch
@@ -68,6 +70,17 @@ def fit_nonseasonal_arima(job, options, build):
     return dict(folds=folds, device='cpu')
 
 
+def read_snapshot(metadata):
+    payload = Path(metadata['path']).read_bytes()
+    if sha256(payload).hexdigest() != metadata['sha256']:
+        raise ValueError('Frozen TRAIN input changed before the worker opened it')
+    values = np.load(BytesIO(payload), allow_pickle=False)
+    if (values.shape != (metadata['length'],) or values.dtype != np.dtype('<f8')
+            or not np.isfinite(values).all()):
+        raise ValueError('Frozen TRAIN input differs from its declared shape or type')
+    return values
+
+
 def main():
     cli = ArgumentParser(description=__doc__)
     cli.add_argument('--runtime-root', type=Path, required=True)
@@ -76,7 +89,7 @@ def main():
     args = cli.parse_args()
     sys.path.insert(0, str(args.runtime_root.resolve(strict=True)))
     from benchmark.industrial.experiments.tsf_variant_b import admission, assessment, baselines, search
-    from benchmark.industrial.experiments.tsf_variant_b.protocol import array, digest, read, write
+    from benchmark.industrial.experiments.tsf_variant_b.protocol import digest, read, write
     from benchmark.industrial.experiments.tsf_variant_b.series import revision
     from fedot_ind.core.optimizer.evaluation.dask_executor import DaskEvaluationSession
 
@@ -86,8 +99,7 @@ def main():
             or plan['official_test_used'] is not False):
         raise ValueError('Legacy B executor, receipt or data role changed')
     config, case, task = (plan[key] for key in ('config', 'case', 'task'))
-    payload = plan['payload']
-    values = array(Path(payload['path']), {key: payload[key] for key in ('sha256', 'length')})
+    values = read_snapshot(plan['payload'])
     stage = plan['stage']
     execution = admission.pool_config(config)
     with DaskEvaluationSession(execution.device_pool.worker_count, execution) as session:
@@ -102,8 +114,7 @@ def main():
                 if stage == 'search':
                     search.search(session, args.output, case, task, values, config, recipes['recipes'])
                 elif stage == 'assess':
-                    development = plan['development']
-                    past = array(Path(development['path']), {key: development[key] for key in ('sha256', 'length')})
+                    past = read_snapshot(plan['development'])
                     tune = assessment.tune_baselines
 
                     def tune_new_collection(session, output, case, task, history, config, recipes, settings, deadline):
