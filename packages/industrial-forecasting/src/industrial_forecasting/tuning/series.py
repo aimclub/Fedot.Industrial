@@ -275,10 +275,10 @@ class ForecastingSeriesEvaluator:
     def _iter_over_folds(self):
         return iter_forecasting_splits(self.batch, self.resolved_split)
 
-    def _build_runtime_model(self, prepared_train_series: np.ndarray):
+    def _build_runtime_model(self, prepared_train_series: np.ndarray, forecast_horizon: int):
         return self.model_factory(
             self.canonical_model_name,
-            forecast_horizon=self.validation_horizon,
+            forecast_horizon=forecast_horizon,
             params=self.resolved_params,
             series_length=int(np.asarray(prepared_train_series).reshape(-1).shape[0]),
         )
@@ -293,13 +293,18 @@ class ForecastingSeriesEvaluator:
             train_series,
             self.resolved_params,
         )
-        model = self._build_runtime_model(prepared_train_series)
+        gap = fold.test_start - fold.train_end
+        horizon = gap + self.validation_horizon
+        model = self._build_runtime_model(prepared_train_series, horizon)
         model.fit(prepared_train_series)
         try:
-            raw_forecast = model.predict(prepared_train_series, forecast_horizon=self.validation_horizon)
+            raw_forecast = model.predict(prepared_train_series, forecast_horizon=horizon)
         except TypeError:
             raw_forecast = model.predict(prepared_train_series)
-        forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)[:self.validation_horizon]
+        forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)
+        if forecast.size < horizon:
+            raise ValueError(f'Temporal evaluation needs {horizon} forecast steps including the gap.')
+        forecast = forecast[gap:horizon]
         target = fold.validation_target.detach().cpu().numpy().reshape(-1)[:self.validation_horizon]
         fold_metric = _evaluate_forecast_metric(
             target,

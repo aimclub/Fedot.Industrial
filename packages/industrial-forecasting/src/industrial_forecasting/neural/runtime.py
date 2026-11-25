@@ -4,7 +4,7 @@ import copy
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 import math
-from numbers import Real
+from numbers import Integral, Real
 from typing import Any, Sequence
 
 import numpy as np
@@ -113,6 +113,14 @@ class ForecastingSplitSpec:
     max_train_size: int | None = None
     initial_window: int | None = None
     step_length: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.step_length is not None and (
+            isinstance(self.step_length, bool)
+            or not isinstance(self.step_length, Integral)
+            or self.step_length <= 0
+        ):
+            raise ValueError('step_length must be a positive integer when provided.')
 
 
 @dataclass(frozen=True)
@@ -512,9 +520,9 @@ class MLPForecastingHead:
     ]:
         X = ensure_tensor_2d(features, self.device_policy)
         Y = ensure_tensor_2d(target, self.device_policy)
-        normalized_x, normalized_y = self._initialize_data_statistics(X, Y)
-        train_x, train_y, validation_x, validation_y = self._split_train_validation(normalized_x, normalized_y)
-        return X, Y, train_x, train_y, validation_x, validation_y
+        train_x, train_y, validation_x, validation_y = self._split_train_validation(X, Y)
+        train_x, train_y = self._initialize_data_statistics(train_x, train_y)
+        return X, Y, train_x, train_y, self._normalize_features(validation_x), self._normalize_target(validation_y)
 
     def _build_network(self, *, device: torch.device, dtype: torch.dtype) -> tuple[torch.nn.Module, tuple[int, ...]]:
         cpu_rng_state = torch.random.get_rng_state()
