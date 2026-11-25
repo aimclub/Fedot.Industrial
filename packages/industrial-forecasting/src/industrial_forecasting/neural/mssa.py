@@ -138,6 +138,7 @@ class MSSAForecaster:
                 reconstructed,
                 original_length=page_results[channel_index].diagnostics.original_length,
             )
+            # An incomplete final page is kept as observed rather than padded or denoised.
             denoised_channels.append(_ensure_series_length(decoded, normalized[:, channel_index]))
         return np.column_stack(denoised_channels)
 

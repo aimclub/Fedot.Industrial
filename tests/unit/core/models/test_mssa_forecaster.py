@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from industrial_forecasting.trajectory import build_page
 from fedot_ind.core.models.ts_forecasting.lagged_model.mssa_forecaster import (
     MSSAForecaster,
     MSSAForecasterImplementation,
@@ -84,6 +85,15 @@ def test_mssa_forecaster_limits_window_to_preserve_two_page_blocks():
 
     assert diagnostics['window_size'] == 15
     assert diagnostics['page_block_count'] == 2
+
+
+def test_mssa_keeps_the_incomplete_final_page_observed():
+    history = np.arange(11, dtype=float).reshape(-1, 1)
+    page = build_page(history[:, 0], window_size=4)
+    model = MSSAForecaster(forecast_horizon=1)
+    result = model._decode_denoised_series(history, [page], [page.matrix + 10])
+    np.testing.assert_array_equal(result[:8], history[:8] + 10)
+    np.testing.assert_array_equal(result[8:], history[8:])
 
 
 def test_mssa_implementation_predict_for_fit_returns_transposed_denoised_series():

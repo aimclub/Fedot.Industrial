@@ -48,3 +48,15 @@ def test_embedding_round_trips_the_fixed_series():
     page = build_page(series, window_size=4)
     np.testing.assert_array_equal(decode_diagonal_average(hankel.matrix), series)
     np.testing.assert_array_equal(decode_page(page.matrix), series)
+
+
+def test_page_decode_only_reconstructs_complete_nonoverlapping_windows():
+    series = np.arange(11, dtype=float)
+    page = build_page(series, window_size=4)
+    assert page.diagnostics.stride == page.diagnostics.window_size == 4
+    np.testing.assert_array_equal(decode_page(page.matrix, original_length=len(series)), series[:8])
+    np.testing.assert_array_equal(decode_page(page.matrix, original_length=6), series[:6])
+
+    sliding = build_page(series, window_size=4, stride=2)
+    assert sliding.diagnostics.stride == 2
+    np.testing.assert_array_equal(sliding.matrix[1], series[2:6])

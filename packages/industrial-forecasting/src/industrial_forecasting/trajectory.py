@@ -99,6 +99,11 @@ def build_page(
         window_size: int,
         stride: int | None = None,
 ) -> TrajectoryEmbeddingResult:
+    """Build full windows; flattening decodes only contiguous pages (stride equals width).
+
+    The default stride is the resolved window width. Other strides are useful
+    for embedding, not for `decode_page`. An incomplete final window is omitted.
+    """
     series = _normalize_univariate_series(time_series)
     resolved_window = int(max(2, min(window_size, len(series))))
     resolved_stride = int(max(1, stride or resolved_window))
@@ -141,6 +146,7 @@ def split_multivariate(stacked_matrix: np.ndarray, channel_count: int) -> tuple[
 
 
 def decode_diagonal_average(trajectory_matrix: np.ndarray) -> np.ndarray:
+    """Invert a Hankel embedding with unit stride by averaging shared positions."""
     matrix = np.asarray(trajectory_matrix, dtype=float)
     if matrix.ndim != 2:
         raise ValueError('trajectory_matrix must be 2D.')
@@ -154,6 +160,7 @@ def decode_diagonal_average(trajectory_matrix: np.ndarray) -> np.ndarray:
 
 
 def decode_page(page_matrix: np.ndarray, original_length: int | None = None) -> np.ndarray:
+    """Flatten contiguous, non-overlapping pages; truncate but never pad the prefix."""
     matrix = np.asarray(page_matrix, dtype=float)
     if matrix.ndim != 2:
         raise ValueError('page_matrix must be 2D.')
