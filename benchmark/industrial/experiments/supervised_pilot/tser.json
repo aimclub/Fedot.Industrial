@@ -5,6 +5,6 @@
     {"name": "Tecator", "outstanding": "verify TRAIN-only source and sample provenance"},
     {"name": "BoronConcentration", "outstanding": "verify sample provenance and possible repeats"},
     {"name": "NaturalGasPricesSentiment", "outstanding": "map TRAIN object keys to the original 20-day blocks"},
-    {"name": "AppliancesEnergy", "outstanding": "verify time order and window overlap with original dates"}
+    {"name": "AppliancesEnergy", "verified": "95 non-overlapping dated TRAIN objects; 76 development, 19 assessment"}
   ]
 }

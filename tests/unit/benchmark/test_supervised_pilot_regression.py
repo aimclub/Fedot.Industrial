@@ -3,12 +3,13 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from benchmark.industrial.experiments.supervised_pilot.data import Panel
+from benchmark.industrial.experiments.supervised_pilot.data import Panel, digest
 from benchmark.industrial.experiments.supervised_pilot.regression import (
-    Sampling, SamplingEvidence, regression_model_specs, regression_splits, score_regression,
+    Sampling, SamplingEvidence, observed_temporal_panel, regression_model_specs, regression_splits, score_regression,
 )
 from benchmark.industrial.experiments.supervised_pilot.recurrence import recurrence_manifest
 from benchmark.industrial.protocols.schema import ProtocolError
+from benchmark.industrial.protocols.assets import LocalAsset
 
 
 def test_group_members_never_cross_a_regression_split():
@@ -35,6 +36,23 @@ def test_temporal_splits_skip_the_overlap_and_reject_a_reordered_panel():
         assert min(fold.epoch_validation) - max(fold.epoch_fit) >= 3
     with pytest.raises(ProtocolError, match='does not match'):
         regression_splits(replace(panel, rows=panel.rows[::-1]), evidence)
+
+
+def test_calendar_preflight_restores_source_time_without_sorting_object_keys(tmp_path):
+    header = '@problemName Sensor\n@timestamps true\n@univariate true\n@targetlabel true\n@data\n'
+    rows = ('(2020-01-03 08:00:00,1),(2020-01-03 08:10:00,2):2',
+            '(2020-01-02 08:00:00,1),(2020-01-02 08:10:00,2):1')
+    name = 'Sensor_TRAIN.ts'
+
+    def load(cases):
+        payload = (header + '\n'.join(cases)).encode()
+        (tmp_path / name).write_bytes(payload)
+        return observed_temporal_panel(tmp_path, 'Sensor', LocalAsset(name, digest(payload)))
+
+    panel, evidence = load(rows)
+    assert tuple(panel.rows) == (0, 1) and evidence.times[0] > evidence.times[1]
+    with pytest.raises(ProtocolError, match='Overlapping'):
+        load((rows[0], rows[0]))
 
 
 def test_regression_score_rejects_broadcast_and_permutation():

@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit, KFold, ShuffleSplit, TimeSeriesSplit
 from torch import nn
 
-from ...datasets.local_io import load_local_ts_cases
+from ...datasets.local_io import _ordered_axis, _parse_timestamped_dimension, _split_ts_dimension_parts, load_local_ts_cases
 from ...protocols.schema import ProtocolError
 from .data import DataSplits, InnerFold, Panel, _ids, _snapshot
 from .training import NeuralClassifier
@@ -37,7 +37,7 @@ class SamplingEvidence:
         ):
             raise ProtocolError('Grouped sampling requires a group per object')
         if self.kind is Sampling.TEMPORAL and (
-            len(self.times) != len(self.rows) or self.times != tuple(sorted(set(self.times)))
+            len(self.times) != len(self.rows) or len(self.times) != len(set(self.times))
             or type(self.gap) is not int or self.gap < 0
         ):
             raise ProtocolError('Temporal sampling requires unique ordered timestamps and a nonnegative gap')
@@ -45,12 +45,15 @@ class SamplingEvidence:
             raise ProtocolError('Unknown sampling contract')
 
 
-def load_regression_train(root, name, asset):
+def _train_snapshot(root, name, asset):
     from pathlib import PurePosixPath
 
     if PurePosixPath(asset.path).name != f'{name}_TRAIN.ts':
         raise ProtocolError('Declare a separate TSER TRAIN file')
-    path, content = _snapshot(root, asset)
+    return _snapshot(root, asset)
+
+
+def _read_panel(path, content, name):
     cases, target, metadata = load_local_ts_cases(path, content=content)
     if metadata['target_type'] != 'regression' or not metadata['uniform_channel_layout']:
         raise ProtocolError('Expected a uniform time-series panel with a scalar regression target')
@@ -58,6 +61,40 @@ def load_regression_train(root, name, asset):
     if target.shape != (len(features),) or not np.isfinite(target).all() or not np.isfinite(features).all():
         raise ProtocolError('TSER expects one finite real target per finite case')
     return Panel(name, np.arange(len(target)), features, target)
+
+
+def load_regression_train(root, name, asset):
+    return _read_panel(*_train_snapshot(root, name, asset), name)
+
+
+def observed_temporal_panel(root, name, asset):
+    """Use absolute windows from TRAIN; overlapping or unaligned inputs require a separate design."""
+    path, content = _train_snapshot(root, name, asset)
+    panel = _read_panel(path, content, name)
+    records = iter(content.decode('utf-8-sig').splitlines())
+    if not any(line.strip().lower() == '@data' for line in records):
+        raise ProtocolError('Missing TRAIN observations')
+    bounds = []
+    for line in (row.strip() for row in records):
+        if not line or line.startswith('#'):
+            continue
+        dimensions = _split_ts_dimension_parts(line.rsplit(':', 1)[0], timestamps=True)
+        axes = [_ordered_axis(_parse_timestamped_dimension(row, path=path)[0]) for row in dimensions]
+        if (not axes or not axes[0] or axes[0][0] not in {'datetime_naive', 'datetime_utc'}
+                or any(axis != axes[0] for axis in axes[1:])):
+            raise ProtocolError('Expected one absolute aligned time grid for the case')
+        _, dates = axes[0]
+        if len(dates) != panel.features.shape[2] or any(right <= left for left, right in zip(dates, dates[1:])):
+            raise ProtocolError('Expected strictly increasing sample times')
+        bounds.append((dates[0], dates[-1]))
+    if len(bounds) != len(panel.rows):
+        raise ProtocolError('Absolute windows do not match the TRAIN object keys')
+    ordered = sorted(bounds)
+    if any(previous[1] >= current[0] for previous, current in zip(ordered, ordered[1:])):
+        raise ProtocolError('Overlapping TSER windows require a separate verified split rule')
+    evidence = SamplingEvidence(Sampling.TEMPORAL, asset.sha256, tuple(panel.rows.tolist()),
+                                times=tuple(start for start, _ in bounds))
+    return panel, evidence
 
 
 def regression_splits(panel, evidence: SamplingEvidence):
@@ -78,9 +115,13 @@ def regression_splits(panel, evidence: SamplingEvidence):
             fit, score = next(ShuffleSplit(n_splits=1, test_size=.2, random_state=seed).split(rows))
         if not len(fit) or not len(score):
             raise ProtocolError('Insufficient objects for this sampling design')
-        return np.sort(rows[fit]), np.sort(rows[score])
+        left, right = rows[fit], rows[score]
+        if evidence.kind is Sampling.TEMPORAL:
+            return left, right
+        return np.sort(left), np.sort(right)
 
-    dev, score = holdout(panel.rows, 42)
+    order = (panel.rows[np.argsort(evidence.times)] if evidence.kind is Sampling.TEMPORAL else panel.rows)
+    dev, score = holdout(order, 42)
     if evidence.kind is Sampling.GROUPED:
         splits = GroupKFold(3).split(dev, groups=groups[dev])
     elif evidence.kind is Sampling.TEMPORAL:
