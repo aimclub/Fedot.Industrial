@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from industrial_forecasting import ForecastScenario, TimeGrid, score_forecast
-from industrial_forecasting.neural.models import forecast_series
+from industrial_forecasting.neural.models import build_series_model, forecast_series
 from industrial_forecasting.neural.tcn import TCNModule
 
 
@@ -22,6 +22,19 @@ def test_native_ridge_preserves_cpu_reference_and_forecast_grid(name, params, ex
     np.testing.assert_array_equal(prediction.future_index, dates[-3:])
     np.testing.assert_allclose(prediction.values[0], expected, rtol=0, atol=2e-5)
     assert score_forecast("mae", series[-3:], prediction.values[0]).value < 0.002
+
+
+@pytest.mark.parametrize("name", ["lagged_ridge_forecaster"])
+def test_ridge_prediction_uses_the_fitted_window_without_reserving_targets(name):
+    time = np.arange(60, dtype=float)
+    series = np.column_stack((np.sin(time / 3.), 2. * time + np.cos(time / 4.)))
+    model = build_series_model(name, forecast_horizon=3, params={"window_size": 16, "stride": 3, "device": "cpu"})
+    model.fit(series)
+    np.testing.assert_array_equal(model.predict(series[-16:]), model.predict(series))
+    with pytest.raises(ValueError, match="at least 16 observations"):
+        model.predict(series[-15:])
+    with pytest.raises(ValueError, match="requires 2 channels"):
+        model.predict(series[-16:, 0])
 
 
 def test_tcn_module_is_trainable_on_cpu_and_keeps_its_window_shape():

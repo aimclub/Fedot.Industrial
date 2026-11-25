@@ -937,6 +937,15 @@ def build_hankel_trajectory_transform(
     )
 
 
+def latest_hankel_features(batch: ForecastTensorBatch, *, window_size: int, channel_count: int) -> torch.Tensor:
+    """Read the last fitted-size window without reserving observations for targets."""
+    if batch.series_length < window_size:
+        raise ValueError(f'Prediction requires at least {window_size} observations for the fitted window.')
+    if batch.channel_count != channel_count:
+        raise ValueError(f'Prediction requires {channel_count} channels from the fitted window.')
+    return batch.history[-window_size:].reshape(1, -1)
+
+
 def compute_svd_decomposition(
         features: torch.Tensor,
         *,

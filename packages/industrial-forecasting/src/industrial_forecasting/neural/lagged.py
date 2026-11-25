@@ -12,6 +12,7 @@ from .runtime import (
     RidgeForecastingHead,
     TensorDevicePolicy,
     build_hankel_trajectory_transform,
+    latest_hankel_features,
     resolve_window_size,
 )
 
@@ -81,16 +82,15 @@ class LaggedRidgeForecaster:
             self.training_history_.detach().cpu().numpy() if time_series is None else time_series,
             forecast_horizon=self.forecast_horizon,
         )
-        latest_transform = build_hankel_trajectory_transform(
+        features = latest_hankel_features(
             batch,
             window_size=self.resolved_window_size_,
-            stride=self.transform_result_.stride,
+            channel_count=self.channel_count_,
         )
-        forecast_vector = self.head_.predict(latest_transform.latest_features).reshape(self.forecast_horizon,
-                                                                                       self.channel_count_)
+        forecast_vector = self.head_.predict(features).reshape(self.forecast_horizon, self.channel_count_)
         forecast = forecast_vector[:horizon, 0]
         self.last_prediction_diagnostics_ = {
-            'latest_feature_shape': tuple(int(value) for value in latest_transform.latest_features.shape),
+            'latest_feature_shape': tuple(int(value) for value in features.shape),
             'forecast_shape': tuple(int(value) for value in forecast_vector.shape),
         }
         return forecast.detach().cpu().numpy()
