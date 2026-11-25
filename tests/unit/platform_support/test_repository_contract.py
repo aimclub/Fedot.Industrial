@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shlex
 
+from packaging.markers import Marker
 from packaging.requirements import Requirement
 import yaml
 
@@ -253,6 +254,17 @@ def test_contract_matrix_resolves_only_supported_python_versions():
     assert contracts["strategy"]["matrix"]["python"] == ["3.10", "3.11", "3.12"]
     assert resolution_step["if"] == "matrix.python != '3.12'"
     assert "uv lock --check" not in commands
+
+
+def test_dependency_resolution_requires_wheels_for_the_install_matrix():
+    markers = [Marker(value) for value in project_metadata()["tool"]["uv"]["required-environments"]]
+    install_matrix = workflow("platform_checks.yml")["jobs"]["install"]["strategy"]["matrix"]
+    targets = {"ubuntu-latest": ("linux", "x86_64"), "windows-latest": ("win32", "AMD64")}
+    for os_name in install_matrix["os"]:
+        platform, machine = targets[os_name]
+        for version in install_matrix["python"]:
+            environment = {"sys_platform": platform, "platform_machine": machine, "python_version": version}
+            assert any(marker.evaluate(environment) for marker in markers), environment
 
 
 def test_publication_uses_same_builder_and_pypi_guard():

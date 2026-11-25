@@ -111,6 +111,13 @@ exclude_also = [
     "if self.print_training_progress:",
 ]
 
+[tool.uv]
+# Wheel-only releases must be installable on both CI platforms.
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
 [tool.uv.workspace]
 members = ["packages/industrial-neural", "packages/industrial-forecasting"]
 
