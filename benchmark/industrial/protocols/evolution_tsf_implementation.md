@@ -4,6 +4,27 @@
 
 ## Входы и отбор рядов
 
+### Подготовленные входы
+
+Для версии `tsf_extension@1` проверены отдельные TRAIN-файлы
+[M4 Quarterly и M4 Weekly](https://github.com/Mcompetitions/M4-methods/tree/6c1067e5a57161249b17289a565178dc7a3fb3ca/Dataset/Train)
+и `monthly_in.csv` из [архива авторов Tourism](https://talks.robjhyndman.com/hyndsight/tourism-time-series/).
+Из ZIP запрошены оглавление и байты только обучающего файла, а не
+`monthly_oos.csv`. Источники и SHA-256 зафиксированы в
+[`extension.json`](../experiments/tsf_extension/extension.json).
+
+После сверки с запечатанными входами предыдущей серии выбраны:
+
+| Коллекция | Идентификаторы |
+| --- | --- |
+| M4 Quarterly | Q14081, Q11099, Q3960, Q18514 |
+| M4 Weekly | W168, W131, W67, W68 |
+| Tourism Monthly | m29, m185, m325, m245 |
+
+Команда `seal` сохраняет отдельные массивы разработки и оценки,
+номера пяти окон в двух системах координат и квитанцию на 24 поиска.
+Это подтверждение готовности **входов**, а не допуска исполнителя B.
+
 | Коллекция | Горизонт `H` | Лаг MASE | Предварительный минимум `L` |
 | --- | ---: | ---: | ---: |
 | M4 Quarterly | 8 | 4 | 112 |
