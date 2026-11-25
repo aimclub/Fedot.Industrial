@@ -758,25 +758,18 @@ class MLPForecastingHead:
 
 @dataclass
 class WeightedAverageHead:
-    """Constrained non-negative ensemble head for branch forecast weighting."""
+    """Weight forecasts laid out as (branches, horizon)."""
 
     device_policy: TensorDevicePolicy = field(default_factory=TensorDevicePolicy)
     weights_: torch.Tensor | None = None
 
     def fit(self, branch_forecasts: torch.Tensor, target: torch.Tensor) -> 'WeightedAverageHead':
         """Fit branch weights against a validation horizon target."""
-        forecasts = ensure_tensor_2d(branch_forecasts, self.device_policy)
-        if forecasts.shape[0] < forecasts.shape[1]:
-            design = forecasts.T
-        else:
-            design = forecasts
-        target_tensor = ensure_tensor_2d(target, self.device_policy).reshape(-1, 1)
-        if target_tensor.shape[0] != design.shape[0]:
-            if target_tensor.shape[1] == design.shape[0]:
-                target_tensor = target_tensor.T
-            else:
-                raise ValueError('Branch forecasts and target length must match.')
-        weights = torch.linalg.pinv(design) @ target_tensor
+        forecasts = self._branch_matrix(branch_forecasts)
+        target_tensor = ensure_tensor_2d(target, self.device_policy)
+        if 1 not in target_tensor.shape or target_tensor.numel() != forecasts.shape[1]:
+            raise ValueError('Branch forecast horizon must match the target vector length.')
+        weights = torch.linalg.pinv(forecasts.T) @ target_tensor.reshape(-1)
         weights = torch.clamp(weights.reshape(-1), min=0.0)
         if float(torch.sum(weights)) <= 1e-8:
             weights = torch.ones_like(weights) / max(1, len(weights))
@@ -789,10 +782,16 @@ class WeightedAverageHead:
         """Combine branch forecasts using the fitted normalized weights."""
         if self.weights_ is None:
             raise ValueError('WeightedAverageHead is not fitted.')
-        forecasts = ensure_tensor_2d(branch_forecasts, self.device_policy)
-        if forecasts.shape[0] == len(self.weights_):
-            return self.weights_ @ forecasts
-        return forecasts @ self.weights_
+        forecasts = self._branch_matrix(branch_forecasts)
+        if forecasts.shape[0] != len(self.weights_):
+            raise ValueError('Branch forecast count must match the fitted weights.')
+        return self.weights_ @ forecasts
+
+    def _branch_matrix(self, forecasts: torch.Tensor) -> torch.Tensor:
+        matrix = ensure_tensor_2d(forecasts, self.device_policy)
+        if not all(matrix.shape):
+            raise ValueError('Expected a non-empty matrix of shape (branches, horizon).')
+        return matrix
 
     def get_diagnostics(self) -> dict[str, Any]:
         """Return learned branch weights in a JSON-friendly form."""
