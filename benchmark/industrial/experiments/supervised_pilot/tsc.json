@@ -1,0 +1,34 @@
+{
+  "version": "tsc_evolution_pilot@1",
+  "profile": {"sklearn": "1.3.2", "split_seed": 42, "epoch_seed": 2026, "folds": 3, "holdout": 0.2},
+  "search": {
+    "seeds": [42, 123], "population": 10, "generations": 8, "elites": 2,
+    "tuning_generations": [4, 8], "candidate_seconds": 240, "search_seconds": 900, "process_seconds": 1200
+  },
+  "datasets": [
+    {
+      "name": "ECG200", "shape": [100, 1, 96], "classes": 2, "development_size": 80,
+      "path": "fedot_ind/data/ECG200/ECG200_TRAIN.tsv",
+      "sha256": "c712aedb8cf0baf69a050f315b4ec15013ede12eaba900cd8cc83197b108e406",
+      "split_sha256": "772e781d7c8cfe74d02a32253a98dcd03e26d89d72659d27c355bc09650ed8f7"
+    },
+    {
+      "name": "GunPoint", "shape": [50, 1, 150], "classes": 2, "development_size": 40,
+      "path": "fedot_ind/data/GunPoint/GunPoint_TRAIN.tsv",
+      "sha256": "ebb81078775f02e2c0389b37f782926402687d1312d966be19ef59385819aecf",
+      "split_sha256": "edefb816f177181ce33ece52401ebc19a7dae9b29af788ec9140b6e3f8c8bea5"
+    },
+    {
+      "name": "ArrowHead", "shape": [36, 1, 251], "classes": 3, "development_size": 28,
+      "path": "fedot_ind/data/ArrowHead/ArrowHead_TRAIN.tsv",
+      "sha256": "053295bf402e7ec670c804495caa8916a34f6e51b9e8cea29d609644a5bd9af6",
+      "split_sha256": "b4a9e4817d5b99935dbbe1ea6a7aee65e288811ccab477cb1442958341fd4f77"
+    },
+    {
+      "name": "BasicMotions", "shape": [40, 6, 100], "classes": 4, "development_size": 32,
+      "path": "fedot_ind/data/BasicMotions/BasicMotions_TRAIN.ts",
+      "sha256": "3dcb66b389ba93ed2de7879bceb27548e0ea7a5ffb59888d0db36b59af2a0e28",
+      "split_sha256": "ef7b1d059e41df1b45971b149e4d19bd4a713f14f9c73a5bff22b7a223a3a1e6"
+    }
+  ]
+}
