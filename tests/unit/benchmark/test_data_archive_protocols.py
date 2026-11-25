@@ -3,6 +3,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from benchmark.industrial.datasets.archives import (
@@ -240,6 +241,23 @@ def test_m5_wrm_sse_and_available_prices(tmp_path):
         score_wrmsse(window, window.truth, target_days=window.horizon, series_keys=(('another item', 'store'),))
 
 
+def test_m5_parses_the_verified_sales_snapshot(tmp_path, monkeypatch):
+    release = m5_catalog(tmp_path)
+    source = tmp_path / 'sales.csv'
+    original = source.read_text(encoding='utf-8')
+    changed = original.replace('item,dept,cat,store,state,0,1,', 'item,dept,cat,store,state,9,1,')
+    read_csv = pd.read_csv
+
+    def replace_before_read(table, *args, **kwargs):
+        source.write_text(changed, encoding='utf-8')
+        return read_csv(table, *args, **kwargs)
+
+    monkeypatch.setattr(pd, 'read_csv', replace_before_read)
+    window = load_m5_window(release, tmp_path, 30)
+    assert source.read_text(encoding='utf-8') == changed
+    assert window.history[0, 0] == 0.
+
+
 def test_m5_undefined_positive_weight_scale(tmp_path):
     window = load_m5_window(m5_catalog(tmp_path, constant=True), tmp_path, 30)
     result = score_wrmsse(window, window.truth, target_days=window.horizon, series_keys=window.series_keys)
@@ -302,6 +320,23 @@ def test_hydraulic_loader_preserves_each_sensor_grid_and_cycle_labels(tmp_path):
     malformed = catalog(tmp_path, {**payload, 'TS1': ('TS1.txt', '10\n')})
     with pytest.raises(ProtocolError, match='cycle level'):
         load_hydraulic_cycles(malformed, tmp_path, sensors=('PS1', 'TS1'), target_column=0)
+
+
+def test_hydraulic_loader_parses_the_verified_profile_snapshot(tmp_path, monkeypatch):
+    from benchmark.industrial.datasets.drift import load_hydraulic_cycles
+
+    release = catalog(tmp_path, {'profile': ('profile.txt', '3\n100\n'), 'TS1': ('TS1.txt', '10\n11\n')})
+    source = tmp_path / 'profile.txt'
+    loadtxt = np.loadtxt
+
+    def replace_before_read(table, *args, **kwargs):
+        source.write_text('20\n100\n', encoding='utf-8')
+        return loadtxt(table, *args, **kwargs)
+
+    monkeypatch.setattr(np, 'loadtxt', replace_before_read)
+    _, targets = load_hydraulic_cycles(release, tmp_path, sensors=('TS1',), target_column=0)
+    assert source.read_text(encoding='utf-8').splitlines() == ['20', '100']
+    assert targets.tolist() == [3., 100.]
 
 
 @pytest.mark.parametrize('code', ['3.5', 'nan', 'inf'])

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from heapq import heappop, heappush
+from io import BytesIO
 
 import numpy as np
 
@@ -129,9 +130,12 @@ def load_hydraulic_cycles(release, root, *, sensors, target_column):
     integer(target_column, 'hydraulic target column', minimum=0)
     if not sensors or 'profile' in sensors:
         raise ProtocolError('Declare at least one sensor role distinct from profile')
-    files = release.files(root, (*sensors, 'profile'))
-    profile = np.loadtxt(files['profile'], ndmin=2)
-    channels = {sensor: np.loadtxt(files[sensor], ndmin=2) for sensor in sensors}
+
+    def read_table(role):
+        return np.loadtxt(BytesIO(release.read_bytes(root, role)), ndmin=2)
+
+    profile = read_table('profile')
+    channels = {sensor: read_table(sensor) for sensor in sensors}
     if target_column >= profile.shape[1] or any(len(values) != len(profile) for values in channels.values()):
         raise ProtocolError('Hydraulic sensor rows must align with the cycle level profile')
     return channels, profile[:, target_column]
