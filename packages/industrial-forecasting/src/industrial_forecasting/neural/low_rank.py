@@ -15,6 +15,7 @@ from .runtime import (
     compute_randomized_svd_decomposition,
     compute_svd_decomposition,
     compute_tensor_decomposition,
+    latest_hankel_features,
     project_features,
     resolve_window_size,
     truncate_decomposition_rank,
@@ -101,12 +102,12 @@ class LowRankLaggedRidgeForecaster:
             self.training_history_.detach().cpu().numpy() if time_series is None else time_series,
             forecast_horizon=self.forecast_horizon,
         )
-        latest_transform = build_hankel_trajectory_transform(
+        features = latest_hankel_features(
             batch,
             window_size=self.resolved_window_size_,
-            stride=self.transform_result_.stride,
+            channel_count=self.channel_count_,
         )
-        latest_projected = project_features(latest_transform.latest_features, self.rank_result_.basis)
+        latest_projected = project_features(features, self.rank_result_.basis)
         forecast_vector = self.head_.predict(latest_projected).reshape(self.forecast_horizon, self.channel_count_)
         forecast = forecast_vector[:horizon, 0]
         self.last_prediction_diagnostics_ = {

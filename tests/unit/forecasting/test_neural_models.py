@@ -24,7 +24,7 @@ def test_native_ridge_preserves_cpu_reference_and_forecast_grid(name, params, ex
     assert score_forecast("mae", series[-3:], prediction.values[0]).value < 0.002
 
 
-@pytest.mark.parametrize("name", ["lagged_ridge_forecaster"])
+@pytest.mark.parametrize("name", ["lagged_ridge_forecaster", "low_rank_lagged_ridge_forecaster"])
 def test_ridge_prediction_uses_the_fitted_window_without_reserving_targets(name):
     time = np.arange(60, dtype=float)
     series = np.column_stack((np.sin(time / 3.), 2. * time + np.cos(time / 4.)))
