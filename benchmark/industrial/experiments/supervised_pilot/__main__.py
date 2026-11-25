@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import TimeoutExpired
 import sys
 
-from .protocol import TSC_VERSION, tsc_protocol
+from .protocol import TSC_VERSION, TSER_VERSION, tsc_protocol, tser_preflight_plan
 
 
 def _layout(bundle, output, mode, protocol):
@@ -102,7 +102,7 @@ def _stage(args, protocol):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='action', required=True)
-    commands.add_parser('plan').add_argument('--protocol', choices=(TSC_VERSION,), required=True)
+    commands.add_parser('plan').add_argument('--protocol', choices=(TSC_VERSION, TSER_VERSION), required=True)
     seal = commands.add_parser('seal')
     seal.add_argument('--data-root', type=Path, required=True)
     seal.add_argument('--output', type=Path, required=True)
@@ -122,6 +122,9 @@ def main(argv=None):
     stage.add_argument('dataset')
     stage.add_argument('stage')
     args = parser.parse_args(argv)
+    if args.action == 'plan' and args.protocol == TSER_VERSION:
+        print(json.dumps(tser_preflight_plan(), indent=2))
+        return 0
     protocol = tsc_protocol()
     if args.action == 'plan':
         print(json.dumps(dict(protocol=protocol.version, tasks=protocol.tasks(), official_test_used=False), indent=2))

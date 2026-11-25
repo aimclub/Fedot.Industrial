@@ -1,0 +1,10 @@
+{
+  "version": "tser_evolution_pilot@1",
+  "seeds": [42, 123],
+  "datasets": [
+    {"name": "Tecator", "outstanding": "verify TRAIN-only source and sample provenance"},
+    {"name": "BoronConcentration", "outstanding": "verify sample provenance and possible repeats"},
+    {"name": "NaturalGasPricesSentiment", "outstanding": "map TRAIN object keys to the original 20-day blocks"},
+    {"name": "AppliancesEnergy", "outstanding": "verify time order and window overlap with original dates"}
+  ]
+}

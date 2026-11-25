@@ -161,9 +161,18 @@ class NeuralClassifier:
     def _session(self, x, y, *, epochs, validation=None):
         model = self._init(x.shape[1])
         optimizer = torch.optim.AdamW(model.parameters(), lr=self.recipe.learning_rate)
-        session = TrainingSession(TrainingPlan(epochs), model, optimizer, nn.CrossEntropyLoss(),
+        session = TrainingSession(TrainingPlan(epochs), model, optimizer, self._criterion(),
                                   self._loader(x, y, training=True), validation, batch_adapter=self._batch_adapter)
         return model, optimizer, session
+
+    def _criterion(self):
+        return nn.CrossEntropyLoss()
+
+    def _target(self, indices):
+        if (not np.isfinite(indices).all() or np.any(indices % 1)
+                or set(indices) != set(range(self.params['class_count']))):
+            raise ValueError('Training targets must cover the declared class map')
+        return indices.astype(np.int64)
 
     def _select(self, x, y, fit, score):
         policy = self.policy
@@ -185,12 +194,8 @@ class NeuralClassifier:
         x = self._features(features)
         raw = np.asarray(target)
         if raw.shape not in ((len(x),), (len(x), 1)):
-            raise ValueError('Expected exactly one class index per object')
-        indices = raw.reshape(-1)
-        if (not np.isfinite(indices).all() or np.any(indices % 1)
-                or set(indices) != set(range(self.params['class_count']))):
-            raise ValueError('Training targets must cover the declared class map')
-        y = indices.astype(np.int64)
+            raise ValueError('Expected exactly one target per object')
+        y = self._target(raw.reshape(-1))
         rows = tuple(np.asarray(idx).reshape(-1).tolist())
         if rows != tuple(self.params['fit_rows']) or len(set(rows)) != len(x):
             raise ValueError('FEDOT changed the admitted training object keys')
@@ -198,7 +203,8 @@ class NeuralClassifier:
         if not selected or len(set(selected)) != len(selected) or not set(selected) < set(rows):
             raise ValueError('Epoch validation must be a proper subset of the admitted training rows')
         score = np.isin(rows, selected)
-        identity = digest(canonical_bytes([self.family, self.params, asdict(self.policy), str(torch.__version__),
+        identity = digest(canonical_bytes([type(self).__name__, self.family, self.params, asdict(self.policy),
+                                           str(torch.__version__),
                                            digest(x.tobytes()), digest(y.tobytes())]))
         devices = [self.device.index or 0] if self.device.type == 'cuda' else []
         with torch.random.fork_rng(devices=devices):
@@ -225,14 +231,16 @@ class NeuralClassifier:
                 _TRAINED.popitem(last=False)
         return self
 
-    def predict_proba(self, features):
+    def _outputs(self, features):
         if self.model is None:
-            raise RuntimeError('Classifier is not fitted')
+            raise RuntimeError('Model is not fitted')
         x = torch.from_numpy(self._features(features))
         self.model.eval()
         with torch.inference_mode():
-            return torch.cat([self.model(batch.to(self.device)).softmax(dim=1).cpu()
-                              for batch in x.split(self.recipe.batch_size)]).numpy()
+            return torch.cat([self.model(batch.to(self.device)).cpu() for batch in x.split(self.recipe.batch_size)])
+
+    def predict_proba(self, features):
+        return self._outputs(features).softmax(dim=1).numpy()
 
     def predict(self, features):
         return self.predict_proba(features).argmax(axis=1)
