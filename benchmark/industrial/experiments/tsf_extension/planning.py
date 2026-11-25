@@ -27,6 +27,7 @@ class Collection:
     sha256: str
     source: str
     layout: str = 'rows'
+    control_lags: tuple[int, ...] = ()
 
     @property
     def min_history(self):

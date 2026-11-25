@@ -20,6 +20,12 @@ def main():
     verify.add_argument('--runtime-python', type=Path, required=True)
     verify.add_argument('--runtime-root', type=Path, required=True)
     verify.add_argument('--pilot-receipt', type=Path, required=True)
+    for mode in ('admit', 'run', 'assess'):
+        stage = actions.add_parser(mode)
+        for option in ('bundle', 'previous', 'runtime-python', 'runtime-root', 'pilot-receipt', 'tser', 'output'):
+            stage.add_argument(f'--{option}', type=Path, required=True)
+        if mode != 'admit':
+            stage.add_argument('--admission', type=Path, required=True)
     args = parser.parse_args()
     if args.action == 'seal':
         from .inputs import seal
@@ -39,6 +45,11 @@ def main():
         inventory = subprocess.run(command, cwd=root, capture_output=True, text=True, check=True, timeout=30)
         print(json.dumps(verify_pilot_executor(args.pilot_receipt, json.loads(inventory.stdout))))
         return
+    if args.action in ('admit', 'run', 'assess'):
+        from .execution import Executor, run
+        executor = Executor(args.runtime_python, args.runtime_root, args.pilot_receipt)
+        return run(args.action, bundle=args.bundle, previous=args.previous, executor=executor, tser=args.tser,
+                   output=args.output, admission=getattr(args, 'admission', None))
     collections, seeds = load_profile()
     print(json.dumps({
         'version': VERSION,
@@ -52,4 +63,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

@@ -94,3 +94,72 @@ def test_runtime_reads_only_one_role_and_refuses_late_values_in_a_development_re
     case['development_sha256'] = sha256(path.read_bytes()).hexdigest()
     with pytest.raises(ProtocolError, match='late or missing|cannot support'):
         load_window_request(dev, case, seed=42, role=Role.DEVELOPMENT)
+
+
+def test_weekly_arima_forecasts_only_from_the_admitted_prefix():
+    from types import SimpleNamespace
+    from benchmark.industrial.experiments.tsf_extension.legacy_worker import fit_nonseasonal_arima
+
+    history = np.arange(36, dtype=float)
+    admitted = []
+
+    class Fit:
+        mle_retvals = {'converged': True}
+
+        def forecast(self, horizon):
+            return np.zeros(horizon)
+
+    def build(prefix, *, order, trend):
+        admitted.append(len(prefix))
+        return SimpleNamespace(fit=lambda **_: Fit())
+
+    job = SimpleNamespace(history=history, origins=(15, 18), horizon=13)
+    result = fit_nonseasonal_arima(job, {'order': (1, 1, 1), 'trend': 'n', 'maxiter': 50}, build)
+    assert admitted == [15, 18]
+    assert all(len(row['values']) == 13 for row in result['folds'])
+
+
+def test_extension_reuses_admission_and_delays_all_assessments(tmp_path, monkeypatch):
+    from benchmark.industrial.experiments.tsf_extension import execution
+
+    collections, seeds = load_profile()
+    rows = [dict(id=f's{i}', collection=asdict(collection), seeds=seeds)
+            for collection in collections for i in range(1, 5)]
+    manifest = dict(rows=rows, previous_manifest_sha256='local')
+    executor = execution.Executor(tmp_path / 'python', tmp_path / 'runtime', tmp_path / 'receipt')
+    monkeypatch.setattr(execution, '_require_tser', lambda *_: None)
+    monkeypatch.setattr(execution, 'read_manifest', lambda *_: (manifest, 'matrix'))
+    monkeypatch.setattr(execution, '_b_profile', lambda *_: {'calibration_seed': 42})
+    monkeypatch.setattr(execution, 'read_checked_asset', lambda *_: None)
+    calls = []
+
+    def fake_stage(_executor, bundle, config, case, task, work, stage, **kwargs):
+        calls.append((stage, case['collection']['id'], task['case'], task['seed']))
+        return dict(stage=stage, task=task, complete=True, exit_code=0)
+
+    monkeypatch.setattr(execution, '_stage', fake_stage)
+    args = dict(bundle=tmp_path, previous=tmp_path, executor=executor, tser=tmp_path)
+    admission, series = tmp_path / 'admission', tmp_path / 'series'
+    assert execution.run('admit', output=admission, **args) == 0
+    assert len([item for item in calls if item[0] == 'search']) == 3
+    assert execution.run('run', output=series, admission=admission, **args) == 0
+    assert len([item for item in calls if item[0] == 'search']) == 24
+    assert not any(row[0] == 'assess' for row in calls)
+    assert execution.run('assess', output=series, admission=admission, **args) == 0
+    assert len([item for item in calls if item[0] == 'assess']) == 12
+
+
+def test_forecast_stages_reject_unaccepted_regression_before_touching_any_input(tmp_path, monkeypatch):
+    from benchmark.industrial.experiments.tsf_extension import execution
+
+    (tmp_path / 'run.json').write_text('{"device":"cuda:0"}')
+    (tmp_path / 'assess_status.json').write_text('[]')
+
+    def forbidden(*_args):
+        pytest.fail('A failed release gate must be checked before touching the new TRAIN bundle')
+
+    monkeypatch.setattr(execution, 'read_manifest', forbidden)
+    with pytest.raises(ProtocolError, match='eight complete TSER'):
+        execution.run('admit', bundle=tmp_path, previous=tmp_path, executor=None, tser=tmp_path,
+                      output=tmp_path / 'extension')
+    assert not (tmp_path / 'extension').exists()
