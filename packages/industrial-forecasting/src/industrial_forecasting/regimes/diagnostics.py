@@ -25,27 +25,36 @@ class RegimeDiagnosticsResult:
         return asdict(self)
 
 
-def _autocorrelation(values: np.ndarray, lag: int) -> float:
-    centered = values - np.mean(values)
-    denominator = float(np.sum(centered ** 2))
-    if denominator <= 1e-12 or lag >= len(values):
-        return 0.0
-    return float(np.sum(centered[:-lag] * centered[lag:]) / denominator)
+def _autocorrelations(centered: np.ndarray, denominator: float, stop: int) -> np.ndarray:
+    """Return normalized linear autocorrelations for lags 0 through stop - 1."""
+    if denominator <= 1e-12:
+        return np.zeros(stop)
+    length = 1 << (2 * len(centered) - 2).bit_length()
+    transformed = np.fft.rfft(centered, n=length)
+    power = transformed.real ** 2 + transformed.imag ** 2
+    return np.fft.irfft(power, n=length)[:stop] / denominator
 
 
-def _dominant_period(values: np.ndarray) -> int | None:
-    if len(values) < 8:
+def _dominant_period(centered: np.ndarray, denominator: float, scores: np.ndarray) -> int | None:
+    if not scores.size:
         return None
-    best_lag = None
+    best = int(np.argmax(scores))
+    tolerance = 8 * np.finfo(float).eps * len(centered).bit_length()
+    if not scores[best] >= 0.2 - tolerance:
+        return None
+    near_peak = np.flatnonzero(scores[best] - scores <= tolerance)
+    if near_peak.size == 1 and scores[best] > 0.2 + tolerance:
+        return best + 2
+
+    # Use the direct calculation only when roundoff could change the chosen lag or cross the cutoff.
     best_score = 0.0
-    for lag in range(2, max(3, len(values) // 3)):
-        score = _autocorrelation(values, lag)
+    best_lag = None
+    for index in near_peak:
+        lag = int(index) + 2
+        score = float(np.sum(centered[:-lag] * centered[lag:]) / denominator)
         if score > best_score:
-            best_lag = lag
-            best_score = score
-    if best_lag is None or best_score < 0.2:
-        return None
-    return int(best_lag)
+            best_lag, best_score = lag, score
+    return best_lag if best_score >= 0.2 else None
 
 
 def analyze_regime_diagnostics(time_series: np.ndarray, window_size: int | None = None) -> RegimeDiagnosticsResult:
@@ -64,11 +73,15 @@ def analyze_regime_diagnostics(time_series: np.ndarray, window_size: int | None 
         )
 
     resolved_window = window_size or estimate_window(len(values), forecast_horizon=max(1, len(values) // 20))
-    acf_values = np.array([_autocorrelation(values, lag) for lag in range(1, min(resolved_window, len(values) // 2))])
-    acf_decay_rate = float(np.mean(np.abs(acf_values[:max(1, min(5, len(acf_values)))]))) if acf_values.size else 0.0
-    dominant_period = _dominant_period(values)
-
     centered = values - np.mean(values)
+    denominator = float(np.sum(centered ** 2))
+    decay_stop = max(1, min(resolved_window, len(values) // 2, 6))
+    period_stop = max(3, len(values) // 3) if len(values) >= 8 else 2
+    acf = _autocorrelations(centered, denominator, max(decay_stop, period_stop))
+    decay = acf[1:decay_stop]
+    acf_decay_rate = float(np.mean(np.abs(decay))) if decay.size else 0.0
+    dominant_period = _dominant_period(centered, denominator, acf[2:period_stop])
+
     spectrum = np.abs(np.fft.rfft(centered))
     if spectrum.size <= 1:
         spectral_concentration = 0.0
