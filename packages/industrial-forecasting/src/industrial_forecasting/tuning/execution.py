@@ -153,8 +153,11 @@ def _build_stage_candidate_grid(
         if not values and parameter_name in current_parameters:
             values = (current_parameters[parameter_name],)
         elif parameter_name in current_parameters:
-            values = tuple(dict.fromkeys(
-                (current_parameters[parameter_name], *values)))
+            unique = [current_parameters[parameter_name]]
+            for value in values:
+                if value not in unique:
+                    unique.append(value)
+            values = tuple(unique)
         if values:
             parameter_values.append((parameter_name, values))
 
