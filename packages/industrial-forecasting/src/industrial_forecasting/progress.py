@@ -52,9 +52,9 @@ class ForecastingProgressPolicy:
 def resolve_forecasting_progress_policy(
         policy: ForecastingProgressPolicy | dict[str, Any] | bool | None = None,
         *,
-        show_progress: bool | None = True,
+        show_progress: bool | None = None,
 ) -> ForecastingProgressPolicy:
-    """Normalize bool, dict or policy input into ForecastingProgressPolicy."""
+    """Normalize the policy, overriding its default only if explicitly requested."""
     if isinstance(policy, ForecastingProgressPolicy):
         resolved = policy
     elif isinstance(policy, dict):
