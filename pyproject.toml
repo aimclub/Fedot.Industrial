@@ -14,6 +14,8 @@ classifiers = [
 keywords = ["automated machine learning", "time series", "anomaly detection"]
 dependencies = [
     "fedot @ git+https://github.com/aimclub/FEDOT.git@d1875e7a1ba49c94d13c51d97ec78829bf459ca8",
+    "industrial-neural==0.1.0",
+    "industrial-forecasting[neural]==0.1.0",
     "numpy>=1.24.4,<2",
     "scipy>=1.10,<1.15.2",
     "pandas>=2,<2.3",
@@ -45,6 +47,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+tser = [
+    "aeon==1.0.0",
+    # tsfresh 0.20.3 raises the SciPy floor above the pinned FEDOT cap.
+    "tsfresh==0.20.2",
+]
 dev = [
     "pytest>=7,<9",
     "pytest-cov>=6,<7",
@@ -59,6 +66,9 @@ notebooks = [
     "jupyter>=1,<2",
     "nbconvert>=7,<8",
     "ipykernel>=6,<7",
+]
+benchmark-protocol = [
+    "roast @ git+https://github.com/data-satanism/ROAST.git@063d579cc3fa4ef3ea27b59d20f9aaa4ea0e451c",
 ]
 
 [project.urls]
@@ -100,6 +110,20 @@ exclude_also = [
     "if self.verbose:",
     "if self.print_training_progress:",
 ]
+
+[tool.uv]
+# Wheel-only releases must be installable on both CI platforms.
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
+[tool.uv.workspace]
+members = ["packages/industrial-neural", "packages/industrial-forecasting"]
+
+[tool.uv.sources]
+industrial-neural = {workspace = true}
+industrial-forecasting = {workspace = true}
 
 [build-system]
 requires = ["setuptools>=77,<81", "wheel>=0.43,<1"]

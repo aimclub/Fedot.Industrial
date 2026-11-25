@@ -13,6 +13,8 @@ FEDOT закреплён на полном идентификаторе комм
 | Файл | Назначение | Обновление |
 | --- | --- | --- |
 | `pyproject.toml` | Версия Python, основные зависимости и дополнительные группы | Вручную, вместе с тестами контракта |
+| `packages/industrial-neural/pyproject.toml` | Метаданные нейросетевого пакета | Вместе с его версией в основном пакете и проверкой отдельной установки |
+| `packages/industrial-forecasting/pyproject.toml` | Метаданные пакета прогнозирования | Вместе с его версией в основном пакете и проверкой базовой установки |
 | `requirements.txt` | Точный текстовый экспорт основных зависимостей | `python -m tools.platform_support export` |
 | `tools/platform_support/compatibility.json` | Поддерживаемые версии Python, FEDOT SHA и известные ограничения | Вместе с доказательствами совместимости |
 
@@ -58,6 +60,19 @@ python -m pip check
 созданного для версии Python в текущем задании. Наличие CUDA не следует
 выводить из успешной установки: вычисления на CUDA проверяются отдельными
 сценариями.
+
+`uv sync` устанавливает `industrial-neural` и `industrial-forecasting` из
+того же репозитория. При установке через pip передайте все три пакета одной
+командой:
+
+```bash
+python -m pip install -e ./packages/industrial-neural -e ./packages/industrial-forecasting -e ".[dev]"
+```
+
+В CI команда `uv export --no-emit-workspace` выгружает только внешние
+зависимости, после чего CI устанавливает три собранных wheel. Отдельные
+инструкции: [нейросетевой пакет](../../packages/industrial-neural/README.md)
+и [прогнозирование](../../packages/industrial-forecasting/README.md).
 
 ## Интеграция с FEDOT
 
@@ -112,7 +127,8 @@ stderr, итоговый JSON — в stdout.
 ## GitHub Actions
 
 - `platform_checks.yml` проверяет метаданные на Python 3.10–3.12, установку
-  wheel на Linux и Windows и интеграцию с FEDOT на Python 3.10/3.11;
+  wheel на Linux и Windows, интеграцию с FEDOT и возобновление обучения
+  без FEDOT на Python 3.10/3.11;
 - `poetry_unit_test.yml` создаёт временное разрешение зависимостей и запускает
   полный набор модульных тестов на Python 3.10;
 - `integration_tests.yml` устанавливает тот же набор зависимостей и запускает
@@ -122,7 +138,8 @@ stderr, итоговый JSON — в stdout.
 Публикация в PyPI заблокирована, пока FEDOT указан прямой Git-ссылкой: PyPI не
 принимает такие зависимости. Перед выпуском нужно заменить ссылку на
 совместимую опубликованную версию FEDOT, заново разрешить зависимости и
-повторить все проверки установки.
+повторить все проверки установки. Публиковать следует в порядке зависимостей:
+`industrial-neural`, `industrial-forecasting`, затем `fedot-ind`.
 
 Подробности завершения перехода приведены в
 `docs/dev_guide/ind_fedot_05_verification.md`.

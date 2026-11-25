@@ -314,7 +314,7 @@ def test_run_sequential_stage_tuning_uses_tqdm_progress(monkeypatch):
         return iterable
 
     monkeypatch.setattr(
-        'fedot_ind.core.models.ts_forecasting.stage_tuning_execution.tqdm',
+        'industrial_forecasting.tuning.execution.tqdm',
         fake_tqdm,
     )
 

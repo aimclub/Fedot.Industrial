@@ -1,0 +1,24 @@
+[project]
+name = "industrial-neural"
+version = "0.1.0"
+description = "Reusable PyTorch components and supervised training for time series"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.10,<3.12"
+dependencies = ["numpy>=1.24.4,<2", "torch>=2.6,<2.7"]
+
+[project.urls]
+Source = "https://github.com/aimclub/Fedot.Industrial"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["fedot_ind.neural", "fedot_ind.neural.*"]
+namespaces = true
+
+[build-system]
+requires = ["setuptools>=77,<81", "wheel>=0.43,<1"]
+build-backend = "setuptools.build_meta"

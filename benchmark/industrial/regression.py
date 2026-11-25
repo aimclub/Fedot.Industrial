@@ -15,6 +15,7 @@ from .core import (
     BenchmarkSuiteConfig,
     DatasetSpec,
     MetricRecord,
+    ModelSpec,
     RegressionBenchmarkResult,
     RegressionDatasetRecord,
     RunStatus,
@@ -37,6 +38,8 @@ from .experiments.progress import BenchmarkProgressMonitor
 from .models.regression import (
     build_regression_model,
 )
+from .models.tser import AEON_TYPES
+from .models.tser_budget import PANEL_BUDGET_POLICY, panel_budget_rejection, panel_shape
 
 SUPPORTED_REGRESSION_METRICS = ('rmse', 'mae', 'r2')
 
@@ -72,6 +75,12 @@ def _encode_dataset_record(
         test_target: Any,
         metadata: dict[str, Any] | None = None,
 ) -> RegressionDatasetRecord:
+    metadata = dict(metadata or {})
+    shape = np.asarray(train_features).shape
+    if len(shape) == 3:
+        if np.asarray(test_features).shape[1:] != shape[1:]:
+            raise BenchmarkRegressionError("Train and test panels have incompatible temporal axes.")
+        metadata.update(dimensions=shape[1], series_length=shape[2])
     train_x = _normalize_matrix(train_features)
     test_x = _normalize_matrix(test_features)
     train_y = _normalize_vector(train_target)
@@ -84,7 +93,7 @@ def _encode_dataset_record(
         train_target=tuple(float(value) for value in train_y),
         test_features=tuple(tuple(float(value) for value in row) for row in test_x),
         test_target=tuple(float(value) for value in test_y),
-        metadata=metadata or {},
+        metadata=metadata,
     )
 
 
@@ -223,7 +232,7 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
     validate_tser_suite_config(config)
     run_id = resolve_incremental_run_id(config) or new_run_id(config.run_spec.run_name)
     artifact_writer = IncrementalBenchmarkArtifactWriter(config, run_id)
-    completed_run_records = load_incremental_run_records(config, run_id)
+    completed_run_records = _reusable_regression_runs(load_incremental_run_records(config, run_id), config.models)
     dataset_records: list[RegressionDatasetRecord] = []
     run_records: list[BenchmarkRunRecord] = []
     prediction_records: list[ValuePredictionRecord] = []
@@ -335,8 +344,12 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                         )
                         progress.advance(resumed_record.status.value, "resumed")
                         continue
-                    runtime_guard_message = _regression_runtime_guard(record, model.name)
+                    panel_adapter = model_spec.adapter_name.lower()
+                    runtime_guard_message = _runtime_guard_for_model(record, model_spec)
                     if runtime_guard_message:
+                        guard_metadata = {"failure_stage": "runtime_guard"}
+                        if panel_adapter in AEON_TYPES:
+                            guard_metadata["runtime_guard_policy"] = PANEL_BUDGET_POLICY
                         run_record = artifact_writer.write_run(
                             BenchmarkRunRecord(
                                 run_id=run_id,
@@ -348,7 +361,7 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                                 status=RunStatus.NOT_AVAILABLE,
                                 tags=model.tags,
                                 message=runtime_guard_message,
-                                metadata={"failure_stage": "runtime_guard"},
+                                metadata=guard_metadata,
                             )
                         )
                         run_records.append(run_record)
@@ -359,6 +372,11 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
                         train_y = np.asarray(record.train_target, dtype=float)
                         test_x = np.asarray(record.test_features, dtype=float)
                         test_y = np.asarray(record.test_target, dtype=float)
+                        if getattr(model, 'uses_panel', False):
+                            from .models.tser import restore_tser_panel
+                            dimensions = int(record.metadata.get("dimensions", 1))
+                            train_x = restore_tser_panel(train_x, dimensions, metadata=record.metadata)
+                            test_x = restore_tser_panel(test_x, dimensions, metadata=record.metadata)
                         model.fit(train_x, train_y)
                         prediction = np.asarray(model.predict(test_x), dtype=float).reshape(-1)
                         metrics_summary = {
@@ -450,6 +468,16 @@ def run_tser_suite(config: BenchmarkSuiteConfig) -> RegressionBenchmarkResult:
     )
 
 
+def _runtime_guard_for_model(record: RegressionDatasetRecord, model_spec: ModelSpec) -> str:
+    adapter = model_spec.adapter_name.lower()
+    if adapter in AEON_TYPES:
+        shape = panel_shape(record.train_features, record.test_features, record.metadata.get("dimensions", 1))
+        reason = panel_budget_rejection(adapter, shape, model_spec.params)
+        if reason is not None:
+            return reason
+    return _regression_runtime_guard(record, model_spec.display_name)
+
+
 def _regression_runtime_guard(record: RegressionDatasetRecord, model_name: str) -> str:
     train_features = np.asarray(record.train_features)
     if train_features.ndim < 2:
@@ -512,6 +540,20 @@ def _completed_dataset_resume_records(
             return None
         records.append(record)
     return tuple(records)
+
+
+def _reusable_regression_runs(records: dict[tuple[str, str, str], BenchmarkRunRecord],
+                              models: tuple[ModelSpec, ...]) -> dict[tuple[str, str, str], BenchmarkRunRecord]:
+    """Recheck panel skips made under a different guard, not completed fits."""
+    panels = {model.display_name for model in models if model.adapter_name.lower() in AEON_TYPES}
+    return {
+        key: record for key, record in records.items()
+        if not (
+            key[-1] in panels and record.status is RunStatus.NOT_AVAILABLE
+            and record.metadata.get("failure_stage") == "runtime_guard"
+            and record.metadata.get("runtime_guard_policy") != PANEL_BUDGET_POLICY
+        )
+    }
 
 
 def _metric_records_from_run_summary(run_record: BenchmarkRunRecord) -> list[MetricRecord]:

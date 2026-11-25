@@ -1,0 +1,20 @@
+{
+  "m5": {
+    "m5/sales_train_evaluation.csv": "c21a519596680feb86f27a9e62f6c8b583f8be60c2c195f080ae8ca2990af2b7",
+    "m5/sales_test_evaluation.csv": "73773250dd7f7464f7a1bf3a54874dc7fc8cbb49885cd0bf1efe09bf48fd930d",
+    "m5/calendar.csv": "568d0fe5f41790142379698732908e4e57432c1c6396f3f59fb880a9c2b54231",
+    "m5/sell_prices.csv": "5c7cf045b1abbdc8d5007809c40b3682c5216075937f93e2cef01caddc4a30d9",
+    "m5/weights_evaluation.csv": "b430c288d92a0e55e08b76c20aafb4c538469c7ba95e47ab768e37e385299497",
+    "m5/0001 YJ_STU.csv": "678195194c9e8dec50efc1bfbeb7d4a2247a55c3897127731323c2935caf26a7",
+    "m5-scores.xlsx": "a1284eb1fd42214ae784366564c9780c1cb40c0694340468e389c9fd46432529"
+  },
+  "m4": {
+    "m4-hourly-train.csv": "ea59b7783573c49077a835ab6465c7d66f1474783360f310988a9a737fbca62f",
+    "m4-hourly-test.csv": "71a57fccb15e534d973626ada4fb87febf789e9317715b7cc6dd3b5f90db6f42",
+    "submission-Naive2.csv": "f9610c625d6dee654ec458dcd07fb39373d065efc33b4f17d94c50b2aef00ef9",
+    "submission-sNaive.csv": "0ac595794fb07630e3de817d983cec7cd745b64442128a315e77d99c7c8e239e"
+  },
+  "monash": {
+    "tourism_monthly_dataset.tsf": "fba16c20b9c431406e4377aa61347e7310d4cd155033e2f93af4cbd0e8139b6e"
+  }
+}

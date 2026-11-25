@@ -28,6 +28,10 @@ def make_deferred_factory(declaration: IndustrialOperationDeclaration) -> Callab
     wrapper_type = DeferredModel if declaration.kind is IndustrialOperationKind.MODEL else DeferredTransform
 
     def factory(params: Mapping[str, Any] | None = None) -> object:
+        if "opt_in_composite" in declaration.tags:
+            from fedot_ind.core.models.composite_templates import template_spec
+
+            template_spec(declaration.name, params)
         if uses_temporal_contract(declaration):
             require_temporal_contract()
         return wrapper_type(declaration, params)

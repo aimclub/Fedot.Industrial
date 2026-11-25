@@ -5,7 +5,7 @@ from .models.forecasting_baselines import (
     NaiveLastValueModel, NaiveMeanModel, NaiveDriftModel, MovingAverageModel, LinearTrendModel,
 )
 from .evaluation.forecasting_metrics import (
-    _seasonal_naive_forecast, _mase_scale, compute_forecasting_metric, compute_pointwise_metric,
+    compute_forecasting_metric, compute_pointwise_metric,
 )
 
 import importlib

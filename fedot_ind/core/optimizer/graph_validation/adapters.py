@@ -23,6 +23,7 @@ def graph_spec_from_runtime(
         *,
         adapter: object | None = None,
         task_type: object | None = None,
+        forecast_horizon: int | None = None,
         requested_device: object | None = None,
         require_serializable: bool = False,
         capability_index: Mapping[str, OperationCapabilities] | None = None,
@@ -34,6 +35,7 @@ def graph_spec_from_runtime(
         graph,
         adapter=adapter,
         task_type=task_type,
+        forecast_horizon=forecast_horizon,
         requested_device=requested_device,
         require_serializable=require_serializable,
         capability_index=capability_index,
@@ -48,6 +50,7 @@ def project_runtime_graph(
         *,
         adapter: object | None = None,
         task_type: object | None = None,
+        forecast_horizon: int | None = None,
         requested_device: object | None = None,
         require_serializable: bool = False,
         capability_index: Mapping[str, OperationCapabilities] | None = None,
@@ -63,7 +66,7 @@ def project_runtime_graph(
     }
     capabilities = capability_index if capability_index is not None else industrial_capability_index()
     nodes = tuple(
-        _node_spec(node, identities, capabilities)
+        _node_spec(node, identities, capabilities, forecast_horizon)
         for node in runtime_nodes
     )
     spec = GraphSpec(
@@ -88,16 +91,31 @@ def infer_validation_context(graph_generation_params: object) -> tuple[str | Non
     return _enum_name(task_type), _enum_name(requested_device)
 
 
+def infer_forecast_horizon(graph_generation_params: object) -> int | None:
+    """The native advisor retains the task and its forecasting parameters."""
+    advisor = getattr(graph_generation_params, "advisor", None)
+    task = getattr(advisor, "task", None)
+    return getattr(getattr(task, "task_params", None), "forecast_length", None)
+
+
 def capabilities_from_runtime_node(
         node: object,
         *,
         capability_index: Mapping[str, OperationCapabilities] | None = None,
+        forecast_horizon: int | None = None,
 ) -> OperationCapabilities | None:
     """Resolve catalog capabilities first, then project FEDOT operation metadata."""
     operation = getattr(node, "operation", None)
     operation_name = _operation_name(node)
     declared = (capability_index or {}).get(operation_name)
     if declared is not None:
+        if "opt_in_composite" in declared.tags:
+            from fedot_ind.core.models.composite_templates import template_spec
+            params = getattr(node, "parameters", None)
+            if params is None:
+                params = getattr(node, "content", {}).get("params", {})
+            template_spec(operation_name, params.to_dict() if hasattr(params, "to_dict") else params,
+                          task_horizon=forecast_horizon)
         if operation_name == 'fourier_basis':
             from dataclasses import replace
             params = getattr(node, 'parameters', None)
@@ -166,6 +184,7 @@ def _node_spec(
         node: object,
         identities: Mapping[int, str],
         capabilities: Mapping[str, OperationCapabilities],
+        forecast_horizon: int | None,
 ) -> GraphNodeSpec:
     parents = tuple(getattr(node, "nodes_from", ()) or ())
     parent_ids = tuple(
@@ -179,6 +198,7 @@ def _node_spec(
         capabilities=capabilities_from_runtime_node(
             node,
             capability_index=capabilities,
+            forecast_horizon=forecast_horizon,
         ),
     )
 

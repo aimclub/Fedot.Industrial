@@ -59,6 +59,7 @@ from fedot_ind.core.optimizer.mutation_runtime import (
     MutationExecutionStatus, PlannedMutation, install_extension_aware_advisor, install_planned_mutation,
 )
 from fedot_ind.integration.fedot.evaluation import confirmed_input_from_objective
+from fedot_ind.core.optimizer.graph_validation.adapters import infer_forecast_horizon
 from fedot_ind.core.optimizer.graph_validation import (
     IndustrialGraphVerifier,
     ModelFeatureFlow,
@@ -115,12 +116,18 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         legacy_verifier = graph_generation_params.verifier
         task_type, requested_device = infer_validation_context(
             graph_generation_params)
+        forecast_horizon = infer_forecast_horizon(graph_generation_params)
         if isinstance(legacy_verifier, IndustrialGraphVerifier):
             self.graph_verifier = legacy_verifier
+            if forecast_horizon is not None:
+                if legacy_verifier.forecast_horizon not in (None, forecast_horizon):
+                    raise ValueError('The graph verifier forecast horizon must match the advisor task.')
+                legacy_verifier.forecast_horizon = forecast_horizon
         else:
             self.graph_verifier = IndustrialGraphVerifier(
                 adapter=graph_generation_params.adapter,
                 task_type=task_type,
+                forecast_horizon=forecast_horizon,
                 requested_device=requested_device,
                 legacy_verifier=legacy_verifier,
             )

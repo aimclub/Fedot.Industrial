@@ -1,0 +1,17 @@
+{
+  "version": "industrial_dataset_catalog@1",
+  "releases": {
+    "time/commodity_production/paper_pulp": {
+      "version": "683bb21b470f5a26586e1ab2295f0a2a1529ef0f",
+      "source": "https://huggingface.co/datasets/Real-TSF/TIME-ProcessedCSV/blob/683bb21b470f5a26586e1ab2295f0a2a1529ef0f/Commodity_Production/M/IndexofPaperandPulpProductionforUnitedStates_m.csv",
+      "access": "public",
+      "license": "Apache-2.0",
+      "assets": {
+        "series": {
+          "path": "time/paper_pulp.csv",
+          "sha256": "28b85998c88c2eb1fb8a2d11074790eb128b5cf54d3b72ac0162ef8eb703209b"
+        }
+      }
+    }
+  }
+}

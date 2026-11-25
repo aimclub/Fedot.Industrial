@@ -14,6 +14,12 @@ def _trend_with_oscillation(length: int = 96) -> np.ndarray:
     return 0.25 * time + 1.5 * np.sin(time / 6.0)
 
 
+def test_hybrid_rejects_unknown_complex_branch_instead_of_selecting_okhs():
+    model = HybridEnsembleForecaster(forecast_horizon=2, complex_branch='havokk')
+    with pytest.raises(ValueError, match='complex_branch'):
+        model._build_complex_branch()
+
+
 def test_lagged_ridge_forecaster_returns_horizon_vector_and_stage_diagnostics():
     series = _trend_with_oscillation()
     model = LaggedRidgeForecaster(forecast_horizon=8, window_size=18, stride=2, alpha=0.5)

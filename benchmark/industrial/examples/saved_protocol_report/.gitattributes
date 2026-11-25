@@ -1,0 +1,4 @@
+# Keep checksums of the saved receipts independent of Git line-ending settings.
+*.csv -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/time_acceptance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/detection_acceptance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shlex
 
+from packaging.markers import Marker
 from packaging.requirements import Requirement
 import yaml
 
@@ -14,6 +15,8 @@ from tools.platform_support.loading import load_compatibility
 
 
 ROOT = Path(__file__).resolve().parents[3]
+NEURAL = "packages/industrial-neural"
+FORECASTING = "packages/industrial-forecasting"
 
 
 def project_metadata():
@@ -75,6 +78,34 @@ def test_only_runtime_packages_and_declared_resources_are_distributed():
     assert not any("examples/" in path or "artifacts/" in path for path in paths)
 
 
+def test_neural_is_a_workspace_distribution_with_an_independent_runtime():
+    root = project_metadata()
+    neural = tomllib.loads((ROOT / NEURAL / "pyproject.toml").read_text(encoding="utf-8"))
+    project = neural["project"]
+    assert project["name"] == "industrial-neural"
+    assert project["requires-python"] == root["project"]["requires-python"]
+    requirements = {Requirement(value).name: Requirement(value) for value in root["project"]["dependencies"]}
+    assert str(requirements["industrial-neural"].specifier) == f"=={project['version']}"
+    assert {Requirement(value).name for value in project["dependencies"]} == {"numpy", "torch"}
+    assert all(Requirement(value) == requirements[Requirement(value).name] for value in project["dependencies"])
+    assert set(root["tool"]["uv"]["workspace"]["members"]) == {NEURAL, FORECASTING}
+    assert root["tool"]["uv"]["sources"]["industrial-neural"] == {"workspace": True}
+    assert not (ROOT / "fedot_ind/neural").exists()
+    assert not (ROOT / NEURAL / "src/fedot_ind/__init__.py").exists()
+
+
+def test_forecasting_base_only_requires_numpy_and_neural_is_an_extra():
+    root = project_metadata()
+    project = tomllib.loads((ROOT / FORECASTING / "pyproject.toml").read_text("utf-8"))["project"]
+    assert project["requires-python"] == root["project"]["requires-python"]
+    main = {Requirement(value).name: Requirement(value) for value in root["project"]["dependencies"]}
+    assert set(map(Requirement, project["dependencies"])) == {main["numpy"]}
+    assert set(map(Requirement, project["optional-dependencies"]["neural"])) == {main["industrial-neural"]}
+    assert main["industrial-forecasting"].extras == {"neural"}
+    assert str(main["industrial-forecasting"].specifier) == f"=={project['version']}"
+    assert root["tool"]["uv"]["sources"]["industrial-forecasting"] == {"workspace": True}
+
+
 def test_dev_notebook_and_incompatible_research_dependencies_do_not_leak_into_runtime():
     project = project_metadata()["project"]
     runtime_names = {Requirement(value).name.lower() for value in project["dependencies"]}
@@ -108,6 +139,8 @@ def test_install_matrix_and_python312_audit_are_distinct():
     assert install_commands.index("uv lock --python") < install_commands.index("uv export --frozen --extra dev")
     assert "--frozen" in install_commands and "pip check" in install_commands
     assert "uv export --frozen --extra dev" in install_commands
+    assert "--no-emit-workspace" in install_commands
+    assert "dist/neural/*.whl dist/forecasting/*.whl dist/*.whl" in install_commands
     assert "python -I tools/runtime_smoke.py --json" in install_commands
     assert "poetry" not in install_commands
     integration = jobs["fedot-integration"]
@@ -118,6 +151,8 @@ def test_install_matrix_and_python312_audit_are_distinct():
     assert integration_commands.index("uv lock --python") < integration_commands.index(
         "uv export --frozen --extra dev")
     assert "uv export --frozen --extra dev" in integration_commands
+    assert "--no-emit-workspace" in integration_commands
+    assert "dist/neural/*.whl dist/forecasting/*.whl dist/*.whl" in integration_commands
     assert "environment --json" in integration_commands
     assert "tests/unit/integration/fedot" in integration_commands
 
@@ -129,7 +164,8 @@ def test_unit_and_integration_install_same_ephemeral_resolution():
         assert cache_dependency_paths(steps) == {"pyproject.toml", "requirements.txt"}
         assert commands.index("uv lock --python") < commands.index("uv export --frozen --extra dev")
         assert "uv export --frozen --extra dev" in commands
-        assert "pip install --no-deps -e ." in commands
+        assert "--no-emit-workspace" in commands
+        assert f"pip install --no-deps -e . -e {NEURAL} -e {FORECASTING}" in commands
         assert "poetry " not in commands and "pip check" in commands
 
 
@@ -169,18 +205,46 @@ def test_preinstalled_cpu_versions_satisfy_the_project_requirements():
     project = {Requirement(item).name: Requirement(item) for item in project_metadata()["project"]["dependencies"]}
     checked = 0
     for name in ("poetry_unit_test.yml", "integration_tests.yml", "platform_checks.yml"):
-        for job in workflow(name)["jobs"].values():
+        for job_name, job in workflow(name)["jobs"].items():
             for line in workflow_commands(job.get("steps", [])).splitlines():
                 if "https://download.pytorch.org/whl/cpu" not in line:
                     continue
                 pins = [Requirement(token) for token in shlex.split(line)
                         if token.startswith(("torch==", "torchvision=="))]
-                assert {pin.name for pin in pins} == {"torch", "torchvision"}
+                expected = {"torch"} if job_name == "neural-standalone" else {"torch", "torchvision"}
+                assert {pin.name for pin in pins} == expected
                 for pin in pins:
                     spec, = pin.specifier
                     assert spec.operator == "==" and spec.version in project[pin.name].specifier
                 checked += 1
-    assert checked == 4
+    assert checked == 5
+
+
+def test_neural_standalone_job_only_installs_its_wheel_in_a_fresh_venv():
+    job = workflow("platform_checks.yml")["jobs"]["neural-standalone"]
+    assert job["needs"] == "build"
+    assert job["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
+    commands = workflow_commands(job["steps"])
+    assert "python -m venv" in commands
+    assert "pip install --upgrade pip" in commands
+    assert "pip install --no-deps --index-url" in commands
+    assert "pip install dist/neural/*.whl" in commands
+    assert "pip check" in commands
+    assert "python -I " in commands and "--standalone" in commands
+    assert "pip install dist/*.whl" not in commands and "uv export" not in commands
+
+
+def test_forecasting_standalone_checks_base_and_extra_separately():
+    jobs = workflow("platform_checks.yml")["jobs"]
+    base = jobs["forecasting-standalone"]
+    commands = workflow_commands(base["steps"])
+    assert base["strategy"]["matrix"]["python"] == ["3.10", "3.11"]
+    assert "python -m venv" in commands and "pip install dist/forecasting/*.whl" in commands
+    assert "pip check" in commands and "--standalone" in commands
+    assert "[neural]" not in commands and "dist/neural/" not in commands
+    extra_commands = workflow_commands(jobs["neural-standalone"]["steps"])
+    assert '[neural]' in extra_commands and '--standalone --neural' in extra_commands
+    assert extra_commands.index("cpu_resume.py") < extra_commands.index("[neural]")
 
 
 def test_contract_matrix_resolves_only_supported_python_versions():
@@ -192,6 +256,17 @@ def test_contract_matrix_resolves_only_supported_python_versions():
     assert "uv lock --check" not in commands
 
 
+def test_dependency_resolution_requires_wheels_for_the_install_matrix():
+    markers = [Marker(value) for value in project_metadata()["tool"]["uv"]["required-environments"]]
+    install_matrix = workflow("platform_checks.yml")["jobs"]["install"]["strategy"]["matrix"]
+    targets = {"ubuntu-latest": ("linux", "x86_64"), "windows-latest": ("win32", "AMD64")}
+    for os_name in install_matrix["os"]:
+        platform, machine = targets[os_name]
+        for version in install_matrix["python"]:
+            environment = {"sys_platform": platform, "platform_machine": machine, "python_version": version}
+            assert any(marker.evaluate(environment) for marker in markers), environment
+
+
 def test_publication_uses_same_builder_and_pypi_guard():
     for name in ("pypi_release.yml", "python-publish.yml"):
         jobs = workflow(name)["jobs"]
@@ -200,4 +275,6 @@ def test_publication_uses_same_builder_and_pypi_guard():
         assert jobs["publish"]["needs"] == "build"
     steps = workflow("package_build.yml")["jobs"]["build"]["steps"]
     assert any(step.get("run") == "python -m build" for step in steps)
+    assert any(step.get("run") == f"python -m build {NEURAL} --outdir dist/neural" for step in steps)
+    assert any(step.get("run") == f"python -m build {FORECASTING} --outdir dist/forecasting" for step in steps)
     assert any("--pypi" in step.get("run", "") and step.get("if") == "inputs.for-pypi" for step in steps)
