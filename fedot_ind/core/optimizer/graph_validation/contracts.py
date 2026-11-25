@@ -93,6 +93,7 @@ class ValidationIssueCode(str, Enum):
     GRAPH_ADAPTATION_FAILED = "graph_adaptation_failed"
     REPRESENTATION_MISMATCH = "representation_mismatch"
     FORECAST_BRANCH_CONTRACT = "forecast_branch_contract"
+    FORECAST_HORIZON_CONTRACT = "forecast_horizon_contract"
 
 
 def _unique_strings(values: Iterable[object]) -> tuple[str, ...]:

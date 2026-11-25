@@ -106,6 +106,11 @@ def _hyperparams_schema(declaration: IndustrialOperationDeclaration,
     optional = set(defaults)
     optional.update(search_parameters.get(declaration.name, {}))
     optional.update(_pdl_parameter_names(declaration.name, search_parameters))
+    if "opt_in_composite" in declaration.tags:
+        from fedot_ind.core.models.composite_templates import TEMPLATES
+        template = TEMPLATES[declaration.name]
+        optional.update(template.roles)
+        optional.update(template.parameters)
     if (declaration.runtime_interface is IndustrialRuntimeInterface.INPUT_DATA
             and "ts_forecasting" in declaration.tasks):
         optional.add("forecast_length")

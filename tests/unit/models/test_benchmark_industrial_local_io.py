@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from benchmark.industrial.datasets.local_io import load_local_supervised_split
+from benchmark.industrial.datasets.local_io import load_local_supervised_split, load_local_ts_cases
 
 
 def test_load_local_supervised_split_supports_timestamped_multivariate_ts(tmp_path):
@@ -35,3 +36,24 @@ def test_load_local_supervised_split_supports_timestamped_multivariate_ts(tmp_pa
     assert np.array_equal(split.test_target, np.asarray([6.0]))
     assert split.metadata["dimensions"] == 2
     assert split.metadata["timestamps"] is True
+    assert split.metadata["aligned_channel_grid"] is True
+
+
+@pytest.mark.parametrize("second_axis, aligned", [((0, 1), True), ((1, 2), False)])
+def test_timestamped_cases_keep_missing_values_and_channel_grid_when_reading_verified_bytes(
+        tmp_path, second_axis, aligned):
+    first, last = second_axis
+    payload = (
+        "@timestamps true\n@dimension 2\n@targetlabel true\n@data\n"
+        f"(0,1),(1,?):({first},3),({last},4):5.0\n"
+    ).encode("utf-8")
+
+    cases, targets, metadata = load_local_ts_cases(tmp_path / "not-on-disk.ts", content=payload)
+
+    ((first_channel, second_channel),) = cases
+    np.testing.assert_equal(first_channel, [1.0, np.nan])
+    np.testing.assert_equal(second_channel, [3.0, 4.0])
+    np.testing.assert_equal(targets, [5.0])
+    assert metadata["uniform_channel_layout"] is True
+    assert metadata["aligned_channel_grid"] is aligned
+    assert metadata.get("timestamp_cadence") == (("numeric", "1") if aligned else None)
