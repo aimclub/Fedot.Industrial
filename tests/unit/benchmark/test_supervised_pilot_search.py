@@ -91,3 +91,41 @@ def test_worker_receives_the_job_and_seed_in_one_payload(monkeypatch):
     result, = execution._batch(SimpleNamespace(max_workers=1), (('graph', 9),), tsc_protocol().search, 42,
                                time() + 10, lambda task, payload: task.seed + payload, [])
     assert result.status is ExecutionStatus.SUCCEEDED and result.value == 51
+
+
+def test_pilot_transforms_do_not_reuse_shape_only_features_or_fit_on_prediction(monkeypatch):
+    import torch
+    from fedot import create_data
+    from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+    from fedot.extensions import extension_scope
+    from fedot_ind.integration.fedot.extensions import industrial_extension_scope
+    from benchmark.industrial.experiments.supervised_pilot.runtime import _manifest
+    from fedot_ind.core.operation.caching import DataCacher
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('Shape-only cache must not be opened')
+
+    monkeypatch.setattr(DataCacher, 'load_data_from_cache', forbidden)
+    monkeypatch.setattr(DataCacher, 'cache_data', forbidden)
+    prior = torch.get_num_threads()
+    torch.set_num_threads(1)
+    rng = np.random.default_rng(42)
+    x = rng.normal(size=(10, 1, 32))
+    changed = x.copy()
+    changed[1:] *= 15
+    train = create_data(x, target=np.arange(len(x)) % 2, task='classification', data_type='ts', use_cache=False)
+    score = replace(train, features=torch.as_tensor(changed, dtype=train.features.dtype), target=None, state='predict')
+    try:
+        with industrial_extension_scope(), extension_scope(_manifest()):
+            for name, params in (('quantile_extractor_torch', {'use_cache': False}), ('pilot_minirocket', {'seed': 42})):
+                pipeline = PipelineBuilder().add_node(name, params=params).build()
+                try:
+                    pipeline.fit(train)
+                    before = pipeline.predict(replace(train, target=None, state='predict')).features.numpy()
+                    after = pipeline.predict(score).features.numpy()
+                    np.testing.assert_array_equal(before[0], after[0])
+                    assert not np.array_equal(before[1:], after[1:])
+                finally:
+                    pipeline.unfit()
+    finally:
+        torch.set_num_threads(prior)

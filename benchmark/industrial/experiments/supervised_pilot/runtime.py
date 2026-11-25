@@ -18,14 +18,45 @@ def _forest_factory(params):
     return RandomForestClassifier(n_estimators=params['n_estimators'], n_jobs=1, random_state=params['random_state'])
 
 
+class PilotMiniRocket:
+    """Retain one CPU feature map fitted only on the admitted training panel."""
+
+    def __init__(self, params):
+        self.seed = params['seed']
+        self.model = None
+
+    def fit(self, features):
+        import torch
+        from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import MiniRocketFeatures
+
+        features = torch.as_tensor(features, dtype=torch.float32, device='cpu')
+        self.model = MiniRocketFeatures(features.shape[1], features.shape[2], random_state=self.seed).cpu()
+        self.model.fit(features)
+        return self
+
+    def transform(self, features):
+        import torch
+
+        if self.model is None or not self.model.prefit:
+            raise RuntimeError('MiniRocket has no fitted feature map')
+        with torch.inference_mode():
+            values = self.model(torch.as_tensor(features, dtype=torch.float32, device='cpu'))
+        return values.numpy()
+
+
 def _manifest():
     from fedot.core.repository.dataset_types import DataTypesEnum as D
     from fedot.core.repository.tasks import TaskTypesEnum as T
-    from fedot.extensions import ExternalModelSpec, ModelCapabilities, ModelHyperparamsSchema
+    from fedot.extensions import (
+        ExternalModelSpec, ExternalTransformSpec, ModelCapabilities, ModelHyperparamsSchema, TransformCapabilities,
+    )
 
     forest = ExternalModelSpec('pilot_rf', _forest_factory, ModelCapabilities((T.classification,), (D.tabular,)),
                                ModelHyperparamsSchema(required=('n_estimators', 'random_state')))
-    return recurrence_manifest((*neural_model_specs(), forest))
+    rocket = ExternalTransformSpec('pilot_minirocket', PilotMiniRocket,
+                                   TransformCapabilities((T.classification, T.regression), (D.ts,), D.tabular),
+                                   ModelHyperparamsSchema(required=('seed',)))
+    return recurrence_manifest((*neural_model_specs(), forest), (rocket,))
 
 
 @dataclass(frozen=True)
@@ -59,7 +90,11 @@ def _branch_predictions(branch, fold, codec, recipes, seed, device):
     builder = PipelineBuilder()
     for operation in branch.operations:
         params = None
-        if operation == 'recurrence_image':
+        if operation == 'quantile_extractor_torch':
+            params = {'use_cache': False}
+        elif operation == 'minirocket_extractor':
+            operation, params = 'pilot_minirocket', {'seed': seed}
+        elif operation == 'recurrence_image':
             params = dict(channels=channels, length=length)
         elif operation == 'logreg':
             params = {'C': (1., .1, 10., 100.)[branch.parameter]}
