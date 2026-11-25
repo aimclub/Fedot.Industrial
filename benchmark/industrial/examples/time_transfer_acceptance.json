@@ -1,0 +1,41 @@
+{
+  "version": "industrial_time_transfer_acceptance@1",
+  "dataset_id": "time/commodity_production/paper_pulp",
+  "target": "IndexofPaperandPulpProductionforUnitedStates",
+  "frequency": "MS",
+  "test_length": 60,
+  "horizon": 12,
+  "dates_public": true,
+  "origins": [
+    "1952-01-01T00:00:00+00:00",
+    "1953-01-01T00:00:00+00:00",
+    "1954-01-01T00:00:00+00:00",
+    "1955-01-01T00:00:00+00:00",
+    "1956-01-01T00:00:00+00:00"
+  ],
+  "model": {
+    "release": "amazon/chronos-bolt-tiny@a0e552de83495b5c28c14c71c374f3e33280b340",
+    "license": "Apache-2.0",
+    "assets": {
+      "model/chronos-bolt-tiny/config.json": "278f0086733031635fb1c861cb01c1bad6477420c7fcb19381a2993e335785e0",
+      "model/chronos-bolt-tiny/model.safetensors": "75068728d376d2bec670379eeef4bfb4d24c0cfe24d957451f8d19b447030a32"
+    },
+    "known_training_datasets": [],
+    "training_sources_complete": false
+  },
+  "runtime": {
+    "device": "cpu",
+    "torch_threads": 1,
+    "dtype": "float32",
+    "point_quantile": 0.5,
+    "packages": {
+      "chronos-forecasting": "1.5.3",
+      "transformers": "4.49.0",
+      "accelerate": "1.3.0",
+      "huggingface-hub": "0.28.1",
+      "tokenizers": "0.21.0",
+      "safetensors": "0.5.3",
+      "regex": "2024.11.6"
+    }
+  }
+}

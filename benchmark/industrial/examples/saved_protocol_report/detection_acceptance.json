@@ -1,0 +1,67 @@
+{
+  "tsb_ad": {
+    "TSB-AD-U": {
+      "status": "success",
+      "vus_pr": 0.2096907567028257,
+      "subset": "TSB-AD-U",
+      "reference": "303dffbfc11612995b17b06633f8c9d0ea0e38e5",
+      "window": 100,
+      "thresholds": 250,
+      "archive": {
+        "path": "TSB-AD-U.zip",
+        "sha256": "0c47020d3423723c70773736dbd800369f2b487328becbf339450d1ae5020961"
+      },
+      "example": "TSB-AD-U/001_NAB_id_1_Facility_tr_1007_1st_2014.csv",
+      "all_series": 870,
+      "evaluation_series": 350,
+      "tuning_series": 48,
+      "channels": 1,
+      "test_points": 3024,
+      "anomalous_points": 343,
+      "reference_opt_mem": 0.2096907567028257
+    },
+    "TSB-AD-M": {
+      "status": "success",
+      "vus_pr": 0.17211020619876016,
+      "subset": "TSB-AD-M",
+      "reference": "303dffbfc11612995b17b06633f8c9d0ea0e38e5",
+      "window": 100,
+      "thresholds": 250,
+      "archive": {
+        "path": "TSB-AD-M.zip",
+        "sha256": "7de86ac27f30eeb48d833bb061055670e3f3de07defd995cf2bd5db10ccc9a0d"
+      },
+      "example": "TSB-AD-M/057_SMD_id_1_Facility_tr_4529_1st_4629.csv",
+      "all_series": 200,
+      "evaluation_series": 180,
+      "tuning_series": 20,
+      "channels": 38,
+      "test_points": 19165,
+      "anomalous_points": 542,
+      "reference_opt_mem": 0.17211020619876016
+    }
+  },
+  "nab": {
+    "stream": "realKnownCause/ambient_temperature_system_failure.csv",
+    "revision": "ea702d75cc2258d9d7dd35ca8e5e2539d71f3140",
+    "train_points": 1090,
+    "test_points": 6177,
+    "unobserved_slots": 589,
+    "threshold": 2.1937688772000055,
+    "alarm_count": 62,
+    "exposure_hours": 6766.0,
+    "first_alarms": [
+      "2013-12-21T20:00:00",
+      "2014-03-31T08:00:00"
+    ],
+    "found": 2,
+    "missed": 0,
+    "delay_seconds": [
+      565200,
+      147600
+    ],
+    "false_alarms": 53,
+    "repeated_alarms": 7,
+    "false_alarms_per_hour": 0.007833284067395802
+  }
+}

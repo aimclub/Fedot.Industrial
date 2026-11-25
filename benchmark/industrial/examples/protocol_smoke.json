@@ -1,0 +1,58 @@
+{
+  "version": "benchmark_industrial_protocol@1",
+  "suite": {
+    "schema_version": 1,
+    "task_kind": "ts_classification",
+    "datasets": [
+      {
+        "schema_version": 1,
+        "dataset_id": "toy",
+        "provider": {"schema_version": 1, "name": "local_supervised"}
+      }
+    ],
+    "models": [
+      {
+        "schema_version": 1,
+        "model_id": "dummy",
+        "adapter": {"schema_version": 1, "name": "majority_class"}
+      }
+    ],
+    "metrics": [
+      {
+        "schema_version": 1,
+        "metric_id": "accuracy",
+        "metric": {"schema_version": 1, "name": "accuracy"}
+      }
+    ],
+    "artifacts": {"schema_version": 1, "output_uri": "benchmark/results/protocol_smoke", "persist": false},
+    "run": {
+      "schema_version": 1,
+      "run_name": "protocol_smoke",
+      "random_seed": 42,
+      "primary_metric": "accuracy",
+      "options": {"evaluation_budget": {"max_evaluations": 1, "timeout_seconds": 30}}
+    }
+  },
+  "profiles": {
+    "toy": {
+      "release": {
+        "version": "1",
+        "source": "urn:industrial:toy-fixture",
+        "artifact": "toy.csv",
+        "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "unit": "record",
+        "access": "local",
+        "license": "CC0-1.0"
+      },
+      "protocol": {
+        "name": "toy-smoke",
+        "version": "1",
+        "mode": "smoke",
+        "inputs": {"target": "label", "observed": ["signal"], "known_future": []},
+        "split": {"kind": "membership", "train": ["sample-1"], "validation": ["sample-2"], "test": []},
+        "preprocessing": [{"name": "normalization", "version": "1", "fit_on": "train"}],
+        "metrics": {"accuracy": {"version": "1", "direction": "maximize", "aggregation": "mean_by_record"}}
+      }
+    }
+  }
+}
