@@ -14,8 +14,12 @@ def _layout(bundle, output, mode, protocol):
     from .execution import read_record, write_record
 
     seal = read_record(bundle / 'seal.json')
-    if (seal.get('official_test_used') is not False or seal.get('protocol') != protocol.version
-            or seal.get('protocol_sha256') != digest(canonical_bytes(protocol.as_payload()))):
+    expected = protocol.as_payload()
+    if seal.get('protocol') == TSER_VERSION:
+        from .regression_inputs import tser_profile
+        expected = tser_profile()
+    if (seal.get('official_test_used') is not False or seal.get('protocol') != expected['version']
+            or seal.get('protocol_sha256') != digest(canonical_bytes(expected))):
         raise ValueError('A matching TRAIN-only seal is required')
     if mode == 'run':
         output.mkdir(parents=True, exist_ok=False)
@@ -31,9 +35,10 @@ def _execute(mode, bundle, output, protocol, admission=None):
     from .execution import read_record, write_record
 
     if mode == 'run':
-        if read_record(admission / 'run.json')['seal_sha256'] != digest(canonical_bytes(read_record(bundle / 'seal.json'))):
+        seal = read_record(bundle / 'seal.json')
+        if read_record(admission / 'run.json')['seal_sha256'] != digest(canonical_bytes(seal)):
             raise ValueError('CUDA admission belongs to a different seal')
-        rows = read_record(admission / protocol.datasets[0].name / 'admit' / 'cuda_admission.json')['results']
+        rows = read_record(admission / seal['datasets'][0]['dataset'] / 'admit' / 'cuda_admission.json')['results']
         if len(rows) != 3 or not all(
             row['status'] == 'succeeded' and row['value']['folds'][0]['training']
             and all(item['device'] == 'cuda:0' for item in row['value']['folds'][0]['training'])
@@ -73,6 +78,7 @@ def _stage(args, protocol):
     if not torch.cuda.is_available():
         raise RuntimeError('The TSC pilot requires a CUDA device. No fallback to CPU is allowed.')
     seal = read_record(args.bundle / 'seal.json')
+    regression = seal['protocol'] == TSER_VERSION
     record, = (value for value in seal['datasets'] if value['dataset'] == args.dataset)
     data = args.bundle / args.dataset
     root = args.output / args.dataset
@@ -86,15 +92,15 @@ def _stage(args, protocol):
     with DaskEvaluationSession(2, DaskExecutionConfig()) as session:
         if args.stage == 'admit':
             return 0 if cuda_admission(session, data / 'development', path, run_budget, protocol.profile.split_seed,
-                                       record['development']) else 1
+                                       record['development'], regression=regression) else 1
         if args.stage == 'calibrate':
             calibrate(session, data / 'development', path, run_budget, protocol.profile.split_seed,
-                      record['development'])
+                      record['development'], regression=regression)
         else:
             if int(args.stage) not in run_budget.seeds:
                 raise ValueError('Unexpected search seed')
             row = search(session, data / 'development', path, run_budget, int(args.stage),
-                         record['development'], read_record(root / 'calibrate' / 'recipes.json'))
+                         record['development'], read_record(root / 'calibrate' / 'recipes.json'), regression=regression)
             return 0 if row['status'] == 'complete' else 1
     return 0
 
@@ -106,6 +112,7 @@ def main(argv=None):
     seal = commands.add_parser('seal')
     seal.add_argument('--data-root', type=Path, required=True)
     seal.add_argument('--output', type=Path, required=True)
+    seal.add_argument('--tser-evidence', type=Path)
     for label in ('run', 'assess'):
         command = commands.add_parser(label)
         command.add_argument('--bundle', type=Path, required=True)
@@ -131,15 +138,20 @@ def main(argv=None):
         return 0
     if args.action == 'seal':
         from .data import seal_tsc
-        print(json.dumps(seal_tsc(protocol, args.data_root, args.output), indent=2))
+        if args.tser_evidence is None:
+            receipt = seal_tsc(protocol, args.data_root, args.output)
+        else:
+            from .regression_inputs import seal_regression
+            receipt = seal_regression(args.data_root, args.output, args.tser_evidence)
+        print(json.dumps(receipt, indent=2))
         return 0
     if args.action == '_stage':
         return _stage(args, protocol)
     if args.action == 'admit':
         from ..evolution_parallelism.supervisor import run_guarded
-        _layout(args.bundle, args.output, 'run', protocol)
+        seal = _layout(args.bundle, args.output, 'run', protocol)
         command = (sys.executable, '-m', __package__, '_stage', 'run', str(args.bundle.resolve()),
-                   str(args.output.resolve()), protocol.datasets[0].name, 'admit')
+                   str(args.output.resolve()), seal['datasets'][0]['dataset'], 'admit')
         return run_guarded(command, timeout_seconds=protocol.search.process_seconds,
                            search_seconds=protocol.search.search_seconds)
     return _execute(args.action, args.bundle, args.output, protocol, getattr(args, 'admission', None))

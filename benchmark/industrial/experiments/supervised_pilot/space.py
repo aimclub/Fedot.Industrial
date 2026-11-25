@@ -13,7 +13,7 @@ class Branch:
     parameter: int = 0
 
     def __post_init__(self):
-        if self.operations not in ANCHOR_OPERATIONS:
+        if self.operations not in ANCHOR_OPERATIONS + REGRESSION_OPERATIONS:
             raise ValueError('Unsupported transformation or estimator sequence')
         if type(self.parameter) is not int or self.parameter not in range(4):
             raise ValueError('Unsupported node parameter')
@@ -25,7 +25,8 @@ class Branch:
         return self.operations[-1]
 
 
-NEURAL = frozenset(('cnn2d_classifier', 'tsc_inception', 'tsc_resnet'))
+NEURAL = frozenset(('cnn2d_classifier', 'tsc_inception', 'tsc_resnet', 'cnn2d_regressor',
+                    'tser_inception', 'tser_resnet'))
 ANCHOR_OPERATIONS = (
     ('quantile_extractor_torch', 'logreg'),
     ('fourier_basis', 'quantile_extractor_torch', 'logreg'),
@@ -38,6 +39,18 @@ ANCHOR_OPERATIONS = (
     ('tsc_resnet',),
     ('quantile_extractor_torch', 'pilot_rf'),
 )
+REGRESSION_OPERATIONS = (
+    ('quantile_extractor_torch', 'pilot_ridge'),
+    ('fourier_basis', 'quantile_extractor_torch', 'pilot_ridge'),
+    ('wavelet_basis', 'quantile_extractor_torch', 'pilot_ridge'),
+    ('minirocket_extractor', 'pilot_ridge'),
+    ('recurrence_rqa', 'pilot_ridge'),
+    ('recurrence_rqa', 'pilot_regression_forest'),
+    ('recurrence_image', 'cnn2d_regressor'),
+    ('tser_inception',),
+    ('tser_resnet',),
+    ('quantile_extractor_torch', 'pilot_regression_forest'),
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +61,8 @@ class Graph:
         if (not 1 <= len(self.branches) <= 3 or self.branches != tuple(sorted(self.branches))
                 or len({branch.operations for branch in self.branches}) != len(self.branches)):
             raise ValueError('A graph must have one to three distinct, canonically sorted branches')
+        if len({branch.operations in REGRESSION_OPERATIONS for branch in self.branches}) != 1:
+            raise ValueError('A graph cannot combine classification and regression heads')
 
     @classmethod
     def of(cls, branches):
@@ -61,17 +76,21 @@ class Graph:
     def requires_cuda(self):
         return any(branch.head in NEURAL for branch in self.branches)
 
+    @property
+    def regression(self):
+        return self.branches[0].operations in REGRESSION_OPERATIONS
+
 
 def parse_graph(value):
     return Graph(tuple(Branch(tuple(row['operations']), row['parameter']) for row in value['branches']))
 
 
-def initial():
-    return tuple(Graph((Branch(ops),)) for ops in ANCHOR_OPERATIONS)
+def initial(*, regression=False):
+    return tuple(Graph((Branch(ops),)) for ops in (REGRESSION_OPERATIONS if regression else ANCHOR_OPERATIONS))
 
 
-def proposals(population, seen, count, *, tune, rng: Random):
-    anchors = tuple(candidate.branches[0] for candidate in initial())
+def proposals(population, seen, count, *, tune, rng: Random, regression=False):
+    anchors = tuple(candidate.branches[0] for candidate in initial(regression=regression))
     choices = []
     for parent in population:
         if tune:

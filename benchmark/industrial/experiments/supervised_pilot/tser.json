@@ -2,9 +2,13 @@
   "version": "tser_evolution_pilot@1",
   "seeds": [42, 123],
   "datasets": [
-    {"name": "Tecator", "outstanding": "verify TRAIN-only source and sample provenance"},
-    {"name": "BoronConcentration", "outstanding": "verify sample provenance and possible repeats"},
-    {"name": "NaturalGasPricesSentiment", "outstanding": "map TRAIN object keys to the original 20-day blocks"},
-    {"name": "AppliancesEnergy", "verified": "95 non-overlapping dated TRAIN objects; 76 development, 19 assessment"}
+    {"name": "Tecator", "outstanding": "verify independence or record groups for the distinct spectra",
+     "train_sha256": "e38de03007d2d6f29181b07a972fb2048c19ea67fe92df8cf43818f1dcb45f95"},
+    {"name": "BoronConcentration", "outstanding": "verify sample provenance and possible repeats",
+     "train_sha256": "fe9207f252fea45c414ba8b63ee517893ab192998f75dd494a161772216711aa"},
+    {"name": "NaturalGasPricesSentiment", "outstanding": "map TRAIN object keys to the original 20-day blocks",
+     "train_sha256": "d87082ecba77425584ed65b6f2c53af184d995783df7284e88464c3593f31341"},
+    {"name": "AppliancesEnergy", "verified": "95 non-overlapping dated TRAIN objects; 76 development, 19 assessment",
+     "train_sha256": "bbc65fcfa5c01655bb0ec7d558335d44b9c81979d7246f485bbc95a9759a5bff"}
   ]
 }

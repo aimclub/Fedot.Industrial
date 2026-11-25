@@ -18,6 +18,18 @@ def _forest_factory(params):
     return RandomForestClassifier(n_estimators=params['n_estimators'], n_jobs=1, random_state=params['random_state'])
 
 
+def _regression_forest(params):
+    from sklearn.ensemble import RandomForestRegressor
+
+    return RandomForestRegressor(n_estimators=params['n_estimators'], n_jobs=1, random_state=params['random_state'])
+
+
+def _ridge_factory(params):
+    from sklearn.linear_model import Ridge
+
+    return Ridge(alpha=params['alpha'])
+
+
 class PilotMiniRocket:
     """Retain one CPU feature map fitted only on the admitted training panel."""
 
@@ -44,7 +56,7 @@ class PilotMiniRocket:
         return values.numpy()
 
 
-def _manifest():
+def _manifest(*, regression=False):
     from fedot.core.repository.dataset_types import DataTypesEnum as D
     from fedot.core.repository.tasks import TaskTypesEnum as T
     from fedot.extensions import (
@@ -56,7 +68,14 @@ def _manifest():
     rocket = ExternalTransformSpec('pilot_minirocket', PilotMiniRocket,
                                    TransformCapabilities((T.classification, T.regression), (D.ts,), D.tabular),
                                    ModelHyperparamsSchema(required=('seed',)))
-    return recurrence_manifest((*neural_model_specs(), forest), (rocket,))
+    if not regression:
+        return recurrence_manifest((*neural_model_specs(), forest), (rocket,))
+    from .regression import regression_model_specs
+    cap = ModelCapabilities((T.regression,), (D.tabular,))
+    ridge = ExternalModelSpec('pilot_ridge', _ridge_factory, cap, ModelHyperparamsSchema(required=('alpha',)))
+    forest = ExternalModelSpec('pilot_regression_forest', _regression_forest, cap,
+                               ModelHyperparamsSchema(required=('n_estimators', 'random_state')))
+    return recurrence_manifest((*regression_model_specs(), ridge, forest), (rocket,))
 
 
 @dataclass(frozen=True)
@@ -81,8 +100,10 @@ def _branch_predictions(branch, fold, codec, recipes, seed, device):
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
     channels, length = fold.fit.features.shape[1:]
-    inputs = partial(create_data, task='classification', data_type='ts', use_cache=False)
-    training = inputs(fold.fit.features, target=codec.encode(fold.fit.target))
+    regression = codec is None
+    inputs = partial(create_data, task='regression' if regression else 'classification', data_type='ts',
+                     use_cache=False)
+    training = inputs(fold.fit.features, target=fold.fit.target if regression else codec.encode(fold.fit.target))
     evaluation = inputs(fold.score.features)
     training = replace(training, idx=torch.as_tensor(fold.fit.rows))
     evaluation = replace(evaluation, idx=torch.as_tensor(fold.score.rows), target=None, state='predict')
@@ -98,25 +119,35 @@ def _branch_predictions(branch, fold, codec, recipes, seed, device):
             params = dict(channels=channels, length=length)
         elif operation == 'logreg':
             params = {'C': (1., .1, 10., 100.)[branch.parameter]}
-        elif operation == 'pilot_rf':
+        elif operation in ('pilot_rf', 'pilot_regression_forest'):
             params = {'n_estimators': (100, 32, 64, 128)[branch.parameter], 'random_state': seed}
+        elif operation == 'pilot_ridge':
+            params = {'alpha': (1., .1, 10., 100.)[branch.parameter]}
         elif operation in NEURAL:
             recipe = recipes[operation]
             params = dict(learning_rate=recipe.learning_rate, batch_size=recipe.batch_size,
-                          channels=channels, length=length, class_count=len(codec.classes), device=device,
+                          channels=channels, length=length, device=device,
                           fit_rows=fold.fit.rows.tolist(), epoch_validation=list(fold.epoch_validation), seed=seed,
-                          partition_sha256=digest(canonical_bytes([fold.fit.dataset, codec.classes])),
+                          partition_sha256=digest(canonical_bytes(
+                              [fold.fit.dataset, 'regression' if regression else codec.classes])),
                           representation_sha256=digest(canonical_bytes(branch.operations)))
+            if not regression:
+                params['class_count'] = len(codec.classes)
         builder.add_node(operation, params=params)
     pipeline = builder.build()
     try:
         pipeline.fit(training)
-        output = pipeline.predict(evaluation, output_mode='full_probs')
+        output = pipeline.predict(evaluation, output_mode='default' if regression else 'full_probs')
         predictions = np.asarray(output.predict)
-        if (not np.array_equal(np.asarray(output.idx).reshape(-1), fold.score.rows)
-                or predictions.shape != (len(fold.score.rows), len(codec.classes))
-                or not np.isfinite(predictions).all() or np.any(predictions < 0)
-                or not np.allclose(predictions.sum(axis=1), 1, atol=1e-6)):
+        n = len(fold.score.rows)
+        if not np.array_equal(np.asarray(output.idx).reshape(-1), fold.score.rows) or not np.isfinite(predictions).all():
+            raise ValueError('Predictions did not preserve finite values and the evaluation object keys')
+        if regression:
+            if predictions.shape not in ((n,), (n, 1)):
+                raise ValueError('Expected one scalar prediction per object')
+            predictions = predictions.reshape(-1)
+        elif (predictions.shape != (n, len(codec.classes)) or np.any(predictions < 0)
+              or not np.allclose(predictions.sum(axis=1), 1, atol=1e-6)):
             raise ValueError('Class probabilities or evaluation object keys changed in the pipeline')
         trace = None
         if branch.head in NEURAL:
@@ -132,13 +163,20 @@ def evaluate(task, job: Job):
     from fedot.extensions import extension_scope
     from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
-    codec = LabelCodec(job.classes)
+    regression = job.graph.regression
+    codec = None if regression else LabelCodec(job.classes)
     scores = []
-    with industrial_extension_scope(), extension_scope(_manifest()):
+    with industrial_extension_scope(), extension_scope(_manifest(regression=regression)):
         for fold in job.folds:
             outputs = [_branch_predictions(branch, fold, codec, job.recipes, task.seed, job.device)
                        for branch in job.graph.branches]
             probs = np.mean([prediction for prediction, _ in outputs], axis=0)
+            if regression:
+                from .regression import score_regression
+                scores.append(dict(**score_regression(fold.score, fold.score.rows, probs),
+                                   keys=fold.score.rows.tolist(), predictions=probs.tolist(),
+                                   training=[trace for _, trace in outputs if trace is not None]))
+                continue
             actual, predicted = codec.encode(fold.score.target), probs.argmax(axis=1)
             scores.append(dict(
                 balanced_accuracy=float(balanced_accuracy_score(actual, predicted)),
@@ -146,4 +184,6 @@ def evaluate(task, job: Job):
                 keys=fold.score.rows.tolist(), probabilities=probs.tolist(), labels=np.asarray(job.classes)[predicted].tolist(),
                 training=[trace for _, trace in outputs if trace is not None],
             ))
-    return dict(loss=1 - np.mean([row['balanced_accuracy'] for row in scores]).item(), folds=scores)
+    loss = (np.mean([row['rmse'] for row in scores]) if regression
+            else 1 - np.mean([row['balanced_accuracy'] for row in scores]))
+    return dict(loss=loss.item(), folds=scores)
