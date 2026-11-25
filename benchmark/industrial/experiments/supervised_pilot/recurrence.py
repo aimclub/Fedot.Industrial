@@ -140,7 +140,7 @@ def _logreg_factory(params):
     return LogisticRegression(C=params['C'], max_iter=1000)
 
 
-def recurrence_manifest(models=()):
+def recurrence_manifest(models=(), transforms=()):
     from fedot.core.repository.dataset_types import DataTypesEnum as D
     from fedot.core.repository.tasks import TaskTypesEnum as T
     from fedot.extensions import (
@@ -158,5 +158,5 @@ def recurrence_manifest(models=()):
     return ExtensionManifest(
         'industrial_supervised_pilot', '1.0.0', module=__name__, models=(logreg, *models),
         transforms=(spec('recurrence_rqa', image=False, output=D.tabular),
-                    spec('recurrence_image', image=True, output=D.image)),
+                    spec('recurrence_image', image=True, output=D.image), *transforms),
     )
