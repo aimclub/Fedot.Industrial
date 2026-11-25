@@ -69,6 +69,53 @@ def test_temporal_evaluator_scores_after_the_gap(ignore_gap):
     assert requested == [4]
 
 
+def test_temporal_owa_compares_the_seasonal_baseline_on_the_same_gap():
+    class Seasonal:
+        def fit(self, observed):
+            np.testing.assert_array_equal(observed, np.tile([2., 5.], 9))
+
+        def predict(self, observed, *, forecast_horizon):
+            return np.resize(observed[-2:], forecast_horizon)
+
+    evaluator = ForecastingSeriesEvaluator(
+        time_series=np.r_[np.tile([2., 5.], 9), 999., 8., 4.],
+        model_name='lagged_ridge_forecaster',
+        forecast_horizon=2, metric_name='owa', seasonal_period=2,
+        split_spec=ForecastingSplitSpec(validation_horizon=2, gap=1),
+        model_factory=lambda *_args, **_kwargs: Seasonal(),
+    )
+    result = evaluator.run()
+    assert result.forecast == (5., 2.)
+    assert result.target == (8., 4.)
+    assert result.metric.metric_value == pytest.approx(1.)
+
+
+def test_temporal_evaluator_requires_an_explicitly_univariate_target():
+    with pytest.raises(ValueError, match='single target channel'):
+        ForecastingSeriesEvaluator(
+            time_series=np.arange(40, dtype=float).reshape(20, 2),
+            model_name='mssa_forecaster', forecast_horizon=2,
+        )
+
+
+def test_temporal_evaluator_does_not_flatten_multiple_forecast_channels():
+    class Multi:
+        def fit(self, _history):
+            pass
+
+        def predict(self, _history, *, forecast_horizon):
+            return np.ones((forecast_horizon, 2))
+
+    evaluator = ForecastingSeriesEvaluator(
+        time_series=np.arange(20, dtype=float),
+        model_name='lagged_ridge_forecaster', forecast_horizon=2,
+        split_spec=ForecastingSplitSpec(validation_horizon=2, gap=1),
+        model_factory=lambda *_args, **_kwargs: Multi(),
+    )
+    with pytest.raises(ValueError, match='single forecast channel'):
+        evaluator.run()
+
+
 @pytest.mark.parametrize('caller', ['ensemble', 'tuner'])
 @pytest.mark.parametrize('legacy', [False, True])
 def test_prediction_does_not_retry_a_model_type_error(caller, legacy):

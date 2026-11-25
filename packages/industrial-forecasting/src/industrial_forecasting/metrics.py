@@ -58,9 +58,13 @@ def score_forecast(
     history=None,
     seasonal_period: int = 1,
     owa_step_scaling: OwaStepScaling = OwaStepScaling.HORIZON,
+    forecast_gap: int = 0,
 ) -> ForecastScore:
-    """Score one series. MASE/OWA use only the supplied training history for scale."""
+    """Score one series; OWA skips forecast_gap steps in its history-only baseline."""
     metric = ForecastMetric(metric)
+    if (isinstance(forecast_gap, (bool, np.bool_)) or not isinstance(forecast_gap, (int, np.integer))
+            or forecast_gap < 0):
+        raise ValueError("forecast_gap must be a nonnegative integer.")
     actual = _vector(actual, "Actual")
     predicted = _vector(predicted, "Prediction")
     if actual.shape != predicted.shape:
@@ -88,7 +92,8 @@ def score_forecast(
             by_step = mase
             result = np.mean(np.abs(error)) / scale
         else:
-            baseline = seasonal_repeat(train, len(actual), lag)
+            offset = int(forecast_gap) % lag
+            baseline = seasonal_repeat(train, len(actual) + offset, lag)[offset:]
             smape = _smape(actual, predicted)
             baseline_smape = _smape(actual, baseline)
             baseline_mase = np.abs(actual - baseline) / scale

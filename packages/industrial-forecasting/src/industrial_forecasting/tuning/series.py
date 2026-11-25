@@ -164,6 +164,7 @@ class ForecastMetricEvaluator:
     y_pred: np.ndarray
     y_train: np.ndarray
     seasonal_period: int
+    forecast_gap: int = 0
 
     def evaluate(self, metric_name: str) -> ForecastingEvaluationResult:
         metric = str(metric_name).lower()
@@ -177,6 +178,7 @@ class ForecastMetricEvaluator:
             np.asarray(self.y_pred, dtype=float).reshape(-1),
             history=np.asarray(self.y_train, dtype=float).reshape(-1),
             seasonal_period=max(1, self.seasonal_period),
+            forecast_gap=self.forecast_gap,
         )
         metadata = {'n_horizons': len(score.by_step)}
         if name not in (ForecastMetric.MAE, ForecastMetric.RMSE):
@@ -194,12 +196,14 @@ def _evaluate_forecast_metric(
         y_train: np.ndarray,
         metric_name: str,
         seasonal_period: int,
+        forecast_gap: int = 0,
 ) -> ForecastingEvaluationResult:
     return ForecastMetricEvaluator(
         y_true=y_true,
         y_pred=y_pred,
         y_train=y_train,
         seasonal_period=int(seasonal_period),
+        forecast_gap=forecast_gap,
     ).evaluate(metric_name)
 
 
@@ -228,7 +232,7 @@ def _aggregate_fold_metrics(evaluations: list[ForecastingEvaluationResult]) -> F
 
 @dataclass
 class ForecastingSeriesEvaluator:
-    """Fit, forecast and score a model across temporal CV folds."""
+    """Fit, forecast and score one target channel across temporal CV folds."""
 
     model_name: str
     time_series: np.ndarray
@@ -263,6 +267,8 @@ class ForecastingSeriesEvaluator:
             device_policy=self.device_policy,
             metadata={'model_name': self.canonical_model_name},
         )
+        if self.batch.channel_count != 1:
+            raise ValueError('Temporal tuning requires a single target channel.')
         self.resolved_split = self.split_spec or ForecastingSplitSpec(
             kind=ForecastingSplitKind.TIME_SERIES_SPLIT,
             validation_horizon=int(self.forecast_horizon),
@@ -299,7 +305,10 @@ class ForecastingSeriesEvaluator:
         model = self._build_runtime_model(prepared_train_series, horizon)
         model.fit(prepared_train_series)
         raw_forecast = predict_with_horizon(model, prepared_train_series, horizon)
-        forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)
+        forecast = np.asarray(raw_forecast, dtype=float)
+        if forecast.ndim > 2 or (forecast.ndim == 2 and 1 not in forecast.shape):
+            raise ValueError('Temporal tuning requires a single forecast channel.')
+        forecast = forecast.reshape(-1)
         if forecast.size < horizon:
             raise ValueError(f'Temporal evaluation needs {horizon} forecast steps including the gap.')
         forecast = forecast[gap:horizon]
@@ -310,6 +319,7 @@ class ForecastingSeriesEvaluator:
             y_train=np.asarray(prepared_train_series, dtype=float),
             metric_name=self.metric_name,
             seasonal_period=int(self.seasonal_period),
+            forecast_gap=gap,
         )
         diagnostics = model.get_diagnostics() if hasattr(model, 'get_diagnostics') else {}
         family = str(diagnostics.get('model_family', 'forecasting'))
