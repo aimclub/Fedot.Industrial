@@ -18,7 +18,7 @@ class WaveletHFCMSpec:
 
     def __post_init__(self):
         positive_count(self.levels, "levels")
-        positive_count(self.order, "order")
+        object.__setattr__(self, "order", positive_count(self.order, "order"))
         if (isinstance(self.alpha, (bool, np.bool_)) or not isinstance(self.alpha, Real)
                 or not np.isfinite(self.alpha) or self.alpha <= 0):
             raise ValueError("alpha must be a finite positive number.")

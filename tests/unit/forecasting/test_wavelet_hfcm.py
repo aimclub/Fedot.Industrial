@@ -66,3 +66,11 @@ def test_refuses_irregular_grid_global_fit_and_insufficient_history():
 def test_spec_requires_positive_integer_structure_and_finite_ridge(parameter):
     with pytest.raises(ValueError):
         WaveletHFCMSpec(**parameter)
+
+
+def test_unsigned_order_is_normalized_before_slicing_the_history():
+    history = np.arange(16, dtype=float)
+    spec = WaveletHFCMSpec(order=np.uint8(2))
+    assert type(spec.order) is int
+    expected = fit_wavelet_hfcm(history, WaveletHFCMSpec(order=2)).predict(3)
+    np.testing.assert_array_equal(fit_wavelet_hfcm(history, spec).predict(3), expected)
