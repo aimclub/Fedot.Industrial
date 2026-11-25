@@ -75,3 +75,19 @@ def test_search_writes_native_history_and_never_submits_assessment(tmp_path, mon
     assert len(result['generations']) == 9
     assert sum(row['evaluated'] for row in result['generations']) == 74
     assert len(OptHistory.load(str(tmp_path / 'opt_history.json')).generations) == 9
+
+
+def test_worker_receives_the_job_and_seed_in_one_payload(monkeypatch):
+    from time import time
+    from types import SimpleNamespace
+    from fedot_ind.core.optimizer.evaluation import dask_executor
+    from fedot_ind.core.optimizer.evaluation.executors import _invoke
+    from benchmark.industrial.experiments.supervised_pilot.protocol import tsc_protocol
+
+    def call_as_worker(plan, payloads, evaluator, **kwargs):
+        return [_invoke(task, payload, evaluator) for task, payload in zip(plan.tasks, payloads, strict=True)]
+
+    monkeypatch.setattr(dask_executor, 'execute_dask_plan', call_as_worker)
+    result, = execution._batch(SimpleNamespace(max_workers=1), (('graph', 9),), tsc_protocol().search, 42,
+                               time() + 10, lambda task, payload: task.seed + payload, [])
+    assert result.status is ExecutionStatus.SUCCEEDED and result.value == 51

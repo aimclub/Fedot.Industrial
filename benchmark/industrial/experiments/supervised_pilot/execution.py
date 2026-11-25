@@ -1,6 +1,7 @@
 """Bounded TSC execution; workers receive only already verified fold payloads."""
 
 from dataclasses import asdict
+from functools import partial
 import os
 from pathlib import Path
 from random import Random
@@ -22,6 +23,10 @@ def read_record(path):
     return parse_protocol_json(Path(path).read_text(encoding='utf-8'))
 
 
+def _evaluate_payload(evaluator, payload):
+    return evaluator(*payload)
+
+
 def _batch(session, jobs, budget, seed, deadline, evaluator, attempts):
     from fedot_ind.core.optimizer.evaluation.contracts import EvaluationTask
     from fedot_ind.core.optimizer.evaluation.dask_config import DaskEvaluationPlan
@@ -30,7 +35,9 @@ def _batch(session, jobs, budget, seed, deadline, evaluator, attempts):
     tasks = tuple(EvaluationTask(key, seed) for key, _ in jobs)
     plan = DaskEvaluationPlan(tasks, max_workers=session.max_workers, candidate_timeout_seconds=budget.candidate_seconds,
                               total_timeout_seconds=max(.001, deadline - time()))
-    return execute_dask_plan(plan, (job for _, job in jobs), evaluator, session=session, on_attempt=attempts.append)
+    payloads = tuple((task, job) for task, (_, job) in zip(tasks, jobs, strict=True))
+    return execute_dask_plan(plan, payloads, partial(_evaluate_payload, evaluator),
+                             session=session, on_attempt=attempts.append)
 
 
 def _history_graph(graph):
