@@ -49,9 +49,12 @@ class HybridEnsembleForecaster(_HybridEnsembleForecaster):
     """Supply the Industrial OKHS branch without adding it to the standalone wheel."""
 
     def _build_complex_branch(self):
-        if str(self.complex_branch).lower() == 'havok':
+        branch = str(self.complex_branch).lower()
+        if branch == 'havok':
             return super()._build_complex_branch()
-        return OKHSForecaster(forecast_horizon=self.forecast_horizon, **self.complex_params)
+        if branch == 'okhs':
+            return OKHSForecaster(forecast_horizon=self.forecast_horizon, **self.complex_params)
+        raise ValueError("Industrial hybrid forecasting supports complex_branch='havok' or 'okhs'.")
 
 
 class HybridEnsembleForecasterImplementation(ModelImplementation):

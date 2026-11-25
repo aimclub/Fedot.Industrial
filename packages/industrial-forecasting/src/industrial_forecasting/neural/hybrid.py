@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from ._prediction import predict_with_horizon
 from .runtime import (
     ForecastingSplitSpec,
     TensorDevicePolicy,
@@ -23,11 +24,10 @@ from .low_rank import \
 
 
 def _safe_forecast(model, series: np.ndarray, horizon: int) -> tuple[np.ndarray, dict[str, Any]]:
-    try:
-        raw_forecast = model.predict(series, forecast_horizon=horizon)
-    except TypeError:
-        raw_forecast = model.predict(series)
+    raw_forecast = predict_with_horizon(model, series, horizon)
     forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)
+    if forecast.size < horizon:
+        raise ValueError(f'Ensemble branch needs to return at least {horizon} forecast steps.')
     if hasattr(model, 'get_diagnostics'):
         diagnostics = model.get_diagnostics()
     elif hasattr(model, 'get_optimization_info'):

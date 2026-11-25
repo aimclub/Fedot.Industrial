@@ -9,6 +9,7 @@ from typing import Any, Callable
 import numpy as np
 from ..metrics import ForecastMetric, score_forecast
 
+from ..neural._prediction import predict_with_horizon
 from ..neural.config import (
     normalize_neural_forecasting_params,
 )
@@ -297,10 +298,7 @@ class ForecastingSeriesEvaluator:
         horizon = gap + self.validation_horizon
         model = self._build_runtime_model(prepared_train_series, horizon)
         model.fit(prepared_train_series)
-        try:
-            raw_forecast = model.predict(prepared_train_series, forecast_horizon=horizon)
-        except TypeError:
-            raw_forecast = model.predict(prepared_train_series)
+        raw_forecast = predict_with_horizon(model, prepared_train_series, horizon)
         forecast = np.asarray(raw_forecast, dtype=float).reshape(-1)
         if forecast.size < horizon:
             raise ValueError(f'Temporal evaluation needs {horizon} forecast steps including the gap.')

@@ -8,6 +8,7 @@ from industrial_forecasting.neural.runtime import (
     MLPForecastingHead,
     TensorDevicePolicy,
 )
+from industrial_forecasting.neural.hybrid import _safe_forecast
 from industrial_forecasting.tuning.series import ForecastingSeriesEvaluator
 
 
@@ -66,3 +67,48 @@ def test_temporal_evaluator_scores_after_the_gap(ignore_gap):
         np.testing.assert_array_equal(target, forecast)
         assert metric.metric_value == 0.
     assert requested == [4]
+
+
+@pytest.mark.parametrize('caller', ['ensemble', 'tuner'])
+@pytest.mark.parametrize('legacy', [False, True])
+def test_prediction_does_not_retry_a_model_type_error(caller, legacy):
+    history = np.arange(20, dtype=float)
+    calls = []
+    original = TypeError('inside the forecasting algorithm')
+
+    class Native:
+        def fit(self, _history):
+            return self
+
+        def predict(self, _history, *, forecast_horizon=None):
+            calls.append(forecast_horizon)
+            if forecast_horizon is not None:
+                raise original
+            return history[-2:]
+
+    class Legacy(Native):
+        def predict(self, observed):
+            calls.append('legacy')
+            return observed[-1] + np.arange(1, 3)
+
+    model = Legacy() if legacy else Native()
+
+    def forecast():
+        if caller == 'ensemble':
+            return _safe_forecast(model, history[:-2], 2)[0]
+        evaluator = ForecastingSeriesEvaluator(
+            model_name='lagged_ridge_forecaster', time_series=history, forecast_horizon=2,
+            split_spec=ForecastingSplitSpec(validation_horizon=2),
+            model_factory=lambda *_args, **_kwargs: model,
+        )
+        fold, = evaluator._iter_over_folds()
+        return evaluator._fit_predict_fold(fold)[0]
+
+    if legacy:
+        np.testing.assert_array_equal(forecast(), [18., 19.])
+        assert calls == ['legacy']
+    else:
+        with pytest.raises(TypeError) as caught:
+            forecast()
+        assert caught.value is original
+        assert calls == [2]
