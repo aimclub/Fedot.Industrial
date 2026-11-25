@@ -1,0 +1,6 @@
+{
+  "min_epochs": 30, "max_epochs": 150, "stop_patience": 24,
+  "plateau_patience": 8, "plateau_factor": 0.5, "lr_min": 0.00001,
+  "learning_rates": [0.001, 0.003], "batches": [8, 16, 32],
+  "width": 16, "depth": 3, "cnn_blocks": [16, 32], "cnn_projection": 16
+}
