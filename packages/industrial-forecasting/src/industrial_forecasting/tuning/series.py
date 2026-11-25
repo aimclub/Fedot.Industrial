@@ -23,6 +23,7 @@ from ..neural.runtime import (
     ForecastingSplitSpec,
     TensorDevicePolicy,
     iter_forecasting_splits,
+    resolve_split_horizon,
     series_to_forecast_tensor_batch,
 )
 from ..progress import (
@@ -275,9 +276,7 @@ class ForecastingSeriesEvaluator:
             n_splits=3,
             gap=0,
         )
-        self.validation_horizon = int(
-            self.resolved_split.test_size or self.resolved_split.validation_horizon or self.forecast_horizon
-        )
+        self.validation_horizon = resolve_split_horizon(self.batch, self.resolved_split)
 
     def _iter_over_folds(self):
         return iter_forecasting_splits(self.batch, self.resolved_split)

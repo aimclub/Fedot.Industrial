@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import torch
 
+from industrial_forecasting.neural import runtime
 from industrial_forecasting.neural.runtime import (
     ForecastingSplitKind,
     ForecastingSplitSpec,
@@ -31,6 +32,35 @@ def test_mlp_normalization_depends_only_on_the_fit_prefix():
 def test_window_splits_reject_invalid_steps_before_building_folds(kind, step):
     with pytest.raises(ValueError, match='step_length must be a positive integer'):
         ForecastingSplitSpec(kind=kind, step_length=step)
+
+
+@pytest.mark.parametrize(('kind', 'builder'), [
+    (ForecastingSplitKind.EXPANDING_WINDOW, '_build_expanding_window_folds'),
+    (ForecastingSplitKind.ROLLING_WINDOW, '_build_rolling_window_folds'),
+])
+@pytest.mark.parametrize(('batch_horizon', 'override'), [
+    (2, {'validation_horizon': -1}),
+    (2, {'validation_horizon': 0}),
+    (2, {'test_size': -1, 'validation_horizon': 2}),
+    (-1, {}),
+])
+def test_default_window_step_is_not_derived_from_an_invalid_horizon(monkeypatch, kind, builder, batch_horizon, override):
+    def unexpected_loop(*_args, **_kwargs):
+        pytest.fail('The invalid horizon reached a fold loop')
+
+    monkeypatch.setattr(runtime, builder, unexpected_loop)
+    batch = runtime.series_to_forecast_tensor_batch(np.arange(24, dtype=float), forecast_horizon=batch_horizon)
+    with pytest.raises(ValueError, match='validation horizon must be a positive integer'):
+        runtime.iter_forecasting_splits(batch, ForecastingSplitSpec(kind=kind, **override))
+
+
+@pytest.mark.parametrize('kind', [ForecastingSplitKind.EXPANDING_WINDOW, ForecastingSplitKind.ROLLING_WINDOW])
+def test_window_splits_default_to_stepping_by_the_validated_horizon(kind):
+    batch = runtime.series_to_forecast_tensor_batch(np.arange(24, dtype=float), forecast_horizon=2)
+    folds = runtime.iter_forecasting_splits(batch, ForecastingSplitSpec(kind=kind))
+    assert len(folds) > 1
+    assert all(fold.test_end - fold.test_start == 2 for fold in folds)
+    assert all(right.test_start - left.test_start == 2 for left, right in zip(folds, folds[1:]))
 
 
 @pytest.mark.parametrize('ignore_gap', [False, True])

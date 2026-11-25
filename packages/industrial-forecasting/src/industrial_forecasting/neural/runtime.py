@@ -18,6 +18,7 @@ except Exception:  # pragma: no cover
     def tqdm(iterable=None, *args, **kwargs):
         return iterable if iterable is not None else []
 
+from ..grid import positive_count
 from ..progress import ForecastingProgressPolicy, resolve_forecasting_progress_policy
 
 
@@ -1066,8 +1067,10 @@ def inverse_project_features(projected_features: torch.Tensor, basis: torch.Tens
     return Z @ basis.T
 
 
-def _resolve_split_horizon(batch: ForecastTensorBatch, spec: ForecastingSplitSpec) -> int:
-    return int(spec.test_size or spec.validation_horizon or batch.forecast_horizon)
+def resolve_split_horizon(batch: ForecastTensorBatch, spec: ForecastingSplitSpec) -> int:
+    """Validate the horizon used for both fold width and the default window step."""
+    override = spec.test_size if spec.test_size is not None else spec.validation_horizon
+    return positive_count(batch.forecast_horizon if override is None else override, 'validation horizon')
 
 
 def _resolve_min_train_length(batch: ForecastTensorBatch,
@@ -1270,7 +1273,7 @@ def iter_forecasting_splits(
 ) -> tuple[ForecastingFoldSplit, ...]:
     """Build deterministic temporal validation folds for a forecasting batch."""
     spec = split_spec or ForecastingSplitSpec(validation_horizon=batch.forecast_horizon)
-    validation_horizon = _resolve_split_horizon(batch, spec)
+    validation_horizon = resolve_split_horizon(batch, spec)
     min_train = _resolve_min_train_length(batch, spec, validation_horizon)
 
     if spec.kind in {ForecastingSplitKind.HOLDOUT, ForecastingSplitKind.BLOCKED}:
