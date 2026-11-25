@@ -1,4 +1,5 @@
 from hashlib import sha256
+from dataclasses import asdict
 
 import numpy as np
 import pytest
@@ -63,3 +64,33 @@ def test_authors_tourism_column_length_is_not_inferred_from_padding(tmp_path):
     rows = load_train_csv(tmp_path, collection, release)
     np.testing.assert_array_equal(rows['m1'], [10., 20.])
     np.testing.assert_array_equal(rows['m2'], [100.])
+
+
+def test_runtime_reads_only_one_role_and_refuses_late_values_in_a_development_request(tmp_path, monkeypatch):
+    from pathlib import Path
+    from benchmark.industrial.experiments.tsf_extension.runtime_contract import Role, load_window_request
+
+    collection = load_profile()[0][0]
+    x = np.arange(125, dtype=float)
+    earlier, later = origins(len(x), collection)
+    dev = tmp_path / 'development'
+    dev.mkdir()
+    path = dev / 'Q1.npy'
+    np.save(path, x[:later[0]], allow_pickle=False)
+    case = dict(id='Q1', collection=asdict(collection), seeds=(42, 123), search=earlier, assessment=later,
+                development_sha256=sha256(path.read_bytes()).hexdigest())
+    seen = []
+    real_open = Path.open
+
+    def record(opened, *args, **kwargs):
+        seen.append(opened)
+        assert 'assessment' not in opened.parts
+        return real_open(opened, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'open', record)
+    request = load_window_request(dev, case, seed=42, role=Role.DEVELOPMENT)
+    assert request.origins == earlier and seen == [path]
+    np.save(path, x, allow_pickle=False)
+    case['development_sha256'] = sha256(path.read_bytes()).hexdigest()
+    with pytest.raises(ProtocolError, match='late or missing|cannot support'):
+        load_window_request(dev, case, seed=42, role=Role.DEVELOPMENT)
