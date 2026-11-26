@@ -1,0 +1,17 @@
+{
+  "version": "tsf_extension@1",
+  "seeds": [42, 123],
+  "history_limit": 652,
+  "collections": [
+    {"id": "M4 Quarterly", "filename": "Quarterly-train.csv", "horizon": 8, "lag": 4,
+     "sha256": "4450678cd493aa965c14bde984a5b62a66d8c3b2f7af1e53779bc91ff008ccdc",
+     "source": "Mcompetitions/M4-methods@6c1067e5a57161249b17289a565178dc7a3fb3ca", "control_lags": [4, 8, 12]},
+    {"id": "M4 Weekly", "filename": "Weekly-train.csv", "horizon": 13, "lag": 1,
+     "sha256": "d478d3f6ed673e6ed3c2cb0fbed5425f72eedd51318ebebeb0b5ecfcefc37714",
+     "source": "Mcompetitions/M4-methods@6c1067e5a57161249b17289a565178dc7a3fb3ca", "control_lags": [1, 2, 4]},
+    {"id": "Tourism Monthly", "filename": "tourism-authors-monthly-in.csv", "horizon": 24, "lag": 12,
+     "sha256": "f93731e3a3644e5e83fed806c710c4ec12f11bed0ed9f91b9b7d684c2a4cf7e1",
+     "source": "https://robjhyndman.com/data/27-3-Athanasopoulos1.zip#monthly_in.csv", "layout": "tourism_columns",
+     "control_lags": [12, 24, 36]}
+  ]
+}
