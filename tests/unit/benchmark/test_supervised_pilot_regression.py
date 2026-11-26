@@ -1,11 +1,14 @@
 from dataclasses import replace
+import json
 
 import numpy as np
 import pytest
 
 from benchmark.industrial.experiments.supervised_pilot.data import Panel, digest
+from benchmark.industrial.experiments.supervised_pilot.protocol import TSER_VERSION
 from benchmark.industrial.experiments.supervised_pilot.regression import (
-    Sampling, SamplingEvidence, observed_temporal_panel, regression_model_specs, regression_splits, score_regression,
+    Sampling, SamplingEvidence, exact_series_evidence, observed_temporal_panel, regression_model_specs,
+    regression_splits, score_regression,
 )
 from benchmark.industrial.experiments.supervised_pilot.recurrence import recurrence_manifest
 from benchmark.industrial.protocols.schema import ProtocolError
@@ -23,6 +26,19 @@ def test_group_members_never_cross_a_regression_split():
     pairs.extend((fold.epoch_fit, fold.epoch_validation) for fold in split.inner)
     for fit, score in pairs:
         assert not {groups[i] for i in fit} & {groups[i] for i in score}
+
+
+def test_exact_groups_ignore_target_and_normalize_signed_zero():
+    rows = np.arange(60)
+    features = np.stack((rows // 2, np.zeros(60)), axis=1)[:, None, :]
+    features[::2, 0, 1] = -0.0
+    panel = Panel('Synthetic', rows, features, rows.astype(float))
+    evidence = exact_series_evidence(panel, 'published sample design')
+    assert evidence == exact_series_evidence(replace(panel, target=panel.target[::-1]), evidence.source)
+    assert len(set(evidence.groups)) == 30
+    assert evidence.groups[::2] == evidence.groups[1::2]
+    split = regression_splits(panel, evidence)
+    assert not {evidence.groups[i] for i in split.development} & {evidence.groups[i] for i in split.assessment}
 
 
 def test_temporal_splits_skip_the_overlap_and_reject_a_reordered_panel():
@@ -56,11 +72,10 @@ def test_calendar_preflight_restores_source_time_without_sorting_object_keys(tmp
 
 
 def test_seal_requires_all_sampling_evidence_before_opening_train(tmp_path, monkeypatch):
-    import json
     from benchmark.industrial.experiments.supervised_pilot import regression_inputs
 
     settings = tmp_path / 'evidence.json'
-    settings.write_text(json.dumps({'version': 'tser_evolution_pilot@1', 'datasets': {}}), encoding='utf-8')
+    settings.write_text(json.dumps({'version': TSER_VERSION, 'datasets': {}}), encoding='utf-8')
 
     def forbidden(*_args):
         pytest.fail('A partial data catalog must be rejected before reading TRAIN sources')
@@ -69,6 +84,47 @@ def test_seal_requires_all_sampling_evidence_before_opening_train(tmp_path, monk
     with pytest.raises(ProtocolError, match='partial protocol'):
         regression_inputs.seal_regression(tmp_path, tmp_path / 'sealed', settings)
     assert not (tmp_path / 'sealed').exists()
+
+
+def test_seal_rejects_changed_frozen_split(tmp_path, monkeypatch):
+    from benchmark.industrial.experiments.supervised_pilot import regression_inputs
+
+    profile = regression_inputs.tser_profile()
+    settings = tmp_path / 'evidence.json'
+    paths = {row['name']: {'path': f"{row['name']}_TRAIN.ts"} for row in profile['datasets']}
+    settings.write_text(json.dumps({'version': TSER_VERSION, 'datasets': paths}), encoding='utf-8')
+    rows = np.arange(60)
+    synthetic = Panel('Tecator', rows, rows[:, None, None], rows.astype(float))
+    monkeypatch.setattr(regression_inputs, 'version', lambda _: profile['split_profile']['sklearn'])
+    monkeypatch.setattr(regression_inputs, 'load_regression_train', lambda *_: synthetic)
+    with pytest.raises(ProtocolError, match='split does not match'):
+        regression_inputs.seal_regression(tmp_path, tmp_path / 'sealed', settings)
+    assert not (tmp_path / 'sealed').exists()
+
+
+def test_tser_admission_requires_every_dataset_and_cuda_trace(tmp_path):
+    from benchmark.industrial.experiments.supervised_pilot.__main__ import _require_admission
+    from benchmark.industrial.experiments.supervised_pilot.data import canonical_bytes
+
+    def write(path, payload):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(canonical_bytes(payload))
+
+    bundle = tmp_path / 'bundle'
+    admission = tmp_path / 'admission'
+    seal = dict(protocol=TSER_VERSION, datasets=[dict(dataset=name) for name in ('First', 'Second')])
+    write(bundle / 'seal.json', seal)
+    write(admission / 'run.json', dict(seal_sha256=digest(canonical_bytes(seal))))
+    status = admission / 'admit_status.json'
+    write(status, [dict(dataset='First', exit_code=0)])
+    with pytest.raises(ValueError, match='every required dataset'):
+        _require_admission(bundle, admission)
+    write(status, [dict(dataset=name, exit_code=0) for name in ('First', 'Second')])
+    for name, device in [('First', 'cuda:0'), ('Second', 'cpu')]:
+        result = dict(status='succeeded', value=dict(folds=[dict(training=[dict(device=device)])]))
+        write(admission / name / 'admit' / 'cuda_admission.json', dict(results=[result] * 3))
+    with pytest.raises(ValueError, match='Second'):
+        _require_admission(bundle, admission)
 
 
 def test_calendar_recovery_does_not_guess_unmatched_or_overlapping_objects():

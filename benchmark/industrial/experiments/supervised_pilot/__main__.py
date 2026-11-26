@@ -1,4 +1,4 @@
-"""Plan, prepare, run and assess the separately authorized parts of the TSC pilot."""
+"""Plan, prepare, run and assess the supervised TRAIN-only pilots."""
 
 import argparse
 import json
@@ -23,28 +23,44 @@ def _layout(bundle, output, mode, protocol):
         raise ValueError('A matching TRAIN-only seal is required')
     if mode == 'run':
         output.mkdir(parents=True, exist_ok=False)
-        write_record(output / 'run.json', dict(seal_sha256=digest(canonical_bytes(seal)), device='cuda:0'))
+        write_record(output / 'run.json', dict(seal_sha256=digest(canonical_bytes(seal)), device='cuda:0',
+                                               protocol=seal['protocol'], protocol_sha256=seal['protocol_sha256']))
     elif read_record(output / 'run.json')['seal_sha256'] != digest(canonical_bytes(seal)):
         raise ValueError('The search output belongs to a different seal')
     return seal
 
 
-def _execute(mode, bundle, output, protocol, admission=None):
-    from ..evolution_parallelism.supervisor import run_guarded
-    from .data import canonical_bytes, digest
-    from .execution import read_record, write_record
+def _admission_datasets(seal):
+    return seal['datasets'] if seal['protocol'] == TSER_VERSION else seal['datasets'][:1]
 
-    if mode == 'run':
-        seal = read_record(bundle / 'seal.json')
-        if read_record(admission / 'run.json')['seal_sha256'] != digest(canonical_bytes(seal)):
-            raise ValueError('CUDA admission belongs to a different seal')
-        rows = read_record(admission / seal['datasets'][0]['dataset'] / 'admit' / 'cuda_admission.json')['results']
+
+def _require_admission(bundle, admission):
+    from .data import canonical_bytes, digest
+    from .execution import read_record
+
+    seal = read_record(bundle / 'seal.json')
+    if read_record(admission / 'run.json')['seal_sha256'] != digest(canonical_bytes(seal)):
+        raise ValueError('CUDA admission belongs to a different seal')
+    datasets = _admission_datasets(seal)
+    expected = [dict(dataset=row['dataset'], exit_code=0) for row in datasets]
+    if seal['protocol'] == TSER_VERSION and read_record(admission / 'admit_status.json') != expected:
+        raise ValueError('CUDA admission did not exit successfully for every required dataset')
+    for dataset in datasets:
+        rows = read_record(admission / dataset['dataset'] / 'admit' / 'cuda_admission.json')['results']
         if len(rows) != 3 or not all(
             row['status'] == 'succeeded' and row['value']['folds'][0]['training']
             and all(item['device'] == 'cuda:0' for item in row['value']['folds'][0]['training'])
             for row in rows
         ):
-            raise ValueError('All three neural operations must pass CUDA admission')
+            raise ValueError(f"{dataset['dataset']}: all three neural operations must pass CUDA admission")
+
+
+def _execute(mode, bundle, output, protocol, admission=None):
+    from ..evolution_parallelism.supervisor import run_guarded
+    from .execution import write_record
+
+    if mode == 'run':
+        _require_admission(bundle, admission)
     seal = _layout(bundle, output, mode, protocol)
     budget = protocol.search
     rows = []
@@ -76,7 +92,7 @@ def _stage(args, protocol):
     import torch
 
     if not torch.cuda.is_available():
-        raise RuntimeError('The TSC pilot requires a CUDA device. No fallback to CPU is allowed.')
+        raise RuntimeError('The supervised pilot requires a CUDA device. No fallback to CPU is allowed.')
     seal = read_record(args.bundle / 'seal.json')
     regression = seal['protocol'] == TSER_VERSION
     record, = (value for value in seal['datasets'] if value['dataset'] == args.dataset)
@@ -149,11 +165,22 @@ def main(argv=None):
         return _stage(args, protocol)
     if args.action == 'admit':
         from ..evolution_parallelism.supervisor import run_guarded
+        from .execution import write_record
+
         seal = _layout(args.bundle, args.output, 'run', protocol)
-        command = (sys.executable, '-m', __package__, '_stage', 'run', str(args.bundle.resolve()),
-                   str(args.output.resolve()), seal['datasets'][0]['dataset'], 'admit')
-        return run_guarded(command, timeout_seconds=protocol.search.process_seconds,
-                           search_seconds=protocol.search.search_seconds)
+        rows = []
+        for dataset in _admission_datasets(seal):
+            name = dataset['dataset']
+            command = (sys.executable, '-m', __package__, '_stage', 'run', str(args.bundle.resolve()),
+                       str(args.output.resolve()), name, 'admit')
+            try:
+                code = run_guarded(command, timeout_seconds=protocol.search.process_seconds,
+                                   search_seconds=protocol.search.search_seconds)
+            except TimeoutExpired:
+                code = 124
+            rows.append(dict(dataset=name, exit_code=code))
+            write_record(args.output / 'admit_status.json', rows)
+        return 1 if any(row['exit_code'] for row in rows) else 0
     return _execute(args.action, args.bundle, args.output, protocol, getattr(args, 'admission', None))
 
 

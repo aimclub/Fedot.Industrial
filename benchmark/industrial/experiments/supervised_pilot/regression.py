@@ -10,7 +10,7 @@ from torch import nn
 
 from ...datasets.local_io import _ordered_axis, _parse_timestamped_dimension, _split_ts_dimension_parts, load_local_ts_cases
 from ...protocols.schema import ProtocolError
-from .data import DataSplits, InnerFold, Panel, _ids, _snapshot
+from .data import DataSplits, InnerFold, Panel, _ids, _snapshot, digest
 from .training import NeuralClassifier
 
 
@@ -65,6 +65,14 @@ def _read_panel(path, content, name):
 
 def load_regression_train(root, name, asset):
     return _read_panel(*_train_snapshot(root, name, asset), name)
+
+
+def exact_series_evidence(panel, source):
+    """Keep exact input duplicates together independently of target or source row position."""
+    features = panel.features.astype('<f8', copy=True)
+    features[features == 0] = 0.0
+    groups = tuple(digest(row.tobytes(order='C')) for row in features)
+    return SamplingEvidence(Sampling.GROUPED, source, tuple(panel.rows.tolist()), groups=groups)
 
 
 def observed_temporal_panel(root, name, asset):

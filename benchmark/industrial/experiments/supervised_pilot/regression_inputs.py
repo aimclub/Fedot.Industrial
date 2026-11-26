@@ -1,15 +1,16 @@
 """Seal verified TSER provenance and role-specific datasets before evaluation."""
 
 from dataclasses import asdict
+from importlib.metadata import version
 from importlib.resources import files
 from pathlib import Path
 
 from ...protocols.assets import LocalAsset
 from ...protocols.json_io import parse_protocol_json, read_protocol_json
-from ...protocols.schema import ProtocolError, array, fields, integer, mapping, string
+from ...protocols.schema import ProtocolError, fields, mapping
 from .data import _write_role, canonical_bytes, digest
 from .protocol import TSER_VERSION, tsc_protocol
-from .regression import Sampling, SamplingEvidence, load_regression_train, observed_temporal_panel, regression_splits
+from .regression import exact_series_evidence, load_regression_train, observed_temporal_panel, regression_splits
 
 
 def tser_profile():
@@ -18,21 +19,17 @@ def tser_profile():
         raise ProtocolError('Unsupported regression pilot profile')
     shared = tsc_protocol()
     definition['search'] = asdict(shared.search)
-    definition['calibration_seed'] = shared.profile.split_seed
+    definition['split_profile'] = asdict(shared.profile)
     return definition
 
 
-def _sampling(row, panel):
-    label = f'{panel.dataset}.sampling'
-    value = fields(row, ('kind', 'source'), label, optional=('row_times', 'groups', 'gap'))
-    kind = Sampling(value['kind'])
-    if panel.dataset == 'NaturalGasPricesSentiment' and kind is Sampling.INDEPENDENT:
-        raise ProtocolError('NaturalGas TRAIN requires verified chronological or group evidence')
-    keys = tuple(panel.rows.tolist())
-    groups = tuple(string(item, 'group') for item in array(value.get('groups', ()), 'groups'))
-    times = tuple(integer(item, 'time', minimum=0) for item in array(value.get('row_times', ()), 'row_times'))
-    return SamplingEvidence(kind, string(value['source'], 'source'), keys, groups, times,
-                            integer(value.get('gap', 0), 'gap', minimum=0))
+def _prepare(data_root, dataset, definition, asset):
+    if definition['sampling'] == 'observed_temporal':
+        return observed_temporal_panel(data_root, dataset, asset)
+    if definition['sampling'] == 'exact_series_groups':
+        panel = load_regression_train(data_root, dataset, asset)
+        return panel, exact_series_evidence(panel, definition['source'])
+    raise ProtocolError(f'{dataset}: unsupported sampling design')
 
 
 def seal_regression(data_root, output, evidence_file):
@@ -43,21 +40,18 @@ def seal_regression(data_root, output, evidence_file):
     inputs = mapping(evidence['datasets'], 'datasets')
     expected = {row['name']: row for row in profile['datasets']}
     if inputs.keys() != expected.keys():
-        raise ProtocolError('Do not start a partial protocol: provenance is required for all four datasets')
+        raise ProtocolError('Do not start a partial protocol: declare all four TRAIN paths')
+    sklearn = profile['split_profile']['sklearn']
+    if version('scikit-learn') != sklearn:
+        raise ProtocolError(f'TSER split requires scikit-learn=={sklearn}')
     prepared = []
     for dataset, definition in expected.items():
-        raw = fields(inputs[dataset], ('path',), dataset, optional=('sampling',))
+        raw = fields(inputs[dataset], ('path',), dataset)
         asset = LocalAsset(raw['path'], definition['train_sha256'])
-        if dataset == 'AppliancesEnergy':
-            if 'sampling' in raw:
-                raise ProtocolError('Derive AppliancesEnergy chronology from the TRAIN file')
-            panel, sampling = observed_temporal_panel(data_root, dataset, asset)
-        else:
-            if 'sampling' not in raw:
-                raise ProtocolError(f'{dataset}: missing verified sampling evidence')
-            panel = load_regression_train(data_root, dataset, asset)
-            sampling = _sampling(raw['sampling'], panel)
+        panel, sampling = _prepare(data_root, dataset, definition, asset)
         split = regression_splits(panel, sampling)
+        if split.identity != definition['split_sha256']:
+            raise ProtocolError(f'{dataset}: split does not match the frozen profile')
         prepared.append((panel, asset, sampling, split))
     root = Path(output)
     root.mkdir(parents=True, exist_ok=False)
