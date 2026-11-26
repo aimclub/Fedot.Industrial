@@ -1,5 +1,6 @@
 """Evaluate one admitted graph against one or more sealed development folds."""
 
+from collections import Counter, OrderedDict
 from dataclasses import dataclass, replace
 from functools import partial
 
@@ -30,20 +31,57 @@ def _ridge_factory(params):
     return Ridge(alpha=params['alpha'])
 
 
+_ROCKET_MODEL_LIMIT = 6
+_ROCKET_FEATURE_LIMIT = 12
+_ROCKET_FEATURE_BYTES = 64 * 1024 ** 2
+_ROCKET_MODELS = OrderedDict()
+_ROCKET_FEATURES = OrderedDict()
+_ROCKET_HITS = Counter()
+
+
+def _rocket_input_key(values):
+    return tuple(values.shape), digest(memoryview(values.numpy()))
+
+
+def _remember_rocket_features(key, features):
+    if features.nbytes == 0 or features.nbytes > _ROCKET_FEATURE_BYTES:
+        return
+    while (len(_ROCKET_FEATURES) >= _ROCKET_FEATURE_LIMIT or features.nbytes
+           + sum(value.nbytes for value in _ROCKET_FEATURES.values()) > _ROCKET_FEATURE_BYTES):
+        _ROCKET_FEATURES.popitem(last=False)
+    _ROCKET_FEATURES[key] = features.copy()
+
+
 class PilotMiniRocket:
     """Retain one CPU feature map fitted only on the admitted training panel."""
 
     def __init__(self, params):
         self.seed = params['seed']
+        self.scope = params.get('development_sha256')
+        self.fit_key = None
         self.model = None
 
     def fit(self, features):
         import torch
         from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import MiniRocketFeatures
 
-        features = torch.as_tensor(features, dtype=torch.float32, device='cpu')
+        features = torch.as_tensor(features, dtype=torch.float32, device='cpu').detach().contiguous()
+        if self.scope is not None:
+            self.fit_key = (self.scope, self.seed, _rocket_input_key(features))
+            previous = _ROCKET_MODELS.get(self.fit_key)
+            if previous is not None:
+                self.model, random_state = previous
+                # The existing feature map fit leaves NumPy in a seeded state.
+                np.random.set_state(random_state)
+                _ROCKET_MODELS.move_to_end(self.fit_key)
+                _ROCKET_HITS['fit'] += 1
+                return self
         self.model = MiniRocketFeatures(features.shape[1], features.shape[2], random_state=self.seed).cpu()
         self.model.fit(features)
+        if self.fit_key is not None:
+            _ROCKET_MODELS[self.fit_key] = (self.model, np.random.get_state())
+            if len(_ROCKET_MODELS) > _ROCKET_MODEL_LIMIT:
+                _ROCKET_MODELS.popitem(last=False)
         return self
 
     def transform(self, features):
@@ -51,9 +89,19 @@ class PilotMiniRocket:
 
         if self.model is None or not self.model.prefit:
             raise RuntimeError('MiniRocket has no fitted feature map')
+        features = torch.as_tensor(features, dtype=torch.float32, device='cpu').detach().contiguous()
+        if self.fit_key is not None:
+            key = (self.fit_key, _rocket_input_key(features))
+            previous = _ROCKET_FEATURES.get(key)
+            if previous is not None:
+                _ROCKET_FEATURES.move_to_end(key)
+                _ROCKET_HITS['transform'] += 1
+                return previous.copy()
         with torch.inference_mode():
-            values = self.model(torch.as_tensor(features, dtype=torch.float32, device='cpu'))
-        return values.numpy()
+            values = self.model(features).numpy()
+        if self.fit_key is not None:
+            _remember_rocket_features(key, values)
+        return values
 
 
 def _manifest(*, regression=False):
@@ -67,7 +115,7 @@ def _manifest(*, regression=False):
                                ModelHyperparamsSchema(required=('n_estimators', 'random_state')))
     rocket = ExternalTransformSpec('pilot_minirocket', PilotMiniRocket,
                                    TransformCapabilities((T.classification, T.regression), (D.ts,), D.tabular),
-                                   ModelHyperparamsSchema(required=('seed',)))
+                                   ModelHyperparamsSchema(required=('seed',), optional=('development_sha256',)))
     if not regression:
         return recurrence_manifest((*neural_model_specs(), forest), (rocket,))
     from .regression import regression_model_specs
@@ -92,9 +140,10 @@ class Job:
     classes: tuple[str, ...]
     recipes: dict[str, Recipe]
     device: str
+    rocket_scope: str | None = None
 
 
-def _branch_predictions(branch, fold, codec, recipes, seed, device):
+def _branch_predictions(branch, fold, codec, recipes, seed, device, rocket_scope=None):
     import torch
     from fedot import create_data
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
@@ -115,6 +164,8 @@ def _branch_predictions(branch, fold, codec, recipes, seed, device):
             params = {'use_cache': False}
         elif operation == 'minirocket_extractor':
             operation, params = 'pilot_minirocket', {'seed': seed}
+            if regression and rocket_scope is not None:
+                params['development_sha256'] = rocket_scope
         elif operation == 'recurrence_image':
             params = dict(channels=channels, length=length)
         elif operation == 'logreg':
@@ -164,11 +215,12 @@ def evaluate(task, job: Job):
     from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
     regression = job.graph.regression
+    rocket_hits_before = _ROCKET_HITS.copy() if job.rocket_scope is not None else None
     codec = None if regression else LabelCodec(job.classes)
     scores = []
     with industrial_extension_scope(), extension_scope(_manifest(regression=regression)):
         for fold in job.folds:
-            outputs = [_branch_predictions(branch, fold, codec, job.recipes, task.seed, job.device)
+            outputs = [_branch_predictions(branch, fold, codec, job.recipes, task.seed, job.device, job.rocket_scope)
                        for branch in job.graph.branches]
             probs = np.mean([prediction for prediction, _ in outputs], axis=0)
             if regression:
@@ -186,4 +238,7 @@ def evaluate(task, job: Job):
             ))
     loss = (np.mean([row['rmse'] for row in scores]) if regression
             else 1 - np.mean([row['balanced_accuracy'] for row in scores]))
-    return dict(loss=loss.item(), folds=scores)
+    result = dict(loss=loss.item(), folds=scores)
+    if rocket_hits_before is not None:
+        result['minirocket_reuse'] = dict(_ROCKET_HITS - rocket_hits_before)
+    return result

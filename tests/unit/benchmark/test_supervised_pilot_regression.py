@@ -152,6 +152,81 @@ def test_regression_score_rejects_broadcast_and_permutation():
         score_regression(panel, [3, 9, 5], [3, 4, 5])
 
 
+def test_regression_minirocket_reuses_only_exact_fit_and_transform_inputs(monkeypatch):
+    from collections import Counter, OrderedDict
+    import torch
+    from benchmark.industrial.experiments.supervised_pilot import runtime
+    from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import MiniRocketFeatures
+
+    monkeypatch.setattr(runtime, '_ROCKET_MODELS', OrderedDict())
+    monkeypatch.setattr(runtime, '_ROCKET_FEATURES', OrderedDict())
+    monkeypatch.setattr(runtime, '_ROCKET_HITS', Counter())
+    features = np.random.default_rng(3).normal(size=(18, 1, 32)).astype(np.float32)
+    train, score = features[:12], features[12:]
+    calls = Counter()
+    old_fit, old_forward = MiniRocketFeatures.fit, MiniRocketFeatures.forward
+
+    def counted_fit(model, *args):
+        calls['fit'] += 1
+        return old_fit(model, *args)
+
+    def counted_forward(model, *args):
+        calls['forward'] += 1
+        return old_forward(model, *args)
+
+    monkeypatch.setattr(MiniRocketFeatures, 'fit', counted_fit)
+    monkeypatch.setattr(MiniRocketFeatures, 'forward', counted_forward)
+    params = dict(seed=42, development_sha256='one admitted development receipt')
+    threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        first = runtime.PilotMiniRocket(params).fit(train)
+        cold = first.transform(score)
+        expected = cold.copy()
+        cold[:] = -1
+        second = runtime.PilotMiniRocket(params).fit(train.copy())
+        np.testing.assert_array_equal(second.transform(score.copy()), expected)
+        assert calls == {'fit': 1, 'forward': 2}
+        assert runtime._ROCKET_HITS == {'fit': 1, 'transform': 1}
+
+        uncached = runtime.PilotMiniRocket({'seed': 42}).fit(train)
+        np.testing.assert_array_equal(uncached.transform(score), expected)
+        second.transform(score[::-1].copy())
+        runtime.PilotMiniRocket(params).fit(train[::-1].copy())
+        runtime.PilotMiniRocket({**params, 'seed': 123}).fit(train)
+        runtime.PilotMiniRocket({**params, 'development_sha256': 'different receipt'}).fit(train)
+        assert calls == {'fit': 5, 'forward': 8}
+        assert runtime._ROCKET_HITS == {'fit': 1, 'transform': 1}
+    finally:
+        torch.set_num_threads(threads)
+
+
+def test_regression_minirocket_reuse_does_not_change_ridge_predictions():
+    import torch
+    from benchmark.industrial.experiments.supervised_pilot.runtime import Job, ValidationFold, evaluate
+    from benchmark.industrial.experiments.supervised_pilot.space import initial
+    from fedot_ind.core.optimizer.evaluation.contracts import EvaluationTask
+
+    features = np.random.default_rng(6).normal(size=(20, 1, 32))
+    panel = Panel('Synthetic', np.arange(len(features)), features, features.mean(axis=(1, 2)))
+    fold = ValidationFold(panel.take(tuple(range(16))), panel.take((16, 17, 18, 19)), (12, 13, 14, 15))
+    mini_rocket = initial(regression=True)[3]
+    job = Job(mini_rocket, (fold,), (), {}, 'cpu')
+    task = EvaluationTask(mini_rocket.key, 11)
+    threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        reference = evaluate(task, job)
+        scoped_job = replace(job, rocket_scope='unique testing receipt')
+        evaluate(task, scoped_job)
+        repeated = evaluate(task, scoped_job)
+    finally:
+        torch.set_num_threads(threads)
+    assert repeated['folds'] == reference['folds']
+    assert repeated['loss'] == reference['loss']
+    assert repeated['minirocket_reuse'] == {'fit': 1, 'transform': 2}
+
+
 @pytest.mark.parametrize('graph_index', (0, 3, 4, 5, 6, 7, 8))
 def test_common_graph_runner_accepts_regression_targets(graph_index, monkeypatch):
     import torch

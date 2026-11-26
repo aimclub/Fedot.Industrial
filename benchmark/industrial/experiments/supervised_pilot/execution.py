@@ -144,7 +144,8 @@ def search(session, data, output, budget, seed, receipt_sha256, recipe_decision,
         if len(graphs) != expected:
             generation_records.append(dict(index=generation, status='insufficient_unique_proposals'))
             break
-        jobs = tuple((graph.key, Job(graph, folds, tuple(description['classes']), recipes, device))
+        rocket_scope = receipt_sha256 if regression else None
+        jobs = tuple((graph.key, Job(graph, folds, tuple(description['classes']), recipes, device, rocket_scope))
                      for graph in graphs)
         results = _batch(session, jobs, budget, seed, deadline, evaluator, attempts)
         write_record(output / f'generation-{generation:02d}.json', _result_rows(graphs, results))
