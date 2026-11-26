@@ -11,6 +11,7 @@ from ...protocols.schema import ProtocolError, array, fields, integer, string
 
 
 TSC_VERSION = 'tsc_evolution_pilot@1'
+TSER_VERSION = 'tser_evolution_pilot@2'
 
 
 @dataclass(frozen=True)
@@ -125,3 +126,11 @@ def parse_tsc_protocol(value):
 def tsc_protocol():
     source = files(__package__).joinpath('tsc.json').read_text(encoding='utf-8')
     return parse_tsc_protocol(parse_protocol_json(source))
+
+
+def tser_preflight_plan():
+    data = parse_protocol_json(files(__package__).joinpath('tser.json').read_text(encoding='utf-8'))
+    if data['version'] != TSER_VERSION:
+        raise ProtocolError('Unsupported TSER protocol')
+    return dict(protocol=TSER_VERSION, status='awaiting_sealed_train', official_test_used=False,
+                datasets=data['datasets'], seeds=data['seeds'], prospective_searches=8)

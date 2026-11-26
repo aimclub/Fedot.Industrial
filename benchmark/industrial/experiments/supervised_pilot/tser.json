@@ -1,0 +1,22 @@
+{
+  "version": "tser_evolution_pilot@2",
+  "seeds": [42, 123],
+  "datasets": [
+    {"name": "Tecator", "sampling": "exact_series_groups",
+     "source": "https://www.sktime.net/docs/api-reference/sktimedatasetsload-tecator/",
+     "split_sha256": "4fbfe5423e7939b0fac5a7a19f92078efc2e821d76728f4d0712a8949ae696ae",
+     "train_sha256": "e38de03007d2d6f29181b07a972fb2048c19ea67fe92df8cf43818f1dcb45f95"},
+    {"name": "BoronConcentration", "sampling": "exact_series_groups",
+     "source": "https://link.springer.com/article/10.1007/s10618-024-01027-w",
+     "split_sha256": "489df6b34f507cbed92a025c2afcded7ef4f144f38d5e77a5cb1a625ce330908",
+     "train_sha256": "fe9207f252fea45c414ba8b63ee517893ab192998f75dd494a161772216711aa"},
+    {"name": "FloodModeling2", "sampling": "exact_series_groups",
+     "source": "https://zenodo.org/records/3902696",
+     "split_sha256": "eada2c579feef4311cdb7ccda65aba3ec5df3605a951f948b948bffebf66d6e0",
+     "train_sha256": "ba5fcc69411dba09d85b92b1af41758833f0f1cee0543ce4e4d51978a547447f"},
+    {"name": "AppliancesEnergy", "sampling": "observed_temporal",
+     "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7951134/",
+     "split_sha256": "ab881ca8fd232326fb9ba08ee29ccb1112590c120a745c4b7e31f07bc8ea6a3b",
+     "train_sha256": "bbc65fcfa5c01655bb0ec7d558335d44b9c81979d7246f485bbc95a9759a5bff"}
+  ]
+}

@@ -62,12 +62,12 @@ def _result_rows(graphs, results):
     return [dict(graph=asdict(graph), **asdict(result)) for graph, result in zip(graphs, results, strict=True)]
 
 
-def cuda_admission(session, data, output, budget, seed, receipt_sha256):
+def cuda_admission(session, data, output, budget, seed, receipt_sha256, *, regression=False):
     panel, description = read_development(data, receipt_sha256)
     folds = _folds(panel, description)[:1]
     policy = training_policy()
     recipe = Recipe(policy.learning_rates[0], policy.batches[1])
-    graphs = tuple(graph for graph in initial() if graph.requires_cuda)
+    graphs = tuple(graph for graph in initial(regression=regression) if graph.requires_cuda)
     jobs = tuple((graph.key, Job(graph, folds, tuple(description['classes']),
                                  {graph.branches[0].head: recipe}, 'cuda:0')) for graph in graphs)
     attempts = []
@@ -79,14 +79,15 @@ def cuda_admission(session, data, output, budget, seed, receipt_sha256):
                for result in results)
 
 
-def calibrate(session, data, output, budget, seed, receipt_sha256, *, device='cuda:0', evaluator=evaluate):
+def calibrate(session, data, output, budget, seed, receipt_sha256, *, device='cuda:0', evaluator=evaluate,
+              regression=False):
     panel, description = read_development(data, receipt_sha256)
     folds = _folds(panel, description)
     training_sizes = [count for fold in folds for count in (len(fold.fit.rows),
                                                             len(fold.fit.rows) - len(fold.epoch_validation))]
     policy = training_policy()
     jobs, aliases, attempts = {}, [], []
-    for graph in initial():
+    for graph in initial(regression=regression):
         if not graph.requires_cuda:
             continue
         family = graph.branches[0].head
@@ -114,7 +115,7 @@ def calibrate(session, data, output, budget, seed, receipt_sha256, *, device='cu
 
 
 def search(session, data, output, budget, seed, receipt_sha256, recipe_decision, *,
-           device='cuda:0', evaluator=evaluate):
+           device='cuda:0', evaluator=evaluate, regression=False):
     from golem.core.optimisers.fitness.fitness import SingleObjFitness
     from golem.core.optimisers.objective.objective import ObjectiveInfo
     from golem.core.optimisers.opt_history_objects.individual import Individual
@@ -125,7 +126,8 @@ def search(session, data, output, budget, seed, receipt_sha256, recipe_decision,
     recipes = {family: Recipe(**row) for family, row in recipe_decision['recipes'].items()}
     panel, description = read_development(data, receipt_sha256)
     folds = _folds(panel, description)
-    history = OptHistory(ObjectiveInfo(metric_names=('balanced_accuracy_loss',)), default_save_dir=output)
+    objective = 'rmse' if regression else 'balanced_accuracy_loss'
+    history = OptHistory(ObjectiveInfo(metric_names=(objective,)), default_save_dir=output)
     deadline = float(os.environ.get('INDUSTRIAL_SEARCH_DEADLINE_UNIX', time() + budget.search_seconds))
     rng, seen, attempts, evaluated, generation_records = Random(seed), set(), [], {}, []
     native = {}
@@ -137,11 +139,13 @@ def search(session, data, output, budget, seed, receipt_sha256, recipe_decision,
         kept = population[:budget.elites]
         sources = tuple(graph for graph, _ in rank(evaluated.items())) if tuning else tuple(g for g, _ in kept)
         expected = budget.population - len(kept)
-        graphs = initial() if not generation else proposals(sources, seen, expected, tune=tuning, rng=rng)
+        graphs = (initial(regression=regression) if not generation
+                  else proposals(sources, seen, expected, tune=tuning, rng=rng, regression=regression))
         if len(graphs) != expected:
             generation_records.append(dict(index=generation, status='insufficient_unique_proposals'))
             break
-        jobs = tuple((graph.key, Job(graph, folds, tuple(description['classes']), recipes, device))
+        reuse_scope = receipt_sha256 if regression else None
+        jobs = tuple((graph.key, Job(graph, folds, tuple(description['classes']), recipes, device, reuse_scope))
                      for graph in graphs)
         results = _batch(session, jobs, budget, seed, deadline, evaluator, attempts)
         write_record(output / f'generation-{generation:02d}.json', _result_rows(graphs, results))
@@ -168,6 +172,7 @@ def search(session, data, output, budget, seed, receipt_sha256, recipe_decision,
         graph, loss = rank(evaluated.items())[0]
         winner = dict(graph=asdict(graph), graph_sha256=graph.key, loss=loss)
     result = dict(status='complete' if complete else 'incomplete', dataset=panel.dataset, seed=seed,
+                  objective=objective,
                   official_test_used=False, development_sha256=receipt_sha256, generations=generation_records,
                   attempts=[asdict(item) for item in attempts], winner=winner,
                   recipes_sha256=digest(canonical_bytes(recipe_decision)))
