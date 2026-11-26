@@ -37,6 +37,17 @@ _ROCKET_FEATURE_BYTES = 64 * 1024 ** 2
 _ROCKET_MODELS = OrderedDict()
 _ROCKET_FEATURES = OrderedDict()
 _ROCKET_HITS = Counter()
+_CLASSICAL_PREDICTIONS = OrderedDict()
+_CLASSICAL_PREDICTION_LIMIT = 128
+_CLASSICAL_PREDICTIONS_MAX_ITEMS = 4096
+_REUSABLE_REGRESSION_BRANCHES = frozenset((
+    ('quantile_extractor_torch', 'pilot_ridge'),
+    ('quantile_extractor_torch', 'pilot_regression_forest'),
+    ('fourier_basis', 'quantile_extractor_torch', 'pilot_ridge'),
+    ('wavelet_basis', 'quantile_extractor_torch', 'pilot_ridge'),
+    ('recurrence_rqa', 'pilot_ridge'),
+    ('recurrence_rqa', 'pilot_regression_forest'),
+))
 
 
 def _rocket_input_key(values):
@@ -140,7 +151,38 @@ class Job:
     classes: tuple[str, ...]
     recipes: dict[str, Recipe]
     device: str
-    rocket_scope: str | None = None
+    reuse_scope: str | None = None
+
+
+def _array_identity(value):
+    array = np.ascontiguousarray(value)
+    return array.dtype.str, array.shape, digest(memoryview(array))
+
+
+def _fold_identity(fold):
+    inputs = (fold.fit.rows, fold.fit.features, fold.fit.target, fold.score.rows, fold.score.features)
+    return tuple(map(_array_identity, inputs))
+
+
+def _evaluate_branches(task, job, fold, codec, scope):
+    identity = None
+    for branch in job.graph.branches:
+        key = None
+        if scope is not None and branch.operations in _REUSABLE_REGRESSION_BRANCHES:
+            if identity is None:
+                identity = _fold_identity(fold)
+            key = (scope, task.seed, job.device, branch, identity)
+            prediction = _CLASSICAL_PREDICTIONS.get(key)
+            if prediction is not None:
+                _CLASSICAL_PREDICTIONS.move_to_end(key)
+                yield prediction.copy(), None, True
+                continue
+        prediction, trace = _branch_predictions(branch, fold, codec, job.recipes, task.seed, job.device, scope)
+        if key is not None and prediction.size <= _CLASSICAL_PREDICTIONS_MAX_ITEMS:
+            _CLASSICAL_PREDICTIONS[key] = prediction.copy()
+            if len(_CLASSICAL_PREDICTIONS) > _CLASSICAL_PREDICTION_LIMIT:
+                _CLASSICAL_PREDICTIONS.popitem(last=False)
+        yield prediction, trace, False
 
 
 def _branch_predictions(branch, fold, codec, recipes, seed, device, rocket_scope=None):
@@ -215,30 +257,33 @@ def evaluate(task, job: Job):
     from fedot_ind.integration.fedot.extensions import industrial_extension_scope
 
     regression = job.graph.regression
-    rocket_hits_before = _ROCKET_HITS.copy() if job.rocket_scope is not None else None
+    scope = job.reuse_scope if regression else None
+    rocket_hits_before = _ROCKET_HITS.copy() if scope is not None else None
+    classical_hits = 0
     codec = None if regression else LabelCodec(job.classes)
     scores = []
     with industrial_extension_scope(), extension_scope(_manifest(regression=regression)):
         for fold in job.folds:
-            outputs = [_branch_predictions(branch, fold, codec, job.recipes, task.seed, job.device, job.rocket_scope)
-                       for branch in job.graph.branches]
-            probs = np.mean([prediction for prediction, _ in outputs], axis=0)
+            outputs = tuple(_evaluate_branches(task, job, fold, codec, scope))
+            classical_hits += sum(reused for _, _, reused in outputs)
+            probs = np.mean([prediction for prediction, _, _ in outputs], axis=0)
             if regression:
                 from .regression import score_regression
                 scores.append(dict(**score_regression(fold.score, fold.score.rows, probs),
                                    keys=fold.score.rows.tolist(), predictions=probs.tolist(),
-                                   training=[trace for _, trace in outputs if trace is not None]))
+                                   training=[trace for _, trace, _ in outputs if trace is not None]))
                 continue
             actual, predicted = codec.encode(fold.score.target), probs.argmax(axis=1)
             scores.append(dict(
                 balanced_accuracy=float(balanced_accuracy_score(actual, predicted)),
                 accuracy=float(accuracy_score(actual, predicted)), f1_macro=float(f1_score(actual, predicted, average='macro')),
                 keys=fold.score.rows.tolist(), probabilities=probs.tolist(), labels=np.asarray(job.classes)[predicted].tolist(),
-                training=[trace for _, trace in outputs if trace is not None],
+                training=[trace for _, trace, _ in outputs if trace is not None],
             ))
     loss = (np.mean([row['rmse'] for row in scores]) if regression
             else 1 - np.mean([row['balanced_accuracy'] for row in scores]))
     result = dict(loss=loss.item(), folds=scores)
     if rocket_hits_before is not None:
         result['minirocket_reuse'] = dict(_ROCKET_HITS - rocket_hits_before)
+        result['classical_prediction_reuse'] = classical_hits
     return result

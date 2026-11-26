@@ -217,7 +217,7 @@ def test_regression_minirocket_reuse_does_not_change_ridge_predictions():
     torch.set_num_threads(1)
     try:
         reference = evaluate(task, job)
-        scoped_job = replace(job, rocket_scope='unique testing receipt')
+        scoped_job = replace(job, reuse_scope='unique testing receipt')
         evaluate(task, scoped_job)
         repeated = evaluate(task, scoped_job)
     finally:
@@ -225,6 +225,43 @@ def test_regression_minirocket_reuse_does_not_change_ridge_predictions():
     assert repeated['folds'] == reference['folds']
     assert repeated['loss'] == reference['loss']
     assert repeated['minirocket_reuse'] == {'fit': 1, 'transform': 2}
+
+
+def test_classical_prediction_reuse_is_bound_to_the_fit_and_score_inputs(monkeypatch):
+    from collections import OrderedDict
+    import torch
+    from benchmark.industrial.experiments.supervised_pilot import runtime
+    from benchmark.industrial.experiments.supervised_pilot.space import initial
+    from fedot_ind.core.optimizer.evaluation.contracts import EvaluationTask
+
+    monkeypatch.setattr(runtime, '_CLASSICAL_PREDICTIONS', OrderedDict())
+    features = np.random.default_rng(17).normal(size=(24, 1, 48))
+    panel = Panel('Synthetic', np.arange(len(features)), features, features.mean(axis=(1, 2)))
+    fold = runtime.ValidationFold(panel.take(tuple(range(20))), panel.take((20, 21, 22, 23)), (16, 17, 18, 19))
+    graph = initial(regression=True)[0]
+    job = runtime.Job(graph, (fold,), (), {}, 'cpu', 'sealed development role')
+    task = EvaluationTask(graph.key, 13)
+    threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        reference = runtime.evaluate(task, replace(job, reuse_scope=None))
+        first = runtime.evaluate(task, job)
+        again = runtime.evaluate(task, job)
+        assert reference['folds'] == first['folds'] == again['folds']
+        assert first['classical_prediction_reuse'] == 0
+        assert again['classical_prediction_reuse'] == 1
+        changed_fold = replace(fold, score=replace(fold.score, target=fold.score.target + 1))
+        rescored = runtime.evaluate(task, replace(job, folds=(changed_fold,)))
+        assert rescored['classical_prediction_reuse'] == 1
+        assert rescored['folds'][0]['predictions'] == again['folds'][0]['predictions']
+        assert rescored['loss'] != again['loss']
+        for changed_fold in (replace(fold, fit=replace(fold.fit, target=fold.fit.target + 1)),
+                             replace(fold, score=replace(fold.score, features=fold.score.features + 1))):
+            assert runtime.evaluate(task, replace(job, folds=(changed_fold,)))['classical_prediction_reuse'] == 0
+        assert runtime.evaluate(EvaluationTask(graph.key, 14), job)['classical_prediction_reuse'] == 0
+        assert runtime.evaluate(task, replace(job, reuse_scope='another role'))['classical_prediction_reuse'] == 0
+    finally:
+        torch.set_num_threads(threads)
 
 
 @pytest.mark.parametrize('graph_index', (0, 3, 4, 5, 6, 7, 8))
