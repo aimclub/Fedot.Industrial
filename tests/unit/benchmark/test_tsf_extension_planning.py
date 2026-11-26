@@ -159,7 +159,39 @@ def test_forecast_stages_reject_unaccepted_regression_before_touching_any_input(
         pytest.fail('A failed release gate must be checked before touching the new TRAIN bundle')
 
     monkeypatch.setattr(execution, 'read_manifest', forbidden)
-    with pytest.raises(ProtocolError, match='eight complete TSER'):
+    with pytest.raises(ProtocolError, match='current frozen TSER'):
         execution.run('admit', bundle=tmp_path, previous=tmp_path, executor=None, tser=tmp_path,
                       output=tmp_path / 'extension')
     assert not (tmp_path / 'extension').exists()
+
+
+def test_tsf_gate_requires_every_search_and_assessment_from_the_frozen_tser_matrix(tmp_path):
+    from benchmark.industrial.experiments.supervised_pilot.regression_inputs import tser_profile
+    from benchmark.industrial.experiments.tsf_extension import execution
+
+    profile = tser_profile()
+    (tmp_path / 'run.json').write_bytes(execution._json_bytes(dict(
+        device='cuda:0', protocol=profile['version'], protocol_sha256=execution._digest(execution._json_bytes(profile)),
+    )))
+    attempts, assessments = [], []
+    for source in profile['datasets']:
+        name = source['name']
+        attempts.append(dict(dataset=name, stage='calibrate', exit_code=0))
+        for seed in profile['seeds']:
+            outcome = dict(dataset=name, stage=str(seed), exit_code=0)
+            attempts.append(outcome)
+            assessments.append(outcome)
+            path = tmp_path / name / str(seed)
+            path.mkdir(parents=True)
+            (path / 'search.json').write_bytes(execution._json_bytes(dict(
+                status='complete', objective='rmse', official_test_used=False, dataset=name, seed=seed,
+            )))
+            (path / 'assessment.json').write_bytes(execution._json_bytes(dict(
+                official_test_used=False, train_mean_baseline={'rmse': 1}, results=[{'status': 'succeeded'}],
+            )))
+    (tmp_path / 'run_status.json').write_bytes(execution._json_bytes(attempts))
+    (tmp_path / 'assess_status.json').write_bytes(execution._json_bytes(assessments))
+    execution._require_tser(tmp_path)
+    (tmp_path / 'assess_status.json').write_bytes(execution._json_bytes(assessments[:-1]))
+    with pytest.raises(ProtocolError, match='eight complete TSER'):
+        execution._require_tser(tmp_path)

@@ -26,17 +26,25 @@ def _write(path, value):
 
 
 def _require_tser(path):
+    from ..supervised_pilot.regression_inputs import tser_profile
+
     root = Path(path)
-    if read_protocol_json(root / 'run.json')['device'] != 'cuda:0':
-        raise ProtocolError('Expected regression acceptance on CUDA')
-    allowed = ('Tecator', 'BoronConcentration', 'NaturalGasPricesSentiment', 'AppliancesEnergy')
-    receipts = read_protocol_json(root / 'assess_status.json')
-    completed = {(row['dataset'], row['stage']) for row in receipts if row['exit_code'] == 0}
-    if completed != {(name, seed) for name in allowed for seed in ('42', '123')} or len(receipts) != 8:
-        raise ProtocolError('The extended TSF protocol depends on eight complete TSER searches and assessments')
-    for name, seed in completed:
+    profile = tser_profile()
+    identity = read_protocol_json(root / 'run.json')
+    if (identity.get('device') != 'cuda:0' or identity.get('protocol') != profile['version']
+            or identity.get('protocol_sha256') != _digest(_json_bytes(profile))):
+        raise ProtocolError('Expected the current frozen TSER protocol on CUDA')
+    names = {source['name'] for source in profile['datasets']}
+    expected = {(name, str(seed)) for name in names for seed in profile['seeds']}
+    for mode, stages in (('run', expected | {(name, 'calibrate') for name in names}), ('assess', expected)):
+        receipts = read_protocol_json(root / f'{mode}_status.json')
+        completed = {(row['dataset'], row['stage']) for row in receipts if row['exit_code'] == 0}
+        if completed != stages or len(receipts) != len(stages):
+            raise ProtocolError('The extended TSF protocol depends on eight complete TSER searches and assessments')
+    for name, seed in sorted(expected):
         search = read_protocol_json(root / name / seed / 'search.json')
-        if search['status'] != 'complete' or search['objective'] != 'rmse' or search['official_test_used'] is not False:
+        if (search['status'] != 'complete' or search['objective'] != 'rmse'
+                or search['official_test_used'] is not False or search['dataset'] != name or search['seed'] != int(seed)):
             raise ProtocolError('A TSER search did not complete the required TRAIN-only protocol')
         result = read_protocol_json(root / name / seed / 'assessment.json')
         results = result['results']
